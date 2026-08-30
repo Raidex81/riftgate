@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Diablo IV",
+    "path": "C:\\Program Files (x86)\\Diablo IV\\Diablo IV.exe",
+    "image": "covers/diablo4.jpg"
+  },
+  {
+    "name": "bf6",
+    "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Battlefield 6\\bf6.exe",
+    "image": "covers/BF6.jpg"
+  }
+]

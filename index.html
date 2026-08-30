@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Riftgate</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="ambientIconsLayer" class="ambient-icons-layer"></div>
+
+    <div id="startupOverlay" class="startup-overlay">
+        <div class="startup-scene">
+            <div class="startup-diamond">
+                <div class="startup-quad q1"></div>
+                <div class="startup-quad q2"></div>
+                <div class="startup-quad q3"></div>
+                <div class="startup-quad q4"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="custom-titlebar">
+        <div class="titlebar-drag">Riftgate</div>
+        <div class="titlebar-controls">
+            <button id="winMinBtn" title="Minimize">─</button>
+            <button id="winMaxBtn" title="Maximize">▢</button>
+            <button id="winCloseBtn" title="Close">✕</button>
+        </div>
+    </div>
+
+    <div id="ambientBg" class="ambient-bg"></div>
+
+    <aside id="sideBar" class="sidebar">
+
+        <div class="sidebar-handle">
+            <span></span><span></span><span></span>
+        </div>
+
+        <div class="sidebar-content">
+
+            <div class="sidebar-header">
+                <div class="sidebar-diamond"></div>
+                <h2>Options</h2>
+            </div>
+
+            <div class="sidebar-section sidebar-nav-section">
+                <h3>Sections</h3>
+                <button class="sidebarNavBtn" data-section="new">🆕 New</button>
+                <button class="sidebarNavBtn" data-section="installed">📀 Installed</button>
+                <button class="sidebarNavBtn" data-section="free-games">🎁 Free Games</button>
+                <button class="sidebarNavBtn" data-section="applications">🧰 Applications</button>
+                <button class="sidebarNavBtn" data-section="theatre">🎬 Theatre</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgSound">Sound</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblUiSounds">UI sounds</span>
+                    <input type="checkbox" id="toggleUiSounds" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblStartupSound">Startup sound</span>
+                    <input type="checkbox" id="toggleStartupSound" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblStartupAnimation">Startup animation</span>
+                    <input type="checkbox" id="toggleStartupAnimation" checked>
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgDisplay">Display</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblHoverTrailers">Hover trailers</span>
+                    <input type="checkbox" id="toggleHoverTrailers" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblAmbientBg">Ambient background</span>
+                    <input type="checkbox" id="toggleAmbientBg" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblFullscreen">Fullscreen</span>
+                    <input type="checkbox" id="toggleFullscreen">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblLightTheme">Light theme</span>
+                    <input type="checkbox" id="toggleLightTheme">
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgStartup">Startup &amp; Behavior</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblLaunchStartup">Launch at Windows startup</span>
+                    <input type="checkbox" id="toggleLaunchAtStartup">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblMinimizeOption">Show a minimize option when closing</span>
+                    <input type="checkbox" id="toggleRunInBackground">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblConfirmRemove">Confirm before removing</span>
+                    <input type="checkbox" id="toggleConfirmRemove" checked>
+                    <span class="switch"></span>
+                </label>
+                <div class="sidebar-select-row">
+                    <span id="lblDefaultCategory">Default category</span>
+                    <select id="defaultCategorySelect">
+                        <option value="ask">Always ask</option>
+                        <option value="game">🎮 Game</option>
+                        <option value="app">🖥️ App</option>
+                        <option value="vr">🥽 VR</option>
+                        <option value="other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="sidebar-select-row">
+                    <span id="lblStartupSection">Start on section</span>
+                    <select id="startupSectionSelect">
+                        <option value="new">🆕 New</option>
+                        <option value="installed">📀 Installed</option>
+                        <option value="free-games">🎁 Free Games</option>
+                        <option value="applications">🧰 Applications</option>
+                        <option value="theatre">🎬 Theatre</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgAccessibility">Display &amp; Accessibility</h3>
+                <div class="sidebar-select-row">
+                    <span id="lblGridDensity">Grid density</span>
+                    <select id="gridDensitySelect">
+                        <option value="comfortable">Comfortable</option>
+                        <option value="compact">Compact</option>
+                    </select>
+                </div>
+                <div class="sidebar-slider-row">
+                    <span id="lblTrailerVolume">Trailer volume</span>
+                    <input type="range" id="trailerVolumeSlider" min="0" max="100" value="50">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgThemes">Themes</h3>
+                <div class="theme-grid">
+                    <button class="themeOption" data-theme="riftgate" title="Riftgate"><span class="theme-swatch riftgate"></span></button>
+                    <button class="themeOption" data-theme="cyberpunk" title="Cyberpunk"><span class="theme-swatch cyberpunk"></span></button>
+                    <button class="themeOption" data-theme="emerald" title="Emerald Forest"><span class="theme-swatch emerald"></span></button>
+                    <button class="themeOption" data-theme="crimson" title="Crimson"><span class="theme-swatch crimson"></span></button>
+                    <button class="themeOption" data-theme="ocean" title="Ocean"><span class="theme-swatch ocean"></span></button>
+                    <button class="themeOption" data-theme="gold" title="Midnight Gold"><span class="theme-swatch gold"></span></button>
+                    <button class="themeOption" data-theme="red" title="Red"><span class="theme-swatch red"></span></button>
+                    <button class="themeOption" data-theme="frost" title="Frost"><span class="theme-swatch frost"></span></button>
+                    <button class="themeOption" data-theme="venom" title="Venom"><span class="theme-swatch venom"></span></button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgLibrary">Library</h3>
+                <button id="refreshMetadataBtn" class="sidebar-btn">🔄 <span id="lblRefreshMetadata">Refresh All Metadata</span></button>
+
+                <div class="sidebar-stats">
+                    <div id="statCounts">🎮 0 · 🖥️ 0 · 📦 0 · 🥽 0</div>
+                    <div id="statLaunches">🚀 0 total launches</div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer" id="versionFooter">Riftgate</div>
+
+        </div>
+    </aside>
+
+    <div id="mainContent">
+
+    <header class="hero-banner">
+
+        <svg class="banner-svg" viewBox="0 0 1400 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="hubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="var(--accent-1)"/>
+                    <stop offset="100%" stop-color="var(--accent-2)"/>
+                </linearGradient>
+                <filter id="hubGlow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="10" result="blur"/>
+                    <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </defs>
+
+            <g class="banner-traces" fill="none" stroke="var(--accent-1)" stroke-width="1.5" opacity="0.5">
+                <path d="M700,115 L520,115 L520,42 L230,42"/>
+                <path d="M700,115 L520,115 L520,188 L230,188"/>
+                <path d="M700,115 L880,115 L880,42 L1170,42"/>
+                <path d="M700,115 L880,115 L880,188 L1170,188"/>
+            </g>
+
+            <g class="banner-nodes" fill="var(--accent-1)">
+                <circle cx="520" cy="115" r="3"/>
+                <circle cx="520" cy="42" r="3"/>
+                <circle cx="520" cy="188" r="3"/>
+                <circle cx="880" cy="115" r="3"/>
+                <circle cx="880" cy="42" r="3"/>
+                <circle cx="880" cy="188" r="3"/>
+            </g>
+
+            <g transform="translate(185,15)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(185,161)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(1125,15)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(1125,161)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+
+            <g class="hero-hub" transform="translate(700,115)" filter="url(#hubGlow)">
+                <polygon points="0,-55 47.6,-27.5 47.6,27.5 0,55 -47.6,27.5 -47.6,-27.5" fill="url(#hubGrad)"/>
+                <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="none" stroke="var(--bg-primary)" stroke-width="1.5" opacity="0.55"/>
+                <path d="M -8,-42 L 9,-6 L -5,-1 L 12,42 L -3,3 L 8,-3 Z" fill="var(--bg-primary)"/>
+                <g stroke="var(--accent-2)" stroke-width="2" opacity="0.85">
+                    <line x1="0" y1="-55" x2="0" y2="-68"/>
+                    <line x1="47.6" y1="-27.5" x2="60" y2="-35"/>
+                    <line x1="47.6" y1="27.5" x2="60" y2="35"/>
+                    <line x1="0" y1="55" x2="0" y2="68"/>
+                    <line x1="-47.6" y1="27.5" x2="-60" y2="35"/>
+                    <line x1="-47.6" y1="-27.5" x2="-60" y2="-35"/>
+                </g>
+            </g>
+        </svg>
+
+        <div class="hero-titlewrap">
+            <h1 class="hero-title">RIFTGATE</h1>
+            <div class="hero-tagline">YOUR GAMES · YOUR APPS · YOUR MEDIA · ONE GATEWAY</div>
+        </div>
+    </header>
+
+    <div class="fact-ticker">
+        <div class="fact-ticker-track" id="factTickerTrack"></div>
+    </div>
+
+    <div class="section-switcher">
+        <div class="section-pill">
+            <span id="sectionTitle">📀 Installed</span>
+            <span class="section-arrow">▾</span>
+        </div>
+        <div class="section-dropdown">
+            <div class="section-dropdown-inner">
+                <button class="sectionOption" data-section="new">🆕 New</button>
+                <button class="sectionOption" data-section="installed">📀 Installed</button>
+                <button class="sectionOption" data-section="free-games">🎁 Free Games</button>
+                <button class="sectionOption" data-section="applications">🧰 Applications</button>
+                <button class="sectionOption" data-section="theatre">🎬 Theatre</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="topbar" id="installedTopbar">
+        <div class="actions">
+            <select id="sortSelect">
+                <option value="name">Name (A-Z)</option>
+                <option value="recent-played">Recently Played</option>
+                <option value="recent-added">Recently Added</option>
+                <option value="most-played">Most Played</option>
+                <option value="custom">Custom Order</option>
+            </select>
+
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search games..."
+            >
+
+            <button id="addBtn">+</button>
+        </div>
+    </div>
+
+    <p class="section-blurb" id="installedBlurb">
+        Your personal library of installed games, apps, VR titles, and more. Drag and drop a shortcut or .exe straight from your desktop or a folder to add it, drag any card to reorder your library (even across categories), hover the category badge to reassign it instantly, and click the wheel icon in the corner to let Riftgate spin and pick something for you.
+    </p>
+
+    <div id="libraryContainer"></div>
+
+    <div id="freeGamesContainer" class="secondary-section">
+        <p class="section-blurb">
+            Here you can browse games that are currently free to keep or free to play, pulled live from Epic Games and Steam. Newly spotted games get their own row for a week before joining the general categorized list below — use the search bar or category filter to narrow things down.
+        </p>
+        <div class="free-games-controls">
+            <input type="text" id="freeGamesSearchInput" placeholder="Search free games...">
+            <select id="freeGamesCategorySelect">
+                <option value="all">All Categories</option>
+            </select>
+        </div>
+        <div id="freeGamesNewRow"></div>
+        <div id="freeGamesRestRow"></div>
+    </div>
+
+    <div id="applicationsContainer" class="secondary-section">
+        <div class="coming-soon-card">
+            <div class="intro-icon">🚀</div>
+            <h2>Something exciting is on the way</h2>
+            <p>A curated catalog of great free applications is in the works for this section. Know a source or site that would be perfect for it? Tell me, and we'll build it in together.</p>
+        </div>
+    </div>
+
+    <div class="topbar" id="theatreTopbar" style="display:none;">
+        <div class="actions" style="margin-left:auto;">
+            <select id="movieCitySelect"></select>
+            <select id="movieCountrySelect">
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="PT">Portugal</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="ES">Spain</option>
+                <option value="BR">Brazil</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="theatreContainer" class="secondary-section">
+
+        <p class="section-blurb">
+            Track any TV series and see its latest episode with the air date front and center in Recently Released, plus a "Where to Watch" button — search for a series below to start tracking it. Browse movies currently playing in theaters near you with a full trailer preview, sound toggle, and a large "theater mode" view. Not sure what to watch? Hit Surprise Me down in the corner while you're in this section and it'll pick a movie for you.
+        </p>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🆕 Recently Released</h2>
+                <input type="text" id="recentEpisodesFilterInput" class="subsection-filter" placeholder="Filter by show name...">
+            </div>
+            <div id="recentEpisodesRow" class="recent-episodes-row"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>📺 My Shows</h2>
+                <div class="show-search-row">
+                    <input type="text" id="showSearchInput" placeholder="Search for a series to track...">
+                    <button id="showSearchBtn">Search</button>
+                </div>
+            </div>
+            <div id="showSearchResults" class="show-search-results"></div>
+            <input type="text" id="myShowsFilterInput" class="subsection-filter" placeholder="Filter your tracked shows...">
+            <div id="myShowsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎬 In Theaters</h2>
+            </div>
+            <div id="moviesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+    </div>
+
+    <div id="newContainer" class="secondary-section">
+
+        <p class="section-blurb">
+            See what's newly released or coming soon across movies, TV series, and games. Add an upcoming series straight to My Shows, jump to a store page to buy an upcoming game, and preview any of them with a hover trailer and mute/unmute — all pulled from real, live sources.
+        </p>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎬 Upcoming Movies</h2>
+            </div>
+            <div id="upcomingMoviesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>📺 New Series</h2>
+            </div>
+            <div id="newShowsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎮 Upcoming Games</h2>
+            </div>
+            <div id="upcomingGamesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+    </div>
+
+    <div id="introScreen" class="intro-screen">
+        <div class="intro-card">
+            <div class="intro-icon">🌌</div>
+            <h2>Welcome to Riftgate</h2>
+            <p class="intro-lead">
+                Your personal gateway to every game, app, and tool you use —
+                all in one place, launched with a click.
+            </p>
+
+            <div class="intro-steps">
+                <div class="intro-step">
+                    <span class="intro-step-num">1</span>
+                    <span>Click the <strong>+</strong> button above to add a game, app, or anything else you launch often.</span>
+                </div>
+                <div class="intro-step">
+                    <span class="intro-step-num">2</span>
+                    <span>Riftgate automatically finds cover art, a description, and a trailer for it online.</span>
+                </div>
+                <div class="intro-step">
+                    <span class="intro-step-num">3</span>
+                    <span>Hover any card to preview its trailer. Click <strong>Launch</strong> to open it instantly.</span>
+                </div>
+            </div>
+
+            <button id="introAddBtn" class="intro-cta">+ Add your first entry</button>
+        </div>
+    </div>
+
+    </div>
+
+    <div class="modal-overlay" id="pathModal">
+        <div class="modal-box">
+            <h3>Game Path</h3>
+            <p class="modal-path" id="modalPathText"></p>
+            <div class="modal-actions">
+                <button id="closeModalBtn">Close</button>
+                <button id="copyPathBtn">Copy Path</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="descModal">
+        <div class="modal-box">
+            <h3 id="descModalTitle">Description</h3>
+            <p class="modal-path" id="descModalText"></p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="notesModal">
+        <div class="modal-box">
+            <h3 id="notesModalTitle">Notes & Tags</h3>
+            <textarea id="notesModalText" class="notes-textarea" placeholder="Personal notes... (e.g. left off at Act 3)"></textarea>
+            <input type="text" id="tagsModalInput" class="tags-input" placeholder="Tags, comma separated (e.g. co-op, chill)">
+
+            <div class="fix-info-block">
+                <label class="fix-info-label">Is the description wrong? Tell us what this actually is:</label>
+                <div class="fix-info-row">
+                    <input type="text" id="fixInfoInput" class="fix-info-input" placeholder="e.g. Battlefield 6 (multiplayer shooter)">
+                    <button id="fixInfoBtn" class="fix-info-btn">🔄 Re-fetch</button>
+                </div>
+                <div id="fixInfoStatus" class="fix-info-status"></div>
+            </div>
+
+            <div class="fix-info-block">
+                <label class="fix-info-label">Wrong trailer? Paste the correct YouTube link:</label>
+                <div class="fix-info-row">
+                    <input type="text" id="fixTrailerInput" class="fix-info-input" placeholder="e.g. https://youtube.com/watch?v=...">
+                    <button id="fixTrailerBtn" class="fix-info-btn">🎬 Set</button>
+                </div>
+                <div id="fixTrailerStatus" class="fix-info-status"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="notesCloseBtn">Close</button>
+                <button id="notesSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="milestoneToast" class="milestone-toast"></div>
+
+    <div class="bottom-bar">
+        <button id="notifyBtn" title="What's new">🔔</button>
+        <button id="surpriseBtn" title="Surprise me — spin the wheel">
+            <span class="surprise-label">Surprise Me</span>
+            <span class="dice-icon">🎲</span>
+        </button>
+        <button id="closeLauncherBtn" title="Close Riftgate">⏻ Close App</button>
+    </div>
+
+    <div class="modal-overlay" id="theaterModal">
+        <div class="theater-modal-box">
+            <button id="theaterCloseBtn" class="theater-close">✕</button>
+            <div id="theaterVideoWrap" class="theater-video-wrap"></div>
+            <div class="theater-actions">
+                <button id="theaterYoutubeBtn">▶ Watch on YouTube</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="wheelModal">
+        <div class="modal-box wheel-box">
+            <h3>Feeling lucky?</h3>
+
+            <div class="wheel-wrap">
+                <div class="wheel-pointer">▼</div>
+                <div class="wheel-rim" id="wheelRim"></div>
+                <div class="wheel" id="wheelEl"></div>
+            </div>
+
+            <div id="wheelMessage" class="wheel-message"></div>
+
+            <div id="wheelResult" class="wheel-result">
+                <img id="wheelResultImg" class="wheel-result-img" src="" alt="">
+                <div id="wheelResultName" class="wheel-result-name"></div>
+                <div class="wheel-actions">
+                    <button id="wheelPlayBtn" class="wheel-action-btn wheel-play">Play</button>
+                    <button id="wheelSpinAgainBtn" class="wheel-action-btn">Spin Again</button>
+                    <button id="wheelQuitBtn" class="wheel-action-btn">Quit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="changelogModal">
+        <div class="modal-box">
+            <h3 id="changelogTitle">What's New</h3>
+            <div id="changelogBody" class="changelog-body"></div>
+            <div class="modal-actions">
+                <button id="changelogCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="updateModal">
+        <div class="modal-box">
+            <h3 id="updateModalTitle">Update Available</h3>
+            <div id="updateModalBody" class="changelog-body"></div>
+            <div id="updateProgressWrap" class="update-progress-wrap" style="display:none;">
+                <div class="update-progress-track">
+                    <div id="updateProgressFill" class="update-progress-fill"></div>
+                </div>
+                <p id="updateProgressLabel" class="update-progress-label">Downloading...</p>
+            </div>
+            <div class="modal-actions" id="updateModalActions">
+                <button id="updateLaterBtn">Keep Using This Version</button>
+                <button id="updateNowBtn" class="wheel-play">Update Now</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="importModal">
+        <div class="modal-box">
+            <h3>New game found</h3>
+            <p id="importModalText" class="import-modal-text"></p>
+            <div class="modal-actions">
+                <button id="importLaterBtn">Add Later</button>
+                <button id="importYesBtn" class="wheel-play">Yes, Add It</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="categoryModal">
+        <div class="modal-box">
+            <h3>What kind of entry is this?</h3>
+            <div class="category-options">
+                <button class="categoryOption" data-category="game">🎮 Game</button>
+                <button class="categoryOption" data-category="app">🖥️ App</button>
+                <button class="categoryOption" data-category="vr">🥽 VR</button>
+                <button class="categoryOption" data-category="other">📦 Other</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+
+</body>
+
+</html>

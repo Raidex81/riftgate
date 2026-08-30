@@ -1,0 +1,11 @@
+# Never commit real API keys
+secrets.local.js
+
+# Dependencies and build output — these get rebuilt from source, don't
+# belong in version control
+node_modules/
+dist/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

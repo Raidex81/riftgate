@@ -1,0 +1,45 @@
+{
+  "name": "riftgate",
+  "version": "1.18.0",
+  "description": "Riftgate - your personal gateway to every game, app, and tool you use.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder",
+    "release": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --publish always"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.riftgate.app",
+    "productName": "Riftgate",
+    "files": [
+      "**/*",
+      "!build/icon_preview.png"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "Raidex81",
+      "repo": "Riftgate"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Riftgate",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
