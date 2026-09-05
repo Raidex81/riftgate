@@ -202,6 +202,15 @@ nav a:hover { color: var(--text); }
 }
 
 .pillar-visual--games { height: 280px; }
+
+.pillar-visual--shot { padding: 0; overflow: hidden; }
+.pillar-visual--shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
 .mock-grid { display: flex; flex-wrap: wrap; width: 100%; height: 100%; }
 .mock-cover {
   border-radius: 8px;
