@@ -1,6 +1,6 @@
 {
   "name": "riftgate",
-  "version": "1.18.0",
+  "version": "1.1.8",
   "description": "Riftgate - your personal gateway to every game, app, and tool you use.",
   "main": "main.js",
   "scripts": {
@@ -11,7 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "adm-zip": "^0.5.10"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -22,7 +23,9 @@
     "productName": "Riftgate",
     "files": [
       "**/*",
-      "!build/icon_preview.png"
+      "!build/icon_preview.png",
+      "!secrets.local.js",
+      "!secrets.example.js"
     ],
     "publish": {
       "provider": "github",
