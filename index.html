@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Riftgate</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="ambientIconsLayer" class="ambient-icons-layer"></div>
+
+    <div id="startupOverlay" class="startup-overlay">
+        <div class="startup-scene">
+            <svg class="startup-gem-svg" width="220" height="220" viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="startupAmbient" cx="50%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.22"/>
+                        <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="startupBright" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#6a6a74"/>
+                        <stop offset="100%" stop-color="#2a2a30"/>
+                    </linearGradient>
+                    <linearGradient id="startupMid" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#3a3a42"/>
+                        <stop offset="100%" stop-color="#141418"/>
+                    </linearGradient>
+                    <linearGradient id="startupDark" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#222226"/>
+                        <stop offset="100%" stop-color="#08080a"/>
+                    </linearGradient>
+                    <filter id="startupGlow" x="-100%" y="-100%" width="300%" height="300%">
+                        <feGaussianBlur stdDeviation="10" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <circle cx="0" cy="0" r="72" fill="url(#startupAmbient)"/>
+                <g filter="url(#startupGlow)">
+                    <polygon class="startup-facet facet-1" points="0,0 0,-55 47.6,-27.5" fill="url(#startupBright)"/>
+                    <polygon class="startup-facet facet-2" points="0,0 47.6,-27.5 47.6,27.5" fill="url(#startupMid)"/>
+                    <polygon class="startup-facet facet-3" points="0,0 47.6,27.5 0,55" fill="url(#startupDark)"/>
+                    <polygon class="startup-facet facet-4" points="0,0 0,55 -47.6,27.5" fill="url(#startupDark)"/>
+                    <polygon class="startup-facet facet-5" points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#startupMid)"/>
+                    <polygon class="startup-facet facet-6" points="0,0 -47.6,-27.5 0,-55" fill="url(#startupBright)"/>
+                    <polygon class="startup-sheen" points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0"/>
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="usernameModal">
+        <div class="modal-box">
+            <h3>Choose Your Username</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                This will be yours alone — no one else can use it. Letters, numbers, and underscores, 3–20 characters.
+            </p>
+            <input type="text" id="usernameInput" placeholder="Enter a username..." maxlength="20" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <p id="usernameError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="usernameCancelBtn">Cancel</button>
+                <button id="usernameSubmitBtn" class="wheel-play">Continue</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="modal-overlay" id="vaultLoginModal">
+        <div class="modal-box">
+            <h3>🔒 Riftgate Login</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                Enter your password to continue.
+            </p>
+            <input type="password" id="vaultPasswordInput" placeholder="Password..." style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <p id="vaultLoginError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="vaultLoginCancelBtn">Cancel</button>
+                <button id="vaultLoginSubmitBtn" class="wheel-play">Log In</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="vaultSetPasswordModal">
+        <div class="modal-box">
+            <h3>🔒 Set Your Password</h3>
+            <p id="vaultSetPasswordDesc" style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                Choose a password for your Riftgate account. You'll stay logged in on this device until you log out — only you will know it.
+            </p>
+            <input type="password" id="vaultNewPasswordInput" placeholder="New Password" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <input type="password" id="vaultConfirmPasswordInput" placeholder="Repeat Password" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <p id="vaultSetPasswordError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="vaultSetPasswordCancelBtn">Cancel</button>
+                <button id="vaultSetPasswordSubmitBtn" class="wheel-play">Set Password</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="logoutConfirmModal">
+        <div class="modal-box">
+            <h3>Log Out?</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                You'll need to log back in to use Suggestions and The Vault again.
+            </p>
+            <div class="modal-actions">
+                <button id="logoutConfirmCancelBtn">Cancel</button>
+                <button id="logoutConfirmSubmitBtn" class="wheel-play">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="adminManageModal">
+        <div class="modal-box" style="max-width:460px;">
+            <h3>Manage Users</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                Search for any registered Riftgate user by their username to make them an admin, or manage existing admins below. Only you (as a super-admin) can access this.
+            </p>
+            <input type="text" id="adminSearchInput" placeholder="Search all users..." class="subsection-filter" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
+            <p id="adminManageError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 6px;"></p>
+            <div id="adminList" class="suggestions-list" style="max-height:340px;"></div>
+            <button id="openAllowlistFromAdminBtn" class="launchBtn" style="width:100%;margin-top:10px;padding:9px;">🔮 Manage The Vault Allowlist</button>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="adminManageCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="suggestionsModal">
+        <div class="modal-box" style="max-width:480px;">
+            <h3 style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <span>Suggestions</span>
+                <span style="display:flex;gap:6px;">
+                    <button id="reviewSuggestionsBtn" style="display:none;font-size:11px;padding:6px 10px;">🆕 Review New</button>
+                    <button id="exportSuggestionsBtn" style="display:none;font-size:11px;padding:6px 10px;">⬇️ Export .txt</button>
+                </span>
+            </h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                Got an idea for Riftgate? Drop it below — everyone can see what's been suggested so far.
+            </p>
+            <select id="suggestionCategorySelect" style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:8px;">
+                <option value="Feature Request">💡 Feature Request</option>
+                <option value="Bug">🐛 Bug</option>
+                <option value="Other">💬 Other</option>
+            </select>
+            <textarea id="suggestionInput" placeholder="What would you like to see added or changed?" maxlength="500" rows="3" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;resize:vertical;font-family:inherit;"></textarea>
+            <p id="suggestionError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 6px;"></p>
+            <div class="modal-actions" style="margin-bottom:16px;">
+                <button id="suggestionSubmitBtn" class="wheel-play">Submit Suggestion</button>
+            </div>
+            <div id="suggestionsList" class="suggestions-list"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="suggestionsCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="reviewSuggestionsModal">
+        <div class="modal-box" style="max-width:480px;">
+            <h3>New Suggestions</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                Approve a suggestion to have it fixed in your Riftgate folder automatically within the hour, or reject it. Either way, the person who suggested it gets a reply letting them know.
+            </p>
+            <div id="reviewSuggestionsList" class="suggestions-list"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="reviewSuggestionsCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="custom-titlebar">
+        <div class="titlebar-drag">Riftgate</div>
+        <div class="titlebar-controls">
+            <button id="winMinBtn" title="Minimize">─</button>
+            <button id="winMaxBtn" title="Maximize">▢</button>
+            <button id="winCloseBtn" title="Close">✕</button>
+        </div>
+    </div>
+
+    <div id="ambientBg" class="ambient-bg"></div>
+
+    <aside id="sideBar" class="sidebar">
+
+        <div class="sidebar-handle">
+            <span></span><span></span><span></span>
+        </div>
+
+        <div class="sidebar-content">
+
+            <div class="sidebar-header">
+                <div class="sidebar-diamond"></div>
+                <h2>Options</h2>
+            </div>
+
+            <div class="sidebar-section sidebar-nav-section">
+                <h3>Sections</h3>
+                <button class="sidebarNavBtn" data-section="new">🆕 New</button>
+                <button class="sidebarNavBtn" data-section="installed">📀 Installed</button>
+                <button class="sidebarNavBtn" data-section="free-games">🎁 Free Games</button>
+                <button class="sidebarNavBtn" data-section="theatre">🎬 Theatre</button>
+                <button class="sidebarNavBtn" data-section="reading-room">📖 Reading Room</button>
+                <button class="sidebarNavBtn" data-section="applications">🧩 Applications</button>
+                <button class="sidebarNavBtn" data-section="manga">📕 Manga</button>
+                <button class="sidebarNavBtn" data-section="comics">💥 Comics</button>
+                <button class="sidebarNavBtn" data-section="shared-folder">🔮 The Vault</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgSound">Sound</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblUiSounds">UI sounds</span>
+                    <input type="checkbox" id="toggleUiSounds" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblStartupSound">Startup sound</span>
+                    <input type="checkbox" id="toggleStartupSound" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblStartupAnimation">Startup animation</span>
+                    <input type="checkbox" id="toggleStartupAnimation" checked>
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgDisplay">Display</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblHoverTrailers">Hover trailers</span>
+                    <input type="checkbox" id="toggleHoverTrailers" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblAmbientBg">Ambient background</span>
+                    <input type="checkbox" id="toggleAmbientBg" checked>
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblFullscreen">Fullscreen</span>
+                    <input type="checkbox" id="toggleFullscreen">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblLightTheme">Light theme</span>
+                    <input type="checkbox" id="toggleLightTheme">
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgStartup">Startup &amp; Behavior</h3>
+                <label class="sidebar-toggle">
+                    <span id="lblLaunchStartup">Launch at Windows startup</span>
+                    <input type="checkbox" id="toggleLaunchAtStartup">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblMinimizeOption">Show a minimize option when closing</span>
+                    <input type="checkbox" id="toggleRunInBackground">
+                    <span class="switch"></span>
+                </label>
+                <label class="sidebar-toggle">
+                    <span id="lblConfirmRemove">Confirm before removing</span>
+                    <input type="checkbox" id="toggleConfirmRemove" checked>
+                    <span class="switch"></span>
+                </label>
+                <div class="sidebar-select-row">
+                    <span id="lblDefaultCategory">Default category</span>
+                    <select id="defaultCategorySelect">
+                        <option value="ask">Always ask</option>
+                        <option value="game">🎮 Game</option>
+                        <option value="app">🖥️ App</option>
+                        <option value="vr">🥽 VR</option>
+                        <option value="other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="sidebar-select-row">
+                    <span id="lblStartupSection">Start on section</span>
+                    <select id="startupSectionSelect">
+                        <!-- Populated from the sidebar's own section buttons at
+                             startup (see populateStartupSectionOptions in
+                             renderer.js) so this list can never drift out of
+                             sync with the actual sections again. -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgAccessibility">Display &amp; Accessibility</h3>
+                <div class="sidebar-select-row">
+                    <span id="lblGridDensity">Grid density</span>
+                    <select id="gridDensitySelect">
+                        <option value="comfortable">Comfortable</option>
+                        <option value="compact">Compact</option>
+                    </select>
+                </div>
+                <div class="sidebar-slider-row">
+                    <span id="lblTrailerVolume">Trailer volume</span>
+                    <input type="range" id="trailerVolumeSlider" min="0" max="100" value="50">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgThemes">Themes</h3>
+                <div class="theme-grid">
+                    <button class="themeOption" data-theme="riftgate" title="Riftgate"><span class="theme-swatch riftgate"></span></button>
+                    <button class="themeOption" data-theme="cyberpunk" title="Cyberpunk"><span class="theme-swatch cyberpunk"></span></button>
+                    <button class="themeOption" data-theme="emerald" title="Emerald Forest"><span class="theme-swatch emerald"></span></button>
+                    <button class="themeOption" data-theme="crimson" title="Crimson"><span class="theme-swatch crimson"></span></button>
+                    <button class="themeOption" data-theme="ocean" title="Ocean"><span class="theme-swatch ocean"></span></button>
+                    <button class="themeOption" data-theme="gold" title="Midnight Gold"><span class="theme-swatch gold"></span></button>
+                    <button class="themeOption" data-theme="red" title="Red"><span class="theme-swatch red"></span></button>
+                    <button class="themeOption" data-theme="frost" title="Frost"><span class="theme-swatch frost"></span></button>
+                    <button class="themeOption" data-theme="venom" title="Venom"><span class="theme-swatch venom"></span></button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgLibrary">Library</h3>
+                <button id="refreshMetadataBtn" class="sidebar-btn">🔄 <span id="lblRefreshMetadata">Refresh All Metadata</span></button>
+                <button id="scanInstalledBtn" class="sidebar-btn" title="Scan your computer for installed apps and games not yet in Riftgate">🔍 <span id="lblScanInstalled">Scan for Apps &amp; Games</span></button>
+
+                <div class="sidebar-stats">
+                    <div id="statCounts">🎮 0 · 🖥️ 0 · 📦 0 · 🥽 0</div>
+                    <div id="statLaunches">🚀 0 total launches</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgSteamPlaytime">Steam Playtime</h3>
+                <p class="sidebar-hint">
+                    Riftgate can't track Steam games itself (they launch through Steam's own protocol, not a normal .exe), so this pulls your real playtime from Steam instead. You'll need your SteamID64, and your profile's "Game details" privacy set to Public — otherwise Steam returns nothing.
+                </p>
+                <div class="sidebar-select-row">
+                    <span>SteamID64</span>
+                    <input type="text" id="steamId64Input" placeholder="76561198012345678" inputmode="numeric">
+                </div>
+                <button id="refreshSteamPlaytimeBtn" class="sidebar-btn">🔄 <span>Refresh Steam Playtime</span></button>
+                <div id="steamPlaytimeStatus" class="sidebar-hint"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgBackup">Backup</h3>
+                <button id="exportBackupBtn" class="sidebar-btn" title="Save your library, watchlist, notes and settings to a file">💾 <span id="lblExportBackup">Export Backup</span></button>
+                <button id="importBackupBtn" class="sidebar-btn" title="Restore your library, watchlist, notes and settings from a backup file">📥 <span id="lblImportBackup">Import Backup</span></button>
+                <button id="openDataFolderBtn" class="sidebar-btn" title="Open the folder where Riftgate stores your data">📁 <span id="lblOpenDataFolder">Open Data Folder</span></button>
+            </div>
+
+            <div class="sidebar-footer" id="versionFooter">Riftgate</div>
+            <button id="checkUpdateBtn" class="admin-sidebar-btn" title="Check for updates now" style="font-size:11px;">🔄 Check for Updates</button>
+
+            <button id="manageUsersBtn" class="admin-sidebar-btn" title="Manage admins" style="display:none;margin-top:8px;">👥 Manage Users</button>
+
+        </div>
+    </aside>
+
+    <div id="mainContent">
+
+    <header class="hero-banner">
+
+        <svg class="banner-svg" viewBox="0 0 1400 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="hubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="var(--accent-1)"/>
+                    <stop offset="100%" stop-color="var(--accent-2)"/>
+                </linearGradient>
+                <radialGradient id="hubAmbient" cx="50%" cy="35%" r="65%">
+                    <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.22"/>
+                    <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="hubBright" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#6a6a74"/>
+                    <stop offset="100%" stop-color="#2a2a30"/>
+                </linearGradient>
+                <linearGradient id="hubMid" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3a3a42"/>
+                    <stop offset="100%" stop-color="#141418"/>
+                </linearGradient>
+                <linearGradient id="hubDark" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#222226"/>
+                    <stop offset="100%" stop-color="#08080a"/>
+                </linearGradient>
+                <filter id="hubGlow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="10" result="blur"/>
+                    <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </defs>
+
+            <g class="banner-traces" fill="none" stroke="var(--accent-1)" stroke-width="1.5" opacity="0.5">
+                <path d="M700,115 L520,115 L520,42 L230,42"/>
+                <path d="M700,115 L520,115 L520,188 L230,188"/>
+                <path d="M700,115 L880,115 L880,42 L1170,42"/>
+                <path d="M700,115 L880,115 L880,188 L1170,188"/>
+            </g>
+
+            <g class="banner-nodes" fill="var(--accent-1)">
+                <circle cx="520" cy="115" r="3"/>
+                <circle cx="520" cy="42" r="3"/>
+                <circle cx="520" cy="188" r="3"/>
+                <circle cx="880" cy="115" r="3"/>
+                <circle cx="880" cy="42" r="3"/>
+                <circle cx="880" cy="188" r="3"/>
+            </g>
+
+            <g transform="translate(185,15)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(185,161)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(1125,15)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+            <g transform="translate(1125,161)">
+                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
+                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
+                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
+            </g>
+
+            <g class="hero-hub" transform="translate(700,115)" filter="url(#hubGlow)">
+                <circle cx="0" cy="0" r="72" fill="url(#hubAmbient)"/>
+                <polygon points="0,0 0,-55 47.6,-27.5" fill="url(#hubBright)"/>
+                <polygon points="0,0 47.6,-27.5 47.6,27.5" fill="url(#hubMid)"/>
+                <polygon points="0,0 47.6,27.5 0,55" fill="url(#hubDark)"/>
+                <polygon points="0,0 0,55 -47.6,27.5" fill="url(#hubDark)"/>
+                <polygon points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#hubMid)"/>
+                <polygon points="0,0 -47.6,-27.5 0,-55" fill="url(#hubBright)"/>
+                <g fill="none" stroke="#000000" stroke-width="1.5" opacity="0.65">
+                    <polygon points="0,0 0,-55 47.6,-27.5"/>
+                    <polygon points="0,0 47.6,-27.5 47.6,27.5"/>
+                    <polygon points="0,0 47.6,27.5 0,55"/>
+                    <polygon points="0,0 0,55 -47.6,27.5"/>
+                    <polygon points="0,0 -47.6,27.5 -47.6,-27.5"/>
+                    <polygon points="0,0 -47.6,-27.5 0,-55"/>
+                </g>
+                <polygon points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0.35"/>
+                <g stroke="var(--accent-2)" stroke-width="2" opacity="0.85">
+                    <line x1="0" y1="-55" x2="0" y2="-68"/>
+                    <line x1="47.6" y1="-27.5" x2="60" y2="-35"/>
+                    <line x1="47.6" y1="27.5" x2="60" y2="35"/>
+                    <line x1="0" y1="55" x2="0" y2="68"/>
+                    <line x1="-47.6" y1="27.5" x2="-60" y2="35"/>
+                    <line x1="-47.6" y1="-27.5" x2="-60" y2="-35"/>
+                </g>
+            </g>
+        </svg>
+
+        <div class="hero-titlewrap">
+            <svg class="hero-mark" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="hubAmbientSm" cx="50%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.35"/>
+                        <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="hubBrightSm" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#6a6a74"/>
+                        <stop offset="100%" stop-color="#2a2a30"/>
+                    </linearGradient>
+                    <linearGradient id="hubMidSm" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#3a3a42"/>
+                        <stop offset="100%" stop-color="#141418"/>
+                    </linearGradient>
+                    <linearGradient id="hubDarkSm" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#222226"/>
+                        <stop offset="100%" stop-color="#08080a"/>
+                    </linearGradient>
+                    <filter id="hubGlowSm" x="-100%" y="-100%" width="300%" height="300%">
+                        <feGaussianBlur stdDeviation="5" result="blur"/>
+                        <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <g transform="translate(70,70)" filter="url(#hubGlowSm)">
+                    <circle cx="0" cy="0" r="58" fill="url(#hubAmbientSm)"/>
+                    <polygon points="0,0 0,-55 47.6,-27.5" fill="url(#hubBrightSm)"/>
+                    <polygon points="0,0 47.6,-27.5 47.6,27.5" fill="url(#hubMidSm)"/>
+                    <polygon points="0,0 47.6,27.5 0,55" fill="url(#hubDarkSm)"/>
+                    <polygon points="0,0 0,55 -47.6,27.5" fill="url(#hubDarkSm)"/>
+                    <polygon points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#hubMidSm)"/>
+                    <polygon points="0,0 -47.6,-27.5 0,-55" fill="url(#hubBrightSm)"/>
+                    <g fill="none" stroke="#000000" stroke-width="1.5" opacity="0.65">
+                        <polygon points="0,0 0,-55 47.6,-27.5"/>
+                        <polygon points="0,0 47.6,-27.5 47.6,27.5"/>
+                        <polygon points="0,0 47.6,27.5 0,55"/>
+                        <polygon points="0,0 0,55 -47.6,27.5"/>
+                        <polygon points="0,0 -47.6,27.5 -47.6,-27.5"/>
+                        <polygon points="0,0 -47.6,-27.5 0,-55"/>
+                    </g>
+                    <polygon points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0.35"/>
+                </g>
+            </svg>
+            <h1 class="hero-title">RIFTGATE</h1>
+            <div class="hero-tagline">YOUR GAMES · YOUR APPS · YOUR MEDIA · ONE GATEWAY</div>
+        </div>
+    </header>
+
+    <div class="fact-ticker">
+        <div class="fact-ticker-track" id="factTickerTrack"></div>
+    </div>
+
+    <div class="topbar-row">
+        <div class="section-switcher">
+            <div class="section-pill" id="sectionPill" title="You're viewing: Installed">
+                <span class="section-pill-label">☰ Riftgate</span>
+                <span class="section-arrow">▾</span>
+            </div>
+            <div class="section-dropdown">
+                <div class="section-dropdown-inner">
+                    <button class="sectionOption" data-section="new">🆕 New</button>
+                    <button class="sectionOption" data-section="installed">📀 Installed</button>
+                    <button class="sectionOption" data-section="free-games">🎁 Free Games</button>
+                    <button class="sectionOption" data-section="theatre">🎬 Theatre</button>
+                    <button class="sectionOption" data-section="reading-room">📖 Reading Room</button>
+                    <button class="sectionOption" data-section="applications">🧩 Applications</button>
+                    <button class="sectionOption" data-section="manga">📕 Manga</button>
+                    <button class="sectionOption" data-section="comics">💥 Comics</button>
+                    <button class="sectionOption" data-section="shared-folder">🔮 The Vault</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="global-search" id="globalSearchWrap">
+            <input type="text" id="globalSearchInput" placeholder="🔍 Search your games, free games, books, and shows…" autocomplete="off">
+            <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
+        </div>
+
+        <button id="adminBtn" class="login-status-btn" title="Log in">🔑 Login</button>
+
+        <div class="header-actions">
+            <button id="notifyBtn" title="What's new">🔔</button>
+            <button id="suggestBtn" title="Suggest something">💡</button>
+            <button id="surpriseBtn" title="Surprise me — spin the wheel">
+                <span class="dice-icon">🎲</span>
+                <span class="surprise-label">Surprise Me</span>
+            </button>
+            <button id="closeLauncherBtn" title="Close Riftgate">⏻</button>
+        </div>
+    </div>
+
+    <div class="topbar" id="installedTopbar">
+        <div class="actions">
+            <select id="sortSelect">
+                <option value="name">Name (A-Z)</option>
+                <option value="recent-played">Recently Played</option>
+                <option value="recent-added">Recently Added</option>
+                <option value="most-played">Most Played</option>
+                <option value="custom">Custom Order</option>
+            </select>
+
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search games..."
+            >
+
+            <button id="addBtn">+</button>
+        </div>
+    </div>
+
+    <div class="section-info" id="installedBlurb">
+        <p class="section-subtitle">Your personal library — installed games, apps, and more.</p>
+        <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+        <p class="section-blurb">
+            Your personal library of installed games, apps, VR titles, and more. Drag and drop a shortcut or .exe straight from your desktop or a folder to add it, drag any card to reorder your library (even across categories), hover the category badge to reassign it instantly, and click the wheel icon in the corner to let Riftgate spin and pick something for you.
+        </p>
+    </div>
+
+    <div id="libraryContainer"></div>
+
+    <div id="freeGamesContainer" class="secondary-section">
+        <div class="section-info">
+            <p class="section-subtitle">Free games from Epic Games and Steam, updated live.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
+                Here you can browse games that are currently free to keep or free to play, pulled live from Epic Games and Steam. Newly spotted games get their own row for a week before joining the general categorized list below — use the search bar or category filter to narrow things down.
+            </p>
+        </div>
+        <div class="free-games-controls">
+            <input type="text" id="freeGamesSearchInput" placeholder="Search free games...">
+            <select id="freeGamesPlatformSelect">
+                <option value="all">All Platforms</option>
+                <option value="Steam">Steam</option>
+                <option value="Epic Games">Epic Games</option>
+                <option value="GOG">GOG</option>
+            </select>
+            <select id="freeGamesCategorySelect">
+                <option value="all">All Genres</option>
+            </select>
+        </div>
+        <div id="freeGamesNewRow" class="free-games-new-zone"></div>
+        <div id="freeGamesBrowseHeading" class="free-games-browse-heading" style="display:none;">📀 Browse All Free Games</div>
+        <div id="freeGamesRestRow"></div>
+    </div>
+
+    <div class="reading-room-tabs">
+        <button id="readingRoomTabBuyFree" class="reading-room-tab active">🛒 Buy Books</button>
+        <button id="readingRoomTabDiscover" class="reading-room-tab">🌐 Discover Online</button>
+        <button id="readingRoomTabLibrary" class="reading-room-tab">📚 My Library</button>
+        <button id="readingRoomTabApps" class="reading-room-tab">📱 eBook Apps</button>
+    </div>
+
+    <div class="topbar reading-room-search-bar" id="buyFreeSearchBar">
+        <input
+            type="text"
+            id="buyFreeSearchInput"
+            placeholder="Search for any book online..."
+        >
+    </div>
+
+    <div class="category-section" id="buyFreeIntroSection" style="padding:0 16px;">
+        <p style="color:var(--text-muted);font-size:12px;margin:-4px 0 4px;">
+            A broader catalog beyond public-domain classics — current and mainstream books, with purchase links. Anything free found here moves to the top of Discover Online instead. "Most Sold" reflects search relevance, not verified sales figures — no free, real bestseller-ranking API exists.
+        </p>
+    </div>
+
+    <div class="category-section" id="buyBooksSearchResultsSection" style="display:none;">
+        <h2 id="buyBooksSearchResultsHeading">🔍 Search Results</h2>
+        <div id="buyBooksSearchResultsGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div class="category-section" id="mostPopularBooksSection">
+        <h2>🔥 Most Popular</h2>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="mostPopularLeftArrow">‹</button>
+            <div id="mostPopularBooksGrid" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="mostPopularRightArrow">›</button>
+        </div>
+    </div>
+
+    <div class="category-section" id="mostSoldBooksSection">
+        <h2>💰 Best Seller</h2>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="mostSoldLeftArrow">‹</button>
+            <div id="mostSoldBooksGrid" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="mostSoldRightArrow">›</button>
+        </div>
+    </div>
+
+    <div class="category-section" id="newReleasesBooksSection">
+        <h2>🆕 New Releases</h2>
+        <div id="newReleasesBooksGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div class="topbar reading-room-search-bar">
+        <input
+            type="text"
+            id="readingRoomSearchInput"
+            placeholder="Search for any book..."
+        >
+        <select id="discoveryLanguageSelect" style="display:none;">
+            <option value="all">All Languages</option>
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+            <option value="it">Italian</option>
+            <option value="pt">Portuguese</option>
+            <option value="nl">Dutch</option>
+            <option value="ru">Russian</option>
+            <option value="el">Greek</option>
+            <option value="la">Latin</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+            <option value="sv">Swedish</option>
+            <option value="fi">Finnish</option>
+            <option value="da">Danish</option>
+            <option value="no">Norwegian</option>
+            <option value="pl">Polish</option>
+            <option value="hu">Hungarian</option>
+            <option value="cs">Czech</option>
+            <option value="ar">Arabic</option>
+            <option value="he">Hebrew</option>
+        </select>
+        <select id="discoveryCategorySelect" style="display:none;">
+            <option value="all">All Categories</option>
+            <option value="fiction">Fiction</option>
+            <option value="fantasy">Fantasy</option>
+            <option value="science fiction">Science Fiction</option>
+            <option value="mystery">Mystery &amp; Detective</option>
+            <option value="romance">Romance</option>
+            <option value="horror">Horror</option>
+            <option value="adventure">Adventure</option>
+            <option value="poetry">Poetry</option>
+            <option value="drama">Drama</option>
+            <option value="history">History</option>
+            <option value="philosophy">Philosophy</option>
+            <option value="biography">Biography</option>
+            <option value="children">Children's Literature</option>
+            <option value="science">Science</option>
+        </select>
+    </div>
+
+    <div class="topbar" id="readingRoomTopbar">
+        <div class="actions">
+            <select id="readingRoomSortSelect">
+                <option value="name">Title (A-Z)</option>
+                <option value="author">Author (A-Z)</option>
+                <option value="recent-added">Recently Added</option>
+            </select>
+
+            <button id="openDropzoneBtn" title="Open the folder you can drop books into directly">📂 Drop Folder</button>
+            <button id="addEbookBtn">+</button>
+        </div>
+    </div>
+
+    <div class="section-info" id="readingRoomBlurb">
+        <p class="section-subtitle">Your personal eBook library, synced with a folder on your PC.</p>
+        <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+        <p class="section-blurb">
+            Your personal library of eBooks — backed by a real folder on your PC, so drag-and-drop, the + button, and manually dropping files in via File Explorer all end up in the same place. Riftgate pulls the title, author, and cover straight from the file where it can. Use the search bar above to find anything in your full list.
+        </p>
+    </div>
+
+    <div class="category-section" id="favoritesSection" style="padding:0 16px;">
+        <h2>⭐ Favorites</h2>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="favoritesLeftArrow">‹</button>
+            <div id="favoritesRow" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="favoritesRightArrow">›</button>
+        </div>
+    </div>
+
+    <div class="category-section" id="recentlyOpenedSection" style="padding:0 16px;">
+        <h2>🕐 Recently Opened</h2>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="recentlyOpenedLeftArrow">‹</button>
+            <div id="recentlyOpenedRow" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="recentlyOpenedRightArrow">›</button>
+        </div>
+    </div>
+
+    <div id="readingRoomContainer" class="games-grid browse-grid"></div>
+
+    <div class="category-section" id="discoverIntroSection" style="margin-top:28px;padding:0 16px;">
+        <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">📚 Free eBooks to Discover</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin:-4px 0 4px;">
+            Public domain classics from Project Gutenberg — click a cover for its description, then Download to add it straight to your library above.
+        </p>
+    </div>
+
+    <div class="category-section" id="freeFindsSection" style="display:none;">
+        <h2>🎁 Free Finds</h2>
+        <div id="freeFindsGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div class="category-section">
+        <h2>⭐ Recommended Books</h2>
+        <div id="recommendedEbooksGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div class="category-section">
+        <h2>🔥 Most Popular</h2>
+        <div id="popularEbooksGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div class="category-section">
+        <h2>📊 100 Most Downloaded</h2>
+        <div id="topDownloadedEbooksGrid" class="games-grid browse-grid"></div>
+    </div>
+
+    <div id="recommendedReadersSection">
+        <div class="category-section" style="padding:0 16px;">
+            <h2 style="padding-top:20px;">📖 Recommended eBook Readers</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                To open books you download or add to your library, Riftgate hands off to whatever your system has set as the default app for that file type. We recommend installing one of these two free, no-ads readers and setting it as your default for EPUB and PDF files:
+            </p>
+        </div>
+
+        <div class="app-recommend-grid">
+            <div class="app-recommend-card">
+                <h3>Sumatra PDF</h3>
+                <p class="app-recommend-tag">Free · Open source · Lightweight</p>
+                <p>A fast, no-frills reader with no library database to manage — just opens and displays your book instantly. Supports EPUB, PDF, MOBI, and comic archive formats (CBZ/CBR).</p>
+                <a href="https://www.sumatrapdfreader.org/" target="_blank" class="launchBtn" style="display:inline-block;text-decoration:none;text-align:center;">Visit Website</a>
+            </div>
+            <div class="app-recommend-card">
+                <h3>Thorium Reader</h3>
+                <p class="app-recommend-tag">Free · Open source · By EDRLab (nonprofit)</p>
+                <p>A more polished reading experience with a real table of contents, bookmarks, and strong accessibility support (keyboard navigation, text-to-speech). Built specifically for EPUB and EPUB 3.</p>
+                <a href="https://thorium.edrlab.org/" target="_blank" class="launchBtn" style="display:inline-block;text-decoration:none;text-align:center;">Visit Website</a>
+            </div>
+        </div>
+
+        <div class="category-section" style="padding:0 16px;margin-top:28px;">
+            <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">🏆 Top 5 eBook Reader Software (2026)</h2>
+            <p style="color:var(--text-secondary);font-size:13px;">A broader ranked list, free and paid, in case you want something beyond the two above.</p>
+        </div>
+
+        <div class="app-top5-list">
+            <div class="app-top5-item">
+                <span class="app-top5-rank">1</span>
+                <div class="app-top5-info">
+                    <h4>Calibre <span class="app-top5-price app-top5-free">Free</span></h4>
+                    <p>The most complete option available — library management, format conversion, metadata editing, and a built-in reader, all in one. The standard choice for anyone managing a large collection.</p>
+                </div>
+            </div>
+            <div class="app-top5-item">
+                <span class="app-top5-rank">2</span>
+                <div class="app-top5-info">
+                    <h4>Thorium Reader <span class="app-top5-price app-top5-free">Free</span></h4>
+                    <p>The best pure reading experience of the free options — clean interface, strong EPUB 3 support, and genuinely good accessibility (screen readers, text-to-speech, full keyboard navigation).</p>
+                </div>
+            </div>
+            <div class="app-top5-item">
+                <span class="app-top5-rank">3</span>
+                <div class="app-top5-info">
+                    <h4>Sumatra PDF <span class="app-top5-price app-top5-free">Free</span></h4>
+                    <p>The fastest, lightest option — opens almost instantly with no library overhead. Best if you just want to read a file without any extra management layer.</p>
+                </div>
+            </div>
+            <div class="app-top5-item">
+                <span class="app-top5-rank">4</span>
+                <div class="app-top5-info">
+                    <h4>Wondershare PDFelement <span class="app-top5-price app-top5-paid">Paid</span></h4>
+                    <p>A premium, polished option worth it specifically for heavy PDF use — strong annotation tools and built-in translation, aimed at a book-like reading experience rather than just document viewing.</p>
+                </div>
+            </div>
+            <div class="app-top5-item">
+                <span class="app-top5-rank">5</span>
+                <div class="app-top5-info">
+                    <h4>Icecream Ebook Reader <span class="app-top5-price app-top5-freemium">Free, with a paid Pro tier</span></h4>
+                    <p>A simple, beginner-friendly reader with a clean bookshelf view. The free tier covers everyday reading; the Pro tier adds bulk importing, note-taking, and metadata editing.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="applicationsContainer" class="secondary-section">
+        <div class="category-section" style="padding:0 16px;">
+            <h2>🧩 Applications</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                A short list of apps worth knowing about — recommended by admins, with a link out to each one (GitHub or otherwise).
+            </p>
+        </div>
+
+        <div class="topbar" style="padding:0 16px;">
+            <div class="actions">
+                <button id="addCommunityAppBtn" class="launchBtn" style="flex:none;padding:8px 16px;display:none;">➕ Add App</button>
+            </div>
+        </div>
+
+        <div id="communityAppsEmptyState" class="category-section" style="padding:0 16px;display:none;">
+            <p style="color:var(--text-muted);font-size:13px;">No apps listed yet.</p>
+        </div>
+
+        <div id="communityAppsGrid" class="app-recommend-grid"></div>
+
+        <div class="category-section" style="padding:0 16px;margin-top:28px;">
+            <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">Made something worth adding?</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                If you've got an app you'd like listed here, click below to send us an email with its name and a link to it (GitHub or otherwise) and we'll take a look.
+            </p>
+            <button id="suggestAppEmailBtn" class="launchBtn" style="padding:8px 16px;">✉️ Suggest an App</button>
+            <p style="color:var(--text-muted);font-size:12px;margin-top:10px;">Or email us directly at <strong>canoaspt@gmail.com</strong> — handy if you don't have an email app set up.</p>
+        </div>
+    </div>
+
+    <div id="mangaContainer" class="secondary-section">
+        <div class="category-section" style="padding:0 16px;">
+            <h2>📕 Manga</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                Browse manga — covers, authors, and a link out to read or buy each one. Search or just scroll the default list below.
+            </p>
+        </div>
+        <div class="topbar reading-room-search-bar" style="padding:0 16px;">
+            <input type="text" id="mangaSearchInput" placeholder="Search manga...">
+        </div>
+        <div id="mangaGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
+    </div>
+
+    <div id="comicsContainer" class="secondary-section">
+        <div class="category-section" style="padding:0 16px;">
+            <h2>💥 Comics</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                Browse comic books — covers, authors, and a link out to read or buy each one. Search or just scroll the default list below.
+            </p>
+        </div>
+        <div class="topbar reading-room-search-bar" style="padding:0 16px;">
+            <input type="text" id="comicsSearchInput" placeholder="Search comics...">
+        </div>
+        <div id="comicsGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
+    </div>
+
+    <div id="sharedFolderContainer" class="secondary-section">
+        <div class="category-section" style="padding:0 16px;">
+            <h2>🔮 The Vault</h2>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+                A private space to share files with people you trust — invite-only, not visible to anyone outside your allowlist. Files are capped at <strong>50MB each</strong> (a Supabase free-plan limit) and expire automatically 1-24 hours after upload, your choice. Need to share something bigger? Use WeTransfer or SendGB below and post the link instead — links stay listed for 90 days.
+            </p>
+        </div>
+
+        <div id="sharedFolderLoading" class="category-section" style="padding:0 16px;">
+            <p style="color:var(--text-muted);font-size:13px;">Checking access...</p>
+        </div>
+
+        <div id="sharedFolderDenied" class="category-section" style="padding:0 16px;display:none;">
+            <div id="sharedFolderLoginRequired" style="display:none;">
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Log in to access The Vault — it's tied to your account so only people you trust can see what's shared with you.</p>
+                <button id="sharedFolderLoginBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🔑 Login</button>
+            </div>
+            <p id="sharedFolderNotAllowlisted" style="color:var(--text-muted);font-size:13px;">You don't currently have access to The Vault. Ask whoever manages it to add your username (<strong id="sharedFolderMyUsername"></strong>) to the allowlist, or request access below.</p>
+            <button id="requestVaultAccessBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🙋 Request Access</button>
+            <p id="requestVaultAccessStatus" style="color:var(--text-muted);font-size:12px;margin-top:8px;"></p>
+        </div>
+
+        <div id="sharedFolderContent" style="display:none;">
+            <div class="topbar" style="padding:0 16px;">
+                <div class="actions">
+                    <button id="uploadSharedFileBtn" class="launchBtn" style="flex:none;padding:8px 16px;">📤 Share a File</button>
+                    <button id="openWetransferBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🌐 Open WeTransfer</button>
+                    <button id="openSendgbBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🌐 Open SendGB</button>
+                    <button id="manageAllowlistBtn" class="launchBtn" style="flex:none;padding:8px 16px;display:none;">👥 Manage Allowlist</button>
+                    <button id="cleanVaultNowBtn" class="launchBtn" style="flex:none;padding:8px 16px;display:none;background:linear-gradient(135deg, #f87171, #ef4444);">🧹 Clean Now</button>
+                </div>
+            </div>
+
+            <div class="category-section" id="sharedFilesEmptyState" style="padding:0 16px;display:none;">
+                <p style="color:var(--text-muted);font-size:13px;">Nothing's been shared yet — be the first.</p>
+            </div>
+
+            <div id="sharedFilesList" class="shared-files-list"></div>
+
+            <div class="category-section" style="padding:0 16px;margin-top:28px;">
+                <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">🔗 Large File Links</h2>
+                <p style="color:var(--text-secondary);font-size:13px;">For anything over 50MB — upload it with WeTransfer or SendGB (or any similar site) and post the link here instead. Links stay listed for 90 days.</p>
+            </div>
+
+            <div class="topbar" style="padding:0 16px;">
+                <div class="actions">
+                    <button id="postShareLinkBtn" class="launchBtn" style="flex:none;padding:8px 16px;">➕ Post a Link</button>
+                </div>
+            </div>
+
+            <div class="category-section" id="sharedLinksEmptyState" style="padding:0 16px;display:none;">
+                <p style="color:var(--text-muted);font-size:13px;">No links posted yet.</p>
+            </div>
+
+            <div id="sharedLinksList" class="shared-files-list"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="uploadShareModal">
+        <div class="modal-box" style="max-width:440px;">
+            <h3>Share a File</h3>
+            <p style="color:var(--text-muted);font-size:11px;margin:-4px 0 10px;">Max 50MB per file (free plan limit)</p>
+            <div id="uploadFilePreview" class="upload-file-preview" style="display:none;"></div>
+            <p style="color:var(--text-secondary);font-size:13px;margin:0 0 6px;">How long should this be available?</p>
+            <div class="upload-expiry-options">
+                <button class="upload-expiry-option" data-hours="1">1 hour</button>
+                <button class="upload-expiry-option selected" data-hours="2">2 hours</button>
+                <button class="upload-expiry-option" data-hours="4">4 hours</button>
+                <button class="upload-expiry-option" data-hours="8">8 hours</button>
+                <button class="upload-expiry-option" data-hours="12">12 hours</button>
+                <button class="upload-expiry-option" data-hours="24">24 hours</button>
+            </div>
+            <textarea id="uploadShareDescription" placeholder="Optional note about this file..." style="width:100%;box-sizing:border-box;min-height:60px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+            <p id="uploadShareError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:6px 0 0;"></p>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="uploadShareCancelBtn">Cancel</button>
+                <button id="uploadShareConfirmBtn" class="launchBtn">Choose File & Share</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="postLinkModal">
+        <div class="modal-box" style="max-width:440px;">
+            <h3>Post a File Link</h3>
+            <p style="color:var(--text-muted);font-size:11px;margin:-4px 0 10px;">WeTransfer, SendGB, or any similar file-sharing link</p>
+            <input type="text" id="postLinkUrlInput" placeholder="Paste the WeTransfer or SendGB link here..." style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <textarea id="postLinkDescription" placeholder="What's in it?" style="width:100%;box-sizing:border-box;min-height:60px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+            <p id="postLinkError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:6px 0 0;"></p>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="postLinkCancelBtn">Cancel</button>
+                <button id="postLinkConfirmBtn" class="launchBtn">Post Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="allowlistModal">
+        <div class="modal-box" style="max-width:480px;">
+            <h3>Manage The Vault Allowlist</h3>
+            <div class="allowlist-add-row">
+                <input type="text" id="allowlistNewUsername" placeholder="Username to add...">
+                <button id="allowlistAddBtn" class="launchBtn" style="flex:none;padding:8px 14px;">Add</button>
+            </div>
+            <div id="allowlistCurrentList" class="allowlist-current-list"></div>
+
+            <h3 style="border-top:1px solid var(--border-color);padding-top:16px;margin-top:16px;">Pending Access Requests</h3>
+            <div id="allowlistRequestsList" class="allowlist-current-list"></div>
+
+            <button id="allowlistCloseBtn" style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-secondary);cursor:pointer;">Close</button>
+        </div>
+    </div>
+
+    <div class="topbar" id="theatreTopbar" style="display:none;">
+        <div class="actions" style="margin-left:auto;">
+            <select id="movieCitySelect"></select>
+            <select id="movieCountrySelect">
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="PT">Portugal</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="ES">Spain</option>
+                <option value="BR">Brazil</option>
+                <option value="IT">Italy</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="IE">Ireland</option>
+                <option value="CH">Switzerland</option>
+                <option value="AT">Austria</option>
+                <option value="MX">Mexico</option>
+                <option value="AR">Argentina</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="JP">Japan</option>
+                <option value="KR">South Korea</option>
+                <option value="CN">China</option>
+                <option value="HK">Hong Kong</option>
+                <option value="TW">Taiwan</option>
+                <option value="IN">India</option>
+                <option value="RU">Russia</option>
+                <option value="SE">Sweden</option>
+                <option value="NO">Norway</option>
+                <option value="DK">Denmark</option>
+                <option value="FI">Finland</option>
+                <option value="PL">Poland</option>
+                <option value="TR">Turkey</option>
+                <option value="GR">Greece</option>
+                <option value="CZ">Czechia</option>
+                <option value="HU">Hungary</option>
+                <option value="RO">Romania</option>
+                <option value="ZA">South Africa</option>
+                <option value="NZ">New Zealand</option>
+                <option value="PH">Philippines</option>
+                <option value="ID">Indonesia</option>
+                <option value="MY">Malaysia</option>
+                <option value="SG">Singapore</option>
+                <option value="TH">Thailand</option>
+                <option value="VN">Vietnam</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="EG">Egypt</option>
+                <option value="IL">Israel</option>
+                <option value="UA">Ukraine</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="theatreContainer" class="secondary-section">
+
+        <div class="section-info">
+            <p class="section-subtitle">Track shows, browse movies in theaters, and see where to watch.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
+                Track any TV series and see its latest episode with the air date front and center in Recently Released, plus a "Where to Watch" button — search for a series below to start tracking it. Browse movies currently playing in theaters near you with a full trailer preview, sound toggle, and a large "theater mode" view. Not sure what to watch? Hit Surprise Me down in the corner while you're in this section and it'll pick a movie for you.
+            </p>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🆕 Recently Released</h2>
+                <input type="text" id="recentEpisodesFilterInput" class="subsection-filter" placeholder="Filter by show name...">
+            </div>
+            <div id="recentEpisodesRow" class="recent-episodes-row"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>📺 My Shows</h2>
+            </div>
+            <div class="show-search-row">
+                <input type="text" id="showSearchInput" placeholder="Search for a series to track...">
+                <button id="showSearchBtn">Search</button>
+            </div>
+            <div id="showSearchResults" class="show-search-results"></div>
+            <input type="text" id="myShowsFilterInput" class="subsection-filter" placeholder="Filter your tracked shows...">
+            <div id="myShowsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎬 In Theaters</h2>
+            </div>
+            <input type="text" id="moviesFilterInput" class="subsection-filter" placeholder="Filter movies by name...">
+            <div id="moviesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+    </div>
+
+    <div id="newContainer" class="secondary-section">
+
+        <div class="section-info">
+            <p class="section-subtitle">Discover what's new across games, movies and TV.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
+                See what's newly released or coming soon across movies, TV series, and games. Add an upcoming series straight to My Shows, jump to a store page to buy an upcoming game, and preview any of them with a hover trailer and mute/unmute — all pulled from real, live sources.
+            </p>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎮 Upcoming Games</h2>
+            </div>
+            <div id="upcomingGamesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>🎬 Upcoming Movies</h2>
+            </div>
+            <div id="upcomingMoviesGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="theatre-block">
+            <div class="theatre-block-header">
+                <h2>📺 New Series</h2>
+            </div>
+            <div id="newShowsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+    </div>
+
+    <div id="introScreen" class="intro-screen">
+        <div class="intro-card">
+            <div class="intro-icon">🌌</div>
+            <h2>Welcome to Riftgate</h2>
+            <p class="intro-lead">
+                Your personal gateway to every game, app, and tool you use —
+                all in one place, launched with a click.
+            </p>
+
+            <div class="intro-steps">
+                <div class="intro-step">
+                    <span class="intro-step-num">1</span>
+                    <span>Click the <strong>+</strong> button above to add a game, app, or anything else you launch often.</span>
+                </div>
+                <div class="intro-step">
+                    <span class="intro-step-num">2</span>
+                    <span>Riftgate automatically finds cover art, a description, and a trailer for it online.</span>
+                </div>
+                <div class="intro-step">
+                    <span class="intro-step-num">3</span>
+                    <span>Hover any card to preview its trailer. Click <strong>Launch</strong> to open it instantly.</span>
+                </div>
+            </div>
+
+            <button id="introAddBtn" class="intro-cta">+ Add your first entry</button>
+        </div>
+    </div>
+
+    </div>
+
+    <div class="modal-overlay" id="pathModal">
+        <div class="modal-box">
+            <h3>Game Path</h3>
+            <p class="modal-path" id="modalPathText"></p>
+            <div class="modal-actions">
+                <button id="closeModalBtn">Close</button>
+                <button id="copyPathBtn">Copy Path</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="descModal">
+        <div class="modal-box">
+            <h3 id="descModalTitle">Description</h3>
+            <p class="modal-path" id="descModalText"></p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addAppModal">
+        <div class="modal-box" style="max-width:440px;">
+            <h3>Add App</h3>
+            <input type="text" id="addAppNameInput" placeholder="App name" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <input type="text" id="addAppUrlInput" placeholder="Link (GitHub or other) — include https://" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <input type="text" id="addAppAuthorInput" placeholder="Author (optional) — leave blank to use the GitHub repo owner" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <textarea id="addAppDescriptionInput" placeholder="Description (optional) — leave blank to auto-fetch from GitHub when possible" style="width:100%;box-sizing:border-box;min-height:70px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+            <p id="addAppError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:6px 0 0;"></p>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="addAppCancelBtn">Cancel</button>
+                <button id="addAppConfirmBtn" class="launchBtn">Add App</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editAppDescriptionModal">
+        <div class="modal-box" style="max-width:440px;">
+            <h3>Edit Details</h3>
+            <input type="text" id="editAppAuthorInput" placeholder="Author" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <textarea id="editAppDescriptionInput" placeholder="Description" style="width:100%;box-sizing:border-box;min-height:90px;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+            <p id="editAppDescriptionError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:6px 0 0;"></p>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="editAppDescriptionCancelBtn">Cancel</button>
+                <button id="editAppDescriptionConfirmBtn" class="launchBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="vault-preview-popup" id="vaultImagePreview">
+        <div class="modal-box" style="padding:8px;">
+            <img id="vaultImagePreviewImg" style="display:block;max-width:100%;max-height:70vh;border-radius:6px;">
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="notesModal">
+        <div class="modal-box">
+            <h3 id="notesModalTitle">Notes & Tags</h3>
+            <textarea id="notesModalText" class="notes-textarea" placeholder="Personal notes... (e.g. left off at Act 3)"></textarea>
+            <input type="text" id="tagsModalInput" class="tags-input" placeholder="Tags, comma separated (e.g. co-op, chill)">
+
+            <div class="fix-info-block">
+                <label class="fix-info-label">Is the description wrong? Tell us what this actually is:</label>
+                <div class="fix-info-row">
+                    <input type="text" id="fixInfoInput" class="fix-info-input" placeholder="e.g. Battlefield 6 (multiplayer shooter)">
+                    <button id="fixInfoBtn" class="fix-info-btn">🔄 Re-fetch</button>
+                </div>
+                <div id="fixInfoStatus" class="fix-info-status"></div>
+            </div>
+
+            <div class="fix-info-block">
+                <label class="fix-info-label">Wrong trailer? Paste the correct YouTube link:</label>
+                <div class="fix-info-row">
+                    <input type="text" id="fixTrailerInput" class="fix-info-input" placeholder="e.g. https://youtube.com/watch?v=...">
+                    <button id="fixTrailerBtn" class="fix-info-btn">🎬 Set</button>
+                </div>
+                <div id="fixTrailerStatus" class="fix-info-status"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="notesCloseBtn">Close</button>
+                <button id="notesSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="milestoneToast" class="milestone-toast"></div>
+
+    <div class="bottom-bar">
+        <div id="bottomBarVersion" class="bottom-bar-version"></div>
+    </div>
+
+    <div class="modal-overlay" id="theaterModal">
+        <div class="theater-modal-box">
+            <button id="theaterCloseBtn" class="theater-close">✕</button>
+            <div id="theaterVideoWrap" class="theater-video-wrap"></div>
+            <div class="theater-actions">
+                <button id="theaterYoutubeBtn">▶ Watch on YouTube</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="newInstallModal">
+        <div class="modal-box" style="max-width:460px;">
+            <h3>New Install Detected</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                It looks like you just installed the following. Add any of these to Riftgate?
+            </p>
+            <div id="newInstallList" class="suggestions-list" style="max-height:260px;"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="newInstallCloseBtn">Not Now / Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="missingGamesModal">
+        <div class="modal-box" style="max-width:460px;">
+            <h3>Some Items Weren't Found</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                These no longer seem to be installed at their saved location — probably uninstalled or moved. Remove them from Riftgate?
+            </p>
+            <div id="missingGamesList" class="suggestions-list" style="max-height:260px;"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button id="missingGamesCloseBtn">Keep All / Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="wheelModal">
+        <div class="modal-box wheel-box">
+            <h3 id="wheelTitle">Feeling lucky?</h3>
+
+            <div class="wheel-wrap" id="wheelPieWrap">
+                <div class="wheel-pointer">▼</div>
+                <div class="wheel-rim" id="wheelRim"></div>
+                <div class="wheel" id="wheelEl"></div>
+            </div>
+
+            <div class="slot-reel-wrap" id="slotReelWrap" style="display:none;">
+                <div class="slot-reel-marker"></div>
+                <div class="slot-reel-window">
+                    <div class="slot-reel-track" id="slotReelTrack"></div>
+                </div>
+            </div>
+
+            <div id="wheelMessage" class="wheel-message"></div>
+
+            <div id="wheelResult" class="wheel-result">
+                <img id="wheelResultImg" class="wheel-result-img" src="" alt="">
+                <div id="wheelResultName" class="wheel-result-name"></div>
+                <div id="wheelResultMeta" class="wheel-result-meta"></div>
+                <div class="wheel-actions">
+                    <button id="wheelPlayBtn" class="wheel-action-btn wheel-play">Play</button>
+                    <button id="wheelSpinAgainBtn" class="wheel-action-btn">Spin Again</button>
+                    <button id="wheelQuitBtn" class="wheel-action-btn">Quit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="changelogModal">
+        <div class="modal-box">
+            <h3 id="changelogTitle">What's New</h3>
+            <div id="changelogBody" class="changelog-body"></div>
+            <div class="modal-actions">
+                <button id="changelogCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="updateModal">
+        <div class="modal-box">
+            <h3 id="updateModalTitle">Update Available</h3>
+            <div id="updateModalBody" class="changelog-body"></div>
+            <div id="updateProgressWrap" class="update-progress-wrap" style="display:none;">
+                <div class="update-progress-track">
+                    <div id="updateProgressFill" class="update-progress-fill"></div>
+                </div>
+                <p id="updateProgressLabel" class="update-progress-label">Downloading...</p>
+            </div>
+            <div class="modal-actions" id="updateModalActions">
+                <button id="updateLaterBtn">Keep Using This Version</button>
+                <button id="updateNowBtn" class="wheel-play">Update Now</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="importModal">
+        <div class="modal-box">
+            <h3>New game found</h3>
+            <p id="importModalText" class="import-modal-text"></p>
+            <div class="modal-actions">
+                <button id="importLaterBtn">Add Later</button>
+                <button id="importYesBtn" class="wheel-play">Yes, Add It</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="scanResultsModal">
+        <div class="modal-box scan-results-box">
+            <h3>Scan results</h3>
+            <p class="import-modal-text" id="scanResultsSummary"></p>
+            <div class="scan-results-actions">
+                <button id="scanResultsSelectAllBtn" type="button">Select All</button>
+                <button id="scanResultsSelectNoneBtn" type="button">Select None</button>
+            </div>
+            <div id="scanResultsList" class="scan-results-list"></div>
+            <div class="modal-actions">
+                <button id="scanResultsCancelBtn">Cancel</button>
+                <button id="scanResultsAddBtn" class="wheel-play">Add Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="categoryModal">
+        <div class="modal-box">
+            <h3>What kind of entry is this?</h3>
+            <div class="category-options">
+                <button class="categoryOption" data-category="game">🎮 Game</button>
+                <button class="categoryOption" data-category="app">🖥️ App</button>
+                <button class="categoryOption" data-category="vr">🥽 VR</button>
+                <button class="categoryOption" data-category="other">📦 Other</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- "What's new" guided tour — spotlights new/changed UI one piece at a
+         time (see FEATURE_TOURS / runFeatureTour in renderer.js). Hidden by
+         default; shown at most once per version. -->
+    <div id="tourOverlayGroup" style="display:none;">
+        <div id="tourDimTop" class="tour-dim"></div>
+        <div id="tourDimBottom" class="tour-dim"></div>
+        <div id="tourDimLeft" class="tour-dim"></div>
+        <div id="tourDimRight" class="tour-dim"></div>
+        <div id="tourHighlightRing"></div>
+        <div id="tourTooltip">
+            <div id="tourTooltipStep" class="tour-tooltip-step"></div>
+            <h3 id="tourTooltipTitle"></h3>
+            <p id="tourTooltipDesc"></p>
+            <div class="tour-tooltip-actions">
+                <button id="tourSkipBtn">Skip Tour</button>
+                <button id="tourNextBtn" class="wheel-play">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+
+</body>
+
+</html>
