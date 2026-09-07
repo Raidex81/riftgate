@@ -1,0 +1,2 @@
+This is a test file to confirm the git collaboration workflow works end to end:
+Claude commits -> user pushes -> friend pulls.
