@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Riftgate — Your Games, Your Apps, Your Media, One Gateway</title>
-<meta name="description" content="Riftgate is a single desktop hub for your game library, free game tracking, movies and shows, an eBook reading room, and a private space to share files with people you trust.">
+<title>Riftgate — Your games. Your apps. Your media. One gateway.</title>
+<meta name="description" content="Riftgate is a unified desktop launcher for Windows — organize your games and apps, catch free titles on Steam and Epic, and track the movies and shows you care about, all in one place.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site-style.css">
 </head>
 <body>
@@ -16,158 +16,166 @@
 
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">
-      <svg class="brand-gem" viewBox="0 0 100 100" width="28" height="28">
-        <polygon points="50,50 50,10 85,32.5" fill="url(#gA)"/>
-        <polygon points="50,50 85,32.5 85,67.5" fill="url(#gB)"/>
-        <polygon points="50,50 85,67.5 50,90" fill="url(#gC)"/>
-        <polygon points="50,50 50,90 15,67.5" fill="url(#gC)"/>
-        <polygon points="50,50 15,67.5 15,32.5" fill="url(#gB)"/>
-        <polygon points="50,50 15,32.5 50,10" fill="url(#gA)"/>
-        <defs>
-          <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
-          <linearGradient id="gB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ec4899"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
-          <linearGradient id="gC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4c1d95"/><stop offset="1" stop-color="#1e1033"/></linearGradient>
-        </defs>
-      </svg>
-      <span>RIFTGATE</span>
-    </div>
+    <div class="brand">💠 <span>RIFTGATE</span></div>
     <nav>
-      <a href="#pillars">What's inside</a>
-      <a href="#vault">The Vault</a>
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a href="#download" class="btn btn-small">Download</a>
+    <a class="btn btn-primary btn-small" href="https://github.com/Raidex81/Riftgate/releases/latest">Download</a>
   </div>
 </header>
 
-<main>
-
-  <section class="hero">
-    <div class="hero-gem-stage" aria-hidden="true">
-      <svg class="hero-gem" viewBox="0 0 200 200">
-        <polygon class="facet f1" points="100,100 100,20 170,65"/>
-        <polygon class="facet f2" points="100,100 170,65 170,135"/>
-        <polygon class="facet f3" points="100,100 170,135 100,180"/>
-        <polygon class="facet f4" points="100,100 100,180 30,135"/>
-        <polygon class="facet f5" points="100,100 30,135 30,65"/>
-        <polygon class="facet f6" points="100,100 30,65 100,20"/>
-      </svg>
+<section class="hero">
+  <div class="hero-content">
+    <span class="pillar-tag" style="margin-bottom:14px;display:inline-block;">✨ Just redesigned</span>
+    <h1>Your games. Your apps.<br>Your media. One gateway.</h1>
+    <p class="hero-sub">Riftgate is a unified desktop launcher for Windows — organize every game and app you run, discover what's free right now on Steam and Epic, keep track of the movies and shows you care about, and let it surprise you when you can't decide. All in one place, in a UI that just went through a full redesign.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-large" href="https://github.com/Raidex81/Riftgate/releases/latest">👉 Download for Windows</a>
+      <a class="btn btn-ghost btn-large" href="https://github.com/Raidex81/Riftgate">View on GitHub</a>
     </div>
+    <p class="hero-note">Free installer · Auto-updates after your first install · Windows 10/11</p>
+  </div>
+  <div class="hero-gem-stage">
+    <svg class="hero-gem" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon class="facet f1" points="100,18 58,68 100,92" />
+      <polygon class="facet f2" points="100,18 142,68 100,92" />
+      <polygon class="facet f3" points="58,68 18,92 100,92" />
+      <polygon class="facet f4" points="142,68 182,92 100,92" />
+      <polygon class="facet f5" points="18,92 100,92 100,182" />
+      <polygon class="facet f6" points="182,92 100,92 100,182" />
+    </svg>
+  </div>
+</section>
 
-    <div class="hero-content">
-      <h1>One gateway.<br>Everything you keep on your PC.</h1>
-      <p class="hero-sub">Riftgate brings your game library, free-game tracking, movies and shows, an eBook room, and a private space to share files with people you trust — into a single desktop app.</p>
-      <div class="hero-actions">
-        <a href="#download" class="btn btn-primary">Download for Windows</a>
-        <a href="#pillars" class="btn btn-ghost">See what's inside</a>
-      </div>
-      <p class="hero-note">Free. No account required to use your own library.</p>
-    </div>
-  </section>
+<section class="pillars" id="features">
+  <div class="section-head">
+    <h2>Everything you use, in one window</h2>
+    <p>Riftgate brings your library, your backlog, and your watchlist together — so you stop hopping between launchers, tabs, and apps just to find something to play.</p>
+  </div>
 
-  <section class="pillars" id="pillars">
-    <div class="section-head">
-      <h2>Five rooms, one door in.</h2>
-      <p>Riftgate doesn't replace your launchers or your storage drive — it sits on top of what you already have, and gives it a home.</p>
+  <div class="pillar-row">
+    <div class="pillar-text">
+      <span class="pillar-tag">📀 Installed Library</span>
+      <h3>Every game and app, one shelf.</h3>
+      <p>Drag a shortcut or .exe straight onto the page to add it, drag any card to reorder, and let Riftgate auto-fetch cover art, descriptions, and hover trailers for you. Apps get their own clean, icon-first card instead of being squeezed into a game's box-art frame.</p>
     </div>
+    <div class="pillar-visual pillar-visual--games pillar-visual--shot">
+      <img src="screenshots/installed-library.jpg" alt="Riftgate's Installed Library showing games like Battlefield 6, Beat Saber, and Diablo IV" loading="lazy">
+    </div>
+  </div>
 
-    <div class="pillar-row">
-      <div class="pillar-visual pillar-visual--games">
-        <div class="mock-grid">
-          <div class="mock-cover c1"></div>
-          <div class="mock-cover c2"></div>
-          <div class="mock-cover c3"></div>
-          <div class="mock-cover c4"></div>
-        </div>
-      </div>
-      <div class="pillar-text">
-        <span class="pillar-tag">Your Library</span>
-        <h3>Every game you own, in one shelf.</h3>
-        <p>Import installs from Steam, Epic, GOG, and beyond. Custom categories, playtime tracking, notes and tags — organized the way you actually think about your collection, not how a storefront filed it.</p>
-      </div>
+  <div class="pillar-row reverse">
+    <div class="pillar-text">
+      <span class="pillar-tag pillar-tag--light">🎁 Free Games</span>
+      <h3>Never miss what's free.</h3>
+      <p>A live, auto-updating feed of what's free to keep or free to play right now on Steam and Epic Games — so a good deal never slips by unnoticed.</p>
     </div>
+    <div class="pillar-visual pillar-visual--shot">
+      <img src="screenshots/free-games.jpg" alt="Riftgate's Free Games section showing free-to-keep titles from Epic Games and Steam" loading="lazy">
+    </div>
+  </div>
 
-    <div class="pillar-row reverse">
-      <div class="pillar-visual pillar-visual--free">
-        <div class="mock-ticker">
-          <div class="ticker-line"></div>
-          <div class="ticker-line short"></div>
-          <div class="ticker-line"></div>
-        </div>
-      </div>
-      <div class="pillar-text">
-        <span class="pillar-tag">Free Games</span>
-        <h3>Never miss what's free this week.</h3>
-        <p>Epic's weekly giveaway, Steam's limited-time frees, GOG's promotions — tracked automatically and refreshed quietly in the background, so you see what's new the moment you open the app.</p>
-      </div>
+  <div class="pillar-row">
+    <div class="pillar-text">
+      <span class="pillar-tag">🎬 Theatre</span>
+      <h3>Your shows and movies, tracked.</h3>
+      <p>Follow TV series for new episodes, browse what's currently playing near you, and preview any title with a full-screen trailer before you commit.</p>
     </div>
+    <div class="pillar-visual pillar-visual--shot">
+      <img src="screenshots/theatre.jpg" alt="Riftgate's Theatre section showing recently released episodes and tracked shows" loading="lazy">
+    </div>
+  </div>
 
-    <div class="pillar-row">
-      <div class="pillar-visual pillar-visual--theatre">
-        <div class="mock-reel"></div>
-      </div>
-      <div class="pillar-text">
-        <span class="pillar-tag">Theatre</span>
-        <h3>What's in theaters, what's worth tracking.</h3>
-        <p>Now playing near you, upcoming releases, and a watchlist for shows you're following — with trailers a hover away.</p>
-      </div>
+  <div class="pillar-row reverse">
+    <div class="pillar-text">
+      <span class="pillar-tag pillar-tag--light">📚 Reading Room</span>
+      <h3>Four ways to find your next read.</h3>
+      <p>Buy current best sellers and new releases, discover free public-domain books, keep your own personal EPUB/PDF library — with drag-and-drop that works even while Riftgate is closed — and browse recommended eBook reader apps. Your recently opened titles are always one click away.</p>
     </div>
+    <div class="pillar-visual pillar-visual--shot">
+      <img src="screenshots/reading-room.jpg" alt="Riftgate's Reading Room section showing popular and best-selling books" loading="lazy">
+    </div>
+  </div>
 
-    <div class="pillar-row reverse">
-      <div class="pillar-visual pillar-visual--reading">
-        <div class="mock-spine s1"></div>
-        <div class="mock-spine s2"></div>
-        <div class="mock-spine s3"></div>
-      </div>
-      <div class="pillar-text">
-        <span class="pillar-tag">Reading Room</span>
-        <h3>Your books, and thousands more to find.</h3>
-        <p>Drop in your own EPUBs and PDFs, or browse public-domain classics and current releases without leaving the app. One shelf for everything you're reading.</p>
-      </div>
+  <div class="pillar-row">
+    <div class="pillar-text">
+      <span class="pillar-tag">🧩 Applications</span>
+      <h3>A shelf of apps worth knowing about.</h3>
+      <p>A short, curated list of genuinely useful apps recommended by admins, each with a link straight out to it. Found something worth adding? Suggest it from right inside the app.</p>
     </div>
-  </section>
+    <div class="pillar-visual pillar-visual--shot">
+      <img src="screenshots/applications.jpg" alt="Riftgate's Applications section showing a curated list of recommended apps" loading="lazy">
+    </div>
+  </div>
 
-  <section class="vault" id="vault">
-    <div class="vault-inner">
-      <span class="pillar-tag pillar-tag--light">Private, invite-only</span>
-      <h2>A room that's only yours.</h2>
-      <p>The Vault is a private space inside Riftgate for sharing files with people you actually trust — not the public internet. Invite-only access, automatic cleanup, nothing that overstays its welcome.</p>
-      <ul class="vault-list">
-        <li>Files expire on your schedule — an hour, a few, or gone by tomorrow</li>
-        <li>You decide exactly who's allowed in</li>
-        <li>Built for the things you make with friends, not for the world</li>
-      </ul>
+  <div class="pillar-row reverse">
+    <div class="pillar-text">
+      <span class="pillar-tag pillar-tag--light">🔒 The Vault</span>
+      <h3>A private space of your own.</h3>
+      <p>Share files with people you trust — invite-only, invisible to anyone outside your allowlist, and automatically expiring so nothing lingers. Need to share something bigger? Post a WeTransfer link instead.</p>
     </div>
-  </section>
+    <div class="pillar-visual pillar-visual--shot">
+      <img src="screenshots/vault.jpg" alt="Riftgate's Vault section showing private file sharing and WeTransfer links" loading="lazy">
+    </div>
+  </div>
+</section>
 
-  <section class="download" id="download">
-    <h2>Step through.</h2>
-    <p>Riftgate runs on Windows. Free to use with your own library.</p>
-    <a href="https://github.com/Raidex81/Riftgate/releases/latest" class="btn btn-primary btn-large">Download Riftgate</a>
-    <p class="download-note">Windows will show a publisher warning on install — Riftgate isn't code-signed yet. Click "More info" → "Run anyway."</p>
-  </section>
+<section class="vault">
+  <div class="vault-inner">
+    <span class="pillar-tag">✨ And there's more</span>
+    <h2>Built for how you actually spend your evening.</h2>
+    <p>A few more things that come with every install:</p>
+    <ul class="vault-list">
+      <li><strong>🆕 New</strong> — one feed for what's newly released or coming soon, across movies, series, and games, with hover trailers built right in.</li>
+      <li><strong>🎲 Surprise Me</strong> — can't decide? Spin it. It already knows what section you're in, and the result comes with real context — genre, whether you've played it before and when, release info, all of it.</li>
+      <li><strong>🎨 Nine color themes</strong>, light and dark mode, adjustable grid density, and a first-run tour that walks you through everything.</li>
+      <li><strong>🔄 Automatic updates</strong> — install once, and every update after that installs itself.</li>
+    </ul>
+  </div>
+</section>
 
-  <section class="faq" id="faq">
-    <h2>Before you ask</h2>
-    <div class="faq-item">
-      <h3>Does Riftgate cost anything?</h3>
-      <p>No. Riftgate itself is free. Some content it surfaces (like the Buy Books section) links out to things you'd purchase elsewhere, but the app doesn't charge for anything.</p>
-    </div>
-    <div class="faq-item">
-      <h3>Does it need an account?</h3>
-      <p>No account is needed to manage your own library. A simple nickname is used only for optional community features, like The Vault.</p>
-    </div>
-    <div class="faq-item">
-      <h3>Is my data sent anywhere?</h3>
-      <p>Your library, notes, and settings stay on your machine. Only optional, opt-in features (like sharing a file in The Vault) ever leave your computer.</p>
-    </div>
-  </section>
+<section class="download" id="download">
+  <h2>Get Riftgate</h2>
+  <p>Free to download. Look for <strong>Assets</strong> on the release page and grab the <code>.exe</code> installer.</p>
+  <a class="btn btn-primary btn-large" href="https://github.com/Raidex81/Riftgate/releases/latest">👉 Download the latest version</a>
+  <p class="download-note">First-time install note: Windows may show a blue "Windows protected your PC" screen — this is normal for independently-published apps that aren't digitally signed yet. Click <strong>More info → Run anyway</strong> to continue. This only happens once; every update after that installs itself automatically through the app.</p>
+</section>
 
-</main>
+<section class="faq" id="faq">
+  <h2>Frequently asked questions</h2>
+
+  <div class="faq-item">
+    <h3>Is Riftgate free?</h3>
+    <p>Yes. Download and use it at no cost.</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>Do I need to sign in to use it?</h3>
+    <p>No — Riftgate works right away. Signing in is only there for features like The Vault, and once you've logged in you stay logged in on your device until you choose to log out.</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>Why does Windows warn me when I install it?</h3>
+    <p>Riftgate is an independently published app and isn't digitally signed, so Windows SmartScreen shows a caution screen the first time. Click <strong>More info → Run anyway</strong> to proceed — it only happens on the first install.</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>Will I have to keep reinstalling it?</h3>
+    <p>No. After your first install, Riftgate checks for and installs updates automatically.</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>Is this open source?</h3>
+    <p>Riftgate is a personal project and all rights are reserved. It isn't currently open for external contributions, but the source is visible on GitHub if you'd like to look around.</p>
+  </div>
+</section>
 
 <footer>
-  <p>Riftgate — built by one person, for people who keep too many tabs open.</p>
+  Riftgate — a personal project, built with Electron. All rights reserved.
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Raidex81/Riftgate">GitHub</a>
 </footer>
 
 </body>
