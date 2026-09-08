@@ -1415,6 +1415,53 @@ body.density-compact .categoryPicker{
     cursor:pointer;
 }
 
+/* My Library's own topbar (sort/Drop Folder/+) had no rules of its own,
+   so it was falling back to plain unstyled browser controls — a white
+   select box and flat gray buttons — instead of matching the rest of
+   the app's dark theme. */
+#readingRoomSortSelect{
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    cursor:pointer;
+}
+
+#openDropzoneBtn{
+    padding:9px 14px;
+    border-radius:10px;
+    border:1px solid var(--border-color);
+    background:var(--bg-secondary);
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+#openDropzoneBtn:hover{
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+}
+
+#addEbookBtn{
+    width:40px;
+    height:40px;
+    border:none;
+    border-radius:50%;
+    background:#238636;
+    color:white;
+    font-size:22px;
+    cursor:pointer;
+    transition:background .2s;
+}
+
+#addEbookBtn:hover{
+    background:#2ea043;
+}
+
 /* ================= Favorite star ================= */
 
 .favoriteBtn{
@@ -2155,6 +2202,28 @@ body.is-fullscreen #mainContent{
     padding:8px 10px;
 }
 
+/* The header search bar's mature-content checkbox — grouped into one
+   clearly-bounded pill with its label so the checkbox and "Show mature
+   content" read as a single control, not two unrelated things sitting
+   near each other. */
+.mature-search-toggle-wrap{
+    align-items:center;
+    gap:6px;
+    margin-left:8px;
+    padding:6px 10px;
+    border-radius:20px;
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    font-size:12px;
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.mature-search-toggle-label{
+    color:var(--text-primary);
+    font-weight:600;
+}
+
 .sectionOption:hover{
     background:var(--bg-tertiary);
     color:var(--text-primary);
@@ -2194,7 +2263,7 @@ body.is-fullscreen #mainContent{
 .theatre-block-header{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-start;
     gap:14px;
     margin-bottom:14px;
     flex-wrap:wrap;
@@ -2206,6 +2275,18 @@ body.is-fullscreen #mainContent{
     margin:0;
 }
 
+/* Whatever trailing control sits after the heading (a select, a filter
+   input) is pushed flush to the row's right edge with its own left
+   auto-margin, instead of justify-content:space-between — space-between
+   only reliably pins a lone trailing item to the right when the row has
+   exactly two items on one line. The moment the row wraps onto its own
+   line on a narrower window, a single leftover item lands back at the
+   LEFT edge instead of staying where it belongs, on the right. */
+.theatre-block-header select,
+.theatre-block-header .subsection-filter{
+    margin-left:auto;
+}
+
 .theatre-block-header select{
     padding:8px 10px;
     border-radius:8px;
@@ -2213,6 +2294,11 @@ body.is-fullscreen #mainContent{
     background:var(--bg-tertiary);
     color:var(--text-primary);
     font-size:12px;
+}
+
+.theatre-block-header .subsection-filter{
+    width:200px;
+    margin-bottom:0;
 }
 
 .show-search-row{

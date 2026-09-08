@@ -561,9 +561,9 @@
 
         <div class="global-search" id="globalSearchWrap">
             <input type="text" id="globalSearchInput" placeholder="🔍 Search your games, free games, books, and shows…" autocomplete="off">
-            <label id="matureSearchToggleWrap" title="Include mature content in search results and lists" style="display:none;align-items:center;gap:4px;margin-left:8px;font-size:12px;white-space:nowrap;cursor:pointer;">
+            <label id="matureSearchToggleWrap" title="Include mature content in search results and lists" class="mature-search-toggle-wrap" style="display:none;">
                 <input type="checkbox" id="matureSearchToggle">
-                🔞 <span style="color:var(--text-secondary);">Show mature content</span>
+                <span class="mature-search-toggle-label">🔞 Show mature content</span>
             </label>
             <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
         </div>
@@ -654,8 +654,10 @@
         >
     </div>
 
-    <div class="category-section" id="buyFreeIntroSection" style="padding:0 16px;">
-        <p style="color:var(--text-muted);font-size:12px;margin:-4px 0 4px;">
+    <div class="section-info" id="buyFreeIntroSection">
+        <p class="section-subtitle">A broader catalog beyond public-domain classics — current and mainstream books, with purchase links.</p>
+        <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+        <p class="section-blurb">
             A broader catalog beyond public-domain classics — current and mainstream books, with purchase links. Anything free found here moves to the top of Discover Online instead. "Most Sold" reflects search relevance, not verified sales figures — no free, real bestseller-ranking API exists.
         </p>
     </div>
@@ -778,9 +780,10 @@
 
     <div id="readingRoomContainer" class="games-grid browse-grid"></div>
 
-    <div class="category-section" id="discoverIntroSection" style="margin-top:28px;padding:0 16px;">
-        <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">📚 Free eBooks to Discover</h2>
-        <p style="color:var(--text-muted);font-size:12px;margin:-4px 0 4px;">
+    <div class="section-info" id="discoverIntroSection">
+        <p class="section-subtitle">📚 Free eBooks to Discover — public domain classics from Project Gutenberg.</p>
+        <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+        <p class="section-blurb">
             Public domain classics from Project Gutenberg — click a cover for its description, then Download to add it straight to your library above.
         </p>
     </div>
@@ -806,9 +809,10 @@
     </div>
 
     <div id="recommendedReadersSection">
-        <div class="category-section" style="padding:0 16px;">
-            <h2 style="padding-top:20px;">📖 Recommended eBook Readers</h2>
-            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+        <div class="section-info" style="padding-top:20px;">
+            <p class="section-subtitle">📖 Recommended eBook Readers — free, no-ads options for opening what you download.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
                 To open books you download or add to your library, Riftgate hands off to whatever your system has set as the default app for that file type. We recommend installing one of these two free, no-ads readers and setting it as your default for EPUB and PDF files:
             </p>
         </div>
@@ -903,27 +907,29 @@
     </div>
 
     <div id="mangaContainer" class="secondary-section">
-        <div class="category-section" style="padding:0 16px;">
-            <h2>📕 Manga</h2>
-            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+        <div class="topbar reading-room-search-bar" style="padding:0 16px 14px;">
+            <input type="text" id="mangaSearchInput" placeholder="Search manga...">
+        </div>
+        <div class="section-info">
+            <p class="section-subtitle">Browse manga — covers, authors, and a link out to read or buy each one.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
                 Browse manga — covers, authors, and a link out to read or buy each one. Search or just scroll the default list below.
             </p>
-        </div>
-        <div class="topbar reading-room-search-bar" style="padding:0 16px;">
-            <input type="text" id="mangaSearchInput" placeholder="Search manga...">
         </div>
         <div id="mangaGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
     </div>
 
     <div id="comicsContainer" class="secondary-section">
-        <div class="category-section" style="padding:0 16px;">
-            <h2>💥 Comics</h2>
-            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
+        <div class="topbar reading-room-search-bar" style="padding:0 16px 14px;">
+            <input type="text" id="comicsSearchInput" placeholder="Search comics...">
+        </div>
+        <div class="section-info">
+            <p class="section-subtitle">Browse comic books — covers, authors, and a link out to read or buy each one.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
                 Browse comic books — covers, authors, and a link out to read or buy each one. Search or just scroll the default list below.
             </p>
-        </div>
-        <div class="topbar reading-room-search-bar" style="padding:0 16px;">
-            <input type="text" id="comicsSearchInput" placeholder="Search comics...">
         </div>
         <div id="comicsGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
     </div>
@@ -1165,6 +1171,7 @@
         <div class="theatre-block">
             <div class="theatre-block-header">
                 <h2>📺 New Series</h2>
+                <input type="text" id="newShowsFilterInput" class="subsection-filter" placeholder="Filter by show name...">
             </div>
             <div id="newShowsGrid" class="games-grid browse-grid"></div>
         </div>

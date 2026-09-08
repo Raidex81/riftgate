@@ -1073,7 +1073,13 @@ const CHANGELOG = {
         "Fixed: a Steam game that stopped being free (a limited-time promo ending) but was still a perfectly normal store listing wasn't being caught at all — only outright delistings were checked for; current price is now checked too.",
         "Fixed: a forced Free Games refresh looked like it was doing nothing when there were thousands of Steam games to re-verify — it really was working, just one request every 1.2 seconds against a list that can run into the thousands, which could take well over an hour before anything was saved. It now checks several at once with a short pause between batches (a few minutes for the whole catalog instead of over an hour), and saves progress as it goes instead of only at the very end, so closing Riftgate partway through a big check no longer throws away everything it already found.",
         "Fixed: every search/filter box (Games, Free Games, Reading Room, Manga, Comics, Movies, Shows, the header search) now clears itself when you switch to a different section or Reading Room tab, instead of leaving old search text and results sitting there",
-        "Changed: more breathing room in the header and Reading Room tabs — a divider now separates the search/login area from the notification/Surprise Me/power icons, and the tabs sit in their own lightly-shaded strip instead of everything reading as one dense row"
+        "Changed: more breathing room in the header and Reading Room tabs — a divider now separates the search/login area from the notification/Surprise Me/power icons, and the tabs sit in their own lightly-shaded strip instead of everything reading as one dense row",
+        "New: on a brand-new install, Free Games finds Steam's currently-free titles directly from Steam's own live search instead of checking thousands of games one by one — the very first refresh finishes in moments instead of taking a long time",
+        "Changed: every Reading Room tab (Buy Books, Discover Online, My Library, Manga, Comics) now shows its search bar in the same spot and its description in the same expandable \"ⓘ About\" format, instead of each tab looking laid out differently",
+        "Fixed: Manga and Comics' search bar sat flush against the list below it, unlike every other Reading Room tab",
+        "Fixed: My Library's sort dropdown, Drop Folder, and + buttons looked like plain unstyled Windows controls instead of matching the rest of Riftgate",
+        "New: New Series now has its own filter box, like Recent Episodes already did",
+        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge"
     ],
     "1.3.2": [
         "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
@@ -3555,6 +3561,7 @@ function resetAllSectionSearchBars() {
     clearSearchBar(moviesFilterInput);
     clearSearchBar(myShowsFilterInput);
     clearSearchBar(recentEpisodesFilterInput);
+    clearSearchBar(newShowsFilterInput);
     resetReadingRoomSearchBars();
 
     if (showSearchInput && showSearchInput.value) {
@@ -5665,21 +5672,26 @@ async function loadUpcomingMovies() {
 }
 
 let newShowsCache = [];
+const newShowsFilterInput = document.getElementById("newShowsFilterInput");
 
 function renderNewShows() {
     const grid = document.getElementById("newShowsGrid");
+    const filterTerm = newShowsFilterInput.value.trim().toLowerCase();
     const visible = canSeeMatureContent()
         ? newShowsCache
         : newShowsCache.filter((s) => !isItemMature("show", s.id, s.isMature));
+    const filtered = filterTerm
+        ? visible.filter((s) => s.name.toLowerCase().includes(filterTerm))
+        : visible;
 
-    if (visible.length === 0) {
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+    if (filtered.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${visible.length === 0 ? "No results — a TMDB API key may be needed in main.js." : "No new series match your filter."}</p>`;
         return;
     }
 
     grid.innerHTML = "";
 
-    sortNoCoverLast(visible, "image").forEach((show) => {
+    sortNoCoverLast(filtered, "image").forEach((show) => {
         const card = document.createElement("div");
         card.className = "game-card";
         // show.name/description come from TMDB's own listing data —
@@ -5751,6 +5763,8 @@ function renderNewShows() {
 
     attachSeeMore(grid);
 }
+
+newShowsFilterInput.addEventListener("input", renderNewShows);
 
 async function loadNewShows() {
     const grid = document.getElementById("newShowsGrid");

@@ -20,6 +20,7 @@ let FREEGAMES_SEEN_FILE;
 let FREEGAMES_UNAVAILABLE_FILE;
 let FREEGAMES_VERIFIED_FILE;
 let FREEGAMES_LAST_REFRESH_FILE;
+let FREEGAMES_BULK_SEARCH_DONE_FILE;
 let TRAILER_CACHE_FILE;
 let SESSION_FILE;
 let EBOOKS_FILE;
@@ -771,6 +772,7 @@ function initUserData() {
     FREEGAMES_UNAVAILABLE_FILE = path.join(userDataDir, "freegames-unavailable.json");
     FREEGAMES_VERIFIED_FILE = path.join(userDataDir, "freegames-verified.json");
     FREEGAMES_LAST_REFRESH_FILE = path.join(userDataDir, "freegames-last-refresh.json");
+    FREEGAMES_BULK_SEARCH_DONE_FILE = path.join(userDataDir, "freegames-bulk-search-done.json");
     TRAILER_CACHE_FILE = path.join(userDataDir, "trailer-cache.json");
     SESSION_FILE = path.join(userDataDir, "session.dat");
     EBOOKS_FILE = path.join(userDataDir, "ebooks.json");
@@ -833,6 +835,31 @@ function initUserData() {
 
     if (!fs.existsSync(FREEGAMES_LAST_REFRESH_FILE)) {
         fs.writeFileSync(FREEGAMES_LAST_REFRESH_FILE, "{}");
+    }
+}
+
+// One-time-only marker: the very first Steam free-games pass for a
+// brand-new install uses a fast bulk search instead of the normal
+// verify-one-by-one approach (see fetchSteamFreeGames) — per your own
+// instruction, this must never repeat itself on later runs unless you
+// specifically ask for it again, so it's tracked with its own
+// persisted flag rather than inferred from the verified cache being
+// empty (which could also happen for other reasons, like a corrupted
+// file, and shouldn't silently re-trigger this).
+function hasBulkSearchRunBefore() {
+    try {
+        return fs.existsSync(FREEGAMES_BULK_SEARCH_DONE_FILE)
+            && JSON.parse(fs.readFileSync(FREEGAMES_BULK_SEARCH_DONE_FILE, "utf8")).done === true;
+    } catch (err) {
+        return false;
+    }
+}
+
+function markBulkSearchDone() {
+    try {
+        fs.writeFileSync(FREEGAMES_BULK_SEARCH_DONE_FILE, JSON.stringify({ done: true, at: Date.now() }, null, 2));
+    } catch (err) {
+        console.error("[free-games] failed to save bulk-search-done marker:", err.message || err);
     }
 }
 
@@ -1473,28 +1500,114 @@ async function checkSteamAppAvailability(appid) {
     return { show: true, delisted: false };
 }
 
+// First-run-only helper: Steam's own store search (the /search/results/
+// endpoint the storefront's search box itself calls) supports filtering
+// directly by live price (maxprice=free) and by type (category1=998 =
+// Games, so DLC/software/soundtracks are excluded up front). That's a
+// completely different endpoint from the "storesearch" autocomplete API
+// mentioned above — this one is the real catalog browser and happily
+// returns everything that matches, paginated 100 at a time. Since every
+// result already reflects Steam's CURRENT price, none of them need the
+// slow one-by-one appdetails/store-page verification pass that the
+// normal SteamSpy-tag-based path still needs — this is only ever used
+// once, on the very first run the app has ever had, specifically to
+// avoid that huge first-time verification backlog.
+async function fetchSteamFreeGamesBulkSearch() {
+    const results = [];
+    const seen = new Set();
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 60; // generous cap, well beyond how many free Steam games actually exist
+    const rowRe = /data-ds-appid="(\d+)"[\s\S]*?<span class="title">([^<]*)<\/span>/g;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+        const start = page * PAGE_SIZE;
+        const url = `https://store.steampowered.com/search/results/?query&start=${start}&count=${PAGE_SIZE}&maxprice=free&category1=998&infinite=1`;
+        let data;
+        try {
+            data = await httpsGetJsonPlain(url, 15000);
+        } catch (err) {
+            console.error(`[free-games] Bulk Steam search request failed at start=${start}:`, err.message || err);
+            break;
+        }
+
+        const html = (data && data.results_html) || "";
+        if (!html) break;
+
+        rowRe.lastIndex = 0;
+        let match;
+        let foundOnPage = 0;
+        while ((match = rowRe.exec(html)) !== null) {
+            const appid = match[1];
+            foundOnPage++;
+            if (seen.has(appid)) continue;
+            seen.add(appid);
+            const name = (match[2] || "").trim() || `App ${appid}`;
+            results.push({ appid, name, price: "0" });
+        }
+
+        if (foundOnPage < PAGE_SIZE) break; // last page reached
+
+        // Small courteous pause between pages — far fewer requests total
+        // than the per-item verification loop this replaces ever needed.
+        await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+
+    console.log(`[free-games] Bulk Steam search (first run): found ${results.length} free game(s) directly.`);
+    return results;
+}
+
 // SteamSpy aggregates public Steam catalog data specifically for bulk
 // tag-based queries like this — unlike Steam's own storesearch (which is a
 // search-box autocomplete API, not a catalog browser, and only ever
 // returned a handful of results for an empty search term).
 async function fetchSteamFreeGames(forceFullCheck) {
     try {
-        const data = await httpsGetJsonPlain(
-            "https://steamspy.com/api.php?request=tag&tag=Free+to+Play", 10000
-        );
+        // Only the very first run the app has EVER had uses Steam's own
+        // live search (see fetchSteamFreeGamesBulkSearch above) instead of
+        // the normal SteamSpy-tag path — it's a one-time thing specifically
+        // to avoid a first-time verification backlog of thousands of
+        // games; every run after that goes back to the regular path below
+        // unless told again to redo the bulk search.
+        const isFirstEverRun = !hasBulkSearchRunBefore();
+        let entries;
+        let usedBulkSearch = false;
 
-        const entries = Object.values(data || {}).filter((item) => item.name);
+        if (isFirstEverRun) {
+            console.log("[free-games] First run ever — using Steam's own live search (price filter) instead of the SteamSpy tag list, so nothing needs one-by-one verification.");
+            const bulkResults = await fetchSteamFreeGamesBulkSearch();
+            if (bulkResults.length > 0) {
+                entries = bulkResults;
+                usedBulkSearch = true;
+            } else {
+                console.log("[free-games] Bulk Steam search returned nothing usable — falling back to the normal SteamSpy-based check this run.");
+                const data = await httpsGetJsonPlain(
+                    "https://steamspy.com/api.php?request=tag&tag=Free+to+Play", 10000
+                );
+                entries = Object.values(data || {}).filter((item) => item.name);
+            }
+        } else {
+            const data = await httpsGetJsonPlain(
+                "https://steamspy.com/api.php?request=tag&tag=Free+to+Play", 10000
+            );
+            entries = Object.values(data || {}).filter((item) => item.name);
+        }
 
         // SteamSpy's "Free to Play" tag can include games that AREN'T
         // actually priced at $0 right now (community tagging drifts, or the
         // tag reflects a base game that has paid DLC) — cross-check against
         // SteamSpy's own live price field so "free" is actually accurate.
-        const genuinelyFree = entries.filter((item) => {
-            const price = parseInt(item.price, 10);
-            return !isNaN(price) && price === 0;
-        });
+        // The bulk search path skips this: Steam's own maxprice=free filter
+        // already guarantees it.
+        const genuinelyFree = usedBulkSearch
+            ? entries
+            : entries.filter((item) => {
+                const price = parseInt(item.price, 10);
+                return !isNaN(price) && price === 0;
+            });
 
-        console.log(`[free-games] SteamSpy: ${entries.length} tagged free, ${genuinelyFree.length} confirmed $0 right now.`);
+        console.log(usedBulkSearch
+            ? `[free-games] Bulk Steam search: ${genuinelyFree.length} free game(s) found directly.`
+            : `[free-games] SteamSpy: ${entries.length} tagged free, ${genuinelyFree.length} confirmed $0 right now.`);
 
         // Games already confirmed delisted in a past run are dropped
         // immediately, with no new network check spent on them — this also
@@ -1559,6 +1672,32 @@ async function fetchSteamFreeGames(forceFullCheck) {
         // hoping a concurrency cap keeps it under some limit that isn't
         // precisely documented.
         const verified = readFreeGamesVerifiedCache();
+
+        // Bulk-search results already reflect Steam's current live price —
+        // that's the entire point of using that endpoint on a first run —
+        // so none of them need the one-by-one verification pass below at
+        // all. Mark every one of them verified right away, remember this
+        // one-time search has now run (so it's never repeated on later
+        // launches), and return straight away.
+        if (usedBulkSearch) {
+            stillListed.forEach((item) => {
+                verified[String(item.appid)] = Date.now();
+            });
+            saveFreeGamesVerifiedCache(verified);
+            markBulkSearchDone();
+            console.log(`[free-games] First-run bulk search complete — ${stillListed.length} free Steam game(s) ready, no verification needed.`);
+
+            return stillListed.map((item) => ({
+                id: `steam-${item.appid}`,
+                name: item.name,
+                description: null,
+                image: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/header.jpg`,
+                url: `https://store.steampowered.com/app/${item.appid}`,
+                source: "Steam",
+                tags: [genreMap[String(item.appid)] || "Other"]
+            }));
+        }
+
         const eligibleForCheck = forceFullCheck
             ? stillListed
             : stillListed.filter((item) => {
