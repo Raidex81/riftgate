@@ -227,11 +227,6 @@
             <div class="sidebar-section">
                 <h3 id="hdgDisplay">Display</h3>
                 <label class="sidebar-toggle">
-                    <span id="lblHoverTrailers">Hover trailers</span>
-                    <input type="checkbox" id="toggleHoverTrailers" checked>
-                    <span class="switch"></span>
-                </label>
-                <label class="sidebar-toggle">
                     <span id="lblAmbientBg">Ambient background</span>
                     <input type="checkbox" id="toggleAmbientBg" checked>
                     <span class="switch"></span>
@@ -602,6 +597,7 @@
             <select id="freeGamesCategorySelect">
                 <option value="all">All Genres</option>
             </select>
+            <button id="freeGamesRefreshBtn" title="Get an up-to-date list now, instead of waiting for the next automatic refresh">🔄 Refresh</button>
         </div>
         <div id="freeGamesNewRow" class="free-games-new-zone"></div>
         <div id="freeGamesBrowseHeading" class="free-games-browse-heading" style="display:none;">📀 Browse All Free Games</div>
@@ -1112,7 +1108,7 @@
             <p class="section-subtitle">Discover what's new across games, movies and TV.</p>
             <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
             <p class="section-blurb">
-                See what's newly released or coming soon across movies, TV series, and games. Add an upcoming series straight to My Shows, jump to a store page to buy an upcoming game, and preview any of them with a hover trailer and mute/unmute — all pulled from real, live sources.
+                See what's newly released or coming soon across movies, TV series, and games. Add an upcoming series straight to My Shows, jump to a store page to buy an upcoming game, and click the "Watch larger" button on any item to preview its trailer — all pulled from real, live sources.
             </p>
         </div>
 
@@ -1126,6 +1122,7 @@
         <div class="theatre-block">
             <div class="theatre-block-header">
                 <h2>🎬 Upcoming Movies</h2>
+                <select id="upcomingMoviesCountrySelect" title="Country — release schedules vary a lot by country"></select>
             </div>
             <div id="upcomingMoviesGrid" class="games-grid browse-grid"></div>
         </div>

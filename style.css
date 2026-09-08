@@ -2593,6 +2593,32 @@ body.is-fullscreen #mainContent{
     font-size:13px;
 }
 
+.free-games-controls button{
+    flex:none;
+    padding:10px 14px;
+    border-radius:8px;
+    border:none;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.free-games-controls button:hover{
+    background:var(--accent-1);
+    color:#fff;
+}
+
+.free-games-controls button:disabled{
+    opacity:0.6;
+    cursor:default;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+}
+
+
+
 .subsection-filter{
     width:220px;
     padding:8px 10px;

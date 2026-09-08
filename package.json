@@ -1,6 +1,6 @@
 {
   "name": "riftgate",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Riftgate - your personal gateway to every game, app, and tool you use.",
   "main": "main.js",
   "scripts": {

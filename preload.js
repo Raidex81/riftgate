@@ -50,6 +50,7 @@ const INVOKABLE_CHANNELS = new Set([
     "find-cover",
     "force-clean-shared-folder",
     "force-clean-shared-links",
+    "force-refresh-free-games",
     "force-stop-tracking",
     "get-admin-list-detailed",
     "get-all-usernames",

@@ -130,7 +130,6 @@ let soundEnabled = false;
 let settings = {
     uiSounds: true,
     startupSound: true,
-    hoverTrailers: true,
     ambientBackground: true,
     lightTheme: false,
     colorTheme: "riftgate",
@@ -142,6 +141,12 @@ let settings = {
     runInBackground: false,
     categoryOrder: ["game", "app", "vr", "other"],
     movieCountry: "US",
+    // Deliberately separate from movieCountry (which drives Now Playing /
+    // showtimes) — sharing one setting meant changing your country for
+    // local showtimes silently changed what Upcoming Movies showed too,
+    // which is exactly what made two people comparing screens see two
+    // different upcoming release slates without ever touching this section.
+    upcomingMoviesCountry: "US",
     startupSection: "new",
     movieCity: "",
     startupAnimation: true,
@@ -533,6 +538,18 @@ let wheelMode = "game";
 // as its own flag, set once per modal open, so spin() and openWheelModal()
 // can't disagree about which one is actually on screen.
 let wheelUsesSlotReel = false;
+// Bumped every time a new wheel session starts (a fresh modal open) or a
+// new spin begins. Each spin's own delayed "reveal the result" callback
+// only ever applies if this still matches the value it captured when
+// that spin started — otherwise it's a stale spin (the modal was closed,
+// reopened for a different section, or spun again before the first
+// finished) and its result is discarded instead of overwriting whatever
+// is showing now. Without this, a slow-to-resolve spin from, say, Free
+// Games could still land its winner into the Library wheel's result
+// panel seconds later if you switched sections in between — Library and
+// Free Games sharing the same result elements is fine as long as only
+// the CURRENT spin is ever allowed to write to them.
+let wheelSpinToken = 0;
 
 function wheelItemName(item) {
     if (wheelMode === "movie") return item.title;
@@ -675,12 +692,16 @@ function spin() {
         return;
     }
 
+    wheelSpinToken += 1;
+    const mySpinToken = wheelSpinToken;
+
     const winnerIndex = Math.floor(Math.random() * wheelGames.length);
     wheelWinner = wheelGames[winnerIndex];
 
     spinWheelTo(winnerIndex, wheelGames.length);
 
     setTimeout(() => {
+        if (mySpinToken !== wheelSpinToken) return; // a newer spin/session has since started — discard this one
         wheelResultImg.src = wheelItemImage(wheelWinner);
         wheelResultName.textContent = wheelItemName(wheelWinner);
         wheelResultMeta.textContent = wheelItemMeta(wheelWinner);
@@ -713,6 +734,9 @@ function spinSlotReel() {
     const spinPool = wheelGames.length > 20
         ? [...wheelGames].sort(() => Math.random() - 0.5).slice(0, 20)
         : wheelGames;
+
+    wheelSpinToken += 1;
+    const mySpinToken = wheelSpinToken;
 
     const winnerIndex = Math.floor(Math.random() * spinPool.length);
     wheelWinner = spinPool[winnerIndex];
@@ -772,6 +796,7 @@ function spinSlotReel() {
     });
 
     setTimeout(() => {
+        if (mySpinToken !== wheelSpinToken) return; // a newer spin/session has since started — discard this one
         wheelResultImg.src = wheelItemImage(wheelWinner);
         wheelResultName.textContent = wheelItemName(wheelWinner);
         wheelResultMeta.textContent = wheelItemMeta(wheelWinner);
@@ -793,6 +818,11 @@ function spinSlotReel() {
 }
 
 function openWheelModal() {
+    // A fresh session — invalidates any still-pending result reveal from
+    // a previous spin (see wheelSpinToken above) so it can never land its
+    // result into this new session, whatever section/mode it's for.
+    wheelSpinToken += 1;
+
     const wheelPieWrap = document.getElementById("wheelPieWrap");
     const slotReelWrap = document.getElementById("slotReelWrap");
     const wheelTitle = document.getElementById("wheelTitle");
@@ -890,6 +920,23 @@ function openWheelModal() {
         }
     }
 
+    // The same title can genuinely end up in wheelGames twice — two
+    // different library paths pointing at the same game (imported once
+    // via Steam, once via a Start Menu shortcut, say), or overlapping
+    // results between API calls for movies/free games — and the reel
+    // has no way to tell that apart from a real second item, so the same
+    // cover could land right next to itself, or the "random" pick could
+    // secretly be twice as likely to land on it. Deduping by display
+    // name here, once, covers every mode in one place rather than
+    // needing the same guard repeated in each branch above.
+    const seenWheelNames = new Set();
+    wheelGames = wheelGames.filter((item) => {
+        const key = (wheelItemName(item) || "").toLowerCase();
+        if (seenWheelNames.has(key)) return false;
+        seenWheelNames.add(key);
+        return true;
+    });
+
     // Every mode uses the slot-reel spin now — see the comment above
     // openWheelModal's mode-detection block.
     wheelUsesSlotReel = true;
@@ -919,6 +966,11 @@ function openWheelModal() {
 }
 
 function closeWheelModal() {
+    // Invalidate the current spin too — closing mid-spin shouldn't let
+    // its delayed result reveal quietly apply later, to a modal that
+    // isn't even open anymore (and may be reopened for a different
+    // section by the time it would have fired).
+    wheelSpinToken += 1;
     wheelModal.classList.remove("active");
 }
 
@@ -992,6 +1044,16 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.2": [
+        "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
+        "Fixed: Surprise Me could show the same title twice in the reel — usually because the same game or item exists in the underlying list more than once (e.g. imported into your library through two different paths). The reel now only ever shows each title once.",
+        "Fixed: Surprise Me's result could very occasionally show a leftover result from a previous spin (e.g. from Free Games) if you closed the wheel or switched sections while a spin's reveal was still pending. Each spin's result now only ever applies to that same spin/session.",
+        "Fixed: Free Games could keep listing a Steam title well after it was delisted (e.g. shows a \"no longer available\" notice on its own store page) — that state wasn't visible to the check being used before, so it's now checked directly",
+        "New: Upcoming Movies now has its own country selector — release schedules vary a lot by country, and it used to silently share a setting with Now Playing's showtimes country, which is why the same list could look completely different for two people",
+        "New: a Refresh button in Free Games gets an up-to-date list on demand instead of waiting for the next automatic refresh",
+        "Changed: Free Games now refreshes from Steam/Epic/GOG at most once every 24 hours instead of every time you open the section — it opens instantly from what was already loaded last time, and checks for a new list (adding newly-free games, dropping ones no longer available) once a day, including once at startup so it stays current even on days you never open that section",
+        "Changed: trailers no longer auto-play on hover anywhere in the app — click the \"Watch larger\" button on a game, movie, or show to load and play its trailer instead. Hovering was quietly using up the shared trailer lookup for everyone; loading only on a real click keeps it working for the whole community"
+    ],
     "1.3.1": [
         "Fixed: a tray icon load failure could silently stop the rest of startup from running — including the automatic update check and the folder watcher for drag-and-drop while Riftgate is closed. Both now run reliably regardless of the tray icon, and the tray icon itself is fixed too."
     ],
@@ -1820,7 +1882,6 @@ function askCategory() {
 const toggleUiSounds = document.getElementById("toggleUiSounds");
 const toggleStartupSound = document.getElementById("toggleStartupSound");
 const toggleStartupAnimation = document.getElementById("toggleStartupAnimation");
-const toggleHoverTrailers = document.getElementById("toggleHoverTrailers");
 const toggleAmbientBg = document.getElementById("toggleAmbientBg");
 const refreshMetadataBtn = document.getElementById("refreshMetadataBtn");
 const statCounts = document.getElementById("statCounts");
@@ -1922,7 +1983,6 @@ function applySettingsToUI() {
     toggleUiSounds.checked = settings.uiSounds;
     toggleStartupSound.checked = settings.startupSound;
     toggleStartupAnimation.checked = settings.startupAnimation !== false;
-    toggleHoverTrailers.checked = settings.hoverTrailers;
     toggleAmbientBg.checked = settings.ambientBackground;
     toggleLightTheme.checked = settings.lightTheme;
     applyTheme(settings.lightTheme);
@@ -1941,6 +2001,7 @@ function applySettingsToUI() {
 
     movieCountrySelect.value = settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
+    upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
 
     steamId64Input.value = settings.steamId64 || "";
 }
@@ -1995,7 +2056,6 @@ refreshSteamPlaytimeBtn.addEventListener("click", async () => {
 toggleUiSounds.addEventListener("change", () => saveSetting("uiSounds", toggleUiSounds.checked));
 toggleStartupSound.addEventListener("change", () => saveSetting("startupSound", toggleStartupSound.checked));
 toggleStartupAnimation.addEventListener("change", () => saveSetting("startupAnimation", toggleStartupAnimation.checked));
-toggleHoverTrailers.addEventListener("change", () => saveSetting("hoverTrailers", toggleHoverTrailers.checked));
 toggleAmbientBg.addEventListener("change", () => saveSetting("ambientBackground", toggleAmbientBg.checked));
 
 toggleLightTheme.addEventListener("change", () => {
@@ -2788,23 +2848,13 @@ function buildCard(game) {
         });
     }
 
-    // --- Hover-to-preview trailer + ambient background ---
-
-    let hoverTimer = null;
+    // --- Ambient background on hover (trailer preview is click-only now,
+    // via the enlargeBtn above) ---
 
     card.addEventListener("mouseenter", () => {
         setAmbientTheme(game.category || "game");
-
-        if (settings.hoverTrailers) {
-            hoverTimer = setTimeout(() => showTrailer(game, card), 350);
-        }
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        hideTrailer(card);
         // Ambient background is sticky on purpose — it stays until another
-        // card is hovered, so nothing changes here.
+        // card is hovered, so there's nothing to do on mouseleave.
     });
 
     // --- Drag and drop reordering (also allows dropping into another
@@ -2934,56 +2984,6 @@ async function addGameFromExternalFile(filePath, category) {
 }
 
 
-async function showTrailer(game, card) {
-
-    if (!settings.hoverTrailers) return;
-
-    const coverWrap = card.querySelector(".cover-wrap");
-
-    if (!coverWrap || coverWrap.querySelector(".trailer-frame")) {
-        return;
-    }
-
-    let trailerId = game.trailerId;
-
-    if (trailerId === undefined || trailerId === null) {
-        trailerId = await window.riftgate.invoke("fetch-trailer", game.searchName || game.name, game.category || "game", game.description);
-        game.trailerId = trailerId;
-
-        if (trailerId) {
-            await window.riftgate.invoke(
-                "update-game",
-                { path: game.path, trailerId }
-            );
-        }
-    }
-
-    // The mouse may have already left before the fetch finished
-    if (!card.matches(":hover") || !trailerId || !settings.hoverTrailers) {
-        return;
-    }
-
-    const iframe = document.createElement("iframe");
-    iframe.className = "trailer-frame";
-    iframe.src =
-        `https://www.youtube.com/embed/${trailerId}` +
-        `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-        `&modestbranding=1&rel=0&showinfo=0&enablejsapi=1`;
-    iframe.allow = "autoplay; encrypted-media";
-    iframe.frameBorder = "0";
-
-    coverWrap.appendChild(iframe);
-
-    // Give the embedded player a moment to actually initialize before
-    // sending it a volume command.
-    setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-}
-
-function hideTrailer(card) {
-    const frame = card.querySelector(".trailer-frame");
-    if (frame) frame.remove();
-}
-
 // Opens a mod search for the game in the browser — nothing else. Google's
 // own ranking naturally surfaces the most popular/relevant modding sites
 // first, so no artificial site-bias is needed here.
@@ -3007,26 +3007,25 @@ function postPlayerCommand(iframe, func, args) {
 }
 
 function applySoundToAllFrames() {
-    document.querySelectorAll(".trailer-frame").forEach((frame) => {
-        // postMessage mute/unMute commands can get silently dropped if the
-        // embedded player's message channel isn't fully ready yet — instead,
-        // rebuild the iframe's own URL with the correct mute param, which
-        // reloads it in the right state instantly and reliably every time.
-        try {
-            const url = new URL(frame.src);
-            url.searchParams.set("mute", soundEnabled ? "0" : "1");
-            url.searchParams.set("autoplay", "1");
-            frame.src = url.toString();
-        } catch (err) {
-            postPlayerCommand(frame, soundEnabled ? "unMute" : "mute");
-        }
-    });
+    const frame = theaterVideoWrap.querySelector("iframe");
+    if (!frame) return;
+    // postMessage mute/unMute commands can get silently dropped if the
+    // embedded player's message channel isn't fully ready yet — instead,
+    // rebuild the iframe's own URL with the correct mute param, which
+    // reloads it in the right state instantly and reliably every time.
+    try {
+        const url = new URL(frame.src);
+        url.searchParams.set("mute", soundEnabled ? "0" : "1");
+        url.searchParams.set("autoplay", "1");
+        frame.src = url.toString();
+    } catch (err) {
+        postPlayerCommand(frame, soundEnabled ? "unMute" : "mute");
+    }
 }
 
 function applyVolumeToAllFrames() {
-    document.querySelectorAll(".trailer-frame").forEach((frame) => {
-        postPlayerCommand(frame, "setVolume", [settings.trailerVolume]);
-    });
+    const frame = theaterVideoWrap.querySelector("iframe");
+    if (frame) postPlayerCommand(frame, "setVolume", [settings.trailerVolume]);
 }
 
 async function ensureDescription(game, card) {
@@ -3702,8 +3701,6 @@ function buildFreeGameCard(game) {
         applySoundToAllFrames();
     });
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
     let trailerId;
 
     async function fetchTrailerOnce() {
@@ -3713,35 +3710,11 @@ function buildFreeGameCard(game) {
         return trailerId;
     }
 
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const id = await fetchTrailerOnce();
-            if (!id || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${id}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${id}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
-
     card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const id = await fetchTrailerOnce();
         if (id) openTheaterMode(id);
+        else alert("No trailer could be found for this title.");
     });
 
     return card;
@@ -3752,6 +3725,7 @@ let freeGamesCache = [];
 const freeGamesSearchInput = document.getElementById("freeGamesSearchInput");
 const freeGamesPlatformSelect = document.getElementById("freeGamesPlatformSelect");
 const freeGamesCategorySelect = document.getElementById("freeGamesCategorySelect");
+const freeGamesRefreshBtn = document.getElementById("freeGamesRefreshBtn");
 
 freeGamesSearchInput.addEventListener("input", renderFreeGames);
 
@@ -3761,6 +3735,23 @@ freeGamesPlatformSelect.addEventListener("change", () => {
 });
 
 freeGamesCategorySelect.addEventListener("change", renderFreeGames);
+
+freeGamesRefreshBtn.addEventListener("click", async () => {
+    freeGamesRefreshBtn.disabled = true;
+    freeGamesRefreshBtn.textContent = "🔄 Refreshing...";
+
+    try {
+        const fresh = await window.riftgate.invoke("force-refresh-free-games");
+        if (fresh && fresh.length > 0) {
+            freeGamesCache = fresh;
+            updateFreeGamesGenreOptions();
+            renderFreeGames();
+        }
+    } finally {
+        freeGamesRefreshBtn.disabled = false;
+        freeGamesRefreshBtn.textContent = "🔄 Refresh";
+    }
+});
 
 // Platform display names, used only for the plain section heading text —
 // selection itself now happens through the platform dropdown, not a
@@ -5010,9 +5001,6 @@ function buildShowCard(show) {
         });
     }
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
-
     async function fetchShowTrailerOnce() {
         if (show.trailerId === undefined || show.trailerId === null) {
             // TMDB's own TV database first — a real, ID-based lookup
@@ -5029,32 +5017,6 @@ function buildShowCard(show) {
         }
         return show.trailerId;
     }
-
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const trailerId = await fetchShowTrailerOnce();
-
-            if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${trailerId}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
 
     card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -5266,6 +5228,21 @@ const moviesGrid = document.getElementById("moviesGrid");
     if (currentValue) movieCountrySelect.value = currentValue;
 })();
 
+// Upcoming Movies gets its own country selector, deliberately separate
+// from movieCountrySelect above (see upcomingMoviesCountry in the
+// default settings) — but it's still the exact same list of countries,
+// built by cloning movieCountrySelect's already-sorted options rather
+// than keeping a second copy of ~40 <option> tags in index.html that
+// could quietly drift out of sync with the first.
+const upcomingMoviesCountrySelect = document.getElementById("upcomingMoviesCountrySelect");
+upcomingMoviesCountrySelect.innerHTML = movieCountrySelect.innerHTML;
+upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
+
+upcomingMoviesCountrySelect.addEventListener("change", () => {
+    saveSetting("upcomingMoviesCountry", upcomingMoviesCountrySelect.value);
+    loadUpcomingMovies();
+});
+
 function populateCitySelect(countryCode, preferredCity) {
     const cities = (CITIES_BY_COUNTRY[countryCode] || []).slice().sort((a, b) => a.localeCompare(b));
     movieCitySelect.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
@@ -5303,12 +5280,16 @@ function openTheaterMode(trailerId) {
     theaterVideoWrap.innerHTML = "";
 
     const iframe = document.createElement("iframe");
-    iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1`;
+    iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
     iframe.setAttribute("allow", "autoplay; encrypted-media");
     iframe.allowFullscreen = true;
     theaterVideoWrap.appendChild(iframe);
 
     theaterModal.classList.add("active");
+
+    // Give the embedded player a moment to actually initialize before
+    // sending it a volume command.
+    setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
 }
 
 function closeTheaterMode() {
@@ -5357,8 +5338,6 @@ function buildMovieCard(movie, showReleaseDate) {
     card.querySelector(".game-info h3").textContent = movie.title;
     card.querySelector(".game-desc").textContent = movie.description || "No description available.";
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
     let movieTrailerId;
 
     async function fetchTrailerOnce() {
@@ -5367,31 +5346,6 @@ function buildMovieCard(movie, showReleaseDate) {
         }
         return movieTrailerId;
     }
-
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const trailerId = await fetchTrailerOnce();
-            if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${trailerId}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
 
     card.querySelector(".soundToggle").addEventListener("click", (event) => {
         event.stopPropagation();
@@ -5518,7 +5472,7 @@ async function loadUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
-    const movies = await window.riftgate.invoke("get-upcoming-movies", settings.movieCountry || "US");
+    const movies = await window.riftgate.invoke("get-upcoming-movies", settings.upcomingMoviesCountry || "US");
 
     if (!movies || movies.length === 0) {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
@@ -5568,8 +5522,6 @@ async function loadNewShows() {
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
 
-        const coverWrap = card.querySelector(".cover-wrap");
-        let hoverTimer = null;
         let newShowTrailerId;
 
         async function fetchNewShowTrailerOnce() {
@@ -5578,30 +5530,6 @@ async function loadNewShows() {
             }
             return newShowTrailerId;
         }
-
-        card.addEventListener("mouseenter", () => {
-            hoverTimer = setTimeout(async () => {
-                const trailerId = await fetchNewShowTrailerOnce();
-                if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-                const iframe = document.createElement("iframe");
-                iframe.className = "trailer-frame";
-                iframe.src =
-                    `https://www.youtube.com/embed/${trailerId}` +
-                    `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                    `&modestbranding=1&rel=0`;
-                iframe.allow = "autoplay; encrypted-media";
-                iframe.frameBorder = "0";
-                coverWrap.appendChild(iframe);
-                setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-            }, 350);
-        });
-
-        card.addEventListener("mouseleave", () => {
-            clearTimeout(hoverTimer);
-            const frame = coverWrap.querySelector(".trailer-frame");
-            if (frame) frame.remove();
-        });
 
         card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
             event.stopPropagation();
@@ -5678,8 +5606,6 @@ async function loadUpcomingGames() {
         card.querySelector(".cover-img").alt = game.name;
         card.querySelector(".game-info h3").textContent = game.name;
 
-        const coverWrap = card.querySelector(".cover-wrap");
-        let hoverTimer = null;
         let upcomingTrailerId;
 
         async function fetchUpcomingTrailerOnce() {
@@ -5688,30 +5614,6 @@ async function loadUpcomingGames() {
             }
             return upcomingTrailerId;
         }
-
-        card.addEventListener("mouseenter", () => {
-            hoverTimer = setTimeout(async () => {
-                const trailerId = await fetchUpcomingTrailerOnce();
-                if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-                const iframe = document.createElement("iframe");
-                iframe.className = "trailer-frame";
-                iframe.src =
-                    `https://www.youtube.com/embed/${trailerId}` +
-                    `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                    `&modestbranding=1&rel=0`;
-                iframe.allow = "autoplay; encrypted-media";
-                iframe.frameBorder = "0";
-                coverWrap.appendChild(iframe);
-                setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-            }, 350);
-        });
-
-        card.addEventListener("mouseleave", () => {
-            clearTimeout(hoverTimer);
-            const frame = coverWrap.querySelector(".trailer-frame");
-            if (frame) frame.remove();
-        });
 
         card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
             event.stopPropagation();

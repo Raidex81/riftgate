@@ -19,6 +19,7 @@ let WATCHLIST_FILE;
 let FREEGAMES_SEEN_FILE;
 let FREEGAMES_UNAVAILABLE_FILE;
 let FREEGAMES_VERIFIED_FILE;
+let FREEGAMES_LAST_REFRESH_FILE;
 let TRAILER_CACHE_FILE;
 let SESSION_FILE;
 let EBOOKS_FILE;
@@ -55,7 +56,6 @@ let isQuitting = false;
 const DEFAULT_SETTINGS = {
     uiSounds: true,
     startupSound: true,
-    hoverTrailers: true,
     ambientBackground: true,
     lightTheme: false,
     colorTheme: "riftgate",
@@ -70,6 +70,7 @@ const DEFAULT_SETTINGS = {
     dismissedImports: [],
     categoryOrder: ["game", "app", "vr", "other"],
     movieCountry: "US",
+    upcomingMoviesCountry: "US",
     startupSection: "new",
     lastReadingRoomTab: "buyfree",
     movieCity: "",
@@ -370,6 +371,31 @@ function scanSteamGames() {
     }
 
     return games;
+}
+
+// A Steam-imported game's saved "path" is a steam://rungameid/<appid>
+// launch URL, not a real filesystem path (Steam manifests don't reliably
+// expose a usable .exe path) — so it can never be checked with
+// fs.existsSync the way every other entry is. The manifest file Steam
+// itself writes for an installed game (appmanifest_<appid>.acf, in
+// whichever library folder it's installed to) IS a real file on disk
+// though, and Steam deletes it the moment a game is uninstalled — so
+// that file's existence is what actually stands in for "is this Steam
+// game still installed" for check-missing-games below.
+function isSteamAppStillInstalled(appid) {
+    try {
+        for (const steamapps of findSteamLibraryPaths()) {
+            if (fs.existsSync(path.join(steamapps, `appmanifest_${appid}.acf`))) {
+                return true;
+            }
+        }
+        return false;
+    } catch (err) {
+        // Same caution as the rest of this feature: if the check itself
+        // fails (Steam not found, a permissions hiccup), never treat that
+        // as "uninstalled" and wrongly flag every Steam game at once.
+        return true;
+    }
 }
 
 function scanEpicGames() {
@@ -744,6 +770,7 @@ function initUserData() {
     FREEGAMES_SEEN_FILE = path.join(userDataDir, "freegames-seen.json");
     FREEGAMES_UNAVAILABLE_FILE = path.join(userDataDir, "freegames-unavailable.json");
     FREEGAMES_VERIFIED_FILE = path.join(userDataDir, "freegames-verified.json");
+    FREEGAMES_LAST_REFRESH_FILE = path.join(userDataDir, "freegames-last-refresh.json");
     TRAILER_CACHE_FILE = path.join(userDataDir, "trailer-cache.json");
     SESSION_FILE = path.join(userDataDir, "session.dat");
     EBOOKS_FILE = path.join(userDataDir, "ebooks.json");
@@ -802,6 +829,10 @@ function initUserData() {
 
     if (!fs.existsSync(FREEGAMES_VERIFIED_FILE)) {
         fs.writeFileSync(FREEGAMES_VERIFIED_FILE, "{}");
+    }
+
+    if (!fs.existsSync(FREEGAMES_LAST_REFRESH_FILE)) {
+        fs.writeFileSync(FREEGAMES_LAST_REFRESH_FILE, "{}");
     }
 }
 
@@ -1094,6 +1125,24 @@ function httpsGetJsonPlain(url, timeoutMs) {
     });
 }
 
+// Same shape as httpsGetJsonPlain but for a plain-text/HTML response —
+// used to read a Steam store page's actual rendered HTML, since some
+// information (see checkSteamAppAvailability below) is only ever present
+// in the page itself, never in Steam's public JSON API.
+function httpsGetTextPlain(url, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        const req = https.get(url, { headers: { "User-Agent": "RiftgateApp/1.0" } }, (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => resolve({ statusCode: res.statusCode, body: data }));
+        }).on("error", reject);
+
+        req.setTimeout(timeoutMs || 8000, () => {
+            req.destroy(new Error("Request timed out"));
+        });
+    });
+}
+
 // Runs `fn` over `items` with at most `limit` in flight at once. Used for
 // batches that hit an external API dozens or hundreds of times (e.g.
 // checking whether every SteamSpy "free" game is still actually available) —
@@ -1356,7 +1405,49 @@ const STEAM_GENRE_TAGS = [
 // section below for why this exists (keeping the per-refresh check list
 // small is what makes it safe to check that small list slowly enough to
 // never trip Steam's rate limiting).
-const FREEGAMES_VERIFIED_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
+// Deliberately a bit under the 24h minimum full-refresh cadence
+// (get-free-games below only actually does a full refetch+verify pass
+// once every FREEGAMES_FULL_REFRESH_MIN_AGE_MS) so that every time that
+// pass does run, every game's "last verified" is already overdue and
+// gets a real re-check — a newly-delisted game can never survive more
+// than one refresh cycle.
+const FREEGAMES_VERIFIED_MAX_AGE_MS = 20 * 60 * 60 * 1000; // 20 hours
+
+// Steam has two independent ways a "free" game can stop being real, and
+// only checking one of them was exactly what let delisted titles like
+// Need For Speed: Hot Pursuit keep showing up here: appdetails' own
+// "success" flag catches an appid that's fully gone (the request
+// redirects/fails), but far more often the store PAGE still loads fine
+// (so appdetails keeps returning success:true with the game's old data)
+// while showing a "Notice: <game> is no longer available on the Steam
+// store" banner instead of a buy button. That banner only ever exists in
+// the page's actual HTML — Steam's public API has no field for it — so
+// it has to be checked for directly.
+async function checkSteamAppAvailability(appid) {
+    let apiAvailable = true;
+    try {
+        const detail = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${appid}&filters=basic`, 10000);
+        apiAvailable = !!(detail && detail[appid] && detail[appid].success);
+    } catch (err) {
+        // A failed/timed-out request confirms nothing either way — treat
+        // as available so a network hiccup can never masquerade as a
+        // delisting.
+        apiAvailable = true;
+    }
+
+    if (!apiAvailable) return false;
+
+    try {
+        const page = await httpsGetTextPlain(`https://store.steampowered.com/app/${appid}/?l=english`, 10000);
+        if (page.statusCode === 200 && /is no longer available on the steam store/i.test(page.body)) {
+            return false;
+        }
+    } catch (err) {
+        // Same reasoning as above — an unreadable page proves nothing.
+    }
+
+    return true;
+}
 
 // SteamSpy aggregates public Steam catalog data specifically for bulk
 // tag-based queries like this — unlike Steam's own storesearch (which is a
@@ -1454,11 +1545,7 @@ async function fetchSteamFreeGames() {
         }
 
         const availabilityResults = await runSequentialWithDelay(needsCheck, 1200, (item) =>
-            httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${item.appid}&filters=basic`, 10000)
-                .then((detail) => ({
-                    appid: item.appid,
-                    available: !!(detail && detail[item.appid] && detail[item.appid].success)
-                }))
+            checkSteamAppAvailability(item.appid).then((available) => ({ appid: item.appid, available }))
         );
 
         const newlyUnavailable = [];
@@ -1599,7 +1686,40 @@ function saveFreeGamesVerifiedCache(data) {
     }
 }
 
-ipcMain.handle("get-free-games", async () => {
+// The whole point of this file: get-free-games used to redo the entire
+// Steam/Epic/GOG fetch-and-verify pass every single time the Free Games
+// section was opened, even seconds after the last one finished. This is
+// the timestamp that lets it skip straight to "just hand back what's
+// already cached" instead, and only pay for a real refresh once every
+// FREEGAMES_FULL_REFRESH_MIN_AGE_MS.
+function readFreeGamesLastRefresh() {
+    try {
+        const data = JSON.parse(fs.readFileSync(FREEGAMES_LAST_REFRESH_FILE, "utf8"));
+        return data.lastRefreshedAt || 0;
+    } catch (err) {
+        return 0;
+    }
+}
+
+function saveFreeGamesLastRefresh(timestamp) {
+    try {
+        fs.writeFileSync(FREEGAMES_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp }, null, 2));
+    } catch (err) {
+        console.error("[free-games] failed to save last-refresh timestamp:", err.message || err);
+    }
+}
+
+// At least once every 24 hours, per your own requirement — kept a hair
+// under FREEGAMES_VERIFIED_MAX_AGE_MS's 20h so a full pass here always
+// finds every game's individual "last verified" stamp already overdue,
+// instead of some of them coincidentally still being fresh and getting
+// skipped.
+const FREEGAMES_FULL_REFRESH_MIN_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// The actual Steam/Epic/GOG fetch-and-verify pass — shared by the normal
+// (gated) get-free-games below and force-refresh-free-games, which skips
+// the gate entirely for a manual "give me a fresh list right now" click.
+async function performFreeGamesRefresh() {
     // allSettled instead of all — one store's fetch failing outright must
     // never take the others down with it.
     const results = await Promise.allSettled([
@@ -1627,8 +1747,9 @@ ipcMain.handle("get-free-games", async () => {
     // an empty list straight to cache-free-games.json, which permanently
     // wiped out the Free Games section for that user until a fetch
     // eventually succeeded again. Instead, fall back to whatever was last
-    // cached and leave that cache file untouched so a bad fetch cycle
-    // never overwrites good data.
+    // cached and leave that cache file (and the last-refresh timestamp)
+    // untouched, so a bad fetch cycle never overwrites good data and gets
+    // retried for real next time instead of waiting out the full 24h.
     if (allFree.length === 0) {
         console.error("[free-games] All stores returned zero results — treating as a failed fetch, keeping previous cache.");
         return loadDataCache("cache-free-games.json") || [];
@@ -1660,9 +1781,32 @@ ipcMain.handle("get-free-games", async () => {
 
     fs.writeFileSync(FREEGAMES_SEEN_FILE, JSON.stringify(prunedCache, null, 2));
     saveDataCache("cache-free-games.json", allFree);
+    saveFreeGamesLastRefresh(Date.now());
 
     return allFree;
+}
+
+ipcMain.handle("get-free-games", async () => {
+    // Riftgate already has last run's list on disk (cache-free-games.json)
+    // — there's no reason to re-hit Steam/Epic/GOG (and re-verify every
+    // Steam game) every single time this section is opened. Only do that
+    // real work if it's actually been at least a day since the last one;
+    // otherwise just hand back what's already there, unchanged.
+    const cached = loadDataCache("cache-free-games.json") || [];
+    const lastRefreshedAt = readFreeGamesLastRefresh();
+
+    if (cached.length > 0 && (Date.now() - lastRefreshedAt) < FREEGAMES_FULL_REFRESH_MIN_AGE_MS) {
+        return cached;
+    }
+
+    return performFreeGamesRefresh();
 });
+
+// Backs the manual "Refresh" button in Free Games — always does a real
+// fetch-and-verify pass regardless of how recently the last one ran, for
+// when the user specifically wants an up-to-date list right now rather
+// than waiting out the rest of the 24h window.
+ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh());
 
 // Instant retrieval of the last successfully fetched Free Games list —
 // same "show something immediately, refresh quietly after" pattern as
@@ -3895,13 +4039,24 @@ ipcMain.handle("check-missing-games", async () => {
         const genuinelyMissing = [];
 
         for (const g of games) {
-            // Protocol-style paths (steam://, etc.) aren't real
-            // filesystem paths — Steam-imported games use these since
-            // Steam manifests don't reliably expose a real .exe path.
-            // fs.existsSync would always return false for these, wrongly
-            // flagging every one of them as "missing" regardless of
-            // whether it's installed.
-            if (!g.path || g.path.includes("://") || fs.existsSync(g.path)) continue;
+            if (!g.path) continue;
+
+            // Steam-imported games are saved as a steam://rungameid/<appid>
+            // launch URL rather than a real filesystem path, so they need
+            // their own check — see isSteamAppStillInstalled above. Every
+            // other "://" path (any launcher protocol besides Steam's)
+            // still isn't a real filesystem path either, but there's no
+            // equivalent manifest to check it against, so — same as
+            // before — it's left alone rather than risk a false "missing".
+            const steamMatch = g.path.match(/^steam:\/\/rungameid\/(\d+)$/i);
+            if (steamMatch) {
+                if (!isSteamAppStillInstalled(steamMatch[1])) {
+                    genuinelyMissing.push({ path: g.path, name: g.name });
+                }
+                continue;
+            }
+
+            if (g.path.includes("://") || fs.existsSync(g.path)) continue;
 
             const relocatedPath = findRelocatedVersionedApp(g.path);
             if (relocatedPath) {
@@ -5419,6 +5574,21 @@ ipcMain.handle("quit-and-install-update", async () => {
 app.whenReady().then(async () => {
     await createWindow();
     startDropzoneWatcher();
+
+    // Free Games is lazy-loaded — its data is only fetched once the user
+    // actually opens that section — so on a session where they never do,
+    // the daily refresh would otherwise never get a chance to run at all.
+    // This runs it once at startup instead, whenever it's actually due
+    // (performFreeGamesRefresh itself isn't gated — this check is what
+    // keeps it to "at least once every 24h" rather than every launch),
+    // so the cached list stays fresh for whenever they do check it,
+    // launch after launch. Runs in the background, after the window is
+    // already up, so it never delays startup.
+    if ((Date.now() - readFreeGamesLastRefresh()) >= FREEGAMES_FULL_REFRESH_MIN_AGE_MS) {
+        performFreeGamesRefresh().catch((err) => {
+            console.error("[free-games] startup refresh failed:", err.message || err);
+        });
+    }
 
     // A single one-shot check with no retry meant that if it happened to
     // fail once (a network hiccup, GitHub briefly unreachable, etc.),
