@@ -1405,13 +1405,32 @@ const STEAM_GENRE_TAGS = [
 // section below for why this exists (keeping the per-refresh check list
 // small is what makes it safe to check that small list slowly enough to
 // never trip Steam's rate limiting).
-// Deliberately a bit under the 24h minimum full-refresh cadence
-// (get-free-games below only actually does a full refetch+verify pass
-// once every FREEGAMES_FULL_REFRESH_MIN_AGE_MS) so that every time that
-// pass does run, every game's "last verified" is already overdue and
-// gets a real re-check — a newly-delisted game can never survive more
-// than one refresh cycle.
-const FREEGAMES_VERIFIED_MAX_AGE_MS = 20 * 60 * 60 * 1000; // 20 hours
+// A confirmed-available Steam game stays trusted for a week before it's
+// ever re-checked. SteamSpy's "Free to Play" tag alone runs to ~5,000
+// titles, so re-checking everyone every single day (this used to be set
+// to just under 24h, on the theory that it would keep the list maximally
+// fresh) meant, in practice, checking all ~5,000 of them every day —
+// well over an hour of real work, every day, forever. A week-long trust
+// window plus MAX_STEAM_CHECKS_PER_REFRESH below (which caps how much of
+// that gets done in any one pass) spreads that same work out to a small,
+// fast slice each day instead.
+const FREEGAMES_VERIFIED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// Hard ceiling on how many Steam games get a live availability check in
+// any single refresh — regardless of how many are actually due. Without
+// this, a large backlog (a first-ever run, or the app not being opened
+// for a while) would still try to check everyone at once. Genuinely new
+// entrants to the free-to-play list are checked first (see needsCheck
+// below), so a brand-new giveaway is never the thing left waiting behind
+// a backlog of routine re-checks.
+//
+// Each check below is actually two sequential requests (appdetails JSON,
+// then the store page HTML), so at the 1200ms-per-item pacing this is
+// still several minutes even capped — that's fine for the silent startup
+// pass, but it's also what the manual Refresh button waits on, so this is
+// kept well under the old 4900+-item runs (which took over an hour) even
+// though it means clearing a first-run backlog takes several days.
+const MAX_STEAM_CHECKS_PER_REFRESH = 200;
 
 // Steam has two independent ways a "free" game can stop being real, and
 // only checking one of them was exactly what let delisted titles like
@@ -1535,13 +1554,29 @@ async function fetchSteamFreeGames() {
         // hoping a concurrency cap keeps it under some limit that isn't
         // precisely documented.
         const verified = readFreeGamesVerifiedCache();
-        const needsCheck = stillListed.filter((item) => {
+        const eligibleForCheck = stillListed.filter((item) => {
             const lastVerified = verified[String(item.appid)];
             return !lastVerified || (Date.now() - lastVerified) > FREEGAMES_VERIFIED_MAX_AGE_MS;
         });
 
+        // New entrants (never verified at all, lastVerified undefined/0)
+        // sort first — a fresh giveaway should never be stuck waiting
+        // behind a backlog of routine re-checks. Beyond that, the
+        // longest-overdue ones go next. Then MAX_STEAM_CHECKS_PER_REFRESH
+        // caps the actual work done this cycle; anything past the cap
+        // simply keeps its existing status until it's due again on a
+        // later refresh.
+        eligibleForCheck.sort((a, b) => {
+            const aVerified = verified[String(a.appid)] || 0;
+            const bVerified = verified[String(b.appid)] || 0;
+            return aVerified - bVerified;
+        });
+
+        const needsCheck = eligibleForCheck.slice(0, MAX_STEAM_CHECKS_PER_REFRESH);
+        const deferredCount = eligibleForCheck.length - needsCheck.length;
+
         if (needsCheck.length > 0) {
-            console.log(`[free-games] Verifying availability of ${needsCheck.length} Steam game(s) (${stillListed.length - needsCheck.length} already verified recently).`);
+            console.log(`[free-games] Verifying availability of ${needsCheck.length} Steam game(s) (${stillListed.length - eligibleForCheck.length} already verified recently${deferredCount > 0 ? `, ${deferredCount} more due but deferred to a later refresh` : ""}).`);
         }
 
         const availabilityResults = await runSequentialWithDelay(needsCheck, 1200, (item) =>
@@ -1709,17 +1744,38 @@ function saveFreeGamesLastRefresh(timestamp) {
     }
 }
 
-// At least once every 24 hours, per your own requirement — kept a hair
-// under FREEGAMES_VERIFIED_MAX_AGE_MS's 20h so a full pass here always
-// finds every game's individual "last verified" stamp already overdue,
-// instead of some of them coincidentally still being fresh and getting
-// skipped.
+// At least once every 24 hours, per your own requirement, so the list
+// itself (which games are free at all, not just whether each one is
+// still available) never goes stale for more than a day. Individual
+// games' own "last verified available" stamps last much longer than this
+// (see FREEGAMES_VERIFIED_MAX_AGE_MS below) — that's deliberate, so most
+// daily refreshes only add/remove games and re-check a small slice of
+// the rest, instead of re-verifying everyone every day.
 const FREEGAMES_FULL_REFRESH_MIN_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // The actual Steam/Epic/GOG fetch-and-verify pass — shared by the normal
 // (gated) get-free-games below and force-refresh-free-games, which skips
 // the gate entirely for a manual "give me a fresh list right now" click.
+// The startup auto-refresh and a renderer-triggered refresh can both see
+// "this is due" within the same instant (e.g. right when the app opens
+// straight into the Free Games section), which used to kick off two full
+// fetch-and-verify passes at once — doubling every request to Steam/Epic/
+// GOG for no reason. freeGamesRefreshPromise makes every caller that
+// arrives while a pass is already running just await that same in-flight
+// promise instead of starting a second one.
+let freeGamesRefreshPromise = null;
+
 async function performFreeGamesRefresh() {
+    if (freeGamesRefreshPromise) {
+        return freeGamesRefreshPromise;
+    }
+    freeGamesRefreshPromise = runFreeGamesRefresh().finally(() => {
+        freeGamesRefreshPromise = null;
+    });
+    return freeGamesRefreshPromise;
+}
+
+async function runFreeGamesRefresh() {
     // allSettled instead of all — one store's fetch failing outright must
     // never take the others down with it.
     const results = await Promise.allSettled([
