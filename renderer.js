@@ -1062,6 +1062,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.4": [
+        "Fixed: leaving Reading Room while Manga or Comics was the open tab could leave that full list of covers sitting on screen, overlapping whatever section you switched to next (The Vault, Free Games, etc.)"
+    ],
     "1.3.3": [
         "New: Manga and Comics moved from their own sections into Reading Room, alongside Buy Books/Discover/My Library/eBook Apps — and are now sorted alphabetically, show a much bigger list, and collapse behind a \"See more\" toggle after 10 rows",
         "New: the search bar now also searches the web (Steam, TMDB, Open Library) for games/movies/shows/books that aren't already in your library, Free Games, or Reading Room — shown as a quick lookup, never added to any list",
@@ -1079,8 +1082,7 @@ const CHANGELOG = {
         "Fixed: Manga and Comics' search bar sat flush against the list below it, unlike every other Reading Room tab",
         "Fixed: My Library's sort dropdown, Drop Folder, and + buttons looked like plain unstyled Windows controls instead of matching the rest of Riftgate",
         "New: New Series now has its own filter box, like Recent Episodes already did",
-        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge",
-        "Fixed: leaving Reading Room while Manga or Comics was the open tab could leave that full list of covers sitting on screen, overlapping whatever section you switched to next (The Vault, Free Games, etc.)"
+        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge"
     ],
     "1.3.2": [
         "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
