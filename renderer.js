@@ -1079,7 +1079,8 @@ const CHANGELOG = {
         "Fixed: Manga and Comics' search bar sat flush against the list below it, unlike every other Reading Room tab",
         "Fixed: My Library's sort dropdown, Drop Folder, and + buttons looked like plain unstyled Windows controls instead of matching the rest of Riftgate",
         "New: New Series now has its own filter box, like Recent Episodes already did",
-        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge"
+        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge",
+        "Fixed: leaving Reading Room while Manga or Comics was the open tab could leave that full list of covers sitting on screen, overlapping whatever section you switched to next (The Vault, Free Games, etc.)"
     ],
     "1.3.2": [
         "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
@@ -3627,6 +3628,16 @@ function switchSection(section) {
         discoverySectionsWrap.forEach((el) => {
             if (el) el.style.display = "none";
         });
+        // Manga/Comics only ever get shown/hidden by showReadingRoomTab,
+        // which only ever runs while Reading Room itself is the active
+        // section — so leaving Reading Room while Manga or Comics was the
+        // last open tab left its "active" class (and its full grid of
+        // covers) sitting there untouched, bleeding into whatever section
+        // was switched to next (The Vault, Free Games, etc.). Reading Room
+        // re-applies the correct one the moment it's opened again, so
+        // clearing both here unconditionally is always safe.
+        mangaContainer.classList.remove("active");
+        comicsContainer.classList.remove("active");
     }
 
     freeGamesContainer.classList.toggle("active", section === "free-games");
