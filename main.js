@@ -1171,28 +1171,6 @@ async function runWithConcurrencyLimit(items, limit, fn) {
     return results;
 }
 
-// One request at a time, with a fixed pause between each — for a vendor
-// API whose real rate limit isn't documented precisely enough to trust a
-// concurrency cap alone (even a small one still fired requests back-to-back
-// as each one resolved, which turned out to still be enough to trip Steam's
-// appdetails rate limiting — see fetchSteamFreeGames). Slower, but paired
-// with FREEGAMES_VERIFIED_FILE keeping the list this actually needs to run
-// against small on any given refresh, "slower" still finishes quickly in
-// practice. Same settled-style result shape as runWithConcurrencyLimit.
-async function runSequentialWithDelay(items, delayMs, fn) {
-    const results = [];
-    for (let i = 0; i < items.length; i++) {
-        if (i > 0 && delayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-        try {
-            results.push({ status: "fulfilled", value: await fn(items[i], i) });
-        } catch (err) {
-            results.push({ status: "rejected", reason: err });
-        }
-    }
-    return results;
-}
 
 ipcMain.handle("search-tv-shows", async (event, query) => {
     try {
@@ -1204,7 +1182,10 @@ ipcMain.handle("search-tv-shows", async (event, query) => {
             id: r.show.id,
             name: r.show.name,
             image: r.show.image ? r.show.image.medium : null,
-            premiered: r.show.premiered
+            premiered: r.show.premiered,
+            isMature: textContainsMatureKeyword(r.show.name)
+                || textContainsMatureKeyword(r.show.summary)
+                || (Array.isArray(r.show.genres) && r.show.genres.some((g) => textContainsMatureKeyword(g)))
         }));
     } catch (err) {
         console.error("[tv] search failed:", err.message || err);
@@ -1442,37 +1423,61 @@ const MAX_STEAM_CHECKS_PER_REFRESH = 200;
 // store" banner instead of a buy button. That banner only ever exists in
 // the page's actual HTML — Steam's public API has no field for it — so
 // it has to be checked for directly.
+// Returns { show: boolean, delisted: boolean }. "delisted" (the store
+// page/listing itself is gone) is permanent — once true, this appid is
+// blacklisted for good, since a genuinely removed listing never comes
+// back. "show: false, delisted: false" means the opposite: the listing
+// is still perfectly real, it's just not priced at $0 right now (a
+// limited-time promo ending is the common case) — this should only ever
+// exclude it from THIS refresh's output, never a permanent blacklist,
+// since the exact same title can legitimately go free again later (a
+// future promo, a different giveaway) and needs to be able to reappear
+// once SteamSpy/Steam's own data reflects that.
 async function checkSteamAppAvailability(appid) {
     let apiAvailable = true;
+    let stillFree = true;
     try {
-        const detail = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${appid}&filters=basic`, 10000);
-        apiAvailable = !!(detail && detail[appid] && detail[appid].success);
+        // No filters=basic here on purpose — "basic" trims the response
+        // down far enough that it drops is_free, which is exactly the
+        // field this needs: SteamSpy's own price field (used to build the
+        // initial list) can lag behind a limited-time promo ending, so a
+        // title that flipped back to paid stayed listed as free here
+        // until this specific check actually asked Steam's own data for
+        // its current price instead of just whether the page still loads.
+        const detail = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${appid}`, 10000);
+        const entry = detail && detail[appid];
+        apiAvailable = !!(entry && entry.success);
+        if (apiAvailable && entry.data) {
+            stillFree = entry.data.is_free === true;
+        }
     } catch (err) {
         // A failed/timed-out request confirms nothing either way — treat
-        // as available so a network hiccup can never masquerade as a
-        // delisting.
+        // as available/free so a network hiccup can never masquerade as a
+        // delisting or a price change.
         apiAvailable = true;
+        stillFree = true;
     }
 
-    if (!apiAvailable) return false;
+    if (!apiAvailable) return { show: false, delisted: true };
+    if (!stillFree) return { show: false, delisted: false };
 
     try {
         const page = await httpsGetTextPlain(`https://store.steampowered.com/app/${appid}/?l=english`, 10000);
         if (page.statusCode === 200 && /is no longer available on the steam store/i.test(page.body)) {
-            return false;
+            return { show: false, delisted: true };
         }
     } catch (err) {
         // Same reasoning as above — an unreadable page proves nothing.
     }
 
-    return true;
+    return { show: true, delisted: false };
 }
 
 // SteamSpy aggregates public Steam catalog data specifically for bulk
 // tag-based queries like this — unlike Steam's own storesearch (which is a
 // search-box autocomplete API, not a catalog browser, and only ever
 // returned a handful of results for an empty search term).
-async function fetchSteamFreeGames() {
+async function fetchSteamFreeGames(forceFullCheck) {
     try {
         const data = await httpsGetJsonPlain(
             "https://steamspy.com/api.php?request=tag&tag=Free+to+Play", 10000
@@ -1554,10 +1559,12 @@ async function fetchSteamFreeGames() {
         // hoping a concurrency cap keeps it under some limit that isn't
         // precisely documented.
         const verified = readFreeGamesVerifiedCache();
-        const eligibleForCheck = stillListed.filter((item) => {
-            const lastVerified = verified[String(item.appid)];
-            return !lastVerified || (Date.now() - lastVerified) > FREEGAMES_VERIFIED_MAX_AGE_MS;
-        });
+        const eligibleForCheck = forceFullCheck
+            ? stillListed
+            : stillListed.filter((item) => {
+                const lastVerified = verified[String(item.appid)];
+                return !lastVerified || (Date.now() - lastVerified) > FREEGAMES_VERIFIED_MAX_AGE_MS;
+            });
 
         // New entrants (never verified at all, lastVerified undefined/0)
         // sort first — a fresh giveaway should never be stuck waiting
@@ -1565,53 +1572,100 @@ async function fetchSteamFreeGames() {
         // longest-overdue ones go next. Then MAX_STEAM_CHECKS_PER_REFRESH
         // caps the actual work done this cycle; anything past the cap
         // simply keeps its existing status until it's due again on a
-        // later refresh.
+        // later refresh. A forced full check (the manual Refresh button)
+        // skips the cap entirely instead — the whole point of clicking it
+        // is an up-to-date list right now, not a partially-stale one.
         eligibleForCheck.sort((a, b) => {
             const aVerified = verified[String(a.appid)] || 0;
             const bVerified = verified[String(b.appid)] || 0;
             return aVerified - bVerified;
         });
 
-        const needsCheck = eligibleForCheck.slice(0, MAX_STEAM_CHECKS_PER_REFRESH);
+        const needsCheck = forceFullCheck ? eligibleForCheck : eligibleForCheck.slice(0, MAX_STEAM_CHECKS_PER_REFRESH);
         const deferredCount = eligibleForCheck.length - needsCheck.length;
 
         if (needsCheck.length > 0) {
-            console.log(`[free-games] Verifying availability of ${needsCheck.length} Steam game(s) (${stillListed.length - eligibleForCheck.length} already verified recently${deferredCount > 0 ? `, ${deferredCount} more due but deferred to a later refresh` : ""}).`);
+            console.log(`[free-games] Verifying availability of ${needsCheck.length} Steam game(s)${forceFullCheck ? " (forced full check)" : ""} (${stillListed.length - eligibleForCheck.length} already verified recently${deferredCount > 0 ? `, ${deferredCount} more due but deferred to a later refresh` : ""}).`);
         }
 
-        const availabilityResults = await runSequentialWithDelay(needsCheck, 1200, (item) =>
-            checkSteamAppAvailability(item.appid).then((available) => ({ appid: item.appid, available }))
-        );
+        // A forced full check on a catalog this size (the SteamSpy
+        // "Free to Play" tag alone is several thousand games) is far too
+        // much to run one request at a time with a 1.2s gap between each
+        // — that's well over an hour before anything is ever saved, which
+        // looked exactly like "nothing is happening" even though it was
+        // working the whole time. Small batches of concurrent requests,
+        // with a real pause between batches (not between every single
+        // request), cuts that down to a few minutes while still never
+        // hammering Steam continuously the way plain concurrency did
+        // before (see runWithConcurrencyLimit's comment — that's what
+        // tripped rate limiting previously). Progress is also saved after
+        // every batch instead of only once at the very end, so closing
+        // Riftgate partway through a big catch-up run keeps whatever was
+        // already verified instead of losing all of it and starting over.
+        const STEAM_CHECK_BATCH_SIZE = 5;
+        const STEAM_CHECK_BATCH_DELAY_MS = 700;
 
-        const newlyUnavailable = [];
+        // Delisted (the store listing itself is gone) is permanent — that
+        // appid goes on the standing blacklist and is never checked again.
+        // "Not free right now" (still a real listing, just currently
+        // priced above $0) only excludes it from THIS pass's output —
+        // never the permanent blacklist — since the same title can
+        // legitimately go free again on a future promo.
+        const newlyDelisted = [];
+        const newlyNotFree = [];
         let verifiedChanged = false;
-        availabilityResults.forEach((result) => {
-            if (result.status !== "fulfilled") return; // network hiccup — leave unverified, retried next refresh
-            const appid = String(result.value.appid);
-            if (result.value.available === false) {
-                newlyUnavailable.push(appid);
-            } else {
-                verified[appid] = Date.now();
-                verifiedChanged = true;
+        let checkedCount = 0;
+
+        for (let i = 0; i < needsCheck.length; i += STEAM_CHECK_BATCH_SIZE) {
+            if (i > 0) {
+                await new Promise((resolve) => setTimeout(resolve, STEAM_CHECK_BATCH_DELAY_MS));
             }
-        });
 
-        if (newlyUnavailable.length > 0) {
-            console.log(`[free-games] Excluding ${newlyUnavailable.length} newly-delisted Steam game(s).`);
-            const now = Date.now();
-            newlyUnavailable.forEach((appid) => {
-                knownUnavailable[appid] = now;
-                delete verified[appid];
-                verifiedChanged = true;
+            const batch = needsCheck.slice(i, i + STEAM_CHECK_BATCH_SIZE);
+            const batchResults = await Promise.allSettled(
+                batch.map((item) =>
+                    checkSteamAppAvailability(item.appid).then((result) => ({ appid: item.appid, result }))
+                )
+            );
+
+            let batchHasNewDelisted = false;
+            batchResults.forEach((res) => {
+                checkedCount++;
+                if (res.status !== "fulfilled") return; // network hiccup — leave unverified, retried next refresh
+                const appid = String(res.value.appid);
+                const { show, delisted } = res.value.result;
+                if (show) {
+                    verified[appid] = Date.now();
+                    verifiedChanged = true;
+                } else if (delisted) {
+                    newlyDelisted.push(appid);
+                    knownUnavailable[appid] = Date.now();
+                    delete verified[appid];
+                    verifiedChanged = true;
+                    batchHasNewDelisted = true;
+                } else {
+                    newlyNotFree.push(appid);
+                    delete verified[appid];
+                    verifiedChanged = true;
+                }
             });
-            saveFreeGamesUnavailableCache(knownUnavailable);
+
+            if (verifiedChanged) saveFreeGamesVerifiedCache(verified);
+            if (batchHasNewDelisted) saveFreeGamesUnavailableCache(knownUnavailable);
+
+            if (needsCheck.length > 200 && (checkedCount % 500 < STEAM_CHECK_BATCH_SIZE || checkedCount === needsCheck.length)) {
+                console.log(`[free-games] Verified ${checkedCount}/${needsCheck.length} Steam games so far...`);
+            }
         }
 
-        if (verifiedChanged) {
-            saveFreeGamesVerifiedCache(verified);
+        if (newlyDelisted.length > 0) {
+            console.log(`[free-games] Excluding ${newlyDelisted.length} newly-delisted Steam game(s).`);
+        }
+        if (newlyNotFree.length > 0) {
+            console.log(`[free-games] Excluding ${newlyNotFree.length} Steam game(s) no longer priced at $0 (may return if free again later).`);
         }
 
-        const unavailableIds = new Set(newlyUnavailable);
+        const unavailableIds = new Set([...newlyDelisted, ...newlyNotFree]);
 
         return stillListed
             .filter((item) => !unavailableIds.has(String(item.appid)))
@@ -1764,23 +1818,43 @@ const FREEGAMES_FULL_REFRESH_MIN_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 // arrives while a pass is already running just await that same in-flight
 // promise instead of starting a second one.
 let freeGamesRefreshPromise = null;
+let freeGamesRefreshIsFull = false;
 
-async function performFreeGamesRefresh() {
+// forceFullCheck bypasses BOTH the per-list 24h gate (handled by the
+// caller, get-free-games vs force-refresh-free-games) AND the per-game
+// 7-day trust window / MAX_STEAM_CHECKS_PER_REFRESH cap inside
+// fetchSteamFreeGames — without this, clicking the manual Refresh button
+// re-fetched the SteamSpy/Epic/GOG lists but still only re-verified a
+// capped slice of already-cached-as-available Steam games, so a title
+// that flipped from free back to paid within the last 7 days could stay
+// listed even right after an explicit "give me a fresh list" click.
+async function performFreeGamesRefresh(forceFullCheck) {
     if (freeGamesRefreshPromise) {
-        return freeGamesRefreshPromise;
+        if (!forceFullCheck || freeGamesRefreshIsFull) {
+            return freeGamesRefreshPromise;
+        }
+        // A weaker (capped) refresh is already in flight, but this call
+        // explicitly wants a real full check — wait for the weaker one to
+        // finish (so the two never run concurrently and double up on
+        // requests to Steam/Epic/GOG), then run a genuine full check right
+        // after, instead of silently downgrading this explicit request.
+        await freeGamesRefreshPromise.catch(() => {});
     }
-    freeGamesRefreshPromise = runFreeGamesRefresh().finally(() => {
+
+    freeGamesRefreshIsFull = !!forceFullCheck;
+    freeGamesRefreshPromise = runFreeGamesRefresh(forceFullCheck).finally(() => {
         freeGamesRefreshPromise = null;
+        freeGamesRefreshIsFull = false;
     });
     return freeGamesRefreshPromise;
 }
 
-async function runFreeGamesRefresh() {
+async function runFreeGamesRefresh(forceFullCheck) {
     // allSettled instead of all — one store's fetch failing outright must
     // never take the others down with it.
     const results = await Promise.allSettled([
         fetchEpicFreeGames(),
-        fetchSteamFreeGames(),
+        fetchSteamFreeGames(forceFullCheck),
         fetchGogFreeGames()
     ]);
 
@@ -1862,7 +1936,7 @@ ipcMain.handle("get-free-games", async () => {
 // fetch-and-verify pass regardless of how recently the last one ran, for
 // when the user specifically wants an up-to-date list right now rather
 // than waiting out the rest of the 24h window.
-ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh());
+ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh(true));
 
 // Instant retrieval of the last successfully fetched Free Games list —
 // same "show something immediately, refresh quietly after" pattern as
@@ -1925,7 +1999,8 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
                 title: m.title,
                 description: m.overview,
                 poster,
-                releaseDate: m.release_date
+                releaseDate: m.release_date,
+                isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));
 
@@ -2016,7 +2091,8 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
                 title: m.title,
                 description: m.overview,
                 poster,
-                releaseDate: m.release_date
+                releaseDate: m.release_date,
+                isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));
 
@@ -2053,7 +2129,8 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
                 name: s.name,
                 description: s.overview,
                 image,
-                firstAirDate: s.first_air_date
+                firstAirDate: s.first_air_date,
+                isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
             };
         }));
 
@@ -3660,6 +3737,23 @@ async function fetchGutenbergPages(pages) {
 function mapGutenbergBook(b) {
     const epubUrl = (b.formats && b.formats["application/epub+zip"]) || null;
     const coverUrl = (b.formats && b.formats["image/jpeg"]) || null;
+    // Every Gutenberg book is public-domain and freely readable online —
+    // prefer their own in-browser HTML reader when Gutendex lists one,
+    // otherwise fall back to the book's normal Gutenberg.org page, which
+    // always offers a "Read this book online" link of its own.
+    const htmlFormatKey = b.formats
+        ? Object.keys(b.formats).find((k) => k.startsWith("text/html"))
+        : null;
+    const readUrl = (htmlFormatKey && b.formats[htmlFormatKey])
+        || (b.id ? `https://www.gutenberg.org/ebooks/${b.id}` : null);
+    const subjects = [
+        ...(Array.isArray(b.subjects) ? b.subjects : []),
+        ...(Array.isArray(b.bookshelves) ? b.bookshelves : [])
+    ];
+    const summaryText = (b.summaries && b.summaries[0]) || null;
+    const isMature = textContainsMatureKeyword(b.title)
+        || subjects.some((s) => textContainsMatureKeyword(s))
+        || textContainsMatureKeyword(summaryText);
 
     return {
         id: `gutenberg-${b.id}`,
@@ -3668,9 +3762,11 @@ function mapGutenbergBook(b) {
         cover: coverUrl,
         downloadUrl: epubUrl,
         downloadCount: b.download_count || 0,
-        summary: (b.summaries && b.summaries[0]) || null,
+        summary: summaryText,
         source: "Project Gutenberg",
-        language: (b.languages && b.languages[0]) || null
+        language: (b.languages && b.languages[0]) || null,
+        readUrl,
+        isMature
     };
 }
 
@@ -3803,9 +3899,43 @@ ipcMain.handle("search-gutenberg-books", async (event, query) => {
 // to base that on (unlike Gutenberg, which is downloadable public
 // domain by definition).
 
+// Explicit-content keyword filter, used across Books/Manga/Comics/Movies/
+// Shows to compute an isMature flag on each item — deliberately narrow
+// (sexual/explicit-content terms only, not broad "mature themes" like
+// violence or horror) per your own instruction. This is best-effort: it
+// only catches what the item's own title/subjects/genres/summary text
+// actually says, so an admin can also manually force an item mature (or
+// clear a false positive) via admin-toggle-item-mature/mature_overrides,
+// checked separately from this.
+const MATURE_KEYWORDS = [
+    "hentai", "porn", "pornographic", "xxx", "erotica", "erotic",
+    "nsfw", "fetish", "bdsm", "adult content", "explicit content",
+    "sexually explicit"
+];
+
+function textContainsMatureKeyword(text) {
+    if (!text) return false;
+    const lower = String(text).toLowerCase();
+    return MATURE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+// True if a book's title or subject list mentions the given keyword —
+// used to keep Manga and (Western/general) Comics from bleeding into
+// each other, since Open Library files plenty of manga under a generic
+// "comics" subject too. Checked against the raw search doc (subjects
+// aren't kept on the mapped book object).
+function openLibraryDocMentions(doc, keyword) {
+    const lowerKeyword = keyword.toLowerCase();
+    if ((doc.title || "").toLowerCase().includes(lowerKeyword)) return true;
+    const subjects = Array.isArray(doc.subject) ? doc.subject : [];
+    return subjects.some((s) => String(s).toLowerCase().includes(lowerKeyword));
+}
+
 function mapOpenLibraryBook(doc) {
     const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null;
     const workKey = doc.key || null;
+    const subjects = Array.isArray(doc.subject) ? doc.subject : [];
+    const isMature = textContainsMatureKeyword(doc.title) || subjects.some((s) => textContainsMatureKeyword(s));
 
     // Open Library's own access-level field — since only a fraction of
     // its 20M+ catalog records actually have readable content attached,
@@ -3829,14 +3959,15 @@ function mapOpenLibraryBook(doc) {
         accessLevel,
         buyLink: workKey ? `https://openlibrary.org${workKey}` : null,
         infoLink: workKey ? `https://openlibrary.org${workKey}` : null,
-        source: "Open Library"
+        source: "Open Library",
+        isMature
     };
 }
 
 async function fetchOpenLibraryBooks(query, sort) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const data = await fetchWithRetry(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=40&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access`,
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=40&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
         10000
     );
     const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
@@ -3857,10 +3988,10 @@ async function fetchOpenLibraryBooks(query, sort) {
 // exhausted and there still aren't enough, return what was found
 // rather than padding with bare listings — a shorter, fully-illustrated
 // row beats a full one that's mostly blank placeholders.
-async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount) {
+async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const pageSize = 200;
-    const maxPages = 4; // up to 800 candidates before giving up
+    const maxPages = 10; // up to 2000 candidates before giving up — Manga/Comics now ask for a much bigger list (150) than the original 40, so this needs more room to find that many with real cover art
     const withCovers = [];
     const seenKeys = new Set();
 
@@ -3868,7 +3999,7 @@ async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount) {
         let data;
         try {
             data = await fetchWithRetry(
-                `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${page * pageSize}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access`,
+                `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${page * pageSize}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
                 10000
             );
         } catch (err) {
@@ -3880,6 +4011,7 @@ async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount) {
 
         for (const d of docs) {
             if (!d.title || !d.cover_i) continue;
+            if (excludeKeyword && openLibraryDocMentions(d, excludeKeyword)) continue;
             const dedupeKey = d.key || d.cover_edition_key;
             if (dedupeKey) {
                 if (seenKeys.has(dedupeKey)) continue;
@@ -3928,11 +4060,19 @@ ipcMain.handle("get-openlibrary-new-releases", async () => {
 
 // Manga/Comics sections — reuse the exact same Open Library machinery as
 // Buy Books (fetchOpenLibraryBooks, mapOpenLibraryBook, saveDataCache),
-// just scoped to different default queries. No new external integration,
-// so this inherits the same reliability the Buy Books feature already has.
+// just scoped to different default queries. Unlike Buy Books/Popular
+// though, Open Library's manga and comics catalogs have a much lower
+// cover-art hit rate than general fiction — a plain query used to return
+// a lot of entries with no artwork at all, showing up as blank covers in
+// the grid. Using the same cover-filtering fetch already built for New
+// Releases (which pages through candidates and keeps only the ones that
+// actually have cover art) fixes that the same way it did there.
 ipcMain.handle("get-manga-books", async () => {
     try {
-        const books = await fetchOpenLibraryBooks("manga", "rating");
+        // Scoped to the actual "manga" subject rather than a loose
+        // keyword search, so this doesn't also pull in books that just
+        // mention manga in passing.
+        const books = await fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150);
         saveDataCache("cache-manga-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -3945,7 +4085,11 @@ ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-
 
 ipcMain.handle("get-comics-books", async () => {
     try {
-        const books = await fetchOpenLibraryBooks("comics", "rating");
+        // Open Library files a lot of manga under the generic "comics"
+        // subject too, so this excludes anything that mentions manga in
+        // its own title/subjects — manga always belongs in the Manga
+        // tab, never duplicated into Comics.
+        const books = await fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 150, "manga");
         saveDataCache("cache-comics-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -3955,6 +4099,139 @@ ipcMain.handle("get-comics-books", async () => {
 });
 
 ipcMain.handle("get-cached-comics-books", async () => loadDataCache("cache-comics-books.json") || []);
+
+// Manga/Comics search, kept as its own endpoint (rather than reusing the
+// general search-openlibrary-books one below) specifically so a search
+// typed inside the Manga tab stays scoped to subject:manga, and a search
+// inside Comics stays scoped to subject:comics with manga excluded — the
+// same separation as the default lists above, just applied live.
+ipcMain.handle("search-genre-books", async (event, { term, kind } = {}) => {
+    if (!term || !term.trim()) return { success: true, books: [] };
+    try {
+        const isManga = kind === "manga";
+        const subjectFilter = isManga ? "subject:manga" : "subject:comics";
+        const data = await fetchWithRetry(
+            `https://openlibrary.org/search.json?q=${encodeURIComponent(`${subjectFilter} ${term.trim()}`)}&limit=60&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
+            10000
+        );
+        const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
+        const scoped = isManga ? docs : docs.filter((d) => !openLibraryDocMentions(d, "manga"));
+        const books = scoped.filter((d) => d.title).map(mapOpenLibraryBook);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] genre search failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+});
+
+// Live, cross-category web search for the header search bar — unlike
+// the rest of the app, this deliberately does NOT touch any cache file:
+// nothing here is ever added to a list, it's shown once and discarded
+// the moment the search is cleared, per your own instruction. Queries
+// Steam (games — exempt from mature filtering, same as every other
+// games list), TMDB (movies/shows), and Open Library (books) in
+// parallel. includeMature widens the result count and, for
+// TMDB, actually asks for adult results too — the "bigger search for
+// adults" you asked for — rather than just filtering the same small
+// result set differently.
+ipcMain.handle("web-search-all", async (event, { query, includeMature }) => {
+    const term = (query || "").trim();
+    if (!term) return { success: true, results: [] };
+
+    const perCategoryLimit = includeMature ? 25 : 15;
+    const results = [];
+
+    const tasks = [
+        (async () => {
+            try {
+                const data = await httpsGetJsonPlain(
+                    `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(term)}&cc=US&l=english`,
+                    8000
+                );
+                (data && Array.isArray(data.items) ? data.items : []).slice(0, perCategoryLimit).forEach((item) => {
+                    results.push({
+                        section: "game",
+                        id: item.id,
+                        title: item.name,
+                        image: item.tiny_image || null,
+                        link: `https://store.steampowered.com/app/${item.id}`,
+                        isMature: false // games are exempt from mature filtering, per your own instruction
+                    });
+                });
+            } catch (err) {
+                console.error("[web-search] Steam search failed:", err.message || err);
+            }
+        })(),
+
+        (async () => {
+            try {
+                const data = await mediaProxyGetJsonPlain("tmdb", "/search/movie", {
+                    query: term,
+                    include_adult: includeMature ? "true" : "false"
+                });
+                (data.results || []).slice(0, perCategoryLimit).forEach((m) => {
+                    results.push({
+                        section: "movie",
+                        id: m.id,
+                        title: m.title,
+                        image: m.poster_path ? `https://image.tmdb.org/t/p/w200${m.poster_path}` : null,
+                        link: `https://www.themoviedb.org/movie/${m.id}`,
+                        isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
+                    });
+                });
+            } catch (err) {
+                console.error("[web-search] TMDB movie search failed:", err.message || err);
+            }
+        })(),
+
+        (async () => {
+            try {
+                const data = await mediaProxyGetJsonPlain("tmdb", "/search/tv", {
+                    query: term,
+                    include_adult: includeMature ? "true" : "false"
+                });
+                (data.results || []).slice(0, perCategoryLimit).forEach((s) => {
+                    results.push({
+                        section: "show",
+                        id: s.id,
+                        title: s.name,
+                        image: s.poster_path ? `https://image.tmdb.org/t/p/w200${s.poster_path}` : null,
+                        link: `https://www.themoviedb.org/tv/${s.id}`,
+                        isMature: !!s.adult || textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
+                    });
+                });
+            } catch (err) {
+                console.error("[web-search] TMDB tv search failed:", err.message || err);
+            }
+        })(),
+
+        (async () => {
+            try {
+                const books = await fetchOpenLibraryBooks(term);
+                books.slice(0, perCategoryLimit).forEach((b) => {
+                    results.push({
+                        section: "book",
+                        id: b.id,
+                        title: b.title,
+                        image: b.cover,
+                        link: b.infoLink,
+                        isMature: b.isMature
+                    });
+                });
+            } catch (err) {
+                console.error("[web-search] Open Library search failed:", err.message || err);
+            }
+        })()
+    ];
+
+    await Promise.allSettled(tasks);
+
+    // Defense in depth: even though the renderer already gates whether
+    // it asks for mature results at all, never hand back mature items to
+    // a caller that didn't explicitly ask for them.
+    const filtered = includeMature ? results : results.filter((r) => !r.isMature);
+    return { success: true, results: filtered };
+});
 
 ipcMain.handle("search-openlibrary-books", async (event, query) => {
     if (!query || !query.trim()) return { success: true, books: [] };
@@ -4685,7 +4962,7 @@ ipcMain.handle("check-username-available", async (event, username) => {
     }
 });
 
-ipcMain.handle("register-username", async (event, { username, deviceId }) => {
+ipcMain.handle("register-username", async (event, { username, deviceId, dateOfBirth }) => {
     if (hasReservedAdminSuffix(username)) {
         return { success: false, error: "Usernames can't end in \"_Adm\", \"_Root\", or similar — those are reserved to prevent impersonating an admin." };
     }
@@ -4693,7 +4970,8 @@ ipcMain.handle("register-username", async (event, { username, deviceId }) => {
     try {
         const result = await supabaseRequest("usernames", "POST", {
             username,
-            device_id: deviceId
+            device_id: deviceId,
+            date_of_birth: dateOfBirth || null
         });
 
         if (result.statusCode === 201) {
@@ -4712,6 +4990,111 @@ ipcMain.handle("register-username", async (event, { username, deviceId }) => {
         console.error("[username] registration failed:", err.message || err);
         return { success: false, error: "Couldn't reach the server — check your connection and try again." };
     }
+});
+
+// The account's own date of birth (used to compute minor/adult) and its
+// mature-content display preference — read together since both gate the
+// same thing (what mature content, if any, this account can see).
+// Read-only, and only ever asked for the CURRENTLY logged-in account's
+// own username — same trust level as get-all-usernames/submit-suggestion,
+// not an admin-gated RPC, since nothing sensitive (like a password) is
+// exposed here.
+// Best-effort country lookup for the age gate — NOT accredited/ID-based
+// age verification. This only tells Riftgate roughly what country a
+// connection is coming from (a VPN defeats it trivially, like any IP
+// geolocation), used purely to pick which minimum age counts as "adult"
+// for that country, so it's a courtesy improvement over a single flat
+// number, not a compliance guarantee for jurisdictions whose laws
+// require real ID/age verification for adult content.
+ipcMain.handle("get-country-by-ip", async () => {
+    try {
+        const data = await httpsGetJsonPlain("https://ipapi.co/json/", 8000);
+        return { success: true, countryCode: (data && data.country_code) || null };
+    } catch (err) {
+        console.error("[age-gate] country lookup failed:", err.message || err);
+        return { success: false, countryCode: null };
+    }
+});
+
+ipcMain.handle("get-account-profile", async (event, username) => {
+    try {
+        const result = await supabaseRequest(
+            `usernames?username=eq.${encodeURIComponent(username)}&select=date_of_birth,show_mature_content`,
+            "GET"
+        );
+
+        if (result.statusCode !== 200 || !Array.isArray(result.body) || result.body.length === 0) {
+            return { success: false };
+        }
+
+        return {
+            success: true,
+            dateOfBirth: result.body[0].date_of_birth || null,
+            showMatureContent: !!result.body[0].show_mature_content
+        };
+    } catch (err) {
+        console.error("[account] profile fetch failed:", err.message || err);
+        return { success: false };
+    }
+});
+
+// Existing accounts created before date-of-birth existed are asked for
+// it right after they log in (see ensureLoggedIn in the renderer) —
+// this is what saves it. Goes through set_own_date_of_birth (a
+// security-definer RPC), NOT a direct PATCH against usernames — that
+// table's Row Level Security has no UPDATE policy for the anon key, so
+// a direct PATCH here silently updated nothing while still reporting a
+// normal success status, which is why a date of birth that was
+// "saved" kept coming back empty (and re-prompted) on every next login.
+ipcMain.handle("set-account-date-of-birth", async (event, { username, dateOfBirth }) => {
+    const r = await callAdminRpc("set_own_date_of_birth", { input_username: username, new_dob: dateOfBirth });
+    if (!r.success) return r;
+    return { success: r.result === true };
+});
+
+// The mature-content on/off toggle, for a verified adult — tied to the
+// account (not this device) per your own choice, so it follows them to
+// another PC. Minors never see the control that calls this at all; it's
+// still checked server-side by the age gate itself regardless. Same RPC
+// pattern as set-account-date-of-birth above, for the same reason — a
+// direct PATCH here would silently fail against RLS too.
+ipcMain.handle("set-show-mature-content", async (event, { username, show }) => {
+    const r = await callAdminRpc("set_own_mature_content_preference", { input_username: username, new_value: !!show });
+    if (!r.success) return r;
+    return { success: r.result === true };
+});
+
+// Every item an admin has manually forced to count as mature (or
+// force-cleared), regardless of what the app's own keyword check would
+// otherwise decide. Read by every user so their own content list can be
+// filtered client-side; only ever written through admin-toggle-item-mature.
+ipcMain.handle("get-mature-overrides", async () => {
+    try {
+        const result = await supabaseRequest("mature_overrides?select=section,item_key", "GET");
+        if (result.statusCode !== 200 || !Array.isArray(result.body)) {
+            return { success: false, overrides: [] };
+        }
+        return { success: true, overrides: result.body };
+    } catch (err) {
+        console.error("[mature] overrides fetch failed:", err.message || err);
+        return { success: false, overrides: [] };
+    }
+});
+
+// Admin-only: force an item to be treated as mature (or clear that),
+// on top of whatever the keyword check alone would decide. Re-verifies
+// the admin's password server-side inside admin_toggle_item_mature,
+// exactly like every other admin-gated action in this app.
+ipcMain.handle("admin-toggle-item-mature", async (event, { username, password, section, itemKey, itemName }) => {
+    const r = await callAdminRpc("admin_toggle_item_mature", {
+        input_username: username,
+        input_password: password,
+        target_section: section,
+        target_item_key: itemKey,
+        target_item_name: itemName || null
+    });
+    if (!r.success) return r;
+    return { success: true, isMature: r.result === true };
 });
 
 // --- Suggestions (Supabase) ------------------------------------------------

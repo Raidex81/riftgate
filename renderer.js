@@ -752,6 +752,24 @@ function spinSlotReel() {
     const landingSlot = strip.length - 2;
     strip[landingSlot] = wheelWinner;
 
+    // The strip is spinPool repeated back-to-back in the same order every
+    // time, so the item that naturally falls right next to landingSlot
+    // (from that repeating pattern, before the override above) can
+    // occasionally already BE the winner — e.g. spinPool[17] repeats into
+    // the slot right before landingSlot, and if the winner happened to be
+    // drawn from spinPool[17] itself, the reel shows the winner twice in
+    // a row right where it visibly settles. Swap that neighbor for a
+    // different pool item whenever this collision happens, so the tile
+    // sitting beside the winner is never the same game as the winner.
+    const winnerKey = (wheelItemName(wheelWinner) || "").toLowerCase();
+    [landingSlot - 1, landingSlot + 1].forEach((neighborIdx) => {
+        if (neighborIdx < 0 || neighborIdx >= strip.length || neighborIdx === landingSlot) return;
+        if ((wheelItemName(strip[neighborIdx]) || "").toLowerCase() === winnerKey) {
+            const replacement = spinPool.find((g) => (wheelItemName(g) || "").toLowerCase() !== winnerKey);
+            if (replacement) strip[neighborIdx] = replacement;
+        }
+    });
+
     track.innerHTML = "";
     track.style.transition = "none";
     track.style.transform = "translateX(0)";
@@ -1044,6 +1062,19 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.3": [
+        "New: Manga and Comics moved from their own sections into Reading Room, alongside Buy Books/Discover/My Library/eBook Apps — and are now sorted alphabetically, show a much bigger list, and collapse behind a \"See more\" toggle after 10 rows",
+        "New: the search bar now also searches the web (Steam, TMDB, Open Library) for games/movies/shows/books that aren't already in your library, Free Games, or Reading Room — shown as a quick lookup, never added to any list",
+        "New: books, manga, and comics that are freely readable online now show a \"Read Online\" button right next to Buy/Download, linking straight to where it can actually be read",
+        "Fixed: Manga and Comics were showing a lot of entries with no cover art at all — they now only show entries with real cover art, same as New Releases already did",
+        "Fixed: Manga and Comics could show the same title in both lists, since Open Library often files manga under the generic \"comics\" subject too — Manga and Comics browsing and searching are now kept strictly separate",
+        "Changed: Applications always sits last in the section list now, and eBook Apps always sits last among the Reading Room tabs (after Manga and Comics)",
+        "Fixed: the manual Refresh button in Free Games could still leave a Steam title listed after it stopped being free — it only re-fetched the Epic/Steam/GOG lists, but still relied on the same capped, days-old verification as an ordinary refresh, so it never actually re-checked most already-cached Steam titles. It now does a real full re-check of every listed Steam game.",
+        "Fixed: a Steam game that stopped being free (a limited-time promo ending) but was still a perfectly normal store listing wasn't being caught at all — only outright delistings were checked for; current price is now checked too.",
+        "Fixed: a forced Free Games refresh looked like it was doing nothing when there were thousands of Steam games to re-verify — it really was working, just one request every 1.2 seconds against a list that can run into the thousands, which could take well over an hour before anything was saved. It now checks several at once with a short pause between batches (a few minutes for the whole catalog instead of over an hour), and saves progress as it goes instead of only at the very end, so closing Riftgate partway through a big check no longer throws away everything it already found.",
+        "Fixed: every search/filter box (Games, Free Games, Reading Room, Manga, Comics, Movies, Shows, the header search) now clears itself when you switch to a different section or Reading Room tab, instead of leaving old search text and results sitting there",
+        "Changed: more breathing room in the header and Reading Room tabs — a divider now separates the search/login area from the notification/Surprise Me/power icons, and the tabs sit in their own lightly-shaded strip instead of everything reading as one dense row"
+    ],
     "1.3.2": [
         "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
         "Fixed: Surprise Me could show the same title twice in the reel — usually because the same game or item exists in the underlying list more than once (e.g. imported into your library through two different paths). The reel now only ever shows each title once.",
@@ -1054,7 +1085,8 @@ const CHANGELOG = {
         "Changed: Free Games now refreshes from Steam/Epic/GOG at most once every 24 hours instead of every time you open the section — it opens instantly from what was already loaded last time, and checks for a new list (adding newly-free games, dropping ones no longer available) once a day, including once at startup so it stays current even on days you never open that section",
         "Changed: trailers no longer auto-play on hover anywhere in the app — click the \"Watch larger\" button on a game, movie, or show to load and play its trailer instead. Hovering was quietly using up the shared trailer lookup for everyone; loading only on a real click keeps it working for the whole community",
         "Fixed: Free Games could end up doing two full Steam/Epic/GOG refreshes back to back on startup (the automatic startup refresh and opening the section could both see a refresh as due at the same moment) — a refresh already in progress is now reused instead of a second one starting",
-        "Fixed: a Free Games refresh could try to re-verify thousands of Steam titles in one pass, which was impractically slow — each verified game is now trusted for 7 days instead of ~1, and at most 200 titles are re-checked per refresh (newest/never-checked ones first), spreading the work across several days instead of redoing it all at once"
+        "Fixed: a Free Games refresh could try to re-verify thousands of Steam titles in one pass, which was impractically slow — each verified game is now trusted for 7 days instead of ~1, and at most 200 titles are re-checked per refresh (newest/never-checked ones first), spreading the work across several days instead of redoing it all at once",
+        "Fixed: Surprise Me's reel could still occasionally show the winning title twice in a row right next to where it lands — the earlier duplicate-tile fix covered the underlying list, but not this separate coincidence in how the reel strip itself is built"
     ],
     "1.3.1": [
         "Fixed: a tray icon load failure could silently stop the rest of startup from running — including the automatic update check and the folder watcher for drag-and-drop while Riftgate is closed. Both now run reliably regardless of the tray icon, and the tray icon itself is fixed too."
@@ -3319,6 +3351,8 @@ const readingRoomTabLibrary = document.getElementById("readingRoomTabLibrary");
 const readingRoomTabDiscover = document.getElementById("readingRoomTabDiscover");
 const readingRoomTabBuyFree = document.getElementById("readingRoomTabBuyFree");
 const readingRoomTabApps = document.getElementById("readingRoomTabApps");
+const readingRoomTabManga = document.getElementById("readingRoomTabManga");
+const readingRoomTabComics = document.getElementById("readingRoomTabComics");
 const discoveryHeading = document.getElementById("discoverIntroSection");
 const discoverySectionsWrap = [
     discoveryHeading,
@@ -3339,6 +3373,7 @@ let activeReadingRoomTab = "buyfree"; // corrected from settings on first entry 
 let readingRoomTabInitializedFromSettings = false;
 
 function showReadingRoomTab(tab) {
+    resetReadingRoomSearchBars();
     activeReadingRoomTab = tab;
     saveSetting("lastReadingRoomTab", tab);
 
@@ -3346,11 +3381,15 @@ function showReadingRoomTab(tab) {
     const isDiscover = tab === "discover";
     const isBuyFree = tab === "buyfree";
     const isApps = tab === "apps";
+    const isManga = tab === "manga";
+    const isComics = tab === "comics";
 
     readingRoomTabLibrary.classList.toggle("active", isLibrary);
     readingRoomTabDiscover.classList.toggle("active", isDiscover);
     readingRoomTabBuyFree.classList.toggle("active", isBuyFree);
     readingRoomTabApps.classList.toggle("active", isApps);
+    readingRoomTabManga.classList.toggle("active", isManga);
+    readingRoomTabComics.classList.toggle("active", isComics);
 
     readingRoomTopbar.style.display = isLibrary ? "" : "none";
     readingRoomBlurb.style.display = isLibrary ? "" : "none";
@@ -3358,8 +3397,10 @@ function showReadingRoomTab(tab) {
     // Its own tab now (eBook Apps) rather than tacked onto the bottom of
     // My Library, where it was easy to miss entirely.
     recommendedReadersSection.style.display = isApps ? "" : "none";
+    mangaContainer.classList.toggle("active", isManga);
+    comicsContainer.classList.toggle("active", isComics);
 
-    document.querySelector(".reading-room-search-bar:not(#buyFreeSearchBar)").style.display = (isBuyFree || isApps) ? "none" : "";
+    document.querySelector(".reading-room-search-bar:not(#buyFreeSearchBar)").style.display = (isBuyFree || isApps || isManga || isComics) ? "none" : "";
     buyFreeSearchBar.style.display = isBuyFree ? "" : "none";
     discoveryLanguageSelect.style.display = isDiscover ? "" : "none";
     discoveryCategorySelect.style.display = isDiscover ? "" : "none";
@@ -3384,12 +3425,24 @@ function showReadingRoomTab(tab) {
         renderFreeFindsSection();
     }
     if (isBuyFree) loadBuyFreeBooks();
+
+    if (isManga && !mangaLoaded) {
+        mangaLoaded = true;
+        loadGenericBrowseSection("manga");
+    }
+
+    if (isComics && !comicsLoaded) {
+        comicsLoaded = true;
+        loadGenericBrowseSection("comics");
+    }
 }
 
 readingRoomTabLibrary.addEventListener("click", () => showReadingRoomTab("library"));
 readingRoomTabDiscover.addEventListener("click", () => showReadingRoomTab("discover"));
 readingRoomTabBuyFree.addEventListener("click", () => showReadingRoomTab("buyfree"));
 readingRoomTabApps.addEventListener("click", () => showReadingRoomTab("apps"));
+readingRoomTabManga.addEventListener("click", () => showReadingRoomTab("manga"));
+readingRoomTabComics.addEventListener("click", () => showReadingRoomTab("comics"));
 
 openDropzoneBtn.addEventListener("click", () => {
     window.riftgate.invoke("open-dropzone-folder");
@@ -3479,7 +3532,45 @@ function setAmbientIcons(section) {
     }
 }
 
+// Every search/filter box in the app only makes sense for the section
+// (or Reading Room tab) it lives in — leaving old typed text sitting in
+// one after navigating away just looks like a stale leftover, so every
+// one of them clears out on a real section/tab switch instead.
+function clearSearchBar(input) {
+    if (!input || !input.value) return;
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function resetReadingRoomSearchBars() {
+    clearSearchBar(buyFreeSearchInput);
+    clearSearchBar(readingRoomSearchInput);
+    clearSearchBar(mangaSearchInput);
+    clearSearchBar(comicsSearchInput);
+}
+
+function resetAllSectionSearchBars() {
+    clearSearchBar(searchInput);
+    clearSearchBar(freeGamesSearchInput);
+    clearSearchBar(moviesFilterInput);
+    clearSearchBar(myShowsFilterInput);
+    clearSearchBar(recentEpisodesFilterInput);
+    resetReadingRoomSearchBars();
+
+    if (showSearchInput && showSearchInput.value) {
+        showSearchInput.value = "";
+        showSearchResults.innerHTML = "";
+    }
+
+    if (globalSearchInput && globalSearchInput.value) {
+        globalSearchInput.value = "";
+        globalSearchResults.style.display = "none";
+        webSearchToken += 1; // invalidate any in-flight web search
+    }
+}
+
 function switchSection(section) {
+    resetAllSectionSearchBars();
     currentSection = section;
     sectionPill.title = "You're viewing: " + SECTION_LABELS[section];
     setAmbientIcons(section);
@@ -3489,7 +3580,7 @@ function switchSection(section) {
     // section (it's a mixed feed of upcoming/new items, not a personal
     // library or a browsable list to spin against), and The Vault isn't
     // a browsable list of things to launch/read/watch at all.
-    surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications" || section === "manga" || section === "comics") ? "none" : "";
+    surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications") ? "none" : "";
 
     sidebarNavButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.section === section);
@@ -3536,8 +3627,6 @@ function switchSection(section) {
     theatreContainer.classList.toggle("active", section === "theatre");
     document.getElementById("newContainer").classList.toggle("active", section === "new");
     document.getElementById("applicationsContainer").classList.toggle("active", section === "applications");
-    mangaContainer.classList.toggle("active", section === "manga");
-    comicsContainer.classList.toggle("active", section === "comics");
 
     if (section === "shared-folder") loadSharedFolder();
 
@@ -3552,16 +3641,6 @@ function switchSection(section) {
     if (section === "free-games" && !freeGamesLoaded) {
         freeGamesLoaded = true;
         loadFreeGames();
-    }
-
-    if (section === "manga" && !mangaLoaded) {
-        mangaLoaded = true;
-        loadGenericBrowseSection("manga");
-    }
-
-    if (section === "comics" && !comicsLoaded) {
-        comicsLoaded = true;
-        loadGenericBrowseSection("comics");
     }
 
     if (section === "reading-room" && !readingRoomLoaded) {
@@ -4173,6 +4252,20 @@ function buildDiscoveryEbookCard(book) {
     });
     actions.appendChild(downloadBtn);
 
+    // Every Gutenberg book is public-domain, so there's always somewhere
+    // free to read it online, separate from downloading it into the
+    // library — a direct link out to that reader/page.
+    if (book.readUrl) {
+        const readOnlineBtn = document.createElement("button");
+        readOnlineBtn.className = "launchBtn";
+        readOnlineBtn.textContent = "📖 Read Online";
+        readOnlineBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            window.riftgate.invoke("open-external", book.readUrl);
+        });
+        actions.appendChild(readOnlineBtn);
+    }
+
     overlay.appendChild(actions);
     card.appendChild(overlay);
 
@@ -4181,12 +4274,17 @@ function buildDiscoveryEbookCard(book) {
 
 function renderEbookDiscoveryGrid(grid, books, errorMessage) {
     grid.innerHTML = "";
-    if (books.length === 0) {
+
+    const visibleBooks = canSeeMatureContent()
+        ? books
+        : books.filter((book) => !isItemMature("book", book.id, book.isMature));
+
+    if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;grid-column:1/-1;">Couldn't load this right now${detail} — check your connection and reopen Reading Room.</p>`;
         return;
     }
-    sortNoCoverLast(books, "cover").forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book)));
+    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book)));
 }
 
 async function loadEbookDiscovery() {
@@ -4253,7 +4351,9 @@ async function loadEbookDiscovery() {
     };
 }
 
-function buildBuyFreeBookCard(book) {
+
+function buildBuyFreeBookCard(book, section) {
+    section = section || "book";
     const card = document.createElement("div");
     card.className = "game-card";
 
@@ -4357,20 +4457,61 @@ function buildBuyFreeBookCard(book) {
     });
     actions.appendChild(actionBtn);
 
+    // Distinct from the Buy/View button above — only shown when Open
+    // Library itself marks this as freely readable ("public" access),
+    // so it's never offered on a listing that's actually just a
+    // catalog entry or a borrow-only/restricted one.
+    if (book.accessLevel === "public") {
+        const readOnlineBtn = document.createElement("button");
+        readOnlineBtn.className = "launchBtn";
+        readOnlineBtn.textContent = "📖 Read Online";
+        readOnlineBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const link = book.buyLink || book.infoLink;
+            if (link) {
+                window.riftgate.invoke("open-external", link);
+            } else {
+                alert("No link available for this book.");
+            }
+        });
+        actions.appendChild(readOnlineBtn);
+    }
+
     overlay.appendChild(actions);
     card.appendChild(overlay);
 
     return card;
 }
 
-function renderBuyFreeGrid(grid, books, errorMessage) {
+function renderBuyFreeGrid(grid, books, errorMessage, kind) {
+    kind = kind || "book";
+    const section = kind === "manga" ? "manga" : (kind === "comics" ? "comic" : "book");
+    const isAlphaGrid = kind === "manga" || kind === "comics";
+
     grid.innerHTML = "";
-    if (books.length === 0) {
+
+    const visibleBooks = canSeeMatureContent()
+        ? books
+        : books.filter((book) => !isItemMature(section, book.workKey || book.id, book.isMature));
+
+    if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;grid-column:1/-1;">Couldn't load this right now${detail} — check your connection and reopen Reading Room.</p>`;
         return;
     }
-    sortNoCoverLast(books, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book)));
+
+    const ordered = isAlphaGrid
+        ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+        : sortNoCoverLast(visibleBooks, "cover");
+
+    ordered.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, section)));
+
+    // Manga/Comics specifically get a much bigger list than before, so
+    // this keeps that from dominating the screen by default — same
+    // fold/unfold control already used everywhere else in the app.
+    if (isAlphaGrid) {
+        attachSeeMore(grid, 10);
+    }
 }
 
 // --- Manga / Comics --------------------------------------------------------
@@ -4389,6 +4530,7 @@ const comicsSearchInput = document.getElementById("comicsSearchInput");
 let mangaLoaded = false;
 let comicsLoaded = false;
 const genericBrowseSearchDebounce = {};
+const genericBrowseCache = { manga: [], comics: [] };
 
 function genericBrowseGrid(kind) {
     return kind === "manga" ? mangaGrid : comicsGrid;
@@ -4401,16 +4543,18 @@ async function loadGenericBrowseSection(kind) {
 
     const cached = await window.riftgate.invoke(cachedChannel);
     if (cached && cached.length > 0) {
-        renderBuyFreeGrid(grid, cached);
+        genericBrowseCache[kind] = cached;
+        renderBuyFreeGrid(grid, cached, null, kind);
     } else {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Loading ${kind}...</p>`;
     }
 
     const result = await window.riftgate.invoke(freshChannel);
     if (result.success) {
-        renderBuyFreeGrid(grid, result.books, result.error);
+        genericBrowseCache[kind] = result.books;
+        renderBuyFreeGrid(grid, result.books, result.error, kind);
     } else if (!cached || cached.length === 0) {
-        renderBuyFreeGrid(grid, [], result.error);
+        renderBuyFreeGrid(grid, [], result.error, kind);
     }
 }
 
@@ -4421,14 +4565,25 @@ function wireGenericBrowseSearch(kind, input) {
         const grid = genericBrowseGrid(kind);
 
         if (!term) {
-            loadGenericBrowseSection(kind);
+            // Already have this tab's default list cached — just
+            // re-render it locally instead of re-fetching over the
+            // network every time the search box is cleared (including
+            // when it's cleared automatically on a section/tab switch).
+            if (genericBrowseCache[kind] && genericBrowseCache[kind].length > 0) {
+                renderBuyFreeGrid(grid, genericBrowseCache[kind], null, kind);
+            } else {
+                loadGenericBrowseSection(kind);
+            }
             return;
         }
 
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Searching...</p>`;
         genericBrowseSearchDebounce[kind] = setTimeout(async () => {
-            const result = await window.riftgate.invoke("search-openlibrary-books", `${term} ${kind}`);
-            renderBuyFreeGrid(grid, result.success ? result.books : [], result.error);
+            // Scoped search (subject:manga / subject:comics, with manga
+            // excluded from comics results) so typing in one tab's
+            // search box never pulls in the other's results.
+            const result = await window.riftgate.invoke("search-genre-books", { term, kind });
+            renderBuyFreeGrid(grid, result.success ? result.books : [], result.error, kind);
         }, 500);
     });
 }
@@ -4447,9 +4602,13 @@ function renderFreeFindsSection() {
         return;
     }
 
+    const visibleBooks = canSeeMatureContent()
+        ? freeFindsCache
+        : freeFindsCache.filter((book) => !isItemMature("book", book.workKey || book.id, book.isMature));
+
     section.style.display = activeReadingRoomTab === "discover" ? "" : "none";
     grid.innerHTML = "";
-    sortNoCoverLast(freeFindsCache, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book)));
+    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, "book")));
 }
 
 async function loadBuyFreeBooks() {
@@ -5435,9 +5594,12 @@ const moviesFilterInput = document.getElementById("moviesFilterInput");
 
 function renderMovies() {
     const filterTerm = moviesFilterInput.value.trim().toLowerCase();
+    const visible = canSeeMatureContent()
+        ? moviesCache
+        : moviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
     const filtered = filterTerm
-        ? moviesCache.filter((m) => m.title.toLowerCase().includes(filterTerm))
-        : moviesCache;
+        ? visible.filter((m) => m.title.toLowerCase().includes(filterTerm))
+        : visible;
 
     moviesGrid.innerHTML = "";
 
@@ -5469,37 +5631,55 @@ async function loadMovies() {
 // --- "NEW" section: upcoming movies, new series, upcoming games -----------
 
 let newSectionLoaded = false;
+let upcomingMoviesCache = [];
+
+function renderUpcomingMovies() {
+    const grid = document.getElementById("upcomingMoviesGrid");
+    const visible = canSeeMatureContent()
+        ? upcomingMoviesCache
+        : upcomingMoviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
+
+    if (visible.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+        return;
+    }
+
+    grid.innerHTML = "";
+    sortNoCoverLast(visible, "poster").forEach((movie) => grid.appendChild(buildMovieCard(movie, true)));
+    attachSeeMore(grid);
+}
 
 async function loadUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
     const movies = await window.riftgate.invoke("get-upcoming-movies", settings.upcomingMoviesCountry || "US");
+    upcomingMoviesCache = movies || [];
 
-    if (!movies || movies.length === 0) {
+    if (upcomingMoviesCache.length === 0) {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
         return;
     }
 
-    grid.innerHTML = "";
-    sortNoCoverLast(movies, "poster").forEach((movie) => grid.appendChild(buildMovieCard(movie, true)));
-    attachSeeMore(grid);
+    renderUpcomingMovies();
 }
 
-async function loadNewShows() {
+let newShowsCache = [];
+
+function renderNewShows() {
     const grid = document.getElementById("newShowsGrid");
-    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+    const visible = canSeeMatureContent()
+        ? newShowsCache
+        : newShowsCache.filter((s) => !isItemMature("show", s.id, s.isMature));
 
-    const shows = await window.riftgate.invoke("get-new-tv-shows", settings.movieCountry || "US");
-
-    if (!shows || shows.length === 0) {
+    if (visible.length === 0) {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
         return;
     }
 
     grid.innerHTML = "";
 
-    sortNoCoverLast(shows, "image").forEach((show) => {
+    sortNoCoverLast(visible, "image").forEach((show) => {
         const card = document.createElement("div");
         card.className = "game-card";
         // show.name/description come from TMDB's own listing data —
@@ -5570,6 +5750,21 @@ async function loadNewShows() {
     });
 
     attachSeeMore(grid);
+}
+
+async function loadNewShows() {
+    const grid = document.getElementById("newShowsGrid");
+    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+
+    const shows = await window.riftgate.invoke("get-new-tv-shows", settings.movieCountry || "US");
+    newShowsCache = shows || [];
+
+    if (newShowsCache.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+        return;
+    }
+
+    renderNewShows();
 }
 
 async function loadUpcomingGames() {
@@ -5730,37 +5925,25 @@ async function attemptUsernameRegistration() {
     submitBtn.disabled = true;
     errorEl.textContent = "";
 
-    const deviceId = await window.riftgate.invoke("get-device-id");
     const check = await window.riftgate.invoke("check-username-available", value);
+
+    submitBtn.disabled = false;
 
     if (check.error) {
         errorEl.textContent = check.error;
-        submitBtn.disabled = false;
         return;
     }
 
     if (!check.available) {
         errorEl.textContent = "That username is already taken — try another.";
-        submitBtn.disabled = false;
         return;
     }
 
-    const result = await window.riftgate.invoke("register-username", { username: value, deviceId });
-
-    submitBtn.disabled = false;
-
-    if (!result.success) {
-        errorEl.textContent = result.error || "Something went wrong — try again.";
-        return;
-    }
-
-    saveSetting("username", value);
-    settings.username = value;
+    // Nickname is only reserved once the whole flow finishes — the actual
+    // account isn't created yet. Next: date of birth, then a password.
+    pendingRegistrationUsername = value;
     modal.classList.remove("active");
-    // Brand-new account — choose a password right away so this
-    // username can never be used by someone who's only guessed or
-    // typed in the name, not proven they own it.
-    openVaultSetPasswordModal();
+    showDobModal("register");
 }
 
 document.getElementById("usernameSubmitBtn").addEventListener("click", attemptUsernameRegistration);
@@ -5768,6 +5951,112 @@ document.getElementById("usernameInput").addEventListener("keydown", (event) => 
     if (event.key === "Enter") attemptUsernameRegistration();
 });
 document.getElementById("usernameCancelBtn").addEventListener("click", closeUsernameRegistrationModal);
+
+// Step 2 of registration (nickname -> DOB -> password), also reused
+// standalone for an existing account that's missing a date of birth
+// (accounts created before this system existed) — see fetchAccountProfile.
+// That second case has no Cancel: per your own choice, a returning user
+// is required to provide it before continuing, so there's no way out of
+// this modal short of quitting the app, same as the vault set-password
+// modal already does for a forced reset.
+function showDobModal(context) {
+    dobModalContext = context;
+    const modal = document.getElementById("dobModal");
+    const input = document.getElementById("dobInput");
+    const errorEl = document.getElementById("dobError");
+    const cancelBtn = document.getElementById("dobCancelBtn");
+
+    input.value = "";
+    errorEl.textContent = "";
+    cancelBtn.style.display = context === "existing-user-required" ? "none" : "";
+
+    modal.classList.add("active");
+    input.focus();
+}
+
+function closeDobModal() {
+    document.getElementById("dobModal").classList.remove("active");
+}
+
+async function attemptDobSubmit() {
+    const input = document.getElementById("dobInput");
+    const errorEl = document.getElementById("dobError");
+    const submitBtn = document.getElementById("dobSubmitBtn");
+    const value = input.value;
+
+    if (!value) {
+        errorEl.textContent = "Enter your date of birth.";
+        return;
+    }
+
+    const dob = new Date(`${value}T00:00:00`);
+    const today = new Date();
+    if (isNaN(dob.getTime()) || dob > today) {
+        errorEl.textContent = "That doesn't look like a valid date.";
+        return;
+    }
+    const earliestReasonable = new Date();
+    earliestReasonable.setFullYear(today.getFullYear() - 120);
+    if (dob < earliestReasonable) {
+        errorEl.textContent = "That date is too far in the past — double-check it.";
+        return;
+    }
+
+    submitBtn.disabled = true;
+    errorEl.textContent = "";
+
+    if (dobModalContext === "register") {
+        const deviceId = await window.riftgate.invoke("get-device-id");
+        const result = await window.riftgate.invoke("register-username", {
+            username: pendingRegistrationUsername,
+            deviceId,
+            dateOfBirth: value
+        });
+
+        submitBtn.disabled = false;
+
+        if (!result.success) {
+            errorEl.textContent = result.error || "Something went wrong — try again.";
+            return;
+        }
+
+        saveSetting("username", pendingRegistrationUsername);
+        settings.username = pendingRegistrationUsername;
+        myDateOfBirth = value;
+        updateMinorStatus();
+        pendingRegistrationUsername = null;
+        closeDobModal();
+        // Brand-new account — choose a password right away so this
+        // username can never be used by someone who's only guessed or
+        // typed in the name, not proven they own it.
+        openVaultSetPasswordModal();
+    } else {
+        const result = await window.riftgate.invoke("set-account-date-of-birth", {
+            username: settings.username,
+            dateOfBirth: value
+        });
+
+        submitBtn.disabled = false;
+
+        if (!result.success) {
+            errorEl.textContent = result.error || "Couldn't save that — check your connection and try again.";
+            return;
+        }
+
+        myDateOfBirth = value;
+        updateMinorStatus();
+        closeDobModal();
+    }
+}
+
+document.getElementById("dobSubmitBtn").addEventListener("click", attemptDobSubmit);
+document.getElementById("dobInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") attemptDobSubmit();
+});
+document.getElementById("dobCancelBtn").addEventListener("click", () => {
+    pendingRegistrationUsername = null;
+    closeDobModal();
+});
 
 // Called on every subsequent launch for a username that's already set —
 // first-time password setup used to be the last new-user step and never
@@ -5833,6 +6122,16 @@ async function performLogout() {
     isAdminMode = false;
     isSuperAdmin = false;
     isLoggedIn = false;
+
+    // Signed out = no account to check an age against, so this reverts to
+    // the same safe default as never having logged in at all.
+    myDateOfBirth = null;
+    showMatureContent = false;
+    isMinor = true;
+    adminPreviewRole = null;
+    matureSearchToggleUnlocked = false;
+    updateMatureToggleUiVisibility();
+    reapplyMatureFilterEverywhere();
 
     await window.riftgate.invoke("clear-login-session");
     updateAdminUiVisibility();
@@ -5933,6 +6232,208 @@ let adminPasswordCache = null;
 // verified admin login.
 let vaultPasswordCache = null;
 let vaultUnlockedThisSession = false;
+
+// --- Age gate / mature content -----------------------------------------
+// myDateOfBirth/showMatureContent are the account's own persisted values
+// (fetched right after login — see fetchAccountProfile below). isMinor is
+// derived from myDateOfBirth and, best-effort, myCountryCode (see
+// resolveMyCountryCode). None of this is enforced against a determined
+// adversary editing their own local app — it's a content filter for a
+// single-user desktop app, not a security boundary — so admins bypass it
+// entirely, and the role-preview control (see adminPreviewRole further
+// down) lets an admin test what a minor/adult actually sees without
+// logging in as one.
+let myDateOfBirth = null;
+let showMatureContent = false;
+let isMinor = true; // unknown = treat as minor, the safe default until proven otherwise
+let myCountryCode = null;
+let matureOverridesCache = new Set(); // "section:itemKey" strings, admin-forced mature items
+let matureSearchToggleUnlocked = false; // once the quick search-bar checkbox has appeared this session, it stays put (doesn't hide itself when unchecked)
+let pendingRegistrationUsername = null; // set while the nickname->DOB->password flow is mid-flight
+let dobModalContext = null; // "register" | "existing-user-required"
+
+// Admin-only "view content as..." control — lets an admin preview what a
+// minor or a non-admin adult would actually see without logging out and
+// back in as one. "admin" is the default once logged in as an admin
+// (their real, unrestricted state); this never changes what account
+// they're actually logged in as or what permissions they actually have —
+// only what canSeeMatureContent() reports while previewing.
+let adminPreviewRole = null;
+
+// Legal adult age by country — deliberately left at the ordinary default
+// (18) for every country rather than guessing at country-specific
+// figures. myCountryCode is still looked up and plumbed through so this
+// table CAN be filled in later with actual researched figures if that
+// ever matters to you, but I'm not confident enough in per-country legal
+// research to embed specific ages as fact here. IMPORTANT: this whole
+// mechanism — a self-reported date of birth plus best-effort IP
+// geolocation — is a content filter, not accredited/ID-based age
+// verification. Some jurisdictions (e.g. the UK's Online Safety Act,
+// certain US states) legally require real ID/third-party age
+// verification for adult content specifically — if Riftgate ever hosts
+// content that would trigger those laws, that's worth a real legal
+// consult rather than relying on this.
+const COUNTRY_ADULT_AGE = {};
+const DEFAULT_ADULT_AGE = 18;
+
+function adultAgeForCountry(countryCode) {
+    return (countryCode && COUNTRY_ADULT_AGE[countryCode]) || DEFAULT_ADULT_AGE;
+}
+
+// Best-effort, silent, non-blocking — a failed/slow lookup just leaves
+// myCountryCode null, which adultAgeForCountry already treats the same
+// as "use the default age".
+async function resolveMyCountryCode() {
+    try {
+        const result = await window.riftgate.invoke("get-country-by-ip");
+        if (result && result.success) myCountryCode = result.countryCode;
+    } catch (err) {
+        // Silent — this only ever refines the age gate, never blocks it.
+    }
+}
+
+function computeIsMinor(dobStr) {
+    if (!dobStr) return true;
+    const dob = new Date(dobStr + "T00:00:00");
+    if (isNaN(dob.getTime())) return true;
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+
+    return age < adultAgeForCountry(myCountryCode);
+}
+
+function updateMinorStatus() {
+    isMinor = computeIsMinor(myDateOfBirth);
+    updateMatureToggleUiVisibility();
+}
+
+// The one function everything else should call to decide whether mature
+// content can be shown right now — admins/super-admins always bypass
+// (per your own instruction), an active role-preview overrides what a
+// real admin sees for testing purposes, and otherwise it's simply "a
+// verified adult who has turned the setting on".
+function canSeeMatureContent() {
+    if (adminPreviewRole) {
+        return adminPreviewRole === "admin" ? true : (adminPreviewRole === "adult" ? showMatureContent : false);
+    }
+    if (isAdminMode) return true;
+    return !isMinor && showMatureContent;
+}
+
+// Pulls the account's own date of birth + mature-content preference right
+// after a successful login. If date_of_birth is missing entirely (an
+// account created before this system existed), the user is required to
+// provide one before continuing — see attemptDobSubmit's "existing-user-
+// required" branch.
+async function fetchAccountProfile() {
+    const result = await window.riftgate.invoke("get-account-profile", settings.username);
+    if (!result.success) return;
+
+    myDateOfBirth = result.dateOfBirth;
+    showMatureContent = !!result.showMatureContent;
+    updateMinorStatus();
+
+    if (!myDateOfBirth) {
+        showDobModal("existing-user-required");
+    }
+}
+
+async function loadMatureOverrides() {
+    try {
+        const result = await window.riftgate.invoke("get-mature-overrides");
+        if (result && result.success) {
+            matureOverridesCache = new Set(result.overrides.map((o) => `${o.section}:${o.item_key}`));
+        }
+    } catch (err) {
+        // Leave whatever was already cached — a failed refresh shouldn't
+        // wipe out overrides that were working a moment ago.
+    }
+}
+
+function isItemMature(section, itemKey, keywordFlag) {
+    if (matureOverridesCache.has(`${section}:${itemKey}`)) return true;
+    return !!keywordFlag;
+}
+
+const matureContentSidebarSection = document.getElementById("matureContentSidebarSection");
+const toggleMatureContent = document.getElementById("toggleMatureContent");
+const matureSearchToggleWrap = document.getElementById("matureSearchToggleWrap");
+const matureSearchToggle = document.getElementById("matureSearchToggle");
+
+// The Settings-sidebar toggle is the real, persisted master control —
+// visible to any logged-in verified adult, off by default. The compact
+// checkbox next to the search bar mirrors the exact same value and only
+// ever appears once that master toggle has been turned on at least once
+// this session — but once it has appeared, it stays put (via
+// matureSearchToggleUnlocked) so unchecking it to turn mature content
+// back off doesn't also make the checkbox itself vanish.
+function updateMatureToggleUiVisibility() {
+    const eligible = isLoggedIn && !isMinor;
+
+    matureContentSidebarSection.style.display = eligible ? "" : "none";
+    toggleMatureContent.checked = showMatureContent;
+
+    if (!eligible) {
+        matureSearchToggleUnlocked = false;
+    } else if (showMatureContent) {
+        matureSearchToggleUnlocked = true;
+    }
+
+    matureSearchToggleWrap.style.display = (eligible && matureSearchToggleUnlocked) ? "flex" : "none";
+    matureSearchToggle.checked = showMatureContent;
+}
+
+async function setShowMatureContent(value) {
+    showMatureContent = !!value;
+    updateMatureToggleUiVisibility();
+    reapplyMatureFilterEverywhere();
+    await window.riftgate.invoke("set-show-mature-content", { username: settings.username, show: showMatureContent });
+}
+
+toggleMatureContent.addEventListener("change", () => setShowMatureContent(toggleMatureContent.checked));
+matureSearchToggle.addEventListener("change", () => setShowMatureContent(matureSearchToggle.checked));
+
+// Re-renders every mature-affected section from whatever's already in
+// memory — no network calls — so flipping the mature-content toggle (or
+// an admin marking/un-marking an item) updates the screen immediately.
+// Each guard just checks the relevant grid/cache actually exists yet
+// (nothing to redo if that section was never opened this session).
+function reapplyMatureFilterEverywhere() {
+    if (typeof moviesGrid !== "undefined" && moviesCache && moviesCache.length) renderMovies();
+    if (upcomingMoviesCache && upcomingMoviesCache.length) renderUpcomingMovies();
+    if (newShowsCache && newShowsCache.length) renderNewShows();
+
+    if (buyFreeBooksCache) {
+        const popularGrid = document.getElementById("mostPopularBooksGrid");
+        const mostSoldGrid = document.getElementById("mostSoldBooksGrid");
+        const newReleasesGrid = document.getElementById("newReleasesBooksGrid");
+        if (popularGrid && buyFreeBooksCache.popular) renderBuyFreeGrid(popularGrid, buyFreeBooksCache.popular);
+        if (mostSoldGrid && buyFreeBooksCache.mostSold) renderBuyFreeGrid(mostSoldGrid, buyFreeBooksCache.mostSold);
+        if (newReleasesGrid && buyFreeBooksCache.newReleases) {
+            renderBuyFreeGrid(newReleasesGrid, buyFreeBooksCache.newReleases);
+            attachSeeMore(newReleasesGrid, 5);
+        }
+    }
+
+    if (discoveryBooksCache) {
+        if (discoveryBooksCache.recommended) renderEbookDiscoveryGrid(recommendedEbooksGrid, discoveryBooksCache.recommended);
+        if (discoveryBooksCache.popular) renderEbookDiscoveryGrid(popularEbooksGrid, discoveryBooksCache.popular);
+        if (discoveryBooksCache.topDownloaded) renderEbookDiscoveryGrid(topDownloadedEbooksGrid, discoveryBooksCache.topDownloaded);
+        attachSeeMore(recommendedEbooksGrid, 3, 4);
+        attachSeeMore(popularEbooksGrid, 3, 4);
+        attachSeeMore(topDownloadedEbooksGrid, 3, 4);
+    }
+
+    renderFreeFindsSection();
+
+    if (genericBrowseCache.manga.length) renderBuyFreeGrid(mangaGrid, genericBrowseCache.manga, null, "manga");
+    if (genericBrowseCache.comics.length) renderBuyFreeGrid(comicsGrid, genericBrowseCache.comics, null, "comics");
+}
 
 const THANK_YOU_MESSAGE = "Thank you for your suggestion! We truly appreciate you taking the time to share your ideas with us — feedback like yours is what helps shape the future of Riftgate. Our team will review it carefully and consider how it might fit into an upcoming update. We're grateful to have you as part of the Riftgate community.";
 
@@ -6384,6 +6885,7 @@ function updateAdminUiVisibility() {
         : "🔑 Login";
     adminBtn.title = isLoggedIn ? "Log out" : "Log in";
     manageUsersBtn.style.display = isAdminMode ? "" : "none";
+    updateAdminPreviewRoleUi();
 
     // The Vault's admin-only buttons were only ever set inside
     // loadSharedFolder(), which only runs when switching into that
@@ -6411,10 +6913,34 @@ async function enterAdminMode() {
     const myEntry = adminListCache.find((a) => a.username === settings.username);
     isSuperAdmin = !!(myEntry && myEntry.is_super_admin);
     isAdminMode = true;
+    adminPreviewRole = "admin"; // real, unrestricted state by default
 
     updateAdminUiVisibility();
+    updateAdminPreviewRoleUi();
     if (suggestionsModal.classList.contains("active")) loadSuggestionsList();
 }
+
+const adminPreviewRoleSwitcher = document.getElementById("adminPreviewRoleSwitcher");
+
+function updateAdminPreviewRoleUi() {
+    adminPreviewRoleSwitcher.style.display = isAdminMode ? "flex" : "none";
+    adminPreviewRoleSwitcher.querySelectorAll(".admin-role-option").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.role === adminPreviewRole);
+    });
+}
+
+function setAdminPreviewRole(role) {
+    adminPreviewRole = role;
+    updateAdminPreviewRoleUi();
+    // Content-visibility only — never touches isAdminMode/isMinor/
+    // showMatureContent themselves, so nothing here can leak into what
+    // the admin's real account is actually permitted to do.
+    reapplyMatureFilterEverywhere();
+}
+
+document.querySelectorAll(".admin-role-option").forEach((btn) => {
+    btn.addEventListener("click", () => setAdminPreviewRole(btn.dataset.role));
+});
 
 let allUsernamesCache = [];
 
@@ -7328,6 +7854,14 @@ async function completeLogin(password) {
         isSuperAdmin = false;
         updateAdminUiVisibility();
     }
+
+    // Age gate: pulls DOB/mature-content preference, and forces a DOB
+    // prompt for a pre-existing account that's missing one (see
+    // fetchAccountProfile). Runs after admin status is known so an admin
+    // logging in also gets isAdminMode set first (canSeeMatureContent's
+    // admin bypass depends on it).
+    await fetchAccountProfile();
+    loadMatureOverrides();
 }
 
 async function attemptVaultLogin() {
@@ -7677,6 +8211,7 @@ async function init() {
     buildWheelRim();
     await loadSettings();
     playStartupAnimation();
+    resolveMyCountryCode(); // best-effort, non-blocking — refines the age gate if it resolves in time
     tryRestoreSessionOrStayLoggedOut();
     await loadGames();
     await checkForUpdatePopup();
@@ -7859,6 +8394,69 @@ function jumpToGlobalSearchResult(result) {
     globalSearchResults.innerHTML = "";
 }
 
+// Live, cross-category web search appended below the local matches above
+// — queries Steam/TMDB/Open Library directly (see web-search-all in
+// main.js) so a title that isn't already in your library, Free Games, or
+// Reading Room still turns up. Purely a lookup: nothing here is ever
+// added to any list, and it disappears the moment the search is cleared
+// or changed — see the token guard below, same pattern used for Surprise
+// Me's spin results, so a slow response can never land after the user
+// has already moved on.
+let webSearchToken = 0;
+
+const WEB_SEARCH_SECTION_ICON = { game: "🎮", movie: "🎬", show: "📺", book: "📖" };
+const WEB_SEARCH_SECTION_LABEL = { game: "Game (web)", movie: "Movie (web)", show: "Show (web)", book: "Book (web)" };
+
+async function fetchAndAppendWebSearchResults(term) {
+    webSearchToken += 1;
+    const myToken = webSearchToken;
+
+    const loading = document.createElement("div");
+    loading.className = "global-search-empty global-search-web-loading";
+    loading.textContent = "🌐 Searching the web…";
+    globalSearchResults.appendChild(loading);
+    globalSearchResults.style.display = "";
+
+    const result = await window.riftgate.invoke("web-search-all", { query: term, includeMature: canSeeMatureContent() });
+
+    // Stale if a newer search has started, or the box no longer holds
+    // this same term (cleared, or the user kept typing).
+    if (myToken !== webSearchToken || globalSearchInput.value.trim().toLowerCase() !== term) return;
+
+    loading.remove();
+
+    if (!result.success || !result.results || result.results.length === 0) return;
+
+    const divider = document.createElement("div");
+    divider.className = "global-search-web-divider";
+    divider.textContent = "🌐 From the web";
+    globalSearchResults.appendChild(divider);
+
+    result.results.forEach((r) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "global-search-result global-search-result-web";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "global-search-result-name";
+        nameSpan.textContent = `${WEB_SEARCH_SECTION_ICON[r.section] || "🌐"} ${r.title}`;
+
+        const sectionSpan = document.createElement("span");
+        sectionSpan.className = "global-search-result-section";
+        sectionSpan.textContent = WEB_SEARCH_SECTION_LABEL[r.section] || "Web";
+
+        item.appendChild(nameSpan);
+        item.appendChild(sectionSpan);
+        item.addEventListener("click", () => {
+            if (r.link) window.riftgate.invoke("open-external", r.link);
+        });
+
+        globalSearchResults.appendChild(item);
+    });
+
+    globalSearchResults.style.display = "";
+}
+
 let globalSearchDebounceTimer = null;
 globalSearchInput.addEventListener("input", () => {
     const term = globalSearchInput.value.trim().toLowerCase();
@@ -7866,11 +8464,13 @@ globalSearchInput.addEventListener("input", () => {
     clearTimeout(globalSearchDebounceTimer);
     globalSearchDebounceTimer = setTimeout(async () => {
         if (!term) {
+            webSearchToken += 1; // invalidate any in-flight web search
             renderGlobalSearchResults("");
             return;
         }
         await ensureGlobalSearchCachesLoaded();
         renderGlobalSearchResults(term);
+        fetchAndAppendWebSearchResults(term);
     }, 200);
 });
 

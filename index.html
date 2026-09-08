@@ -65,6 +65,21 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="dobModal">
+        <div class="modal-box">
+            <h3>Your Date of Birth</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                Riftgate uses this only to know whether mature content should ever be shown to your account — never displayed to other users.
+            </p>
+            <input type="date" id="dobInput" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <p id="dobError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="dobCancelBtn">Cancel</button>
+                <button id="dobSubmitBtn" class="wheel-play">Continue</button>
+            </div>
+        </div>
+    </div>
+
 
     <div class="modal-overlay" id="vaultLoginModal">
         <div class="modal-box">
@@ -200,8 +215,6 @@
                 <button class="sidebarNavBtn" data-section="theatre">🎬 Theatre</button>
                 <button class="sidebarNavBtn" data-section="reading-room">📖 Reading Room</button>
                 <button class="sidebarNavBtn" data-section="applications">🧩 Applications</button>
-                <button class="sidebarNavBtn" data-section="manga">📕 Manga</button>
-                <button class="sidebarNavBtn" data-section="comics">💥 Comics</button>
                 <button class="sidebarNavBtn" data-section="shared-folder">🔮 The Vault</button>
             </div>
 
@@ -241,6 +254,18 @@
                     <input type="checkbox" id="toggleLightTheme">
                     <span class="switch"></span>
                 </label>
+            </div>
+
+            <div class="sidebar-section" id="matureContentSidebarSection" style="display:none;">
+                <h3>Content</h3>
+                <label class="sidebar-toggle">
+                    <span>🔞 Show mature content</span>
+                    <input type="checkbox" id="toggleMatureContent">
+                    <span class="switch"></span>
+                </label>
+                <p style="color:var(--text-secondary);font-size:12px;margin:4px 0 0;">
+                    Off by default. Applies to Reading Room, Manga, Comics, Theatre — not games. Riftgate does its best to detect mature content automatically, but nothing is guaranteed to catch everything.
+                </p>
             </div>
 
             <div class="sidebar-section">
@@ -344,6 +369,12 @@
 
             <div class="sidebar-footer" id="versionFooter">Riftgate</div>
             <button id="checkUpdateBtn" class="admin-sidebar-btn" title="Check for updates now" style="font-size:11px;">🔄 Check for Updates</button>
+
+            <div id="adminPreviewRoleSwitcher" class="admin-role-switcher" style="display:none;margin-top:8px;" title="Preview what a different kind of user would see, without logging out">
+                <button type="button" class="admin-role-option" data-role="admin">🛡️ Admin</button>
+                <button type="button" class="admin-role-option" data-role="adult">🧑 Adult</button>
+                <button type="button" class="admin-role-option" data-role="minor">🔞 Minor</button>
+            </div>
 
             <button id="manageUsersBtn" class="admin-sidebar-btn" title="Manage admins" style="display:none;margin-top:8px;">👥 Manage Users</button>
 
@@ -522,16 +553,18 @@
                     <button class="sectionOption" data-section="free-games">🎁 Free Games</button>
                     <button class="sectionOption" data-section="theatre">🎬 Theatre</button>
                     <button class="sectionOption" data-section="reading-room">📖 Reading Room</button>
-                    <button class="sectionOption" data-section="applications">🧩 Applications</button>
-                    <button class="sectionOption" data-section="manga">📕 Manga</button>
-                    <button class="sectionOption" data-section="comics">💥 Comics</button>
                     <button class="sectionOption" data-section="shared-folder">🔮 The Vault</button>
+                    <button class="sectionOption" data-section="applications">🧩 Applications</button>
                 </div>
             </div>
         </div>
 
         <div class="global-search" id="globalSearchWrap">
             <input type="text" id="globalSearchInput" placeholder="🔍 Search your games, free games, books, and shows…" autocomplete="off">
+            <label id="matureSearchToggleWrap" title="Include mature content in search results and lists" style="display:none;align-items:center;gap:4px;margin-left:8px;font-size:12px;white-space:nowrap;cursor:pointer;">
+                <input type="checkbox" id="matureSearchToggle">
+                🔞 <span style="color:var(--text-secondary);">Show mature content</span>
+            </label>
             <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
         </div>
 
@@ -608,6 +641,8 @@
         <button id="readingRoomTabBuyFree" class="reading-room-tab active">🛒 Buy Books</button>
         <button id="readingRoomTabDiscover" class="reading-room-tab">🌐 Discover Online</button>
         <button id="readingRoomTabLibrary" class="reading-room-tab">📚 My Library</button>
+        <button id="readingRoomTabManga" class="reading-room-tab">📕 Manga</button>
+        <button id="readingRoomTabComics" class="reading-room-tab">💥 Comics</button>
         <button id="readingRoomTabApps" class="reading-room-tab">📱 eBook Apps</button>
     </div>
 
