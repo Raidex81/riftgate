@@ -2817,7 +2817,7 @@ body.is-fullscreen #mainContent{
     filter:blur(20px);
     opacity:0;
     animation:startupGlowFade 1.6s ease-out .9s forwards,
-              startupGemPulse 3.6s ease-out .9s 1;
+              startupGemPulse 1.2s ease-out .9s 3;
 }
 
 .startup-gem-img{
