@@ -2210,6 +2210,7 @@ body.is-fullscreen #mainContent{
    content" read as a single control, not two unrelated things sitting
    near each other. */
 .mature-search-toggle-wrap{
+    display:flex;
     align-items:center;
     gap:6px;
     margin-left:8px;
@@ -2220,6 +2221,12 @@ body.is-fullscreen #mainContent{
     font-size:12px;
     white-space:nowrap;
     cursor:pointer;
+}
+
+.mature-search-toggle-wrap input[type="checkbox"]{
+    width:auto;
+    flex-shrink:0;
+    margin:0;
 }
 
 .mature-search-toggle-label{
@@ -2948,6 +2955,14 @@ body.is-fullscreen #mainContent{
     height:17px;
     flex-shrink:0;
     vertical-align:middle;
+}
+
+.nav-icon-grad-stop-1{
+    stop-color:var(--accent-1);
+}
+
+.nav-icon-grad-stop-2{
+    stop-color:var(--accent-2);
 }
 
 .sidebarNavBtn:last-child{
