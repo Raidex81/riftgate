@@ -2810,8 +2810,8 @@ body.is-fullscreen #mainContent{
 
 .startup-gem-glow{
     position:absolute;
-    width:260px;
-    height:260px;
+    width:380px;
+    height:380px;
     border-radius:50%;
     background:radial-gradient(circle, var(--accent-1) 0%, transparent 70%);
     filter:blur(20px);
@@ -2821,12 +2821,12 @@ body.is-fullscreen #mainContent{
 
 .startup-gem-img{
     position:relative;
-    width:220px;
-    height:220px;
+    width:320px;
+    height:320px;
     object-fit:contain;
     opacity:0;
     animation:startupGemReveal .9s cubic-bezier(.22,.75,.25,1) forwards,
-              startupGemPulse 1.6s ease-out .9s 1;
+              startupGemPulse 3.6s ease-out .9s 1;
 }
 
 @keyframes startupGemReveal{

@@ -5886,12 +5886,12 @@ function playStartupAnimation() {
         return;
     }
 
-    // Let the facet assembly (~0.9s) and the glow pulse (starts at 0.9s,
-    // runs 1.6s) finish, then fade the whole overlay out.
+    // Let the reveal (~0.9s) and the glow pulse (starts at 0.9s, now runs
+    // 3.6s — 2s longer than before) finish, then fade the whole overlay out.
     setTimeout(() => {
         overlay.classList.add("startup-hidden");
         setTimeout(() => overlay.remove(), 550);
-    }, 2100);
+    }, 4500);
 }
 
 // --- Login (optional — the app is fully usable signed out) ----------------
