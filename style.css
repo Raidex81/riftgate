@@ -2801,68 +2801,44 @@ body.is-fullscreen #mainContent{
 }
 
 .startup-scene{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     transform-style:preserve-3d;
 }
 
-.startup-gem-svg{
-    overflow:visible;
-    animation:startupGemPulse 1.6s ease-out .9s 1;
-}
-
-.startup-facet{
+.startup-gem-glow{
+    position:absolute;
+    width:260px;
+    height:260px;
+    border-radius:50%;
+    background:radial-gradient(circle, var(--accent-1) 0%, transparent 70%);
+    filter:blur(20px);
     opacity:0;
-    transform-box:fill-box;
-    transform-origin:center;
-    animation-duration:.9s;
-    animation-timing-function:cubic-bezier(.22,.75,.25,1);
-    animation-fill-mode:forwards;
+    animation:startupGlowFade 1.6s ease-out .9s forwards;
 }
 
-.startup-facet.facet-1{ animation-name:startupFlyFacet1; }
-.startup-facet.facet-2{ animation-name:startupFlyFacet2; }
-.startup-facet.facet-3{ animation-name:startupFlyFacet3; }
-.startup-facet.facet-4{ animation-name:startupFlyFacet4; }
-.startup-facet.facet-5{ animation-name:startupFlyFacet5; }
-.startup-facet.facet-6{ animation-name:startupFlyFacet6; }
-
-.startup-sheen{
-    animation:startupSheenFade .5s ease-out .85s forwards;
+.startup-gem-img{
+    position:relative;
+    width:220px;
+    height:220px;
+    object-fit:contain;
+    opacity:0;
+    animation:startupGemReveal .9s cubic-bezier(.22,.75,.25,1) forwards,
+              startupGemPulse 1.6s ease-out .9s 1;
 }
 
-@keyframes startupFlyFacet1{
-    0%{ opacity:0; transform:translate3d(0,-260px,-450px) rotateX(70deg); }
+@keyframes startupGemReveal{
+    0%{ opacity:0; transform:scale(.4) translateZ(-300px) rotate(-8deg); }
     70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet2{
-    0%{ opacity:0; transform:translate3d(260px,-80px,-450px) rotateY(-70deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet3{
-    0%{ opacity:0; transform:translate3d(220px,180px,-450px) rotateX(-60deg) rotateY(-40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet4{
-    0%{ opacity:0; transform:translate3d(-220px,180px,-450px) rotateX(-60deg) rotateY(40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet5{
-    0%{ opacity:0; transform:translate3d(-260px,-80px,-450px) rotateY(70deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet6{
-    0%{ opacity:0; transform:translate3d(-180px,-220px,-450px) rotateX(60deg) rotateY(40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
+    100%{ opacity:1; transform:scale(1) translateZ(0) rotate(0deg); }
 }
 
-@keyframes startupSheenFade{
+@keyframes startupGlowFade{
     0%{ opacity:0; }
-    100%{ opacity:0.35; }
+    30%{ opacity:0.5; }
+    100%{ opacity:0.28; }
 }
 
 @keyframes startupGemPulse{

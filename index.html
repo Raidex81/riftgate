@@ -13,40 +13,8 @@
 
     <div id="startupOverlay" class="startup-overlay">
         <div class="startup-scene">
-            <svg class="startup-gem-svg" width="220" height="220" viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <radialGradient id="startupAmbient" cx="50%" cy="35%" r="65%">
-                        <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.22"/>
-                        <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
-                    </radialGradient>
-                    <linearGradient id="startupBright" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#6a6a74"/>
-                        <stop offset="100%" stop-color="#2a2a30"/>
-                    </linearGradient>
-                    <linearGradient id="startupMid" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#3a3a42"/>
-                        <stop offset="100%" stop-color="#141418"/>
-                    </linearGradient>
-                    <linearGradient id="startupDark" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#222226"/>
-                        <stop offset="100%" stop-color="#08080a"/>
-                    </linearGradient>
-                    <filter id="startupGlow" x="-100%" y="-100%" width="300%" height="300%">
-                        <feGaussianBlur stdDeviation="10" result="blur"/>
-                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                    </filter>
-                </defs>
-                <circle cx="0" cy="0" r="72" fill="url(#startupAmbient)"/>
-                <g filter="url(#startupGlow)">
-                    <polygon class="startup-facet facet-1" points="0,0 0,-55 47.6,-27.5" fill="url(#startupBright)"/>
-                    <polygon class="startup-facet facet-2" points="0,0 47.6,-27.5 47.6,27.5" fill="url(#startupMid)"/>
-                    <polygon class="startup-facet facet-3" points="0,0 47.6,27.5 0,55" fill="url(#startupDark)"/>
-                    <polygon class="startup-facet facet-4" points="0,0 0,55 -47.6,27.5" fill="url(#startupDark)"/>
-                    <polygon class="startup-facet facet-5" points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#startupMid)"/>
-                    <polygon class="startup-facet facet-6" points="0,0 -47.6,-27.5 0,-55" fill="url(#startupBright)"/>
-                    <polygon class="startup-sheen" points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0"/>
-                </g>
-            </svg>
+            <div class="startup-gem-glow"></div>
+            <img class="startup-gem-img" src="/assets/riftgate-gem.png" alt="">
         </div>
     </div>
 
@@ -395,18 +363,6 @@
                     <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.22"/>
                     <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
                 </radialGradient>
-                <linearGradient id="hubBright" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#6a6a74"/>
-                    <stop offset="100%" stop-color="#2a2a30"/>
-                </linearGradient>
-                <linearGradient id="hubMid" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#3a3a42"/>
-                    <stop offset="100%" stop-color="#141418"/>
-                </linearGradient>
-                <linearGradient id="hubDark" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#222226"/>
-                    <stop offset="100%" stop-color="#08080a"/>
-                </linearGradient>
                 <filter id="hubGlow" x="-100%" y="-100%" width="300%" height="300%">
                     <feGaussianBlur stdDeviation="10" result="blur"/>
                     <feMerge>
@@ -459,21 +415,7 @@
 
             <g class="hero-hub" transform="translate(700,115)" filter="url(#hubGlow)">
                 <circle cx="0" cy="0" r="72" fill="url(#hubAmbient)"/>
-                <polygon points="0,0 0,-55 47.6,-27.5" fill="url(#hubBright)"/>
-                <polygon points="0,0 47.6,-27.5 47.6,27.5" fill="url(#hubMid)"/>
-                <polygon points="0,0 47.6,27.5 0,55" fill="url(#hubDark)"/>
-                <polygon points="0,0 0,55 -47.6,27.5" fill="url(#hubDark)"/>
-                <polygon points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#hubMid)"/>
-                <polygon points="0,0 -47.6,-27.5 0,-55" fill="url(#hubBright)"/>
-                <g fill="none" stroke="#000000" stroke-width="1.5" opacity="0.65">
-                    <polygon points="0,0 0,-55 47.6,-27.5"/>
-                    <polygon points="0,0 47.6,-27.5 47.6,27.5"/>
-                    <polygon points="0,0 47.6,27.5 0,55"/>
-                    <polygon points="0,0 0,55 -47.6,27.5"/>
-                    <polygon points="0,0 -47.6,27.5 -47.6,-27.5"/>
-                    <polygon points="0,0 -47.6,-27.5 0,-55"/>
-                </g>
-                <polygon points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0.35"/>
+                <image href="/assets/riftgate-gem.png" x="-70" y="-70" width="140" height="140"/>
                 <g stroke="var(--accent-2)" stroke-width="2" opacity="0.85">
                     <line x1="0" y1="-55" x2="0" y2="-68"/>
                     <line x1="47.6" y1="-27.5" x2="60" y2="-35"/>
@@ -492,18 +434,6 @@
                         <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.35"/>
                         <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
                     </radialGradient>
-                    <linearGradient id="hubBrightSm" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#6a6a74"/>
-                        <stop offset="100%" stop-color="#2a2a30"/>
-                    </linearGradient>
-                    <linearGradient id="hubMidSm" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#3a3a42"/>
-                        <stop offset="100%" stop-color="#141418"/>
-                    </linearGradient>
-                    <linearGradient id="hubDarkSm" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#222226"/>
-                        <stop offset="100%" stop-color="#08080a"/>
-                    </linearGradient>
                     <filter id="hubGlowSm" x="-100%" y="-100%" width="300%" height="300%">
                         <feGaussianBlur stdDeviation="5" result="blur"/>
                         <feMerge>
@@ -514,21 +444,7 @@
                 </defs>
                 <g transform="translate(70,70)" filter="url(#hubGlowSm)">
                     <circle cx="0" cy="0" r="58" fill="url(#hubAmbientSm)"/>
-                    <polygon points="0,0 0,-55 47.6,-27.5" fill="url(#hubBrightSm)"/>
-                    <polygon points="0,0 47.6,-27.5 47.6,27.5" fill="url(#hubMidSm)"/>
-                    <polygon points="0,0 47.6,27.5 0,55" fill="url(#hubDarkSm)"/>
-                    <polygon points="0,0 0,55 -47.6,27.5" fill="url(#hubDarkSm)"/>
-                    <polygon points="0,0 -47.6,27.5 -47.6,-27.5" fill="url(#hubMidSm)"/>
-                    <polygon points="0,0 -47.6,-27.5 0,-55" fill="url(#hubBrightSm)"/>
-                    <g fill="none" stroke="#000000" stroke-width="1.5" opacity="0.65">
-                        <polygon points="0,0 0,-55 47.6,-27.5"/>
-                        <polygon points="0,0 47.6,-27.5 47.6,27.5"/>
-                        <polygon points="0,0 47.6,27.5 0,55"/>
-                        <polygon points="0,0 0,55 -47.6,27.5"/>
-                        <polygon points="0,0 -47.6,27.5 -47.6,-27.5"/>
-                        <polygon points="0,0 -47.6,-27.5 0,-55"/>
-                    </g>
-                    <polygon points="-6,-46 8,-44 3,-16 -8,-18" fill="#ffffff" opacity="0.35"/>
+                    <image href="/assets/riftgate-gem.png" x="-58" y="-58" width="116" height="116"/>
                 </g>
             </svg>
             <h1 class="hero-title">RIFTGATE</h1>
