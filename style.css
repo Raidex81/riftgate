@@ -2205,35 +2205,6 @@ body.is-fullscreen #mainContent{
     padding:8px 10px;
 }
 
-/* The header search bar's mature-content checkbox — grouped into one
-   clearly-bounded pill with its label so the checkbox and "Show mature
-   content" read as a single control, not two unrelated things sitting
-   near each other. */
-.mature-search-toggle-wrap{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    margin-left:8px;
-    padding:6px 10px;
-    border-radius:20px;
-    background:var(--bg-tertiary);
-    border:1px solid var(--border-color);
-    font-size:12px;
-    white-space:nowrap;
-    cursor:pointer;
-}
-
-.mature-search-toggle-wrap input[type="checkbox"]{
-    width:auto;
-    flex-shrink:0;
-    margin:0;
-}
-
-.mature-search-toggle-label{
-    color:var(--text-primary);
-    font-weight:600;
-}
-
 .sectionOption:hover{
     background:var(--bg-tertiary);
     color:var(--text-primary);

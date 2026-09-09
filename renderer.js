@@ -6156,7 +6156,6 @@ async function performLogout() {
     showMatureContent = false;
     isMinor = true;
     adminPreviewRole = null;
-    matureSearchToggleUnlocked = false;
     updateMatureToggleUiVisibility();
     reapplyMatureFilterEverywhere();
 
@@ -6275,7 +6274,6 @@ let showMatureContent = false;
 let isMinor = true; // unknown = treat as minor, the safe default until proven otherwise
 let myCountryCode = null;
 let matureOverridesCache = new Set(); // "section:itemKey" strings, admin-forced mature items
-let matureSearchToggleUnlocked = false; // once the quick search-bar checkbox has appeared this session, it stays put (doesn't hide itself when unchecked)
 let pendingRegistrationUsername = null; // set while the nickname->DOB->password flow is mid-flight
 let dobModalContext = null; // "register" | "existing-user-required"
 
@@ -6389,30 +6387,14 @@ function isItemMature(section, itemKey, keywordFlag) {
 
 const matureContentSidebarSection = document.getElementById("matureContentSidebarSection");
 const toggleMatureContent = document.getElementById("toggleMatureContent");
-const matureSearchToggleWrap = document.getElementById("matureSearchToggleWrap");
-const matureSearchToggle = document.getElementById("matureSearchToggle");
 
 // The Settings-sidebar toggle is the real, persisted master control —
-// visible to any logged-in verified adult, off by default. The compact
-// checkbox next to the search bar mirrors the exact same value and only
-// ever appears once that master toggle has been turned on at least once
-// this session — but once it has appeared, it stays put (via
-// matureSearchToggleUnlocked) so unchecking it to turn mature content
-// back off doesn't also make the checkbox itself vanish.
+// visible to any logged-in verified adult, off by default.
 function updateMatureToggleUiVisibility() {
     const eligible = isLoggedIn && !isMinor;
 
     matureContentSidebarSection.style.display = eligible ? "" : "none";
     toggleMatureContent.checked = showMatureContent;
-
-    if (!eligible) {
-        matureSearchToggleUnlocked = false;
-    } else if (showMatureContent) {
-        matureSearchToggleUnlocked = true;
-    }
-
-    matureSearchToggleWrap.style.display = (eligible && matureSearchToggleUnlocked) ? "flex" : "none";
-    matureSearchToggle.checked = showMatureContent;
 }
 
 async function setShowMatureContent(value) {
@@ -6423,7 +6405,6 @@ async function setShowMatureContent(value) {
 }
 
 toggleMatureContent.addEventListener("change", () => setShowMatureContent(toggleMatureContent.checked));
-matureSearchToggle.addEventListener("change", () => setShowMatureContent(matureSearchToggle.checked));
 
 // Re-renders every mature-affected section from whatever's already in
 // memory — no network calls — so flipping the mature-content toggle (or
