@@ -2107,6 +2107,9 @@ body.is-fullscreen #mainContent{
     padding:9px 10px;
     border-radius:6px;
     cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:9px;
 }
 
 /* Cross-section search — searches Installed, Free Games, Reading Room, and
@@ -2923,7 +2926,9 @@ body.is-fullscreen #mainContent{
 }
 
 .sidebarNavBtn{
-    display:block;
+    display:flex;
+    align-items:center;
+    gap:10px;
     width:100%;
     text-align:left;
     padding:12px 14px;
@@ -2936,6 +2941,13 @@ body.is-fullscreen #mainContent{
     font-weight:700;
     cursor:pointer;
     transition:.18s;
+}
+
+.nav-icon{
+    width:17px;
+    height:17px;
+    flex-shrink:0;
+    vertical-align:middle;
 }
 
 .sidebarNavBtn:last-child{
@@ -3236,6 +3248,9 @@ body.is-fullscreen #mainContent{
 }
 
 .reading-room-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
     padding:10px 18px;
     border-radius:10px;
     border:1px solid var(--border-color);
