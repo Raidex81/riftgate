@@ -3,6 +3,33 @@ const libraryContainer = document.getElementById("libraryContainer");
 const addBtn = document.getElementById("addBtn");
 const ambientBg = document.getElementById("ambientBg");
 const introScreen = document.getElementById("introScreen");
+
+// The category grids (with their own drag-and-drop handlers) only render
+// once at least one game/app already exists — with a totally empty
+// library, introScreen is the only thing on screen, and it previously had
+// no drop handling at all, so a first-time user couldn't drag a shortcut
+// in until they'd already added something the slow way. This gives the
+// intro screen itself the same drop behavior, defaulting new items to
+// the "game" category (matching the + button's default).
+introScreen.addEventListener("dragover", (event) => {
+    if (event.dataTransfer.types.includes("Files")) {
+        event.preventDefault();
+        introScreen.classList.add("intro-drag-over");
+    }
+});
+
+introScreen.addEventListener("dragleave", () => {
+    introScreen.classList.remove("intro-drag-over");
+});
+
+introScreen.addEventListener("drop", async (event) => {
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        event.preventDefault();
+        introScreen.classList.remove("intro-drag-over");
+        const file = event.dataTransfer.files[0];
+        await addGameFromExternalFile(file.path, "game");
+    }
+});
 const introAddBtn = document.getElementById("introAddBtn");
 const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
@@ -21,6 +48,18 @@ sortSelect.addEventListener("change", () => {
 });
 
 surpriseBtn.addEventListener("click", openWheelModal);
+
+// Section intro blurbs default to a one-line subtitle; "ⓘ About" reveals
+// the fuller explanation for anyone who wants it, instead of it always
+// taking up space at the top of the page.
+document.querySelectorAll(".section-info-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const wrap = btn.closest(".section-info");
+        const expanded = wrap.classList.toggle("expanded");
+        btn.setAttribute("aria-expanded", String(expanded));
+        btn.textContent = expanded ? "✕ Hide" : "ⓘ About";
+    });
+});
 
 let allGames = [];
 
@@ -91,7 +130,6 @@ let soundEnabled = false;
 let settings = {
     uiSounds: true,
     startupSound: true,
-    hoverTrailers: true,
     ambientBackground: true,
     lightTheme: false,
     colorTheme: "riftgate",
@@ -103,9 +141,18 @@ let settings = {
     runInBackground: false,
     categoryOrder: ["game", "app", "vr", "other"],
     movieCountry: "US",
+    // Deliberately separate from movieCountry (which drives Now Playing /
+    // showtimes) — sharing one setting meant changing your country for
+    // local showtimes silently changed what Upcoming Movies showed too,
+    // which is exactly what made two people comparing screens see two
+    // different upcoming release slates without ever touching this section.
+    upcomingMoviesCountry: "US",
     startupSection: "new",
     movieCity: "",
-    startupAnimation: true
+    startupAnimation: true,
+    steamId64: "",
+    steamPlaytimes: {},
+    steamPlaytimesUpdatedAt: null
 };
 
 let CATEGORY_ORDER = ["game", "app", "vr", "other"];
@@ -116,6 +163,43 @@ const CATEGORY_LABELS = {
     vr: "🥽 VR",
     other: "📦 Other"
 };
+
+// Used for the "Your Library — 5 games · 8 applications" summary line —
+// deliberately spelled-out nouns (not the CATEGORY_LABELS short form),
+// matching how that line reads as a sentence rather than a heading.
+const LIBRARY_SUMMARY_LABELS = {
+    game: (n) => `${n} game${n === 1 ? "" : "s"}`,
+    app: (n) => `${n} application${n === 1 ? "" : "s"}`,
+    vr: (n) => `${n} VR title${n === 1 ? "" : "s"}`,
+    other: (n) => `${n} other item${n === 1 ? "" : "s"}`,
+};
+
+// --- Small self-hosted UI icon set --------------------------------------
+// A handful of simple stroke-based line icons (Lucide-style 24x24 viewBox,
+// hand-drawn rather than pulled from a CDN so the app stays fully
+// offline-capable) replacing emoji on pure UI controls — close, delete,
+// favorite, sound, enlarge, etc. Content-category emoji (🎮 🎬 📖 and the
+// section/category badges above) are left alone on purpose: the point is
+// telling "click this to do a thing" apart from "this represents a kind
+// of content", per the design review this app went through.
+const ICON_PATHS = {
+    x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+    star: '<polygon points="12 2 15.09 8.63 22 9.24 16.5 13.97 18.18 21 12 17.27 5.82 21 7.5 13.97 2 9.24 8.91 8.63 12 2"></polygon>',
+    "trash-2": '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>',
+    "file-text": '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 3 14 8 19 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line>',
+    maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>',
+    "volume-2": '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path>',
+    "volume-x": '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+};
+
+function uiIcon(name, { filled = false } = {}) {
+    const body = ICON_PATHS[name];
+    if (!body) return "";
+    return `<svg class="ui-icon" viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
 
 const CATEGORY_BADGES = {
     game: "🎮 Game",
@@ -396,6 +480,7 @@ const wheelMessage = document.getElementById("wheelMessage");
 const wheelResult = document.getElementById("wheelResult");
 const wheelResultImg = document.getElementById("wheelResultImg");
 const wheelResultName = document.getElementById("wheelResultName");
+const wheelResultMeta = document.getElementById("wheelResultMeta");
 const wheelPlayBtn = document.getElementById("wheelPlayBtn");
 const wheelSpinAgainBtn = document.getElementById("wheelSpinAgainBtn");
 const wheelQuitBtn = document.getElementById("wheelQuitBtn");
@@ -453,6 +538,18 @@ let wheelMode = "game";
 // as its own flag, set once per modal open, so spin() and openWheelModal()
 // can't disagree about which one is actually on screen.
 let wheelUsesSlotReel = false;
+// Bumped every time a new wheel session starts (a fresh modal open) or a
+// new spin begins. Each spin's own delayed "reveal the result" callback
+// only ever applies if this still matches the value it captured when
+// that spin started — otherwise it's a stale spin (the modal was closed,
+// reopened for a different section, or spun again before the first
+// finished) and its result is discarded instead of overwriting whatever
+// is showing now. Without this, a slow-to-resolve spin from, say, Free
+// Games could still land its winner into the Library wheel's result
+// panel seconds later if you switched sections in between — Library and
+// Free Games sharing the same result elements is fine as long as only
+// the CURRENT spin is ever allowed to write to them.
+let wheelSpinToken = 0;
 
 function wheelItemName(item) {
     if (wheelMode === "movie") return item.title;
@@ -464,6 +561,34 @@ function wheelItemImage(item) {
     if (wheelMode === "movie") return item.poster || "covers/default.jpg";
     if (wheelMode === "readinglibrary" || wheelMode === "readingdiscover" || wheelMode === "readingbuy") return item.cover || "covers/no-cover-book.jpg";
     return item.image || "covers/default.jpg";
+}
+
+// A short line of context under the winner's name — genre/last-played for
+// a game, release info for a movie, and so on. Empty string when we don't
+// have anything solid to say, so the line just collapses away rather than
+// showing something guessed or blank-looking.
+function wheelItemMeta(item) {
+    if (wheelMode === "game") {
+        const parts = [];
+        if (item.tags && item.tags.length) parts.push(item.tags.slice(0, 2).join(", "));
+        if (item.lastPlayed) {
+            const days = Math.floor((Date.now() - item.lastPlayed) / 86400000);
+            parts.push(days <= 0 ? "Played today" : `Last played ${days} day${days === 1 ? "" : "s"} ago`);
+        } else {
+            parts.push("Never played");
+        }
+        return parts.join(" · ");
+    }
+    if (wheelMode === "movie") {
+        return item.releaseDate ? `Releases ${item.releaseDate}` : "";
+    }
+    if (wheelMode === "freegames") {
+        return item.source ? `Free on ${item.source}` : "";
+    }
+    if (wheelMode === "readinglibrary" || wheelMode === "readingdiscover" || wheelMode === "readingbuy") {
+        return item.author || "";
+    }
+    return "";
 }
 
 function truncateForWheel(name, maxChars) {
@@ -567,14 +692,19 @@ function spin() {
         return;
     }
 
+    wheelSpinToken += 1;
+    const mySpinToken = wheelSpinToken;
+
     const winnerIndex = Math.floor(Math.random() * wheelGames.length);
     wheelWinner = wheelGames[winnerIndex];
 
     spinWheelTo(winnerIndex, wheelGames.length);
 
     setTimeout(() => {
+        if (mySpinToken !== wheelSpinToken) return; // a newer spin/session has since started — discard this one
         wheelResultImg.src = wheelItemImage(wheelWinner);
         wheelResultName.textContent = wheelItemName(wheelWinner);
+        wheelResultMeta.textContent = wheelItemMeta(wheelWinner);
         wheelPlayBtn.textContent = wheelMode === "movie" ? "🎟️ Find Tickets" : "Play";
         wheelResult.classList.add("active");
     }, 6000);
@@ -605,6 +735,9 @@ function spinSlotReel() {
         ? [...wheelGames].sort(() => Math.random() - 0.5).slice(0, 20)
         : wheelGames;
 
+    wheelSpinToken += 1;
+    const mySpinToken = wheelSpinToken;
+
     const winnerIndex = Math.floor(Math.random() * spinPool.length);
     wheelWinner = spinPool[winnerIndex];
 
@@ -618,6 +751,24 @@ function spinSlotReel() {
     // run out of items while still decelerating.
     const landingSlot = strip.length - 2;
     strip[landingSlot] = wheelWinner;
+
+    // The strip is spinPool repeated back-to-back in the same order every
+    // time, so the item that naturally falls right next to landingSlot
+    // (from that repeating pattern, before the override above) can
+    // occasionally already BE the winner — e.g. spinPool[17] repeats into
+    // the slot right before landingSlot, and if the winner happened to be
+    // drawn from spinPool[17] itself, the reel shows the winner twice in
+    // a row right where it visibly settles. Swap that neighbor for a
+    // different pool item whenever this collision happens, so the tile
+    // sitting beside the winner is never the same game as the winner.
+    const winnerKey = (wheelItemName(wheelWinner) || "").toLowerCase();
+    [landingSlot - 1, landingSlot + 1].forEach((neighborIdx) => {
+        if (neighborIdx < 0 || neighborIdx >= strip.length || neighborIdx === landingSlot) return;
+        if ((wheelItemName(strip[neighborIdx]) || "").toLowerCase() === winnerKey) {
+            const replacement = spinPool.find((g) => (wheelItemName(g) || "").toLowerCase() !== winnerKey);
+            if (replacement) strip[neighborIdx] = replacement;
+        }
+    });
 
     track.innerHTML = "";
     track.style.transition = "none";
@@ -663,22 +814,33 @@ function spinSlotReel() {
     });
 
     setTimeout(() => {
+        if (mySpinToken !== wheelSpinToken) return; // a newer spin/session has since started — discard this one
         wheelResultImg.src = wheelItemImage(wheelWinner);
         wheelResultName.textContent = wheelItemName(wheelWinner);
+        wheelResultMeta.textContent = wheelItemMeta(wheelWinner);
         if (wheelMode === "readinglibrary") {
             wheelPlayBtn.textContent = "📖 Open";
         } else if (wheelMode === "readingdiscover") {
             wheelPlayBtn.textContent = "⬇️ Download";
         } else if (wheelMode === "readingbuy") {
             wheelPlayBtn.textContent = "🛒 Buy";
-        } else {
+        } else if (wheelMode === "movie") {
+            wheelPlayBtn.textContent = "🎟️ Find Tickets";
+        } else if (wheelMode === "freegames") {
             wheelPlayBtn.textContent = "🎁 Get It Free";
+        } else {
+            wheelPlayBtn.textContent = "Play";
         }
         wheelResult.classList.add("active");
     }, 5600);
 }
 
 function openWheelModal() {
+    // A fresh session — invalidates any still-pending result reveal from
+    // a previous spin (see wheelSpinToken above) so it can never land its
+    // result into this new session, whatever section/mode it's for.
+    wheelSpinToken += 1;
+
     const wheelPieWrap = document.getElementById("wheelPieWrap");
     const slotReelWrap = document.getElementById("slotReelWrap");
     const wheelTitle = document.getElementById("wheelTitle");
@@ -694,11 +856,25 @@ function openWheelModal() {
         }
     } else if (currentSection === "free-games") {
         wheelMode = "freegames";
-        wheelGames = freeGamesCache;
+        // Spin only within whatever the user currently has filtered to —
+        // e.g. picking the "FPS" genre filter should only spin FPS games,
+        // not the whole Free Games list.
+        const fgSearchTerm = freeGamesSearchInput.value.trim().toLowerCase();
+        const fgPlatformFilter = freeGamesPlatformSelect.value;
+        const fgCategoryFilter = freeGamesCategorySelect.value;
+        wheelGames = freeGamesCache.filter((g) => {
+            if (fgSearchTerm && !g.name.toLowerCase().includes(fgSearchTerm)) return false;
+            if (fgPlatformFilter !== "all" && g.source !== fgPlatformFilter) return false;
+            if (fgCategoryFilter !== "all") {
+                const cat = (g.tags && g.tags[0]) || g.source;
+                if (cat !== fgCategoryFilter) return false;
+            }
+            return true;
+        });
         wheelTitle.textContent = "Free Game Time?";
 
         if (wheelGames.length < 2) {
-            alert("Free games haven't loaded yet — give it a moment and try again.");
+            alert("Not enough free games match your current filter to spin — try widening it, or give the list a moment to load.");
             return;
         }
     } else if (currentSection === "reading-room" && activeReadingRoomTab === "library") {
@@ -750,18 +926,40 @@ function openWheelModal() {
         }
     } else {
         wheelMode = "game";
-        wheelGames = allGames.filter((g) => (g.category || "game") === "game");
+        // Respect the active library search filter, same reasoning as the
+        // Free Games branch above — a filtered-down view should spin only
+        // what's actually showing.
+        wheelGames = allGames.filter((g) => (g.category || "game") === "game" && matchesSearch(g));
         wheelTitle.textContent = "Feeling lucky?";
 
         if (wheelGames.length < 2) {
-            alert("Add at least 2 games to spin the wheel!");
+            alert("Not enough games match your current search to spin — clear the search, or add more games!");
             return;
         }
     }
 
-    wheelUsesSlotReel = wheelMode === "freegames" || wheelMode === "readinglibrary" || wheelMode === "readingdiscover" || wheelMode === "readingbuy";
-    wheelPieWrap.style.display = wheelUsesSlotReel ? "none" : "";
-    slotReelWrap.style.display = wheelUsesSlotReel ? "block" : "none";
+    // The same title can genuinely end up in wheelGames twice — two
+    // different library paths pointing at the same game (imported once
+    // via Steam, once via a Start Menu shortcut, say), or overlapping
+    // results between API calls for movies/free games — and the reel
+    // has no way to tell that apart from a real second item, so the same
+    // cover could land right next to itself, or the "random" pick could
+    // secretly be twice as likely to land on it. Deduping by display
+    // name here, once, covers every mode in one place rather than
+    // needing the same guard repeated in each branch above.
+    const seenWheelNames = new Set();
+    wheelGames = wheelGames.filter((item) => {
+        const key = (wheelItemName(item) || "").toLowerCase();
+        if (seenWheelNames.has(key)) return false;
+        seenWheelNames.add(key);
+        return true;
+    });
+
+    // Every mode uses the slot-reel spin now — see the comment above
+    // openWheelModal's mode-detection block.
+    wheelUsesSlotReel = true;
+    wheelPieWrap.style.display = "none";
+    slotReelWrap.style.display = "block";
 
     wheelSpinCount = 0;
     wheelMessage.textContent = "";
@@ -786,6 +984,11 @@ function openWheelModal() {
 }
 
 function closeWheelModal() {
+    // Invalidate the current spin too — closing mid-spin shouldn't let
+    // its delayed result reveal quietly apply later, to a modal that
+    // isn't even open anymore (and may be reopened for a different
+    // section by the time it would have fired).
+    wheelSpinToken += 1;
     wheelModal.classList.remove("active");
 }
 
@@ -859,6 +1062,72 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.4": [
+        "Fixed: leaving Reading Room while Manga or Comics was the open tab could leave that full list of covers sitting on screen, overlapping whatever section you switched to next (The Vault, Free Games, etc.)"
+    ],
+    "1.3.3": [
+        "New: Manga and Comics moved from their own sections into Reading Room, alongside Buy Books/Discover/My Library/eBook Apps — and are now sorted alphabetically, show a much bigger list, and collapse behind a \"See more\" toggle after 10 rows",
+        "New: the search bar now also searches the web (Steam, TMDB, Open Library) for games/movies/shows/books that aren't already in your library, Free Games, or Reading Room — shown as a quick lookup, never added to any list",
+        "New: books, manga, and comics that are freely readable online now show a \"Read Online\" button right next to Buy/Download, linking straight to where it can actually be read",
+        "Fixed: Manga and Comics were showing a lot of entries with no cover art at all — they now only show entries with real cover art, same as New Releases already did",
+        "Fixed: Manga and Comics could show the same title in both lists, since Open Library often files manga under the generic \"comics\" subject too — Manga and Comics browsing and searching are now kept strictly separate",
+        "Changed: Applications always sits last in the section list now, and eBook Apps always sits last among the Reading Room tabs (after Manga and Comics)",
+        "Fixed: the manual Refresh button in Free Games could still leave a Steam title listed after it stopped being free — it only re-fetched the Epic/Steam/GOG lists, but still relied on the same capped, days-old verification as an ordinary refresh, so it never actually re-checked most already-cached Steam titles. It now does a real full re-check of every listed Steam game.",
+        "Fixed: a Steam game that stopped being free (a limited-time promo ending) but was still a perfectly normal store listing wasn't being caught at all — only outright delistings were checked for; current price is now checked too.",
+        "Fixed: a forced Free Games refresh looked like it was doing nothing when there were thousands of Steam games to re-verify — it really was working, just one request every 1.2 seconds against a list that can run into the thousands, which could take well over an hour before anything was saved. It now checks several at once with a short pause between batches (a few minutes for the whole catalog instead of over an hour), and saves progress as it goes instead of only at the very end, so closing Riftgate partway through a big check no longer throws away everything it already found.",
+        "Fixed: every search/filter box (Games, Free Games, Reading Room, Manga, Comics, Movies, Shows, the header search) now clears itself when you switch to a different section or Reading Room tab, instead of leaving old search text and results sitting there",
+        "Changed: more breathing room in the header and Reading Room tabs — a divider now separates the search/login area from the notification/Surprise Me/power icons, and the tabs sit in their own lightly-shaded strip instead of everything reading as one dense row",
+        "New: on a brand-new install, Free Games finds Steam's currently-free titles directly from Steam's own live search instead of checking thousands of games one by one — the very first refresh finishes in moments instead of taking a long time",
+        "Changed: every Reading Room tab (Buy Books, Discover Online, My Library, Manga, Comics) now shows its search bar in the same spot and its description in the same expandable \"ⓘ About\" format, instead of each tab looking laid out differently",
+        "Fixed: Manga and Comics' search bar sat flush against the list below it, unlike every other Reading Room tab",
+        "Fixed: My Library's sort dropdown, Drop Folder, and + buttons looked like plain unstyled Windows controls instead of matching the rest of Riftgate",
+        "New: New Series now has its own filter box, like Recent Episodes already did",
+        "Fixed: Upcoming Movies' country selector (and similar single-item header rows) could snap to the left instead of staying flush with the right edge"
+    ],
+    "1.3.2": [
+        "Fixed: an uninstalled Steam game could stay listed as installed indefinitely — the missing-game check now actually looks for it, instead of skipping every Steam title without checking at all",
+        "Fixed: Surprise Me could show the same title twice in the reel — usually because the same game or item exists in the underlying list more than once (e.g. imported into your library through two different paths). The reel now only ever shows each title once.",
+        "Fixed: Surprise Me's result could very occasionally show a leftover result from a previous spin (e.g. from Free Games) if you closed the wheel or switched sections while a spin's reveal was still pending. Each spin's result now only ever applies to that same spin/session.",
+        "Fixed: Free Games could keep listing a Steam title well after it was delisted (e.g. shows a \"no longer available\" notice on its own store page) — that state wasn't visible to the check being used before, so it's now checked directly",
+        "New: Upcoming Movies now has its own country selector — release schedules vary a lot by country, and it used to silently share a setting with Now Playing's showtimes country, which is why the same list could look completely different for two people",
+        "New: a Refresh button in Free Games gets an up-to-date list on demand instead of waiting for the next automatic refresh",
+        "Changed: Free Games now refreshes from Steam/Epic/GOG at most once every 24 hours instead of every time you open the section — it opens instantly from what was already loaded last time, and checks for a new list (adding newly-free games, dropping ones no longer available) once a day, including once at startup so it stays current even on days you never open that section",
+        "Changed: trailers no longer auto-play on hover anywhere in the app — click the \"Watch larger\" button on a game, movie, or show to load and play its trailer instead. Hovering was quietly using up the shared trailer lookup for everyone; loading only on a real click keeps it working for the whole community",
+        "Fixed: Free Games could end up doing two full Steam/Epic/GOG refreshes back to back on startup (the automatic startup refresh and opening the section could both see a refresh as due at the same moment) — a refresh already in progress is now reused instead of a second one starting",
+        "Fixed: a Free Games refresh could try to re-verify thousands of Steam titles in one pass, which was impractically slow — each verified game is now trusted for 7 days instead of ~1, and at most 200 titles are re-checked per refresh (newest/never-checked ones first), spreading the work across several days instead of redoing it all at once",
+        "Fixed: Surprise Me's reel could still occasionally show the winning title twice in a row right next to where it lands — the earlier duplicate-tile fix covered the underlying list, but not this separate coincidence in how the reel strip itself is built"
+    ],
+    "1.3.1": [
+        "Fixed: a tray icon load failure could silently stop the rest of startup from running — including the automatic update check and the folder watcher for drag-and-drop while Riftgate is closed. Both now run reliably regardless of the tray icon, and the tray icon itself is fixed too."
+    ],
+    "1.3.0": [
+        "New: a first-run tour now walks new installs through the main menu, search, your library, the quick-action buttons, Surprise Me, and Settings",
+        "Changed: notifications, suggestions, Surprise Me, and Close App moved from a floating corner overlay into the header, so they never sit on top of your library again",
+        "Changed: the header is significantly more compact, and the main menu button now shows a fixed \"Riftgate\" label instead of the current section's name",
+        "Changed: your library now shows a \"Your Library — X games · Y applications\" summary, and an empty Games or Applications section shows a real \"drag a shortcut here\" message instead of just disappearing",
+        "Changed: card titles, metadata, and section intro text resized for readability; long intro paragraphs collapse behind an \"ⓘ About\" toggle",
+        "Changed: library cards resize to fit the window instead of staying a fixed width, so long titles have more room before truncating",
+        "Changed: Applications now use a simpler icon-centered card style instead of the cinematic cover treatment used for games",
+        "Changed: Surprise Me always uses the same spin animation now, regardless of what you're spinning for, and its result screen shows a bit of context (genre, last played, release info, etc.) alongside the pick",
+        "Various smaller design and consistency polish across icons, colors, and background effects"
+    ],
+    "1.2.5": [
+        "New: app cards in Applications now show who actually made the app, alongside which admin added the listing",
+        "New: the Suggest an App box now also shows the email address directly, in case the mail button doesn't open anything on your machine",
+        "Fixed: admins can edit an app's author and description together again — the edit button was pointing at a database function that no longer existed",
+        "Fixed: the Reading Room search bar no longer stays stuck on screen after leaving to Installed, Free Games, or New"
+    ],
+    "1.2.3": [
+        "New: Applications is back as its own section — a browsable list of apps recommended by admins, each with a link out and a description",
+        "New: admins can add an app with just a link — for a GitHub repo, its description is pulled in automatically, and any admin can edit it later",
+        "New: a \"Suggest an App\" button lets anyone email in an app they'd like to see added"
+    ],
+    "1.2.2": [
+        "New: eBook Apps — the recommended eBook reader apps and ranked Top 5 list now have their own tab in Reading Room, instead of being tucked at the bottom of My Library where they were easy to miss",
+        "Fixed: the eBook reader recommendations no longer stay visible after leaving Reading Room for another section",
+        "Fixed: New Releases in Buy Books no longer pads out the list with a bunch of books missing cover art just to hit a round count — it now looks harder for ones that actually have covers first",
+        "Fixed: trailers no longer show a completely unrelated video for games without a real trailer uploaded yet — results are now checked for relevance and restricted to the right category before being accepted"
+    ],
     "1.2.0": [
         "New: logging in is now optional — Riftgate no longer asks for a password on first launch, and works fully signed out",
         "New: a Login button now sits next to the section switcher, visible in every section, and shows whether you're currently signed in",
@@ -1118,7 +1387,11 @@ async function checkForUpdatePopup() {
     const isFirstRunEver = settings.lastSeenVersion === null;
     const previousTourVersion = settings.lastSeenTourVersion;
 
-    if (settings.lastSeenVersion !== appVersion) {
+    // A brand-new install has no changelog to "catch up" on — skip
+    // straight to the general first-run tour instead of opening a wall of
+    // every historical version's notes before the user's even touched the
+    // app (see GENERAL_TOUR / maybeRunFeatureTour).
+    if (!isFirstRunEver && settings.lastSeenVersion !== appVersion) {
         openChangelogModal();
         saveSetting("lastSeenVersion", appVersion);
 
@@ -1126,6 +1399,7 @@ async function checkForUpdatePopup() {
         // dismissChangelogModal) so the two never overlap on screen.
         pendingFeatureTourRunner = () => maybeRunFeatureTour(isFirstRunEver, previousTourVersion);
     } else {
+        saveSetting("lastSeenVersion", appVersion);
         await maybeRunFeatureTour(isFirstRunEver, previousTourVersion);
     }
 }
@@ -1150,7 +1424,70 @@ async function checkForUpdatePopup() {
 //                 be found, or isn't currently visible, that step is
 //                 skipped rather than spotlighting nothing.
 //   title/description — shown in the tooltip next to the spotlight.
+// First-run-only walkthrough of the app's core areas — this is what
+// isFirstRunEver runs instead of a version-diff tour (see
+// maybeRunFeatureTour above), since a brand-new install has no earlier
+// version to diff against but still benefits from an intro. Kept separate
+// from FEATURE_TOURS on purpose: this one's about orienting a new user,
+// not pointing out what changed for a returning one.
+const GENERAL_TOUR = [
+    {
+        section: null,
+        selector: "#sectionPill",
+        title: "Your main menu",
+        description: "Click here to jump between New, Installed, Free Games, Theatre, Reading Room, Applications, and The Vault."
+    },
+    {
+        section: null,
+        selector: "#globalSearchWrap",
+        title: "Search everything at once",
+        description: "Look up anything across your games, free games, books, and shows from one place."
+    },
+    {
+        // #libraryContainer is completely empty on a genuinely fresh
+        // install (nothing renders there until a game exists — see
+        // renderLibrary), so this points at the always-visible + button
+        // instead of a target that might be an invisible, zero-height box.
+        section: "installed",
+        selector: "#addBtn",
+        title: "Add your first game or app",
+        description: "Click here, or just drag and drop a shortcut or .exe anywhere onto this page."
+    },
+    {
+        section: "installed",
+        selector: ".header-actions",
+        title: "Quick actions",
+        description: "Notifications, suggestions, Surprise Me, and closing the app all live up here."
+    },
+    {
+        section: "installed",
+        selector: "#surpriseBtn",
+        title: "Feeling lucky?",
+        description: "Can't decide what to play? Hit Surprise Me and let Riftgate pick for you."
+    },
+    {
+        section: null,
+        selector: ".sidebar-handle",
+        title: "Settings live here",
+        description: "Open this tab anytime for themes, grid density, backups, and more."
+    }
+];
+
 const FEATURE_TOURS = {
+    "1.3.0": [
+        {
+            section: null,
+            selector: ".header-actions",
+            title: "Notifications, Surprise Me, and Close App moved up here",
+            description: "They used to float in the bottom-right corner, sometimes covering your library — now they live in the header instead."
+        },
+        {
+            section: null,
+            selector: "#sectionPill",
+            title: "The menu button now just says \"Riftgate\"",
+            description: "It used to show whatever section you were on, which read like a filter rather than the main menu — it's a fixed label now so it's clearer what it actually does."
+        }
+    ],
     "1.2.0": [
         {
             section: null,
@@ -1200,12 +1537,12 @@ function collectPendingTourSteps(sinceVersion) {
 }
 
 async function maybeRunFeatureTour(isFirstRunEver, previousTourVersion) {
-    // A brand-new install has nothing to compare against — there's no
-    // "new" feature yet, since the user has never seen ANY version of the
-    // app. Just mark the tour as caught up so future updates compare
-    // correctly, without ever showing it for a fresh install.
+    // A brand-new install has never seen a diff-worthy "what's new" tour,
+    // but it HAS never seen the app at all — so it gets a fixed general
+    // walkthrough (GENERAL_TOUR) instead of the version-diffed one below.
     if (isFirstRunEver) {
         saveSetting("lastSeenTourVersion", appVersion);
+        await runFeatureTour(GENERAL_TOUR);
         return;
     }
 
@@ -1419,6 +1756,144 @@ async function checkForNewGames() {
     }
 }
 
+// --- Manual "Scan for Apps & Games" — checklist version of the above ---
+
+const scanInstalledBtn = document.getElementById("scanInstalledBtn");
+const scanResultsModal = document.getElementById("scanResultsModal");
+const scanResultsSummary = document.getElementById("scanResultsSummary");
+const scanResultsList = document.getElementById("scanResultsList");
+const scanResultsSelectAllBtn = document.getElementById("scanResultsSelectAllBtn");
+const scanResultsSelectNoneBtn = document.getElementById("scanResultsSelectNoneBtn");
+const scanResultsCancelBtn = document.getElementById("scanResultsCancelBtn");
+const scanResultsAddBtn = document.getElementById("scanResultsAddBtn");
+
+let scanResultsCache = [];
+
+function closeScanResultsModal() {
+    scanResultsModal.classList.remove("active");
+    scanResultsList.innerHTML = "";
+    scanResultsCache = [];
+}
+
+scanInstalledBtn.addEventListener("click", async () => {
+    scanInstalledBtn.disabled = true;
+    const originalLabel = scanInstalledBtn.innerHTML;
+    scanInstalledBtn.innerHTML = "🔍 <span>Scanning your computer…</span>";
+
+    let found = [];
+    try {
+        found = await window.riftgate.invoke("scan-all-installed");
+    } finally {
+        scanInstalledBtn.disabled = false;
+        scanInstalledBtn.innerHTML = originalLabel;
+    }
+
+    if (!found || found.length === 0) {
+        alert("No new apps or games found — everything Riftgate could detect is already in your library.");
+        return;
+    }
+
+    scanResultsCache = found;
+    scanResultsSummary.textContent = `Found ${found.length} app${found.length === 1 ? "" : "s"}/game${found.length === 1 ? "" : "s"} not yet in Riftgate. Uncheck anything you don't want, then Add Selected.`;
+    scanResultsList.innerHTML = "";
+
+    found.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "scan-result-row";
+        // item.name/path/source come from local shortcuts and store
+        // manifests on the user's own machine, but still go through
+        // textContent below rather than innerHTML out of caution.
+        row.innerHTML = `
+            <label class="scan-result-check">
+                <input type="checkbox" checked data-index="${index}">
+                <span class="scan-result-name"></span>
+            </label>
+            <span class="scan-result-source"></span>
+            <select class="scan-result-category">
+                <option value="game">Game</option>
+                <option value="app">App</option>
+            </select>
+        `;
+        row.querySelector(".scan-result-name").textContent = item.name;
+        row.querySelector(".scan-result-source").textContent = item.source;
+        row.querySelector(".scan-result-category").value = item.source === "Detected" ? "app" : "game";
+        scanResultsList.appendChild(row);
+    });
+
+    scanResultsModal.classList.add("active");
+});
+
+scanResultsSelectAllBtn.addEventListener("click", () => {
+    scanResultsList.querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = true; });
+});
+
+scanResultsSelectNoneBtn.addEventListener("click", () => {
+    scanResultsList.querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = false; });
+});
+
+scanResultsCancelBtn.addEventListener("click", closeScanResultsModal);
+
+scanResultsAddBtn.addEventListener("click", async () => {
+    const rows = Array.from(scanResultsList.querySelectorAll(".scan-result-row"));
+    const selected = [];
+
+    rows.forEach((row, index) => {
+        const checkbox = row.querySelector("input[type=checkbox]");
+        if (checkbox.checked) {
+            selected.push({
+                ...scanResultsCache[index],
+                category: row.querySelector(".scan-result-category").value
+            });
+        }
+    });
+
+    if (selected.length === 0) {
+        closeScanResultsModal();
+        return;
+    }
+
+    scanResultsAddBtn.disabled = true;
+    scanResultsAddBtn.textContent = "Adding…";
+
+    // Sequential rather than Promise.all — this hits find-cover /
+    // fetch-online-cover per item, and running dozens of those at once
+    // would hammer the media proxy for what's a one-off manual action.
+    for (const item of selected) {
+        try {
+            const override = await window.riftgate.invoke("get-override", item.name);
+            let cover = override && override.image ? override.image : null;
+
+            if (!cover) {
+                cover = await window.riftgate.invoke("find-cover", item.name);
+                if (cover === "covers/default.jpg") {
+                    cover = await window.riftgate.invoke("fetch-online-cover", item.name);
+                }
+            }
+            if (!cover) cover = "covers/default.jpg";
+
+            const game = {
+                name: item.name,
+                path: item.path,
+                image: cover,
+                category: item.category || "game"
+            };
+            if (override && override.trailerId) {
+                game.trailerId = override.trailerId;
+            }
+
+            await window.riftgate.invoke("save-game", game);
+            allGames.push(game);
+        } catch (err) {
+            console.error("[scan] failed to add", item.name, err);
+        }
+    }
+
+    renderLibrary();
+    scanResultsAddBtn.disabled = false;
+    scanResultsAddBtn.textContent = "Add Selected";
+    closeScanResultsModal();
+});
+
 // --- Category modal (used when adding a new entry) ---------------------
 
 const categoryModal = document.getElementById("categoryModal");
@@ -1450,11 +1925,13 @@ function askCategory() {
 const toggleUiSounds = document.getElementById("toggleUiSounds");
 const toggleStartupSound = document.getElementById("toggleStartupSound");
 const toggleStartupAnimation = document.getElementById("toggleStartupAnimation");
-const toggleHoverTrailers = document.getElementById("toggleHoverTrailers");
 const toggleAmbientBg = document.getElementById("toggleAmbientBg");
 const refreshMetadataBtn = document.getElementById("refreshMetadataBtn");
 const statCounts = document.getElementById("statCounts");
 const statLaunches = document.getElementById("statLaunches");
+const steamId64Input = document.getElementById("steamId64Input");
+const refreshSteamPlaytimeBtn = document.getElementById("refreshSteamPlaytimeBtn");
+const steamPlaytimeStatus = document.getElementById("steamPlaytimeStatus");
 const toggleFullscreen = document.getElementById("toggleFullscreen");
 const toggleLightTheme = document.getElementById("toggleLightTheme");
 const themeButtons = document.querySelectorAll(".themeOption");
@@ -1549,7 +2026,6 @@ function applySettingsToUI() {
     toggleUiSounds.checked = settings.uiSounds;
     toggleStartupSound.checked = settings.startupSound;
     toggleStartupAnimation.checked = settings.startupAnimation !== false;
-    toggleHoverTrailers.checked = settings.hoverTrailers;
     toggleAmbientBg.checked = settings.ambientBackground;
     toggleLightTheme.checked = settings.lightTheme;
     applyTheme(settings.lightTheme);
@@ -1568,6 +2044,9 @@ function applySettingsToUI() {
 
     movieCountrySelect.value = settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
+    upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
+
+    steamId64Input.value = settings.steamId64 || "";
 }
 
 async function loadSettings() {
@@ -1585,10 +2064,41 @@ async function saveSetting(key, value) {
     await window.riftgate.invoke("save-settings", { [key]: value });
 }
 
+steamId64Input.addEventListener("change", () => {
+    saveSetting("steamId64", steamId64Input.value.trim());
+});
+
+refreshSteamPlaytimeBtn.addEventListener("click", async () => {
+    const steamId = steamId64Input.value.trim();
+
+    refreshSteamPlaytimeBtn.disabled = true;
+    steamPlaytimeStatus.textContent = "Syncing with Steam…";
+
+    const result = await window.riftgate.invoke("refresh-steam-playtime", steamId);
+
+    refreshSteamPlaytimeBtn.disabled = false;
+
+    if (!result.success) {
+        steamPlaytimeStatus.textContent = result.error;
+        return;
+    }
+
+    settings.steamId64 = steamId;
+    settings.steamPlaytimes = result.playtimes;
+    settings.steamPlaytimesUpdatedAt = Date.now();
+
+    steamPlaytimeStatus.textContent = `Synced ${result.count} game${result.count === 1 ? "" : "s"} from Steam.`;
+
+    // Re-render so any installed Steam games on screen pick up their real
+    // playtime immediately instead of waiting for the next app-exited
+    // event (which never fires for them — see getSteamAppId's usage in
+    // buildCard).
+    renderLibrary();
+});
+
 toggleUiSounds.addEventListener("change", () => saveSetting("uiSounds", toggleUiSounds.checked));
 toggleStartupSound.addEventListener("change", () => saveSetting("startupSound", toggleStartupSound.checked));
 toggleStartupAnimation.addEventListener("change", () => saveSetting("startupAnimation", toggleStartupAnimation.checked));
-toggleHoverTrailers.addEventListener("change", () => saveSetting("hoverTrailers", toggleHoverTrailers.checked));
 toggleAmbientBg.addEventListener("change", () => saveSetting("ambientBackground", toggleAmbientBg.checked));
 
 toggleLightTheme.addEventListener("change", () => {
@@ -1931,6 +2441,27 @@ function renderLibrary() {
         introScreen.classList.remove("active");
     }
 
+    // A short "Your Library" line up top gives the page something to say
+    // even when only a couple of items are installed, instead of a
+    // couple of cards followed by a lot of unexplained empty space.
+    if (allGames.length > 0) {
+        const counted = CATEGORY_ORDER
+            .map((category) => ({
+                category,
+                count: allGames.filter((g) => (g.category || "game") === category).length,
+            }))
+            .filter((c) => c.count > 0);
+
+        if (counted.length > 0) {
+            const summary = document.createElement("div");
+            summary.className = "library-summary";
+            summary.textContent = "Your Library — " + counted
+                .map((c) => LIBRARY_SUMMARY_LABELS[c.category](c.count))
+                .join(" · ");
+            libraryContainer.appendChild(summary);
+        }
+    }
+
     CATEGORY_ORDER.forEach((category) => {
 
         let gamesInCategory = allGames
@@ -1940,7 +2471,19 @@ function renderLibrary() {
         gamesInCategory = sortGames(gamesInCategory);
         gamesInCategory = sortNoCoverLast(gamesInCategory, "image");
 
-        if (gamesInCategory.length === 0) return;
+        // Games and Apps are the two categories people expect to see every
+        // time, even with nothing in them yet — so an empty one gets a
+        // short explicit placeholder instead of just vanishing (which
+        // reads as "did my stuff disappear?"). VR/Other stay silent when
+        // empty, same as before, since most libraries never use them. A
+        // placeholder never shows for a category that's only empty because
+        // of the current search — that's just "no matches", not "no items".
+        const isPrimaryCategory = category === "game" || category === "app";
+        const totalInCategory = allGames.filter((g) => (g.category || "game") === category).length;
+        const showEmptyPlaceholder = gamesInCategory.length === 0 && isPrimaryCategory
+            && totalInCategory === 0 && !searchTerm && allGames.length > 0;
+
+        if (gamesInCategory.length === 0 && !showEmptyPlaceholder) return;
 
         const section = document.createElement("div");
         section.className = "category-section";
@@ -2014,14 +2557,23 @@ function renderLibrary() {
             reorderGames(draggedGamePath, category, null);
         });
 
-        gamesInCategory.forEach((game) => {
-            const card = buildCard(game);
-            grid.appendChild(card);
+        if (showEmptyPlaceholder) {
+            const hint = document.createElement("div");
+            hint.className = "category-empty-hint";
+            hint.innerHTML = category === "game"
+                ? `<span class="category-empty-icon">🎮</span>No games yet — drag a shortcut or <code>.exe</code> here to add your first game.`
+                : `<span class="category-empty-icon">🖥️</span>No applications yet — drag a shortcut or <code>.exe</code> here to add one.`;
+            grid.appendChild(hint);
+        } else {
+            gamesInCategory.forEach((game) => {
+                const card = buildCard(game);
+                grid.appendChild(card);
 
-            if (!game.description) {
-                ensureDescription(game, card);
-            }
-        });
+                if (!game.description) {
+                    ensureDescription(game, card);
+                }
+            });
+        }
 
         libraryContainer.appendChild(section);
     });
@@ -2050,6 +2602,11 @@ function sortNoCoverLast(items, coverField) {
     });
 }
 
+function getSteamAppId(gamePath) {
+    const match = /^steam:\/\/rungameid\/(\d+)/.exec(gamePath || "");
+    return match ? match[1] : null;
+}
+
 function formatPlaytime(seconds) {
     if (!seconds || seconds < 60) return null;
     const hours = Math.floor(seconds / 3600);
@@ -2074,9 +2631,17 @@ function buildCard(game) {
 
     const category = game.category || "game";
 
+    // Apps (Discord, WinRAR, NVIDIA, etc.) get a calmer, icon-centered
+    // cover treatment instead of the cinematic box-art crop used for
+    // games — see .card-app in style.css.
+    if (category === "app") card.classList.add("card-app");
+
     const isDefaultCover = !game.image || game.image === "covers/default.jpg";
 
-    const playtimeText = formatPlaytime(game.playtimeSeconds);
+    const steamAppId = getSteamAppId(game.path);
+    const steamMinutes = steamAppId ? (settings.steamPlaytimes || {})[steamAppId] : undefined;
+    const displayPlaytimeSeconds = steamMinutes !== undefined ? steamMinutes * 60 : game.playtimeSeconds;
+    const playtimeText = formatPlaytime(displayPlaytimeSeconds);
     const hasNotes = !!(game.notes || (game.tags && game.tags.length));
 
     // game.name and description can both come from untrusted sources (a
@@ -2095,18 +2660,18 @@ function buildCard(game) {
             </div>
         </div>
     </div>
-    <button class="favoriteBtn ${game.favorite ? "active" : ""}" title="Favorite">${game.favorite ? "★" : "☆"}</button>
+    <button class="favoriteBtn ${game.favorite ? "active" : ""}" title="Favorite">${uiIcon("star", { filled: game.favorite })}</button>
 
     <div class="cover-wrap">
         <img class="cover-img" src="${image}" alt="">
-        <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
+        ${category === "app" ? "" : `<button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>`}
         <div class="cover-bottom-right">
-            <button class="enlargeBtn" title="Watch larger">⛶</button>
-            <button class="manualCoverBtn" title="${isDefaultCover ? "Choose a cover image" : "Change cover image"}">🖼️ <span class="manualCoverBtn-label">${isDefaultCover ? "Add cover" : "Change cover"}</span></button>
+            ${category === "app" ? "" : `<button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>`}
+            <button class="manualCoverBtn" title="${isDefaultCover ? "Choose a cover image" : "Change cover image"}">${uiIcon("image")} <span class="manualCoverBtn-label">${isDefaultCover ? "Add cover" : "Change cover"}</span></button>
         </div>
     </div>
 
-    <button class="removeBtn">✕</button>
+    <button class="removeBtn">${uiIcon("x")}</button>
 
     <div class="game-info">
         <h3></h3>
@@ -2114,10 +2679,10 @@ function buildCard(game) {
         <p class="game-desc"></p>
         <div class="card-footer">
             <button class="launchBtn">Launch</button>
-            <button class="pathBtn" title="Show file path">📂</button>
+            <button class="pathBtn" title="Show file path">${uiIcon("folder")}</button>
             ${category === "game" || category === "vr" ? '<button class="modsBtn" title="Find mods">🧩</button>' : ""}
-            ${!game.path.includes("://") ? '<button class="uninstallBtn" title="Uninstall from Windows">🗑️</button>' : ""}
-            <button class="notesBtn ${hasNotes ? "has-notes" : ""}" title="Notes & tags">📝</button>
+            ${!game.path.includes("://") ? `<button class="uninstallBtn" title="Uninstall from Windows">${uiIcon("trash-2")}</button>` : ""}
+            <button class="notesBtn ${hasNotes ? "has-notes" : ""}" title="Notes & tags">${uiIcon("file-text")}</button>
         </div>
     </div>
 `;
@@ -2275,16 +2840,19 @@ function buildCard(game) {
             });
         });
 
-    card.querySelector(".soundToggle")
-        .addEventListener("click", (event) => {
+    const soundToggleBtn = card.querySelector(".soundToggle");
+    if (soundToggleBtn) {
+        soundToggleBtn.addEventListener("click", (event) => {
             event.stopPropagation();
             soundEnabled = !soundEnabled;
             updateAllSoundToggles();
             applySoundToAllFrames();
         });
+    }
 
-    card.querySelector(".enlargeBtn")
-        .addEventListener("click", async (event) => {
+    const enlargeBtn = card.querySelector(".enlargeBtn");
+    if (enlargeBtn) {
+        enlargeBtn.addEventListener("click", async (event) => {
             event.stopPropagation();
             let trailerId = game.trailerId;
             if (trailerId === undefined || trailerId === null) {
@@ -2300,6 +2868,7 @@ function buildCard(game) {
                 alert("No trailer could be found for this title.");
             }
         });
+    }
 
     const manualCoverBtn = card.querySelector(".manualCoverBtn");
 
@@ -2322,23 +2891,13 @@ function buildCard(game) {
         });
     }
 
-    // --- Hover-to-preview trailer + ambient background ---
-
-    let hoverTimer = null;
+    // --- Ambient background on hover (trailer preview is click-only now,
+    // via the enlargeBtn above) ---
 
     card.addEventListener("mouseenter", () => {
         setAmbientTheme(game.category || "game");
-
-        if (settings.hoverTrailers) {
-            hoverTimer = setTimeout(() => showTrailer(game, card), 350);
-        }
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        hideTrailer(card);
         // Ambient background is sticky on purpose — it stays until another
-        // card is hovered, so nothing changes here.
+        // card is hovered, so there's nothing to do on mouseleave.
     });
 
     // --- Drag and drop reordering (also allows dropping into another
@@ -2468,56 +3027,6 @@ async function addGameFromExternalFile(filePath, category) {
 }
 
 
-async function showTrailer(game, card) {
-
-    if (!settings.hoverTrailers) return;
-
-    const coverWrap = card.querySelector(".cover-wrap");
-
-    if (!coverWrap || coverWrap.querySelector(".trailer-frame")) {
-        return;
-    }
-
-    let trailerId = game.trailerId;
-
-    if (trailerId === undefined || trailerId === null) {
-        trailerId = await window.riftgate.invoke("fetch-trailer", game.searchName || game.name, game.category || "game", game.description);
-        game.trailerId = trailerId;
-
-        if (trailerId) {
-            await window.riftgate.invoke(
-                "update-game",
-                { path: game.path, trailerId }
-            );
-        }
-    }
-
-    // The mouse may have already left before the fetch finished
-    if (!card.matches(":hover") || !trailerId || !settings.hoverTrailers) {
-        return;
-    }
-
-    const iframe = document.createElement("iframe");
-    iframe.className = "trailer-frame";
-    iframe.src =
-        `https://www.youtube.com/embed/${trailerId}` +
-        `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-        `&modestbranding=1&rel=0&showinfo=0&enablejsapi=1`;
-    iframe.allow = "autoplay; encrypted-media";
-    iframe.frameBorder = "0";
-
-    coverWrap.appendChild(iframe);
-
-    // Give the embedded player a moment to actually initialize before
-    // sending it a volume command.
-    setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-}
-
-function hideTrailer(card) {
-    const frame = card.querySelector(".trailer-frame");
-    if (frame) frame.remove();
-}
-
 // Opens a mod search for the game in the browser — nothing else. Google's
 // own ranking naturally surfaces the most popular/relevant modding sites
 // first, so no artificial site-bias is needed here.
@@ -2528,7 +3037,7 @@ function openMods(game) {
 
 function updateAllSoundToggles() {
     document.querySelectorAll(".soundToggle").forEach((btn) => {
-        btn.textContent = soundEnabled ? "🔊" : "🔇";
+        btn.innerHTML = uiIcon(soundEnabled ? "volume-2" : "volume-x");
     });
 }
 
@@ -2541,26 +3050,25 @@ function postPlayerCommand(iframe, func, args) {
 }
 
 function applySoundToAllFrames() {
-    document.querySelectorAll(".trailer-frame").forEach((frame) => {
-        // postMessage mute/unMute commands can get silently dropped if the
-        // embedded player's message channel isn't fully ready yet — instead,
-        // rebuild the iframe's own URL with the correct mute param, which
-        // reloads it in the right state instantly and reliably every time.
-        try {
-            const url = new URL(frame.src);
-            url.searchParams.set("mute", soundEnabled ? "0" : "1");
-            url.searchParams.set("autoplay", "1");
-            frame.src = url.toString();
-        } catch (err) {
-            postPlayerCommand(frame, soundEnabled ? "unMute" : "mute");
-        }
-    });
+    const frame = theaterVideoWrap.querySelector("iframe");
+    if (!frame) return;
+    // postMessage mute/unMute commands can get silently dropped if the
+    // embedded player's message channel isn't fully ready yet — instead,
+    // rebuild the iframe's own URL with the correct mute param, which
+    // reloads it in the right state instantly and reliably every time.
+    try {
+        const url = new URL(frame.src);
+        url.searchParams.set("mute", soundEnabled ? "0" : "1");
+        url.searchParams.set("autoplay", "1");
+        frame.src = url.toString();
+    } catch (err) {
+        postPlayerCommand(frame, soundEnabled ? "unMute" : "mute");
+    }
 }
 
 function applyVolumeToAllFrames() {
-    document.querySelectorAll(".trailer-frame").forEach((frame) => {
-        postPlayerCommand(frame, "setVolume", [settings.trailerVolume]);
-    });
+    const frame = theaterVideoWrap.querySelector("iframe");
+    if (frame) postPlayerCommand(frame, "setVolume", [settings.trailerVolume]);
 }
 
 async function ensureDescription(game, card) {
@@ -2811,10 +3319,28 @@ function initFactTicker() {
 
 // --- Section switching (Installed / Free Games / Reading Room / Theatre) ---
 
-const sectionTitle = document.getElementById("sectionTitle");
 const sectionOptions = document.querySelectorAll(".sectionOption");
 const sidebarNavButtons = document.querySelectorAll(".sidebarNavBtn");
+
+// The "Start on section" dropdown (in Settings) used to keep its own
+// separately hand-written list of <option>s, which is exactly how it
+// silently fell out of sync and was missing The Vault after it was added
+// to the sidebar. Building its options directly from the sidebar's own
+// buttons means any future section added to (or removed from) the
+// sidebar automatically appears here too, with no second place to
+// remember to update.
+function populateStartupSectionOptions() {
+    startupSectionSelect.innerHTML = "";
+    sidebarNavButtons.forEach((btn) => {
+        const option = document.createElement("option");
+        option.value = btn.dataset.section;
+        option.textContent = btn.textContent;
+        startupSectionSelect.appendChild(option);
+    });
+}
+populateStartupSectionOptions();
 const installedTopbar = document.getElementById("installedTopbar");
+const sectionPill = document.getElementById("sectionPill");
 const installedBlurb = document.getElementById("installedBlurb");
 const theatreTopbar = document.getElementById("theatreTopbar");
 const freeGamesContainer = document.getElementById("freeGamesContainer");
@@ -2826,11 +3352,16 @@ const readingRoomContainer = document.getElementById("readingRoomContainer");
 const recommendedReadersSection = document.getElementById("recommendedReadersSection");
 const readingRoomSortSelect = document.getElementById("readingRoomSortSelect");
 const readingRoomSearchInput = document.getElementById("readingRoomSearchInput");
+const discoveryLanguageSelect = document.getElementById("discoveryLanguageSelect");
+const discoveryCategorySelect = document.getElementById("discoveryCategorySelect");
 const addEbookBtn = document.getElementById("addEbookBtn");
 const openDropzoneBtn = document.getElementById("openDropzoneBtn");
 const readingRoomTabLibrary = document.getElementById("readingRoomTabLibrary");
 const readingRoomTabDiscover = document.getElementById("readingRoomTabDiscover");
 const readingRoomTabBuyFree = document.getElementById("readingRoomTabBuyFree");
+const readingRoomTabApps = document.getElementById("readingRoomTabApps");
+const readingRoomTabManga = document.getElementById("readingRoomTabManga");
+const readingRoomTabComics = document.getElementById("readingRoomTabComics");
 const discoveryHeading = document.getElementById("discoverIntroSection");
 const discoverySectionsWrap = [
     discoveryHeading,
@@ -2851,24 +3382,37 @@ let activeReadingRoomTab = "buyfree"; // corrected from settings on first entry 
 let readingRoomTabInitializedFromSettings = false;
 
 function showReadingRoomTab(tab) {
+    resetReadingRoomSearchBars();
     activeReadingRoomTab = tab;
     saveSetting("lastReadingRoomTab", tab);
 
     const isLibrary = tab === "library";
     const isDiscover = tab === "discover";
     const isBuyFree = tab === "buyfree";
+    const isApps = tab === "apps";
+    const isManga = tab === "manga";
+    const isComics = tab === "comics";
 
     readingRoomTabLibrary.classList.toggle("active", isLibrary);
     readingRoomTabDiscover.classList.toggle("active", isDiscover);
     readingRoomTabBuyFree.classList.toggle("active", isBuyFree);
+    readingRoomTabApps.classList.toggle("active", isApps);
+    readingRoomTabManga.classList.toggle("active", isManga);
+    readingRoomTabComics.classList.toggle("active", isComics);
 
     readingRoomTopbar.style.display = isLibrary ? "" : "none";
     readingRoomBlurb.style.display = isLibrary ? "" : "none";
     readingRoomContainer.style.display = isLibrary ? "" : "none";
-    recommendedReadersSection.style.display = isLibrary ? "" : "none";
+    // Its own tab now (eBook Apps) rather than tacked onto the bottom of
+    // My Library, where it was easy to miss entirely.
+    recommendedReadersSection.style.display = isApps ? "" : "none";
+    mangaContainer.classList.toggle("active", isManga);
+    comicsContainer.classList.toggle("active", isComics);
 
-    document.querySelector(".reading-room-search-bar:not(#buyFreeSearchBar)").style.display = isBuyFree ? "none" : "";
+    document.querySelector(".reading-room-search-bar:not(#buyFreeSearchBar)").style.display = (isBuyFree || isApps || isManga || isComics) ? "none" : "";
     buyFreeSearchBar.style.display = isBuyFree ? "" : "none";
+    discoveryLanguageSelect.style.display = isDiscover ? "" : "none";
+    discoveryCategorySelect.style.display = isDiscover ? "" : "none";
 
     discoverySectionsWrap.forEach((el) => {
         if (el) el.style.display = isDiscover ? "" : "none";
@@ -2890,11 +3434,24 @@ function showReadingRoomTab(tab) {
         renderFreeFindsSection();
     }
     if (isBuyFree) loadBuyFreeBooks();
+
+    if (isManga && !mangaLoaded) {
+        mangaLoaded = true;
+        loadGenericBrowseSection("manga");
+    }
+
+    if (isComics && !comicsLoaded) {
+        comicsLoaded = true;
+        loadGenericBrowseSection("comics");
+    }
 }
 
 readingRoomTabLibrary.addEventListener("click", () => showReadingRoomTab("library"));
 readingRoomTabDiscover.addEventListener("click", () => showReadingRoomTab("discover"));
 readingRoomTabBuyFree.addEventListener("click", () => showReadingRoomTab("buyfree"));
+readingRoomTabApps.addEventListener("click", () => showReadingRoomTab("apps"));
+readingRoomTabManga.addEventListener("click", () => showReadingRoomTab("manga"));
+readingRoomTabComics.addEventListener("click", () => showReadingRoomTab("comics"));
 
 openDropzoneBtn.addEventListener("click", () => {
     window.riftgate.invoke("open-dropzone-folder");
@@ -2926,11 +3483,15 @@ const SECTION_LABELS = {
     theatre: "🎬 Theatre",
     "reading-room": "📖 Reading Room",
     new: "🆕 New",
+    applications: "🧩 Applications",
+    manga: "📕 Manga",
+    comics: "💥 Comics",
     "shared-folder": "🔮 The Vault"
 };
 
 let freeGamesLoaded = false;
 let moviesLoaded = false;
+let communityAppsLoaded = false;
 let currentSection = "installed";
 
 // Floating icon sets for the ambient background layer — generic gaming
@@ -2980,15 +3541,48 @@ function setAmbientIcons(section) {
     }
 }
 
-function switchSection(section) {
-    // "applications" was removed as its own top-level section — its only
-    // content (recommended eBook readers) now lives inside Reading Room.
-    // This keeps a stale saved startupSection setting from someone's
-    // previous install from landing on a section that no longer exists.
-    if (section === "applications") section = "reading-room";
+// Every search/filter box in the app only makes sense for the section
+// (or Reading Room tab) it lives in — leaving old typed text sitting in
+// one after navigating away just looks like a stale leftover, so every
+// one of them clears out on a real section/tab switch instead.
+function clearSearchBar(input) {
+    if (!input || !input.value) return;
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+}
 
+function resetReadingRoomSearchBars() {
+    clearSearchBar(buyFreeSearchInput);
+    clearSearchBar(readingRoomSearchInput);
+    clearSearchBar(mangaSearchInput);
+    clearSearchBar(comicsSearchInput);
+}
+
+function resetAllSectionSearchBars() {
+    clearSearchBar(searchInput);
+    clearSearchBar(freeGamesSearchInput);
+    clearSearchBar(moviesFilterInput);
+    clearSearchBar(myShowsFilterInput);
+    clearSearchBar(recentEpisodesFilterInput);
+    clearSearchBar(newShowsFilterInput);
+    resetReadingRoomSearchBars();
+
+    if (showSearchInput && showSearchInput.value) {
+        showSearchInput.value = "";
+        showSearchResults.innerHTML = "";
+    }
+
+    if (globalSearchInput && globalSearchInput.value) {
+        globalSearchInput.value = "";
+        globalSearchResults.style.display = "none";
+        webSearchToken += 1; // invalidate any in-flight web search
+    }
+}
+
+function switchSection(section) {
+    resetAllSectionSearchBars();
     currentSection = section;
-    sectionTitle.textContent = SECTION_LABELS[section];
+    sectionPill.title = "You're viewing: " + SECTION_LABELS[section];
     setAmbientIcons(section);
     showNextFact();
 
@@ -2996,7 +3590,7 @@ function switchSection(section) {
     // section (it's a mixed feed of upcoming/new items, not a personal
     // library or a browsable list to spin against), and The Vault isn't
     // a browsable list of things to launch/read/watch at all.
-    surpriseBtn.style.display = (section === "new" || section === "shared-folder") ? "none" : "";
+    surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications") ? "none" : "";
 
     sidebarNavButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.section === section);
@@ -3023,25 +3617,46 @@ function switchSection(section) {
         readingRoomTopbar.style.display = "none";
         readingRoomBlurb.style.display = "none";
         readingRoomContainer.style.display = "none";
+        recommendedReadersSection.style.display = "none";
         document.getElementById("recentlyOpenedSection").style.display = "none";
         document.getElementById("favoritesSection").style.display = "none";
         document.getElementById("freeFindsSection").style.display = "none";
         document.getElementById("buyBooksSearchResultsSection").style.display = "none";
         buyFreeSearchBar.style.display = "none";
+        document.querySelector(".reading-room-search-bar:not(#buyFreeSearchBar)").style.display = "none";
         buyFreeSectionsWrap.forEach((el) => {
             if (el) el.style.display = "none";
         });
         discoverySectionsWrap.forEach((el) => {
             if (el) el.style.display = "none";
         });
+        // Manga/Comics only ever get shown/hidden by showReadingRoomTab,
+        // which only ever runs while Reading Room itself is the active
+        // section — so leaving Reading Room while Manga or Comics was the
+        // last open tab left its "active" class (and its full grid of
+        // covers) sitting there untouched, bleeding into whatever section
+        // was switched to next (The Vault, Free Games, etc.). Reading Room
+        // re-applies the correct one the moment it's opened again, so
+        // clearing both here unconditionally is always safe.
+        mangaContainer.classList.remove("active");
+        comicsContainer.classList.remove("active");
     }
 
     freeGamesContainer.classList.toggle("active", section === "free-games");
     sharedFolderContainer.classList.toggle("active", section === "shared-folder");
     theatreContainer.classList.toggle("active", section === "theatre");
     document.getElementById("newContainer").classList.toggle("active", section === "new");
+    document.getElementById("applicationsContainer").classList.toggle("active", section === "applications");
 
     if (section === "shared-folder") loadSharedFolder();
+
+    if (section === "applications") {
+        document.getElementById("addCommunityAppBtn").style.display = isAdminMode ? "" : "none";
+        if (!communityAppsLoaded) {
+            communityAppsLoaded = true;
+            loadCommunityApps();
+        }
+    }
 
     if (section === "free-games" && !freeGamesLoaded) {
         freeGamesLoaded = true;
@@ -3143,13 +3758,13 @@ function buildFreeGameCard(game) {
     card.innerHTML = `
         <div class="cover-wrap">
             <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
-            <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
-            <button class="enlargeBtn" title="Watch larger">⛶</button>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
             <div class="card-footer">
-                <button class="launchBtn getGameBtn">🔗 Get It Free (${game.source})</button>
+                <button class="launchBtn getGameBtn">${uiIcon("link")} Get It Free (${game.source})</button>
             </div>
         </div>
     `;
@@ -3187,8 +3802,6 @@ function buildFreeGameCard(game) {
         applySoundToAllFrames();
     });
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
     let trailerId;
 
     async function fetchTrailerOnce() {
@@ -3198,35 +3811,11 @@ function buildFreeGameCard(game) {
         return trailerId;
     }
 
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const id = await fetchTrailerOnce();
-            if (!id || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${id}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${id}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
-
     card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const id = await fetchTrailerOnce();
         if (id) openTheaterMode(id);
+        else alert("No trailer could be found for this title.");
     });
 
     return card;
@@ -3237,6 +3826,7 @@ let freeGamesCache = [];
 const freeGamesSearchInput = document.getElementById("freeGamesSearchInput");
 const freeGamesPlatformSelect = document.getElementById("freeGamesPlatformSelect");
 const freeGamesCategorySelect = document.getElementById("freeGamesCategorySelect");
+const freeGamesRefreshBtn = document.getElementById("freeGamesRefreshBtn");
 
 freeGamesSearchInput.addEventListener("input", renderFreeGames);
 
@@ -3246,6 +3836,23 @@ freeGamesPlatformSelect.addEventListener("change", () => {
 });
 
 freeGamesCategorySelect.addEventListener("change", renderFreeGames);
+
+freeGamesRefreshBtn.addEventListener("click", async () => {
+    freeGamesRefreshBtn.disabled = true;
+    freeGamesRefreshBtn.textContent = "🔄 Refreshing...";
+
+    try {
+        const fresh = await window.riftgate.invoke("force-refresh-free-games");
+        if (fresh && fresh.length > 0) {
+            freeGamesCache = fresh;
+            updateFreeGamesGenreOptions();
+            renderFreeGames();
+        }
+    } finally {
+        freeGamesRefreshBtn.disabled = false;
+        freeGamesRefreshBtn.textContent = "🔄 Refresh";
+    }
+});
 
 // Platform display names, used only for the plain section heading text —
 // selection itself now happens through the platform dropdown, not a
@@ -3472,7 +4079,7 @@ function buildEbookCard(book) {
 
     const favoriteBtn = document.createElement("button");
     favoriteBtn.className = "favoriteBtn";
-    favoriteBtn.textContent = book.favorite ? "★" : "☆";
+    favoriteBtn.innerHTML = uiIcon("star", { filled: book.favorite });
     favoriteBtn.title = book.favorite ? "Remove from Favorites" : "Add to Favorites";
     favoriteBtn.addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -3480,7 +4087,7 @@ function buildEbookCard(book) {
         if (result.success) {
             const cached = ebooksCache.find((b) => b.path === book.path);
             if (cached) cached.favorite = result.favorite;
-            favoriteBtn.textContent = result.favorite ? "★" : "☆";
+            favoriteBtn.innerHTML = uiIcon("star", { filled: result.favorite });
             favoriteBtn.title = result.favorite ? "Remove from Favorites" : "Add to Favorites";
             renderFavoritesRow();
         }
@@ -3665,6 +4272,20 @@ function buildDiscoveryEbookCard(book) {
     });
     actions.appendChild(downloadBtn);
 
+    // Every Gutenberg book is public-domain, so there's always somewhere
+    // free to read it online, separate from downloading it into the
+    // library — a direct link out to that reader/page.
+    if (book.readUrl) {
+        const readOnlineBtn = document.createElement("button");
+        readOnlineBtn.className = "launchBtn";
+        readOnlineBtn.textContent = "📖 Read Online";
+        readOnlineBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            window.riftgate.invoke("open-external", book.readUrl);
+        });
+        actions.appendChild(readOnlineBtn);
+    }
+
     overlay.appendChild(actions);
     card.appendChild(overlay);
 
@@ -3673,12 +4294,17 @@ function buildDiscoveryEbookCard(book) {
 
 function renderEbookDiscoveryGrid(grid, books, errorMessage) {
     grid.innerHTML = "";
-    if (books.length === 0) {
+
+    const visibleBooks = canSeeMatureContent()
+        ? books
+        : books.filter((book) => !isItemMature("book", book.id, book.isMature));
+
+    if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;grid-column:1/-1;">Couldn't load this right now${detail} — check your connection and reopen Reading Room.</p>`;
         return;
     }
-    sortNoCoverLast(books, "cover").forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book)));
+    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book)));
 }
 
 async function loadEbookDiscovery() {
@@ -3745,7 +4371,9 @@ async function loadEbookDiscovery() {
     };
 }
 
-function buildBuyFreeBookCard(book) {
+
+function buildBuyFreeBookCard(book, section) {
+    section = section || "book";
     const card = document.createElement("div");
     card.className = "game-card";
 
@@ -3849,21 +4477,139 @@ function buildBuyFreeBookCard(book) {
     });
     actions.appendChild(actionBtn);
 
+    // Distinct from the Buy/View button above — only shown when Open
+    // Library itself marks this as freely readable ("public" access),
+    // so it's never offered on a listing that's actually just a
+    // catalog entry or a borrow-only/restricted one.
+    if (book.accessLevel === "public") {
+        const readOnlineBtn = document.createElement("button");
+        readOnlineBtn.className = "launchBtn";
+        readOnlineBtn.textContent = "📖 Read Online";
+        readOnlineBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const link = book.buyLink || book.infoLink;
+            if (link) {
+                window.riftgate.invoke("open-external", link);
+            } else {
+                alert("No link available for this book.");
+            }
+        });
+        actions.appendChild(readOnlineBtn);
+    }
+
     overlay.appendChild(actions);
     card.appendChild(overlay);
 
     return card;
 }
 
-function renderBuyFreeGrid(grid, books, errorMessage) {
+function renderBuyFreeGrid(grid, books, errorMessage, kind) {
+    kind = kind || "book";
+    const section = kind === "manga" ? "manga" : (kind === "comics" ? "comic" : "book");
+    const isAlphaGrid = kind === "manga" || kind === "comics";
+
     grid.innerHTML = "";
-    if (books.length === 0) {
+
+    const visibleBooks = canSeeMatureContent()
+        ? books
+        : books.filter((book) => !isItemMature(section, book.workKey || book.id, book.isMature));
+
+    if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;grid-column:1/-1;">Couldn't load this right now${detail} — check your connection and reopen Reading Room.</p>`;
         return;
     }
-    sortNoCoverLast(books, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book)));
+
+    const ordered = isAlphaGrid
+        ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+        : sortNoCoverLast(visibleBooks, "cover");
+
+    ordered.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, section)));
+
+    // Manga/Comics specifically get a much bigger list than before, so
+    // this keeps that from dominating the screen by default — same
+    // fold/unfold control already used everywhere else in the app.
+    if (isAlphaGrid) {
+        attachSeeMore(grid, 10);
+    }
 }
+
+// --- Manga / Comics --------------------------------------------------------
+// Both reuse the exact same Open Library-backed machinery as Buy Books
+// (renderBuyFreeGrid, buildBuyFreeBookCard, the get/search-openlibrary-books
+// IPC channels) — just scoped to different default queries, rather than a
+// separate integration with its own reliability to worry about.
+
+const mangaContainer = document.getElementById("mangaContainer");
+const comicsContainer = document.getElementById("comicsContainer");
+const mangaGrid = document.getElementById("mangaGrid");
+const comicsGrid = document.getElementById("comicsGrid");
+const mangaSearchInput = document.getElementById("mangaSearchInput");
+const comicsSearchInput = document.getElementById("comicsSearchInput");
+
+let mangaLoaded = false;
+let comicsLoaded = false;
+const genericBrowseSearchDebounce = {};
+const genericBrowseCache = { manga: [], comics: [] };
+
+function genericBrowseGrid(kind) {
+    return kind === "manga" ? mangaGrid : comicsGrid;
+}
+
+async function loadGenericBrowseSection(kind) {
+    const grid = genericBrowseGrid(kind);
+    const cachedChannel = kind === "manga" ? "get-cached-manga-books" : "get-cached-comics-books";
+    const freshChannel = kind === "manga" ? "get-manga-books" : "get-comics-books";
+
+    const cached = await window.riftgate.invoke(cachedChannel);
+    if (cached && cached.length > 0) {
+        genericBrowseCache[kind] = cached;
+        renderBuyFreeGrid(grid, cached, null, kind);
+    } else {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Loading ${kind}...</p>`;
+    }
+
+    const result = await window.riftgate.invoke(freshChannel);
+    if (result.success) {
+        genericBrowseCache[kind] = result.books;
+        renderBuyFreeGrid(grid, result.books, result.error, kind);
+    } else if (!cached || cached.length === 0) {
+        renderBuyFreeGrid(grid, [], result.error, kind);
+    }
+}
+
+function wireGenericBrowseSearch(kind, input) {
+    input.addEventListener("input", () => {
+        clearTimeout(genericBrowseSearchDebounce[kind]);
+        const term = input.value.trim();
+        const grid = genericBrowseGrid(kind);
+
+        if (!term) {
+            // Already have this tab's default list cached — just
+            // re-render it locally instead of re-fetching over the
+            // network every time the search box is cleared (including
+            // when it's cleared automatically on a section/tab switch).
+            if (genericBrowseCache[kind] && genericBrowseCache[kind].length > 0) {
+                renderBuyFreeGrid(grid, genericBrowseCache[kind], null, kind);
+            } else {
+                loadGenericBrowseSection(kind);
+            }
+            return;
+        }
+
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Searching...</p>`;
+        genericBrowseSearchDebounce[kind] = setTimeout(async () => {
+            // Scoped search (subject:manga / subject:comics, with manga
+            // excluded from comics results) so typing in one tab's
+            // search box never pulls in the other's results.
+            const result = await window.riftgate.invoke("search-genre-books", { term, kind });
+            renderBuyFreeGrid(grid, result.success ? result.books : [], result.error, kind);
+        }, 500);
+    });
+}
+
+wireGenericBrowseSearch("manga", mangaSearchInput);
+wireGenericBrowseSearch("comics", comicsSearchInput);
 
 let freeFindsCache = [];
 
@@ -3876,9 +4622,13 @@ function renderFreeFindsSection() {
         return;
     }
 
+    const visibleBooks = canSeeMatureContent()
+        ? freeFindsCache
+        : freeFindsCache.filter((book) => !isItemMature("book", book.workKey || book.id, book.isMature));
+
     section.style.display = activeReadingRoomTab === "discover" ? "" : "none";
     grid.innerHTML = "";
-    sortNoCoverLast(freeFindsCache, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book)));
+    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, "book")));
 }
 
 async function loadBuyFreeBooks() {
@@ -4014,11 +4764,15 @@ function filterDiscoveryBySearch() {
     clearTimeout(discoverySearchDebounce);
 
     const term = readingRoomSearchInput.value.trim();
+    const language = discoveryLanguageSelect.value;
+    const category = discoveryCategorySelect.value;
+    const hasFilter = !!term || language !== "all" || category !== "all";
+
     const recommendedHeading = recommendedEbooksGrid.closest(".category-section").querySelector("h2");
     const popularSection = popularEbooksGrid.closest(".category-section");
     const topDownloadedSection = topDownloadedEbooksGrid.closest(".category-section");
 
-    if (!term) {
+    if (!hasFilter) {
         recommendedHeading.textContent = "⭐ Recommended Books";
         popularSection.style.display = "";
         topDownloadedSection.style.display = "";
@@ -4031,21 +4785,31 @@ function filterDiscoveryBySearch() {
         return;
     }
 
-    // A real search against Gutenberg's whole catalog, not just the
-    // small set of books already loaded on screen — debounced so it
-    // only fires once typing pauses, not on every keystroke.
-    recommendedHeading.textContent = `🔍 Searching for "${term}"...`;
+    // A real query against Gutenberg's whole catalog, not just the small
+    // set of books already loaded on screen — debounced so it only fires
+    // once typing/selecting pauses, not on every keystroke. Search text,
+    // language, and category all combine into one request.
+    const labelParts = [];
+    if (term) labelParts.push(`"${term}"`);
+    if (language !== "all") labelParts.push(discoveryLanguageSelect.selectedOptions[0].textContent);
+    if (category !== "all") labelParts.push(discoveryCategorySelect.selectedOptions[0].textContent);
+    const label = labelParts.join(" · ");
+
+    recommendedHeading.textContent = `🔍 Searching for ${label}...`;
     popularSection.style.display = "none";
     topDownloadedSection.style.display = "none";
     recommendedEbooksGrid.innerHTML = "";
 
     discoverySearchDebounce = setTimeout(async () => {
-        const result = await window.riftgate.invoke("search-gutenberg-books", term);
-        recommendedHeading.textContent = `🔍 Results for "${term}"`;
+        const result = await window.riftgate.invoke("search-gutenberg-filtered", { query: term, language, topic: category });
+        recommendedHeading.textContent = `🔍 Results for ${label}`;
         renderEbookDiscoveryGrid(recommendedEbooksGrid, result.success ? result.books : [], result.error);
         attachSeeMore(recommendedEbooksGrid, 3, 4);
     }, 500);
 }
+
+discoveryLanguageSelect.addEventListener("change", filterDiscoveryBySearch);
+discoveryCategorySelect.addEventListener("change", filterDiscoveryBySearch);
 
 // --- Recently Opened carousel ------------------------------------------
 
@@ -4343,6 +5107,10 @@ async function searchShows() {
             showSearchResults.innerHTML = "";
             showSearchInput.value = "";
             loadMyShows();
+            // Surface the newly tracked show's latest episode in Recently
+            // Released right away, instead of waiting for the next 10-
+            // minute background refresh.
+            loadRecentEpisodes();
         });
         showSearchResults.appendChild(chip);
     });
@@ -4363,8 +5131,8 @@ function buildShowCard(show) {
         <button class="removeShowBtn" title="Stop tracking">✕</button>
         <div class="cover-wrap">
             <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
-            <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
-            <button class="enlargeBtn" title="Watch larger">⛶</button>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -4414,9 +5182,6 @@ function buildShowCard(show) {
         });
     }
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
-
     async function fetchShowTrailerOnce() {
         if (show.trailerId === undefined || show.trailerId === null) {
             // TMDB's own TV database first — a real, ID-based lookup
@@ -4433,32 +5198,6 @@ function buildShowCard(show) {
         }
         return show.trailerId;
     }
-
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const trailerId = await fetchShowTrailerOnce();
-
-            if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${trailerId}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
 
     card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -4518,7 +5257,10 @@ function renderRecentEpisodes() {
                 <h4></h4>
                 <p class="episode-number"></p>
                 <p class="episode-airdate">📅 Released ${ep.airdate || "unknown date"}</p>
-                <button class="whereToWatchBtn">📺 Where to Watch</button>
+                <div class="recent-episode-actions">
+                    <button class="whereToWatchBtn">📺 Where to Watch</button>
+                    <button class="markSeenBtn"></button>
+                </div>
             </div>
         `;
 
@@ -4529,8 +5271,34 @@ function renderRecentEpisodes() {
 
         card.querySelector(".whereToWatchBtn").addEventListener("click", () => {
             const query = encodeURIComponent(ep.showName);
-            window.riftgate.invoke("open-external", `https://www.justwatch.com/us/search?q=${query}`);
+            // Previously hardcoded to "/us/", so a user with a different
+            // country selected up top would still get US-only streaming
+            // results. JustWatch keys its region off a lowercase country
+            // code in the URL path, which matches the codes Riftgate
+            // already uses for movieCountrySelect.
+            const jwCountry = (movieCountrySelect.value || "US").toLowerCase();
+            window.riftgate.invoke("open-external", `https://www.justwatch.com/${jwCountry}/search?q=${query}`);
         });
+
+        // Keyed by show+season+number so a newly aired episode (a
+        // different number) always starts out unwatched, even if a
+        // previous episode of the same show was marked seen.
+        const epSeenKey = `${ep.showId}|${ep.season}|${ep.number}`;
+        const seenBtn = card.querySelector(".markSeenBtn");
+        function updateEpSeenBtn() {
+            const isSeen = !!(settings.seenEpisodes || {})[epSeenKey];
+            seenBtn.textContent = isSeen ? "✅ Watched" : "👁 Mark as Watched";
+            seenBtn.classList.toggle("seen-btn-active", isSeen);
+        }
+        updateEpSeenBtn();
+        seenBtn.addEventListener("click", () => {
+            const current = { ...(settings.seenEpisodes || {}) };
+            if (current[epSeenKey]) delete current[epSeenKey];
+            else current[epSeenKey] = true;
+            saveSetting("seenEpisodes", current);
+            updateEpSeenBtn();
+        });
+
         recentEpisodesRow.appendChild(card);
     });
 }
@@ -4633,8 +5401,31 @@ const movieCountrySelect = document.getElementById("movieCountrySelect");
 const movieCitySelect = document.getElementById("movieCitySelect");
 const moviesGrid = document.getElementById("moviesGrid");
 
+(function sortMovieCountryOptions() {
+    const currentValue = movieCountrySelect.value;
+    const options = Array.from(movieCountrySelect.options);
+    options.sort((a, b) => a.textContent.localeCompare(b.textContent));
+    options.forEach((opt) => movieCountrySelect.appendChild(opt));
+    if (currentValue) movieCountrySelect.value = currentValue;
+})();
+
+// Upcoming Movies gets its own country selector, deliberately separate
+// from movieCountrySelect above (see upcomingMoviesCountry in the
+// default settings) — but it's still the exact same list of countries,
+// built by cloning movieCountrySelect's already-sorted options rather
+// than keeping a second copy of ~40 <option> tags in index.html that
+// could quietly drift out of sync with the first.
+const upcomingMoviesCountrySelect = document.getElementById("upcomingMoviesCountrySelect");
+upcomingMoviesCountrySelect.innerHTML = movieCountrySelect.innerHTML;
+upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
+
+upcomingMoviesCountrySelect.addEventListener("change", () => {
+    saveSetting("upcomingMoviesCountry", upcomingMoviesCountrySelect.value);
+    loadUpcomingMovies();
+});
+
 function populateCitySelect(countryCode, preferredCity) {
-    const cities = CITIES_BY_COUNTRY[countryCode] || [];
+    const cities = (CITIES_BY_COUNTRY[countryCode] || []).slice().sort((a, b) => a.localeCompare(b));
     movieCitySelect.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
 
     if (preferredCity && cities.includes(preferredCity)) {
@@ -4670,12 +5461,16 @@ function openTheaterMode(trailerId) {
     theaterVideoWrap.innerHTML = "";
 
     const iframe = document.createElement("iframe");
-    iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1`;
+    iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
     iframe.setAttribute("allow", "autoplay; encrypted-media");
     iframe.allowFullscreen = true;
     theaterVideoWrap.appendChild(iframe);
 
     theaterModal.classList.add("active");
+
+    // Give the embedded player a moment to actually initialize before
+    // sending it a volume command.
+    setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
 }
 
 function closeTheaterMode() {
@@ -4706,8 +5501,8 @@ function buildMovieCard(movie, showReleaseDate) {
     card.innerHTML = `
         <div class="cover-wrap">
             <img class="cover-img" src="${movie.poster || "covers/default.jpg"}" alt="">
-            <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
-            <button class="enlargeBtn" title="Watch larger">⛶</button>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -4724,8 +5519,6 @@ function buildMovieCard(movie, showReleaseDate) {
     card.querySelector(".game-info h3").textContent = movie.title;
     card.querySelector(".game-desc").textContent = movie.description || "No description available.";
 
-    const coverWrap = card.querySelector(".cover-wrap");
-    let hoverTimer = null;
     let movieTrailerId;
 
     async function fetchTrailerOnce() {
@@ -4734,31 +5527,6 @@ function buildMovieCard(movie, showReleaseDate) {
         }
         return movieTrailerId;
     }
-
-    card.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(async () => {
-            const trailerId = await fetchTrailerOnce();
-            if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-            const iframe = document.createElement("iframe");
-            iframe.className = "trailer-frame";
-            iframe.src =
-                `https://www.youtube.com/embed/${trailerId}` +
-                `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                `&modestbranding=1&rel=0`;
-            iframe.allow = "autoplay; encrypted-media";
-            iframe.frameBorder = "0";
-            coverWrap.appendChild(iframe);
-
-            setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-        }, 350);
-    });
-
-    card.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        const frame = coverWrap.querySelector(".trailer-frame");
-        if (frame) frame.remove();
-    });
 
     card.querySelector(".soundToggle").addEventListener("click", (event) => {
         event.stopPropagation();
@@ -4785,6 +5553,30 @@ function buildMovieCard(movie, showReleaseDate) {
             alert("No trailer could be found for this title.");
         }
     });
+
+    // "Mark as watched" only makes sense for movies that have actually
+    // released — showReleaseDate is true for the New/Upcoming section's
+    // cards (which reuse this same builder), so skip it there.
+    if (!showReleaseDate) {
+        const seenBtn = document.createElement("button");
+        seenBtn.className = "launchBtn markSeenBtn";
+        card.querySelector(".movie-card-actions").appendChild(seenBtn);
+
+        const movieSeenKey = String(movie.id);
+        function updateMovieSeenBtn() {
+            const isSeen = !!(settings.seenMovies || {})[movieSeenKey];
+            seenBtn.textContent = isSeen ? "✅ Watched" : "👁 Mark as Watched";
+            seenBtn.classList.toggle("seen-btn-active", isSeen);
+        }
+        updateMovieSeenBtn();
+        seenBtn.addEventListener("click", () => {
+            const current = { ...(settings.seenMovies || {}) };
+            if (current[movieSeenKey]) delete current[movieSeenKey];
+            else current[movieSeenKey] = true;
+            saveSetting("seenMovies", current);
+            updateMovieSeenBtn();
+        });
+    }
 
     const descEl = card.querySelector(".game-desc");
     let descHoverTimer = null;
@@ -4822,9 +5614,12 @@ const moviesFilterInput = document.getElementById("moviesFilterInput");
 
 function renderMovies() {
     const filterTerm = moviesFilterInput.value.trim().toLowerCase();
+    const visible = canSeeMatureContent()
+        ? moviesCache
+        : moviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
     const filtered = filterTerm
-        ? moviesCache.filter((m) => m.title.toLowerCase().includes(filterTerm))
-        : moviesCache;
+        ? visible.filter((m) => m.title.toLowerCase().includes(filterTerm))
+        : visible;
 
     moviesGrid.innerHTML = "";
 
@@ -4856,37 +5651,60 @@ async function loadMovies() {
 // --- "NEW" section: upcoming movies, new series, upcoming games -----------
 
 let newSectionLoaded = false;
+let upcomingMoviesCache = [];
+
+function renderUpcomingMovies() {
+    const grid = document.getElementById("upcomingMoviesGrid");
+    const visible = canSeeMatureContent()
+        ? upcomingMoviesCache
+        : upcomingMoviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
+
+    if (visible.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+        return;
+    }
+
+    grid.innerHTML = "";
+    sortNoCoverLast(visible, "poster").forEach((movie) => grid.appendChild(buildMovieCard(movie, true)));
+    attachSeeMore(grid);
+}
 
 async function loadUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
-    const movies = await window.riftgate.invoke("get-upcoming-movies", settings.movieCountry || "US");
+    const movies = await window.riftgate.invoke("get-upcoming-movies", settings.upcomingMoviesCountry || "US");
+    upcomingMoviesCache = movies || [];
 
-    if (!movies || movies.length === 0) {
+    if (upcomingMoviesCache.length === 0) {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
         return;
     }
 
-    grid.innerHTML = "";
-    sortNoCoverLast(movies, "poster").forEach((movie) => grid.appendChild(buildMovieCard(movie, true)));
-    attachSeeMore(grid);
+    renderUpcomingMovies();
 }
 
-async function loadNewShows() {
+let newShowsCache = [];
+const newShowsFilterInput = document.getElementById("newShowsFilterInput");
+
+function renderNewShows() {
     const grid = document.getElementById("newShowsGrid");
-    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+    const filterTerm = newShowsFilterInput.value.trim().toLowerCase();
+    const visible = canSeeMatureContent()
+        ? newShowsCache
+        : newShowsCache.filter((s) => !isItemMature("show", s.id, s.isMature));
+    const filtered = filterTerm
+        ? visible.filter((s) => s.name.toLowerCase().includes(filterTerm))
+        : visible;
 
-    const shows = await window.riftgate.invoke("get-new-tv-shows", settings.movieCountry || "US");
-
-    if (!shows || shows.length === 0) {
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+    if (filtered.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${visible.length === 0 ? "No results — a TMDB API key may be needed in main.js." : "No new series match your filter."}</p>`;
         return;
     }
 
     grid.innerHTML = "";
 
-    sortNoCoverLast(shows, "image").forEach((show) => {
+    sortNoCoverLast(filtered, "image").forEach((show) => {
         const card = document.createElement("div");
         card.className = "game-card";
         // show.name/description come from TMDB's own listing data —
@@ -4894,8 +5712,8 @@ async function loadNewShows() {
         card.innerHTML = `
             <div class="cover-wrap">
                 <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
-                <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
-                <button class="enlargeBtn" title="Watch larger">⛶</button>
+                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
             </div>
             <div class="game-info">
                 <h3></h3>
@@ -4911,8 +5729,6 @@ async function loadNewShows() {
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
 
-        const coverWrap = card.querySelector(".cover-wrap");
-        let hoverTimer = null;
         let newShowTrailerId;
 
         async function fetchNewShowTrailerOnce() {
@@ -4921,30 +5737,6 @@ async function loadNewShows() {
             }
             return newShowTrailerId;
         }
-
-        card.addEventListener("mouseenter", () => {
-            hoverTimer = setTimeout(async () => {
-                const trailerId = await fetchNewShowTrailerOnce();
-                if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-                const iframe = document.createElement("iframe");
-                iframe.className = "trailer-frame";
-                iframe.src =
-                    `https://www.youtube.com/embed/${trailerId}` +
-                    `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                    `&modestbranding=1&rel=0`;
-                iframe.allow = "autoplay; encrypted-media";
-                iframe.frameBorder = "0";
-                coverWrap.appendChild(iframe);
-                setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-            }, 350);
-        });
-
-        card.addEventListener("mouseleave", () => {
-            clearTimeout(hoverTimer);
-            const frame = coverWrap.querySelector(".trailer-frame");
-            if (frame) frame.remove();
-        });
 
         card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
             event.stopPropagation();
@@ -4976,12 +5768,30 @@ async function loadNewShows() {
             await window.riftgate.invoke("add-to-watchlist", results[0]);
             event.target.textContent = "✅ Added";
             event.target.disabled = true;
+            loadRecentEpisodes();
         });
 
         grid.appendChild(card);
     });
 
     attachSeeMore(grid);
+}
+
+newShowsFilterInput.addEventListener("input", renderNewShows);
+
+async function loadNewShows() {
+    const grid = document.getElementById("newShowsGrid");
+    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+
+    const shows = await window.riftgate.invoke("get-new-tv-shows", settings.movieCountry || "US");
+    newShowsCache = shows || [];
+
+    if (newShowsCache.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+        return;
+    }
+
+    renderNewShows();
 }
 
 async function loadUpcomingGames() {
@@ -5005,8 +5815,8 @@ async function loadUpcomingGames() {
         card.innerHTML = `
             <div class="cover-wrap">
                 <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
-                <button class="soundToggle" title="Toggle trailer sound">${soundEnabled ? "🔊" : "🔇"}</button>
-                <button class="enlargeBtn" title="Watch larger">⛶</button>
+                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
             </div>
             <div class="game-info">
                 <h3></h3>
@@ -5020,8 +5830,6 @@ async function loadUpcomingGames() {
         card.querySelector(".cover-img").alt = game.name;
         card.querySelector(".game-info h3").textContent = game.name;
 
-        const coverWrap = card.querySelector(".cover-wrap");
-        let hoverTimer = null;
         let upcomingTrailerId;
 
         async function fetchUpcomingTrailerOnce() {
@@ -5030,30 +5838,6 @@ async function loadUpcomingGames() {
             }
             return upcomingTrailerId;
         }
-
-        card.addEventListener("mouseenter", () => {
-            hoverTimer = setTimeout(async () => {
-                const trailerId = await fetchUpcomingTrailerOnce();
-                if (!trailerId || !card.matches(":hover") || coverWrap.querySelector(".trailer-frame")) return;
-
-                const iframe = document.createElement("iframe");
-                iframe.className = "trailer-frame";
-                iframe.src =
-                    `https://www.youtube.com/embed/${trailerId}` +
-                    `?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=0&loop=1&playlist=${trailerId}` +
-                    `&modestbranding=1&rel=0`;
-                iframe.allow = "autoplay; encrypted-media";
-                iframe.frameBorder = "0";
-                coverWrap.appendChild(iframe);
-                setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
-            }, 350);
-        });
-
-        card.addEventListener("mouseleave", () => {
-            clearTimeout(hoverTimer);
-            const frame = coverWrap.querySelector(".trailer-frame");
-            if (frame) frame.remove();
-        });
 
         card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
             event.stopPropagation();
@@ -5102,12 +5886,12 @@ function playStartupAnimation() {
         return;
     }
 
-    // Let the facet assembly (~0.9s) and the glow pulse (starts at 0.9s,
-    // runs 1.6s) finish, then fade the whole overlay out.
+    // Let the reveal (~0.9s) and the glow pulse (starts at 0.9s, now runs
+    // 3.6s — 2s longer than before) finish, then fade the whole overlay out.
     setTimeout(() => {
         overlay.classList.add("startup-hidden");
         setTimeout(() => overlay.remove(), 550);
-    }, 2100);
+    }, 4500);
 }
 
 // --- Login (optional — the app is fully usable signed out) ----------------
@@ -5168,37 +5952,25 @@ async function attemptUsernameRegistration() {
     submitBtn.disabled = true;
     errorEl.textContent = "";
 
-    const deviceId = await window.riftgate.invoke("get-device-id");
     const check = await window.riftgate.invoke("check-username-available", value);
+
+    submitBtn.disabled = false;
 
     if (check.error) {
         errorEl.textContent = check.error;
-        submitBtn.disabled = false;
         return;
     }
 
     if (!check.available) {
         errorEl.textContent = "That username is already taken — try another.";
-        submitBtn.disabled = false;
         return;
     }
 
-    const result = await window.riftgate.invoke("register-username", { username: value, deviceId });
-
-    submitBtn.disabled = false;
-
-    if (!result.success) {
-        errorEl.textContent = result.error || "Something went wrong — try again.";
-        return;
-    }
-
-    saveSetting("username", value);
-    settings.username = value;
+    // Nickname is only reserved once the whole flow finishes — the actual
+    // account isn't created yet. Next: date of birth, then a password.
+    pendingRegistrationUsername = value;
     modal.classList.remove("active");
-    // Brand-new account — choose a password right away so this
-    // username can never be used by someone who's only guessed or
-    // typed in the name, not proven they own it.
-    openVaultSetPasswordModal();
+    showDobModal("register");
 }
 
 document.getElementById("usernameSubmitBtn").addEventListener("click", attemptUsernameRegistration);
@@ -5206,6 +5978,112 @@ document.getElementById("usernameInput").addEventListener("keydown", (event) => 
     if (event.key === "Enter") attemptUsernameRegistration();
 });
 document.getElementById("usernameCancelBtn").addEventListener("click", closeUsernameRegistrationModal);
+
+// Step 2 of registration (nickname -> DOB -> password), also reused
+// standalone for an existing account that's missing a date of birth
+// (accounts created before this system existed) — see fetchAccountProfile.
+// That second case has no Cancel: per your own choice, a returning user
+// is required to provide it before continuing, so there's no way out of
+// this modal short of quitting the app, same as the vault set-password
+// modal already does for a forced reset.
+function showDobModal(context) {
+    dobModalContext = context;
+    const modal = document.getElementById("dobModal");
+    const input = document.getElementById("dobInput");
+    const errorEl = document.getElementById("dobError");
+    const cancelBtn = document.getElementById("dobCancelBtn");
+
+    input.value = "";
+    errorEl.textContent = "";
+    cancelBtn.style.display = context === "existing-user-required" ? "none" : "";
+
+    modal.classList.add("active");
+    input.focus();
+}
+
+function closeDobModal() {
+    document.getElementById("dobModal").classList.remove("active");
+}
+
+async function attemptDobSubmit() {
+    const input = document.getElementById("dobInput");
+    const errorEl = document.getElementById("dobError");
+    const submitBtn = document.getElementById("dobSubmitBtn");
+    const value = input.value;
+
+    if (!value) {
+        errorEl.textContent = "Enter your date of birth.";
+        return;
+    }
+
+    const dob = new Date(`${value}T00:00:00`);
+    const today = new Date();
+    if (isNaN(dob.getTime()) || dob > today) {
+        errorEl.textContent = "That doesn't look like a valid date.";
+        return;
+    }
+    const earliestReasonable = new Date();
+    earliestReasonable.setFullYear(today.getFullYear() - 120);
+    if (dob < earliestReasonable) {
+        errorEl.textContent = "That date is too far in the past — double-check it.";
+        return;
+    }
+
+    submitBtn.disabled = true;
+    errorEl.textContent = "";
+
+    if (dobModalContext === "register") {
+        const deviceId = await window.riftgate.invoke("get-device-id");
+        const result = await window.riftgate.invoke("register-username", {
+            username: pendingRegistrationUsername,
+            deviceId,
+            dateOfBirth: value
+        });
+
+        submitBtn.disabled = false;
+
+        if (!result.success) {
+            errorEl.textContent = result.error || "Something went wrong — try again.";
+            return;
+        }
+
+        saveSetting("username", pendingRegistrationUsername);
+        settings.username = pendingRegistrationUsername;
+        myDateOfBirth = value;
+        updateMinorStatus();
+        pendingRegistrationUsername = null;
+        closeDobModal();
+        // Brand-new account — choose a password right away so this
+        // username can never be used by someone who's only guessed or
+        // typed in the name, not proven they own it.
+        openVaultSetPasswordModal();
+    } else {
+        const result = await window.riftgate.invoke("set-account-date-of-birth", {
+            username: settings.username,
+            dateOfBirth: value
+        });
+
+        submitBtn.disabled = false;
+
+        if (!result.success) {
+            errorEl.textContent = result.error || "Couldn't save that — check your connection and try again.";
+            return;
+        }
+
+        myDateOfBirth = value;
+        updateMinorStatus();
+        closeDobModal();
+    }
+}
+
+document.getElementById("dobSubmitBtn").addEventListener("click", attemptDobSubmit);
+document.getElementById("dobInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") attemptDobSubmit();
+});
+document.getElementById("dobCancelBtn").addEventListener("click", () => {
+    pendingRegistrationUsername = null;
+    closeDobModal();
+});
 
 // Called on every subsequent launch for a username that's already set —
 // first-time password setup used to be the last new-user step and never
@@ -5271,6 +6149,15 @@ async function performLogout() {
     isAdminMode = false;
     isSuperAdmin = false;
     isLoggedIn = false;
+
+    // Signed out = no account to check an age against, so this reverts to
+    // the same safe default as never having logged in at all.
+    myDateOfBirth = null;
+    showMatureContent = false;
+    isMinor = true;
+    adminPreviewRole = null;
+    updateMatureToggleUiVisibility();
+    reapplyMatureFilterEverywhere();
 
     await window.riftgate.invoke("clear-login-session");
     updateAdminUiVisibility();
@@ -5371,6 +6258,190 @@ let adminPasswordCache = null;
 // verified admin login.
 let vaultPasswordCache = null;
 let vaultUnlockedThisSession = false;
+
+// --- Age gate / mature content -----------------------------------------
+// myDateOfBirth/showMatureContent are the account's own persisted values
+// (fetched right after login — see fetchAccountProfile below). isMinor is
+// derived from myDateOfBirth and, best-effort, myCountryCode (see
+// resolveMyCountryCode). None of this is enforced against a determined
+// adversary editing their own local app — it's a content filter for a
+// single-user desktop app, not a security boundary — so admins bypass it
+// entirely, and the role-preview control (see adminPreviewRole further
+// down) lets an admin test what a minor/adult actually sees without
+// logging in as one.
+let myDateOfBirth = null;
+let showMatureContent = false;
+let isMinor = true; // unknown = treat as minor, the safe default until proven otherwise
+let myCountryCode = null;
+let matureOverridesCache = new Set(); // "section:itemKey" strings, admin-forced mature items
+let pendingRegistrationUsername = null; // set while the nickname->DOB->password flow is mid-flight
+let dobModalContext = null; // "register" | "existing-user-required"
+
+// Admin-only "view content as..." control — lets an admin preview what a
+// minor or a non-admin adult would actually see without logging out and
+// back in as one. "admin" is the default once logged in as an admin
+// (their real, unrestricted state); this never changes what account
+// they're actually logged in as or what permissions they actually have —
+// only what canSeeMatureContent() reports while previewing.
+let adminPreviewRole = null;
+
+// Legal adult age by country — deliberately left at the ordinary default
+// (18) for every country rather than guessing at country-specific
+// figures. myCountryCode is still looked up and plumbed through so this
+// table CAN be filled in later with actual researched figures if that
+// ever matters to you, but I'm not confident enough in per-country legal
+// research to embed specific ages as fact here. IMPORTANT: this whole
+// mechanism — a self-reported date of birth plus best-effort IP
+// geolocation — is a content filter, not accredited/ID-based age
+// verification. Some jurisdictions (e.g. the UK's Online Safety Act,
+// certain US states) legally require real ID/third-party age
+// verification for adult content specifically — if Riftgate ever hosts
+// content that would trigger those laws, that's worth a real legal
+// consult rather than relying on this.
+const COUNTRY_ADULT_AGE = {};
+const DEFAULT_ADULT_AGE = 18;
+
+function adultAgeForCountry(countryCode) {
+    return (countryCode && COUNTRY_ADULT_AGE[countryCode]) || DEFAULT_ADULT_AGE;
+}
+
+// Best-effort, silent, non-blocking — a failed/slow lookup just leaves
+// myCountryCode null, which adultAgeForCountry already treats the same
+// as "use the default age".
+async function resolveMyCountryCode() {
+    try {
+        const result = await window.riftgate.invoke("get-country-by-ip");
+        if (result && result.success) myCountryCode = result.countryCode;
+    } catch (err) {
+        // Silent — this only ever refines the age gate, never blocks it.
+    }
+}
+
+function computeIsMinor(dobStr) {
+    if (!dobStr) return true;
+    const dob = new Date(dobStr + "T00:00:00");
+    if (isNaN(dob.getTime())) return true;
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+
+    return age < adultAgeForCountry(myCountryCode);
+}
+
+function updateMinorStatus() {
+    isMinor = computeIsMinor(myDateOfBirth);
+    updateMatureToggleUiVisibility();
+}
+
+// The one function everything else should call to decide whether mature
+// content can be shown right now — admins/super-admins always bypass
+// (per your own instruction), an active role-preview overrides what a
+// real admin sees for testing purposes, and otherwise it's simply "a
+// verified adult who has turned the setting on".
+function canSeeMatureContent() {
+    if (adminPreviewRole) {
+        return adminPreviewRole === "admin" ? true : (adminPreviewRole === "adult" ? showMatureContent : false);
+    }
+    if (isAdminMode) return true;
+    return !isMinor && showMatureContent;
+}
+
+// Pulls the account's own date of birth + mature-content preference right
+// after a successful login. If date_of_birth is missing entirely (an
+// account created before this system existed), the user is required to
+// provide one before continuing — see attemptDobSubmit's "existing-user-
+// required" branch.
+async function fetchAccountProfile() {
+    const result = await window.riftgate.invoke("get-account-profile", settings.username);
+    if (!result.success) return;
+
+    myDateOfBirth = result.dateOfBirth;
+    showMatureContent = !!result.showMatureContent;
+    updateMinorStatus();
+
+    if (!myDateOfBirth) {
+        showDobModal("existing-user-required");
+    }
+}
+
+async function loadMatureOverrides() {
+    try {
+        const result = await window.riftgate.invoke("get-mature-overrides");
+        if (result && result.success) {
+            matureOverridesCache = new Set(result.overrides.map((o) => `${o.section}:${o.item_key}`));
+        }
+    } catch (err) {
+        // Leave whatever was already cached — a failed refresh shouldn't
+        // wipe out overrides that were working a moment ago.
+    }
+}
+
+function isItemMature(section, itemKey, keywordFlag) {
+    if (matureOverridesCache.has(`${section}:${itemKey}`)) return true;
+    return !!keywordFlag;
+}
+
+const matureContentSidebarSection = document.getElementById("matureContentSidebarSection");
+const toggleMatureContent = document.getElementById("toggleMatureContent");
+
+// The Settings-sidebar toggle is the real, persisted master control —
+// visible to any logged-in verified adult, off by default.
+function updateMatureToggleUiVisibility() {
+    const eligible = isLoggedIn && !isMinor;
+
+    matureContentSidebarSection.style.display = eligible ? "" : "none";
+    toggleMatureContent.checked = showMatureContent;
+}
+
+async function setShowMatureContent(value) {
+    showMatureContent = !!value;
+    updateMatureToggleUiVisibility();
+    reapplyMatureFilterEverywhere();
+    await window.riftgate.invoke("set-show-mature-content", { username: settings.username, show: showMatureContent });
+}
+
+toggleMatureContent.addEventListener("change", () => setShowMatureContent(toggleMatureContent.checked));
+
+// Re-renders every mature-affected section from whatever's already in
+// memory — no network calls — so flipping the mature-content toggle (or
+// an admin marking/un-marking an item) updates the screen immediately.
+// Each guard just checks the relevant grid/cache actually exists yet
+// (nothing to redo if that section was never opened this session).
+function reapplyMatureFilterEverywhere() {
+    if (typeof moviesGrid !== "undefined" && moviesCache && moviesCache.length) renderMovies();
+    if (upcomingMoviesCache && upcomingMoviesCache.length) renderUpcomingMovies();
+    if (newShowsCache && newShowsCache.length) renderNewShows();
+
+    if (buyFreeBooksCache) {
+        const popularGrid = document.getElementById("mostPopularBooksGrid");
+        const mostSoldGrid = document.getElementById("mostSoldBooksGrid");
+        const newReleasesGrid = document.getElementById("newReleasesBooksGrid");
+        if (popularGrid && buyFreeBooksCache.popular) renderBuyFreeGrid(popularGrid, buyFreeBooksCache.popular);
+        if (mostSoldGrid && buyFreeBooksCache.mostSold) renderBuyFreeGrid(mostSoldGrid, buyFreeBooksCache.mostSold);
+        if (newReleasesGrid && buyFreeBooksCache.newReleases) {
+            renderBuyFreeGrid(newReleasesGrid, buyFreeBooksCache.newReleases);
+            attachSeeMore(newReleasesGrid, 5);
+        }
+    }
+
+    if (discoveryBooksCache) {
+        if (discoveryBooksCache.recommended) renderEbookDiscoveryGrid(recommendedEbooksGrid, discoveryBooksCache.recommended);
+        if (discoveryBooksCache.popular) renderEbookDiscoveryGrid(popularEbooksGrid, discoveryBooksCache.popular);
+        if (discoveryBooksCache.topDownloaded) renderEbookDiscoveryGrid(topDownloadedEbooksGrid, discoveryBooksCache.topDownloaded);
+        attachSeeMore(recommendedEbooksGrid, 3, 4);
+        attachSeeMore(popularEbooksGrid, 3, 4);
+        attachSeeMore(topDownloadedEbooksGrid, 3, 4);
+    }
+
+    renderFreeFindsSection();
+
+    if (genericBrowseCache.manga.length) renderBuyFreeGrid(mangaGrid, genericBrowseCache.manga, null, "manga");
+    if (genericBrowseCache.comics.length) renderBuyFreeGrid(comicsGrid, genericBrowseCache.comics, null, "comics");
+}
 
 const THANK_YOU_MESSAGE = "Thank you for your suggestion! We truly appreciate you taking the time to share your ideas with us — feedback like yours is what helps shape the future of Riftgate. Our team will review it carefully and consider how it might fit into an upcoming update. We're grateful to have you as part of the Riftgate community.";
 
@@ -5822,6 +6893,7 @@ function updateAdminUiVisibility() {
         : "🔑 Login";
     adminBtn.title = isLoggedIn ? "Log out" : "Log in";
     manageUsersBtn.style.display = isAdminMode ? "" : "none";
+    updateAdminPreviewRoleUi();
 
     // The Vault's admin-only buttons were only ever set inside
     // loadSharedFolder(), which only runs when switching into that
@@ -5849,10 +6921,34 @@ async function enterAdminMode() {
     const myEntry = adminListCache.find((a) => a.username === settings.username);
     isSuperAdmin = !!(myEntry && myEntry.is_super_admin);
     isAdminMode = true;
+    adminPreviewRole = "admin"; // real, unrestricted state by default
 
     updateAdminUiVisibility();
+    updateAdminPreviewRoleUi();
     if (suggestionsModal.classList.contains("active")) loadSuggestionsList();
 }
+
+const adminPreviewRoleSwitcher = document.getElementById("adminPreviewRoleSwitcher");
+
+function updateAdminPreviewRoleUi() {
+    adminPreviewRoleSwitcher.style.display = isAdminMode ? "flex" : "none";
+    adminPreviewRoleSwitcher.querySelectorAll(".admin-role-option").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.role === adminPreviewRole);
+    });
+}
+
+function setAdminPreviewRole(role) {
+    adminPreviewRole = role;
+    updateAdminPreviewRoleUi();
+    // Content-visibility only — never touches isAdminMode/isMinor/
+    // showMatureContent themselves, so nothing here can leak into what
+    // the admin's real account is actually permitted to do.
+    reapplyMatureFilterEverywhere();
+}
+
+document.querySelectorAll(".admin-role-option").forEach((btn) => {
+    btn.addEventListener("click", () => setAdminPreviewRole(btn.dataset.role));
+});
 
 let allUsernamesCache = [];
 
@@ -6124,6 +7220,207 @@ async function checkForMissingGames() {
 
     modal.classList.add("active");
 }
+
+// --- Applications (community-recommended apps) --------------------------
+
+const communityAppsGrid = document.getElementById("communityAppsGrid");
+const communityAppsEmptyState = document.getElementById("communityAppsEmptyState");
+const addCommunityAppBtn = document.getElementById("addCommunityAppBtn");
+
+let communityAppsCache = [];
+
+async function loadCommunityApps() {
+    const result = await window.riftgate.invoke("get-community-apps");
+    communityAppsCache = result.success ? result.apps : [];
+    renderCommunityApps();
+}
+
+function renderCommunityApps() {
+    communityAppsGrid.innerHTML = "";
+
+    if (communityAppsCache.length === 0) {
+        communityAppsEmptyState.style.display = "";
+        return;
+    }
+    communityAppsEmptyState.style.display = "none";
+
+    communityAppsCache.forEach((app) => communityAppsGrid.appendChild(buildCommunityAppCard(app)));
+}
+
+// app.name/description/added_by all come from admin-entered data (or,
+// for description, an auto-fetched GitHub repo description) — still
+// untrusted enough (a repo's own description is written by whoever owns
+// that repo, not this app's admins) to go through textContent rather
+// than innerHTML.
+function buildCommunityAppCard(app) {
+    const card = document.createElement("div");
+    card.className = "app-recommend-card";
+
+    const title = document.createElement("h3");
+    title.textContent = app.name;
+    card.appendChild(title);
+
+    if (app.author) {
+        const authorLine = document.createElement("p");
+        authorLine.className = "app-recommend-tag";
+        authorLine.textContent = `Created by ${app.author}`;
+        card.appendChild(authorLine);
+    }
+
+    const addedByLine = document.createElement("p");
+    addedByLine.className = "app-recommend-tag";
+    addedByLine.textContent = `Added by ${app.added_by}`;
+    card.appendChild(addedByLine);
+
+    const desc = document.createElement("p");
+    desc.textContent = app.description || "No description yet.";
+    card.appendChild(desc);
+
+    const actions = document.createElement("div");
+    actions.className = "app-card-actions";
+
+    const visitBtn = document.createElement("button");
+    visitBtn.className = "launchBtn";
+    visitBtn.style.flex = "none";
+    visitBtn.style.padding = "8px 14px";
+    visitBtn.textContent = "🔗 Visit";
+    visitBtn.addEventListener("click", () => window.riftgate.invoke("open-external", app.url));
+    actions.appendChild(visitBtn);
+
+    if (isAdminMode) {
+        const editBtn = document.createElement("button");
+        editBtn.className = "app-card-edit-btn";
+        editBtn.textContent = "✏️ Edit details";
+        editBtn.addEventListener("click", () => openEditAppDescriptionModal(app));
+        actions.appendChild(editBtn);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "app-card-delete-btn";
+        deleteBtn.textContent = "✕ Remove";
+        deleteBtn.addEventListener("click", () => deleteCommunityApp(app));
+        actions.appendChild(deleteBtn);
+    }
+
+    card.appendChild(actions);
+    return card;
+}
+
+async function deleteCommunityApp(app) {
+    if (!confirm(`Remove "${app.name}"?`)) return;
+
+    const result = await window.riftgate.invoke("delete-community-app", {
+        adminUsername: settings.username,
+        adminPassword: adminPasswordCache,
+        appId: app.id
+    });
+
+    if (!result.success) {
+        alert(result.error || "Couldn't remove that app.");
+        return;
+    }
+
+    await loadCommunityApps();
+}
+
+addCommunityAppBtn.addEventListener("click", () => {
+    document.getElementById("addAppNameInput").value = "";
+    document.getElementById("addAppUrlInput").value = "";
+    document.getElementById("addAppAuthorInput").value = "";
+    document.getElementById("addAppDescriptionInput").value = "";
+    document.getElementById("addAppError").textContent = "";
+    document.getElementById("addAppModal").classList.add("active");
+});
+
+document.getElementById("addAppCancelBtn").addEventListener("click", () => {
+    document.getElementById("addAppModal").classList.remove("active");
+});
+
+document.getElementById("addAppConfirmBtn").addEventListener("click", async () => {
+    const name = document.getElementById("addAppNameInput").value.trim();
+    const url = document.getElementById("addAppUrlInput").value.trim();
+    const author = document.getElementById("addAppAuthorInput").value.trim();
+    const description = document.getElementById("addAppDescriptionInput").value.trim();
+    const errorEl = document.getElementById("addAppError");
+    const confirmBtn = document.getElementById("addAppConfirmBtn");
+
+    if (!name || !url) {
+        errorEl.textContent = "A name and a link are both required.";
+        return;
+    }
+
+    confirmBtn.disabled = true;
+    errorEl.textContent = "Adding...";
+
+    const result = await window.riftgate.invoke("add-community-app", {
+        adminUsername: settings.username,
+        adminPassword: adminPasswordCache,
+        name,
+        url,
+        author,
+        description
+    });
+
+    confirmBtn.disabled = false;
+
+    if (!result.success) {
+        errorEl.textContent = result.error || "Couldn't add that app.";
+        return;
+    }
+
+    document.getElementById("addAppModal").classList.remove("active");
+    await loadCommunityApps();
+});
+
+let editingApp = null;
+
+function openEditAppDescriptionModal(app) {
+    editingApp = app;
+    document.getElementById("editAppAuthorInput").value = app.author || "";
+    document.getElementById("editAppDescriptionInput").value = app.description || "";
+    document.getElementById("editAppDescriptionError").textContent = "";
+    document.getElementById("editAppDescriptionModal").classList.add("active");
+}
+
+document.getElementById("editAppDescriptionCancelBtn").addEventListener("click", () => {
+    document.getElementById("editAppDescriptionModal").classList.remove("active");
+});
+
+document.getElementById("editAppDescriptionConfirmBtn").addEventListener("click", async () => {
+    if (!editingApp) return;
+
+    const author = document.getElementById("editAppAuthorInput").value.trim();
+    const description = document.getElementById("editAppDescriptionInput").value.trim();
+    const errorEl = document.getElementById("editAppDescriptionError");
+    const confirmBtn = document.getElementById("editAppDescriptionConfirmBtn");
+
+    confirmBtn.disabled = true;
+    errorEl.textContent = "Saving...";
+
+    const result = await window.riftgate.invoke("update-community-app-details", {
+        adminUsername: settings.username,
+        adminPassword: adminPasswordCache,
+        appId: editingApp.id,
+        author,
+        description
+    });
+
+    confirmBtn.disabled = false;
+
+    if (!result.success) {
+        errorEl.textContent = result.error || "Couldn't save that.";
+        return;
+    }
+
+    document.getElementById("editAppDescriptionModal").classList.remove("active");
+    editingApp = null;
+    await loadCommunityApps();
+});
+
+document.getElementById("suggestAppEmailBtn").addEventListener("click", () => {
+    const subject = encodeURIComponent("Riftgate Applications suggestion");
+    const body = encodeURIComponent("App name:\nLink (GitHub or other):\n");
+    window.riftgate.invoke("open-external", `mailto:canoaspt@gmail.com?subject=${subject}&body=${body}`);
+});
 
 // --- Shared Folder ------------------------------------------------------
 
@@ -6411,6 +7708,10 @@ document.getElementById("openWetransferBtn").addEventListener("click", () => {
     window.riftgate.invoke("open-external", "https://wetransfer.com");
 });
 
+document.getElementById("openSendgbBtn").addEventListener("click", () => {
+    window.riftgate.invoke("open-external", "https://sendgb.com");
+});
+
 document.getElementById("postShareLinkBtn").addEventListener("click", () => {
     document.getElementById("postLinkModal").classList.add("active");
     document.getElementById("postLinkUrlInput").value = "";
@@ -6561,6 +7862,14 @@ async function completeLogin(password) {
         isSuperAdmin = false;
         updateAdminUiVisibility();
     }
+
+    // Age gate: pulls DOB/mature-content preference, and forces a DOB
+    // prompt for a pre-existing account that's missing one (see
+    // fetchAccountProfile). Runs after admin status is known so an admin
+    // logging in also gets isAdminMode set first (canSeeMatureContent's
+    // admin bypass depends on it).
+    await fetchAccountProfile();
+    loadMatureOverrides();
 }
 
 async function attemptVaultLogin() {
@@ -6743,10 +8052,86 @@ async function loadAllowlistPanel() {
     });
 }
 
+async function loadAccessRequestsPanel() {
+    const listEl = document.getElementById("allowlistRequestsList");
+    listEl.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">Loading...</p>`;
+
+    const result = await window.riftgate.invoke("get-share-access-requests", {
+        adminUsername: settings.username,
+        adminPassword: adminPasswordCache
+    });
+
+    if (!result.success) {
+        listEl.innerHTML = `<p style="color:#ff5f5f;font-size:12px;">${result.error || "Couldn't load pending requests."}</p>`;
+        return;
+    }
+
+    if (result.list.length === 0) {
+        listEl.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">No pending requests.</p>`;
+        return;
+    }
+
+    listEl.innerHTML = "";
+    result.list.forEach((entry) => {
+        const item = document.createElement("div");
+        item.className = "allowlist-item";
+
+        const name = document.createElement("span");
+        name.textContent = entry.username;
+        item.appendChild(name);
+
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "6px";
+
+        const approveBtn = document.createElement("button");
+        approveBtn.className = "allowlist-remove-btn";
+        approveBtn.style.background = "rgba(34,197,94,.18)";
+        approveBtn.style.color = "#22c55e";
+        approveBtn.textContent = "Accept";
+        approveBtn.addEventListener("click", async () => {
+            const approveResult = await window.riftgate.invoke("approve-share-access-request", {
+                adminUsername: settings.username,
+                adminPassword: adminPasswordCache,
+                targetUsername: entry.username
+            });
+            if (approveResult.success) {
+                loadAccessRequestsPanel();
+                loadAllowlistPanel();
+            } else {
+                alert(approveResult.error || "Couldn't approve this request.");
+            }
+        });
+        actions.appendChild(approveBtn);
+
+        const denyBtn = document.createElement("button");
+        denyBtn.className = "allowlist-remove-btn";
+        denyBtn.textContent = "Deny";
+        denyBtn.addEventListener("click", async () => {
+            if (!confirm(`Deny ${entry.username}'s request for Vault access?`)) return;
+            const denyResult = await window.riftgate.invoke("deny-share-access-request", {
+                adminUsername: settings.username,
+                adminPassword: adminPasswordCache,
+                targetUsername: entry.username
+            });
+            if (denyResult.success) {
+                loadAccessRequestsPanel();
+            } else {
+                alert(denyResult.error || "Couldn't deny this request.");
+            }
+        });
+        actions.appendChild(denyBtn);
+
+        item.appendChild(actions);
+        listEl.appendChild(item);
+    });
+}
+
 function openAllowlistModal() {
     document.getElementById("allowlistModal").classList.add("active");
     document.getElementById("allowlistNewUsername").value = "";
     loadAllowlistPanel();
+    loadAccessRequestsPanel();
 }
 
 document.getElementById("manageAllowlistBtn").addEventListener("click", openAllowlistModal);
@@ -6788,6 +8173,8 @@ document.getElementById("allowlistAddBtn").addEventListener("click", async () =>
     const username = input.value.trim();
     if (!username) return;
 
+    // If this username had a pending request, adding them directly here
+    // should clear it too rather than leaving a stale request behind.
     const result = await window.riftgate.invoke("add-to-share-allowlist", {
         adminUsername: settings.username,
         adminPassword: adminPasswordCache,
@@ -6797,8 +8184,33 @@ document.getElementById("allowlistAddBtn").addEventListener("click", async () =>
     if (result.success) {
         input.value = "";
         loadAllowlistPanel();
+        loadAccessRequestsPanel();
     } else {
         alert(result.error || "Couldn't add this user.");
+    }
+});
+
+// --- Vault access requests (user side) ---
+
+document.getElementById("requestVaultAccessBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("requestVaultAccessBtn");
+    const statusEl = document.getElementById("requestVaultAccessStatus");
+
+    btn.disabled = true;
+    statusEl.textContent = "Sending request…";
+
+    const result = await window.riftgate.invoke("request-share-access", settings.username);
+
+    btn.disabled = false;
+
+    if (!result.success) {
+        statusEl.textContent = result.error || "Couldn't send the request — try again.";
+    } else if (result.requested) {
+        statusEl.textContent = "Request sent — you'll get access once it's approved.";
+        btn.textContent = "✅ Request Sent";
+        btn.disabled = true;
+    } else {
+        statusEl.textContent = "You already have access, or a request is already pending.";
     }
 });
 
@@ -6807,6 +8219,7 @@ async function init() {
     buildWheelRim();
     await loadSettings();
     playStartupAnimation();
+    resolveMyCountryCode(); // best-effort, non-blocking — refines the age gate if it resolves in time
     tryRestoreSessionOrStayLoggedOut();
     await loadGames();
     await checkForUpdatePopup();
@@ -6989,6 +8402,69 @@ function jumpToGlobalSearchResult(result) {
     globalSearchResults.innerHTML = "";
 }
 
+// Live, cross-category web search appended below the local matches above
+// — queries Steam/TMDB/Open Library directly (see web-search-all in
+// main.js) so a title that isn't already in your library, Free Games, or
+// Reading Room still turns up. Purely a lookup: nothing here is ever
+// added to any list, and it disappears the moment the search is cleared
+// or changed — see the token guard below, same pattern used for Surprise
+// Me's spin results, so a slow response can never land after the user
+// has already moved on.
+let webSearchToken = 0;
+
+const WEB_SEARCH_SECTION_ICON = { game: "🎮", movie: "🎬", show: "📺", book: "📖" };
+const WEB_SEARCH_SECTION_LABEL = { game: "Game (web)", movie: "Movie (web)", show: "Show (web)", book: "Book (web)" };
+
+async function fetchAndAppendWebSearchResults(term) {
+    webSearchToken += 1;
+    const myToken = webSearchToken;
+
+    const loading = document.createElement("div");
+    loading.className = "global-search-empty global-search-web-loading";
+    loading.textContent = "🌐 Searching the web…";
+    globalSearchResults.appendChild(loading);
+    globalSearchResults.style.display = "";
+
+    const result = await window.riftgate.invoke("web-search-all", { query: term, includeMature: canSeeMatureContent() });
+
+    // Stale if a newer search has started, or the box no longer holds
+    // this same term (cleared, or the user kept typing).
+    if (myToken !== webSearchToken || globalSearchInput.value.trim().toLowerCase() !== term) return;
+
+    loading.remove();
+
+    if (!result.success || !result.results || result.results.length === 0) return;
+
+    const divider = document.createElement("div");
+    divider.className = "global-search-web-divider";
+    divider.textContent = "🌐 From the web";
+    globalSearchResults.appendChild(divider);
+
+    result.results.forEach((r) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "global-search-result global-search-result-web";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "global-search-result-name";
+        nameSpan.textContent = `${WEB_SEARCH_SECTION_ICON[r.section] || "🌐"} ${r.title}`;
+
+        const sectionSpan = document.createElement("span");
+        sectionSpan.className = "global-search-result-section";
+        sectionSpan.textContent = WEB_SEARCH_SECTION_LABEL[r.section] || "Web";
+
+        item.appendChild(nameSpan);
+        item.appendChild(sectionSpan);
+        item.addEventListener("click", () => {
+            if (r.link) window.riftgate.invoke("open-external", r.link);
+        });
+
+        globalSearchResults.appendChild(item);
+    });
+
+    globalSearchResults.style.display = "";
+}
+
 let globalSearchDebounceTimer = null;
 globalSearchInput.addEventListener("input", () => {
     const term = globalSearchInput.value.trim().toLowerCase();
@@ -6996,11 +8472,13 @@ globalSearchInput.addEventListener("input", () => {
     clearTimeout(globalSearchDebounceTimer);
     globalSearchDebounceTimer = setTimeout(async () => {
         if (!term) {
+            webSearchToken += 1; // invalidate any in-flight web search
             renderGlobalSearchResults("");
             return;
         }
         await ensureGlobalSearchCachesLoaded();
         renderGlobalSearchResults(term);
+        fetchAndAppendWebSearchResults(term);
     }, 200);
 });
 

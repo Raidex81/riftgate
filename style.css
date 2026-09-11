@@ -13,6 +13,11 @@
     --sidebar-section-border:#211a2b;
     --accent-1:#b026ff;
     --accent-2:#ff2fd0;
+    /* The one "primary action" treatment used everywhere — launch
+       buttons, active tabs/states, badges — named once so it's a
+       deliberate design token instead of the same literal gradient
+       string repeated at every call site. */
+    --accent-gradient:linear-gradient(135deg, var(--accent-1), var(--accent-2));
     --titlebar-height:32px;
 }
 
@@ -88,9 +93,11 @@ body{
         var(--bg-primary);
 }
 
+/* Real banner artwork replaces the old animated circuit/hub SVG scene —
+   the wordmark, tagline, and gem art are all baked into the image
+   itself, so the header is just a responsive full-width <img> now. */
 .hero-banner{
     position:relative;
-    height:200px;
     overflow:hidden;
     display:flex;
     align-items:center;
@@ -100,59 +107,10 @@ body{
     transition:background .3s ease, border-color .3s ease;
 }
 
-.banner-svg{
-    position:absolute;
-    inset:0;
+.hero-banner-img{
+    display:block;
     width:100%;
-    height:100%;
-}
-
-.banner-traces path{
-    stroke-dasharray:6 4;
-    animation:traceFlow 2.2s linear infinite;
-}
-
-@keyframes traceFlow{
-    to{ stroke-dashoffset:-20; }
-}
-
-.hero-hub{
-    animation:hubPulse 3s ease-in-out infinite;
-    transform-origin:700px 115px;
-}
-
-@keyframes hubPulse{
-    0%,100%{ opacity:.88; }
-    50%{ opacity:1; }
-}
-
-.hero-titlewrap{
-    position:relative;
-    z-index:2;
-    text-align:center;
-    padding:10px 28px;
-    background:rgba(0,0,0,.4);
-    border-radius:12px;
-    backdrop-filter:blur(2px);
-}
-
-.hero-title{
-    margin:0;
-    font-family:"Orbitron", "Bahnschrift", "Segoe UI Semibold", "Segoe UI", sans-serif;
-    font-size:44px;
-    font-weight:900;
-    letter-spacing:8px;
-    color:#ffffff;
-    text-shadow:0 2px 10px rgba(0,0,0,.9), 0 0 24px rgba(0,0,0,.7);
-}
-
-.hero-tagline{
-    margin-top:6px;
-    font-family:"Bahnschrift", "Segoe UI", sans-serif;
-    font-size:11px;
-    letter-spacing:3px;
-    color:#e8e8ec;
-    text-shadow:0 1px 6px rgba(0,0,0,.9);
+    height:auto;
 }
 
 
@@ -198,6 +156,40 @@ input{
     padding:0 16px;
 }
 
+.library-summary{
+    padding:0 16px 10px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-secondary);
+    letter-spacing:.2px;
+}
+
+.category-empty-hint{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    grid-column:1 / -1;
+    max-width:520px;
+    padding:18px 20px;
+    border-radius:12px;
+    border:1.5px dashed var(--border-color);
+    color:var(--text-muted);
+    font-size:13px;
+    line-height:1.5;
+}
+
+.category-empty-hint code{
+    background:var(--bg-tertiary);
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:12px;
+}
+
+.category-empty-icon{
+    font-size:20px;
+    flex-shrink:0;
+}
+
 .category-section h2{
     font-size:15px;
     color:var(--text-secondary);
@@ -220,14 +212,18 @@ input{
 
 .games-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fill, 170px);
+    /* A minimum readable width instead of a fixed one — cards stay at
+       least 150px so titles like "Grand Theft Auto VI" have room to
+       breathe, and grow up to 210px to use extra space on larger
+       windows/monitors instead of leaving it unused. */
+    grid-template-columns:repeat(auto-fill, minmax(150px, 210px));
     justify-content:start;
     gap:14px;
     padding:0 0 8px;
 }
 
 body.density-compact .games-grid{
-    grid-template-columns:repeat(auto-fill, 130px);
+    grid-template-columns:repeat(auto-fill, minmax(120px, 160px));
     justify-content:start;
     gap:10px;
 }
@@ -244,9 +240,10 @@ body.density-compact .game-desc{
 
 /* The cover-corner buttons (sound toggle, watch larger, change cover,
    category badge, favorite, remove) keep their normal-density sizes by
-   default, which is comfortably spaced on a 170px-wide card but crowded
-   and overlap-prone on a 130px-wide compact one — shrink them here so
-   they stay clear of each other and of the card's edges. */
+   default, which is comfortably spaced on a normal-density card (150-
+   210px) but crowded and overlap-prone on a compact one (120-160px) —
+   shrink them here so they stay clear of each other and of the card's
+   edges. */
 body.density-compact .soundToggle,
 body.density-compact .enlargeBtn{
     width:20px;
@@ -346,6 +343,26 @@ body.density-compact .categoryPicker{
     display:block;
 }
 
+/* Apps (Discord, WinRAR, NVIDIA, etc.) rarely have real box-art — cropping
+   their icon to fill a 170px cinematic cover like a game's key art looks
+   inconsistent from one app to the next. A calmer, icon-centered treatment
+   keeps every app card looking intentional regardless of what shape icon
+   it started with. */
+.game-card.card-app .cover-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-tertiary);
+}
+
+.game-card.card-app .cover-wrap img{
+    width:64px;
+    height:64px;
+    object-fit:contain;
+    border-radius:14px;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+
 .trailer-frame{
     position:absolute;
     top:0;
@@ -390,7 +407,7 @@ body.density-compact .categoryPicker{
 
 .game-info h3{
     margin:0 0 6px;
-    font-size:13px;
+    font-size:15px;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -398,7 +415,7 @@ body.density-compact .categoryPicker{
 
 .game-desc{
     font-size:11px;
-    line-height:1.4;
+    line-height:1.5;
     color:var(--text-muted);
     margin:0 0 10px;
     display:-webkit-box;
@@ -414,9 +431,16 @@ body.density-compact .categoryPicker{
     margin-top:auto;
 }
 
+.ui-icon{
+    width:1em;
+    height:1em;
+    vertical-align:-0.15em;
+    flex-shrink:0;
+}
+
 .launchBtn{
     flex:1;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border:none;
     color:white;
     padding:8px 10px;
@@ -563,6 +587,33 @@ body.density-compact .categoryPicker{
     display:flex;
 }
 
+/* Hover preview for image files in The Vault. Deliberately its own
+   rule set instead of reusing .modal-overlay: that class is
+   position:fixed with inset:0 (a full-viewport backdrop meant for
+   centered dialogs), and the positioning code only ever overrides
+   left/top/width inline — so bottom:0 stayed active, and the
+   "preview" was actually a giant dark panel stretching from just
+   below the hovered row down to the bottom of the screen. The moment
+   the cursor dipped into that panel it stole the hover away from the
+   row, closing the preview, which exposed the row again and
+   re-triggered it — an endless blink loop as the mouse moved.
+   pointer-events:none is the real fix (a hover tooltip should never
+   itself be hoverable/interactable — that's what caused the feedback
+   loop), with no inset/background so it's sized purely by the inline
+   left/top/width the positioning code already sets, with no
+   accidental full-height stretch.
+*/
+.vault-preview-popup{
+    display:none;
+    position:fixed;
+    z-index:999;
+    pointer-events:none;
+}
+
+.vault-preview-popup.active{
+    display:block;
+}
+
 .modal-box{
     background:var(--bg-secondary);
     color:var(--text-primary);
@@ -576,6 +627,82 @@ body.density-compact .categoryPicker{
 .modal-box h3{
     margin:0 0 12px;
     font-size:16px;
+}
+
+.scan-results-box{
+    max-width:560px;
+}
+
+.scan-results-actions{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.scan-results-actions button{
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    color:var(--text-primary);
+    border-radius:6px;
+    padding:5px 10px;
+    font-size:11px;
+    cursor:pointer;
+}
+
+.scan-results-actions button:hover{
+    border-color:var(--accent-1);
+}
+
+.scan-results-list{
+    max-height:320px;
+    overflow-y:auto;
+    border:1px solid var(--border-color);
+    border-radius:8px;
+    margin-bottom:16px;
+}
+
+.scan-result-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 12px;
+    border-bottom:1px solid var(--border-color);
+}
+
+.scan-result-row:last-child{
+    border-bottom:none;
+}
+
+.scan-result-check{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1;
+    min-width:0;
+    cursor:pointer;
+}
+
+.scan-result-name{
+    font-size:13px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.scan-result-source{
+    font-size:10px;
+    color:var(--text-muted);
+    flex-shrink:0;
+}
+
+.scan-result-category{
+    flex-shrink:0;
+    font-size:11px;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    border:1px solid var(--border-color);
+    border-radius:6px;
+    padding:3px 6px;
 }
 
 .modal-path{
@@ -655,6 +782,11 @@ body.density-compact .categoryPicker{
 
 .intro-screen.active{
     display:flex;
+}
+
+.intro-screen.intro-drag-over .intro-card{
+    border-color:var(--accent, #8a5cff);
+    box-shadow:0 10px 40px rgba(138,92,255,.35);
 }
 
 .intro-card{
@@ -860,7 +992,7 @@ body.density-compact .categoryPicker{
 .sidebar-diamond{
     width:20px;
     height:20px;
-    background:linear-gradient(135deg,var(--accent-1),var(--accent-2));
+    background:var(--accent-gradient);
     clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
     box-shadow:0 0 12px color-mix(in srgb, var(--accent-2) 55%, transparent);
     flex-shrink:0;
@@ -915,6 +1047,24 @@ body.density-compact .categoryPicker{
     color:var(--text-primary);
     font-size:12px;
     max-width:130px;
+}
+
+.sidebar-select-row input[type="text"]{
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:12px;
+    max-width:150px;
+    text-align:right;
+}
+
+.sidebar-hint{
+    margin:0 0 10px;
+    font-size:11px;
+    line-height:1.5;
+    color:var(--text-muted);
 }
 
 .sidebar-slider-row{
@@ -1208,6 +1358,53 @@ body.density-compact .categoryPicker{
     cursor:pointer;
 }
 
+/* My Library's own topbar (sort/Drop Folder/+) had no rules of its own,
+   so it was falling back to plain unstyled browser controls — a white
+   select box and flat gray buttons — instead of matching the rest of
+   the app's dark theme. */
+#readingRoomSortSelect{
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    cursor:pointer;
+}
+
+#openDropzoneBtn{
+    padding:9px 14px;
+    border-radius:10px;
+    border:1px solid var(--border-color);
+    background:var(--bg-secondary);
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+#openDropzoneBtn:hover{
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+}
+
+#addEbookBtn{
+    width:40px;
+    height:40px;
+    border:none;
+    border-radius:50%;
+    background:#238636;
+    color:white;
+    font-size:22px;
+    cursor:pointer;
+    transition:background .2s;
+}
+
+#addEbookBtn:hover{
+    background:#2ea043;
+}
+
 /* ================= Favorite star ================= */
 
 .favoriteBtn{
@@ -1262,7 +1459,7 @@ body.density-compact .categoryPicker{
 }
 
 .game-playtime{
-    font-size:10px;
+    font-size:11px;
     color:var(--text-muted);
     margin:0 0 4px;
 }
@@ -1426,66 +1623,65 @@ body.is-fullscreen #mainContent{
 
 .bottom-bar{
     position:fixed;
-    bottom:20px;
-    right:20px;
-    z-index:60;
-    display:flex;
-    flex-direction:column;
-    align-items:flex-end;
-    gap:6px;
-}
-
-.bottom-bar-row{
-    display:flex;
-    gap:10px;
+    bottom:12px;
+    right:16px;
+    z-index:20;
+    pointer-events:none;
 }
 
 .bottom-bar-version{
     font-size:11px;
     color:var(--text-muted);
-    padding-right:4px;
 }
 
-.bottom-bar button{
-    padding:12px 18px;
+/* ================= Header action cluster (bell / suggest / surprise / close) ================= */
+
+.header-actions{
+    position:sticky;
+    top:calc(var(--titlebar-height) + 38px);
+    z-index:45;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+    padding-left:14px;
+    margin-left:2px;
+    border-left:1px solid var(--border-color);
+}
+
+.header-actions button{
+    padding:9px 14px;
     border-radius:10px;
     border:1px solid var(--border-color);
-    background:transparent;
-    color:var(--text-muted);
+    background:var(--bg-secondary);
+    color:var(--text-secondary);
     font-size:13px;
     font-weight:600;
     cursor:pointer;
     transition:.2s;
 }
 
-/* Hovering ANYWHERE in the bar reveals all the buttons together, and
-   moving the mouse between them never flickers back to hollow — the
-   reveal is tied to the whole bar being hovered, not each button on its
-   own. */
-.bottom-bar:hover button{
-    background:var(--bg-secondary);
+.header-actions button:hover{
+    background:var(--bg-tertiary);
     color:var(--text-primary);
-    box-shadow:0 6px 20px rgba(0,0,0,.4);
 }
 
 #surpriseBtn{
     display:flex;
-    flex-direction:column;
     align-items:center;
-    justify-content:center;
-    gap:4px;
+    gap:6px;
     border-color:var(--accent-1);
 }
 
 .surprise-label{
-    font-size:11px;
+    font-size:12px;
     font-weight:700;
     letter-spacing:.3px;
 }
 
 .dice-icon{
     display:inline-block;
-    font-size:20px;
+    font-size:15px;
     animation:diceRoll 2.4s ease-in-out infinite;
 }
 
@@ -1499,18 +1695,24 @@ body.is-fullscreen #mainContent{
 
 #surpriseBtn:hover{
     background:var(--accent-1);
+    color:#fff;
 }
 
 #closeLauncherBtn:hover{
     background:#c62828;
     border-color:#c62828;
+    color:#fff;
 }
 
 /* ================= Notification bell ================= */
 
-#notifyBtn{
-    padding:12px 16px;
-    font-size:16px;
+#notifyBtn,
+#suggestBtn,
+#closeLauncherBtn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:9px 12px;
 }
 
 /* ================= Wheel modal ================= */
@@ -1654,7 +1856,17 @@ body.is-fullscreen #mainContent{
 .wheel-result-name{
     font-size:18px;
     font-weight:700;
+    margin-bottom:4px;
+}
+
+.wheel-result-meta{
+    font-size:12px;
+    color:var(--text-muted);
     margin-bottom:16px;
+}
+
+.wheel-result-meta:empty{
+    display:none;
 }
 
 .wheel-actions{
@@ -1674,7 +1886,7 @@ body.is-fullscreen #mainContent{
 }
 
 .wheel-play{
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border-color:transparent;
 }
 
@@ -1724,8 +1936,12 @@ body.is-fullscreen #mainContent{
 .topbar-row{
     display:flex;
     align-items:center;
-    gap:14px;
-    margin:16px 20px 0 20px;
+    flex-wrap:wrap;
+    row-gap:12px;
+    gap:16px;
+    margin:16px 20px 14px 20px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--border-color);
 }
 
 .section-switcher{
@@ -1763,7 +1979,7 @@ body.is-fullscreen #mainContent{
 
 .login-status-btn.active{
     color:#fff;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border-color:transparent;
 }
 
@@ -1838,6 +2054,9 @@ body.is-fullscreen #mainContent{
     padding:9px 10px;
     border-radius:6px;
     cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:9px;
 }
 
 /* Cross-section search — searches Installed, Free Games, Reading Room, and
@@ -1921,6 +2140,18 @@ body.is-fullscreen #mainContent{
     text-align:center;
 }
 
+.global-search-web-divider{
+    color:var(--text-muted);
+    font-size:11px;
+    padding:8px 10px 4px;
+    border-top:1px solid var(--border-color);
+    margin-top:4px;
+}
+
+.global-search-web-loading{
+    padding:8px 10px;
+}
+
 .sectionOption:hover{
     background:var(--bg-tertiary);
     color:var(--text-primary);
@@ -1960,7 +2191,7 @@ body.is-fullscreen #mainContent{
 .theatre-block-header{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-start;
     gap:14px;
     margin-bottom:14px;
     flex-wrap:wrap;
@@ -1972,6 +2203,18 @@ body.is-fullscreen #mainContent{
     margin:0;
 }
 
+/* Whatever trailing control sits after the heading (a select, a filter
+   input) is pushed flush to the row's right edge with its own left
+   auto-margin, instead of justify-content:space-between — space-between
+   only reliably pins a lone trailing item to the right when the row has
+   exactly two items on one line. The moment the row wraps onto its own
+   line on a narrower window, a single leftover item lands back at the
+   LEFT edge instead of staying where it belongs, on the right. */
+.theatre-block-header select,
+.theatre-block-header .subsection-filter{
+    margin-left:auto;
+}
+
 .theatre-block-header select{
     padding:8px 10px;
     border-radius:8px;
@@ -1979,6 +2222,11 @@ body.is-fullscreen #mainContent{
     background:var(--bg-tertiary);
     color:var(--text-primary);
     font-size:12px;
+}
+
+.theatre-block-header .subsection-filter{
+    width:200px;
+    margin-bottom:0;
 }
 
 .show-search-row{
@@ -2096,6 +2344,12 @@ body.is-fullscreen #mainContent{
     font-weight:700;
 }
 
+.recent-episode-actions{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
 .whereToWatchBtn{
     width:100%;
     margin-top:6px;
@@ -2110,6 +2364,34 @@ body.is-fullscreen #mainContent{
 
 .whereToWatchBtn:hover{
     background:var(--accent-1);
+}
+
+.markSeenBtn{
+    padding:6px;
+    border-radius:6px;
+    border:1px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:10px;
+    cursor:pointer;
+}
+
+.recent-episode-actions .markSeenBtn{
+    width:100%;
+}
+
+.movie-card-actions .markSeenBtn{
+    flex:1;
+}
+
+.markSeenBtn:hover{
+    border-color:var(--accent-1);
+}
+
+.markSeenBtn.seen-btn-active{
+    background:rgba(34,197,94,.18);
+    border-color:#22c55e;
+    color:#22c55e;
 }
 
 .movie-card-actions{
@@ -2150,13 +2432,44 @@ body.is-fullscreen #mainContent{
 
 /* ================= Section blurbs ================= */
 
-.section-blurb{
+.section-info{
     max-width:700px;
     margin:0 auto 22px;
+    text-align:center;
+}
+
+.section-subtitle{
+    margin:0 0 4px;
+    color:var(--text-secondary);
+    font-size:13px;
+}
+
+.section-info-toggle{
+    background:none;
+    border:none;
+    padding:2px 6px;
+    color:var(--text-muted);
+    font-size:11px;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+}
+
+.section-info-toggle:hover{
+    color:var(--text-primary);
+}
+
+.section-blurb{
+    display:none;
+    margin:8px 0 0;
     text-align:center;
     color:var(--text-secondary);
     font-size:13px;
     line-height:1.7;
+}
+
+.section-info.expanded .section-blurb{
+    display:block;
 }
 
 /* ================= Large "theater mode" video popup ================= */
@@ -2259,6 +2572,38 @@ body.is-fullscreen #mainContent{
     color:#fff;
 }
 
+/* ================= Admin: role-preview switcher ================= */
+
+.admin-role-switcher{
+    display:flex;
+    gap:4px;
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    border-radius:10px;
+    padding:3px;
+}
+
+.admin-role-option{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--text-secondary);
+    padding:6px 4px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:11px;
+    white-space:nowrap;
+}
+
+.admin-role-option:hover{
+    color:var(--text-primary);
+}
+
+.admin-role-option.active{
+    background:var(--accent-gradient);
+    color:#fff;
+}
+
 /* ================= Collapsible "see more" grids (any section) ================= */
 
 .games-grid.grid-collapsed{
@@ -2311,6 +2656,32 @@ body.is-fullscreen #mainContent{
     font-size:13px;
 }
 
+.free-games-controls button{
+    flex:none;
+    padding:10px 14px;
+    border-radius:8px;
+    border:none;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.free-games-controls button:hover{
+    background:var(--accent-1);
+    color:#fff;
+}
+
+.free-games-controls button:disabled{
+    opacity:0.6;
+    cursor:default;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+}
+
+
+
 .subsection-filter{
     width:220px;
     padding:8px 10px;
@@ -2358,75 +2729,43 @@ body.is-fullscreen #mainContent{
 }
 
 .startup-scene{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     transform-style:preserve-3d;
 }
 
-.startup-gem-svg{
-    overflow:visible;
-    animation:startupGemPulse 1.6s ease-out .9s 1;
-}
-
-.startup-facet{
+.startup-gem-glow{
+    position:absolute;
+    width:380px;
+    height:380px;
+    border-radius:50%;
+    background:radial-gradient(circle, var(--accent-1) 0%, transparent 70%);
+    filter:blur(20px);
     opacity:0;
-    transform-box:fill-box;
-    transform-origin:center;
-    animation-duration:.9s;
-    animation-timing-function:cubic-bezier(.22,.75,.25,1);
-    animation-fill-mode:forwards;
+    animation:startupGemPulse 1.2s ease-in-out .9s 3;
 }
 
-.startup-facet.facet-1{ animation-name:startupFlyFacet1; }
-.startup-facet.facet-2{ animation-name:startupFlyFacet2; }
-.startup-facet.facet-3{ animation-name:startupFlyFacet3; }
-.startup-facet.facet-4{ animation-name:startupFlyFacet4; }
-.startup-facet.facet-5{ animation-name:startupFlyFacet5; }
-.startup-facet.facet-6{ animation-name:startupFlyFacet6; }
-
-.startup-sheen{
-    animation:startupSheenFade .5s ease-out .85s forwards;
+.startup-gem-img{
+    position:relative;
+    width:320px;
+    height:320px;
+    object-fit:contain;
+    opacity:0;
+    animation:startupGemReveal .9s cubic-bezier(.22,.75,.25,1) forwards;
 }
 
-@keyframes startupFlyFacet1{
-    0%{ opacity:0; transform:translate3d(0,-260px,-450px) rotateX(70deg); }
+@keyframes startupGemReveal{
+    0%{ opacity:0; transform:scale(.4) translateZ(-300px) rotate(-8deg); }
     70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet2{
-    0%{ opacity:0; transform:translate3d(260px,-80px,-450px) rotateY(-70deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet3{
-    0%{ opacity:0; transform:translate3d(220px,180px,-450px) rotateX(-60deg) rotateY(-40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet4{
-    0%{ opacity:0; transform:translate3d(-220px,180px,-450px) rotateX(-60deg) rotateY(40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet5{
-    0%{ opacity:0; transform:translate3d(-260px,-80px,-450px) rotateY(70deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-@keyframes startupFlyFacet6{
-    0%{ opacity:0; transform:translate3d(-180px,-220px,-450px) rotateX(60deg) rotateY(40deg); }
-    70%{ opacity:1; }
-    100%{ opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
-}
-
-@keyframes startupSheenFade{
-    0%{ opacity:0; }
-    100%{ opacity:0.35; }
+    100%{ opacity:1; transform:scale(1) translateZ(0) rotate(0deg); }
 }
 
 @keyframes startupGemPulse{
-    0%{ transform:scale(1); }
-    30%{ transform:scale(1.12); }
-    60%{ transform:scale(0.98); }
-    100%{ transform:scale(1); }
+    0%{ transform:scale(1); opacity:0; }
+    40%{ transform:scale(1.12); opacity:0.55; }
+    100%{ transform:scale(1); opacity:0; }
 }
 
 /* ================= Free Games platform badges ================= */
@@ -2486,7 +2825,10 @@ body.is-fullscreen #mainContent{
 .ambient-icon{
     position:absolute;
     bottom:-15vh;
-    opacity:0.09;
+    /* Already subtle at 0.09, but the review asked for it to go further —
+       "felt, not noticed". 0.05 keeps the icons doing their job (a bit of
+       life behind the content) without drawing the eye. */
+    opacity:0.05;
     filter:blur(0.3px) grayscale(0.3);
     animation-name:ambientFloat;
     animation-timing-function:linear;
@@ -2509,7 +2851,9 @@ body.is-fullscreen #mainContent{
 }
 
 .sidebarNavBtn{
-    display:block;
+    display:flex;
+    align-items:center;
+    gap:10px;
     width:100%;
     text-align:left;
     padding:12px 14px;
@@ -2524,6 +2868,21 @@ body.is-fullscreen #mainContent{
     transition:.18s;
 }
 
+.nav-icon{
+    width:17px;
+    height:17px;
+    flex-shrink:0;
+    vertical-align:middle;
+}
+
+.nav-icon-grad-stop-1{
+    stop-color:var(--accent-1);
+}
+
+.nav-icon-grad-stop-2{
+    stop-color:var(--accent-2);
+}
+
 .sidebarNavBtn:last-child{
     margin-bottom:0;
 }
@@ -2534,7 +2893,7 @@ body.is-fullscreen #mainContent{
 }
 
 .sidebarNavBtn.active{
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border-color:transparent;
     color:#fff;
     box-shadow:0 4px 14px rgba(0,0,0,.4);
@@ -2636,7 +2995,7 @@ body.is-fullscreen #mainContent{
 
 .admin-sidebar-btn.active{
     color:#fff;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border-color:transparent;
 }
 
@@ -2646,7 +3005,7 @@ body.is-fullscreen #mainContent{
     display:inline-block;
     padding:2px 6px;
     border-radius:6px;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     color:#fff;
     font-size:10px;
     font-weight:700;
@@ -2774,7 +3133,7 @@ body.is-fullscreen #mainContent{
     padding:7px 14px;
     border-radius:8px;
     border:none;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     color:#fff;
     font-size:12px;
     font-weight:700;
@@ -2813,13 +3172,18 @@ body.is-fullscreen #mainContent{
 /* Reading Room: My Library / Discover Online tab switcher */
 .reading-room-tabs{
     display:flex;
-    gap:8px;
-    padding:0 16px;
-    margin-top:14px;
-    margin-bottom:14px;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:12px 16px;
+    margin:0 4px 14px;
+    background:var(--bg-secondary);
+    border-radius:14px;
 }
 
 .reading-room-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
     padding:10px 18px;
     border-radius:10px;
     border:1px solid var(--border-color);
@@ -2838,7 +3202,7 @@ body.is-fullscreen #mainContent{
 
 .reading-room-tab.active{
     color:#fff;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     border-color:transparent;
 }
 
@@ -2846,7 +3210,19 @@ body.is-fullscreen #mainContent{
 .reading-room-search-bar{
     display:flex;
     justify-content:center;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
     padding:0 16px 14px;
+}
+
+.reading-room-search-bar select{
+    padding:10px 12px;
+    border-radius:8px;
+    border:none;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
 }
 
 .reading-room-search-bar input{
@@ -2959,11 +3335,40 @@ body.is-fullscreen #mainContent{
     letter-spacing:.3px;
 }
 
+.app-recommend-tag + .app-recommend-tag{
+    margin-top:-6px;
+}
+
 .app-recommend-card p:not(.app-recommend-tag){
     font-size:13px;
     color:var(--text-secondary);
     line-height:1.5;
     margin:0 0 14px;
+}
+
+.app-card-actions{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.app-card-actions button{
+    padding:8px 14px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    font-size:12px;
+    white-space:nowrap;
+}
+
+.app-card-edit-btn{
+    background:var(--bg-tertiary);
+    color:var(--text-secondary);
+}
+
+.app-card-delete-btn{
+    background:rgba(248, 113, 113, .15);
+    color:#f87171;
 }
 
 .app-top5-list{
@@ -2989,7 +3394,7 @@ body.is-fullscreen #mainContent{
     width:30px;
     height:30px;
     border-radius:50%;
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     color:#fff;
     display:flex;
     align-items:center;
@@ -3112,7 +3517,7 @@ body.is-fullscreen #mainContent{
 }
 
 .shared-file-download-btn{
-    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    background:var(--accent-gradient);
     color:#fff;
 }
 
