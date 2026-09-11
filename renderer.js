@@ -196,6 +196,12 @@ const ICON_PATHS = {
 };
 
 function uiIcon(name, { filled = false } = {}) {
+    if (name === "star") {
+        return `<img class="ui-icon ui-icon-raster${filled ? " ui-icon-raster-active" : ""}" src="/assets/icons/favourite.png" alt="">`;
+    }
+    if (name === "trash-2" || name === "x") {
+        return `<img class="ui-icon ui-icon-raster ui-icon-raster-active" src="/assets/icons/remove.png" alt="">`;
+    }
     const body = ICON_PATHS[name];
     if (!body) return "";
     return `<svg class="ui-icon" viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
@@ -4237,7 +4243,7 @@ function buildDiscoveryEbookCard(book) {
 
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "launchBtn";
-    downloadBtn.textContent = "⬇️ Download";
+    downloadBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/download.png" alt=""> Download';
     downloadBtn.addEventListener("click", async (event) => {
         event.stopPropagation();
 
@@ -4265,7 +4271,7 @@ function buildDiscoveryEbookCard(book) {
         } else if (result.duplicate) {
             downloadBtn.textContent = "Already Downloaded";
         } else {
-            downloadBtn.textContent = "⬇️ Download";
+            downloadBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/download.png" alt=""> Download';
             downloadBtn.disabled = false;
             alert(result.error || "Download failed.");
         }
@@ -5003,7 +5009,7 @@ async function checkForMissingEbooks() {
         row.appendChild(label);
 
         const removeBtn = document.createElement("button");
-        removeBtn.textContent = "🗑️ Remove";
+        removeBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/remove.png" alt=""> Remove';
         removeBtn.className = "detection-remove-btn";
         removeBtn.addEventListener("click", async () => {
             await window.riftgate.invoke("remove-ebook", item.path);
@@ -7200,7 +7206,7 @@ async function checkForMissingGames() {
         row.appendChild(label);
 
         const removeBtn = document.createElement("button");
-        removeBtn.textContent = "🗑️ Remove";
+        removeBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/remove.png" alt=""> Remove';
         removeBtn.className = "detection-remove-btn";
         removeBtn.addEventListener("click", async () => {
             await window.riftgate.invoke("remove-game", item.path);
@@ -7290,7 +7296,7 @@ function buildCommunityAppCard(app) {
     if (isAdminMode) {
         const editBtn = document.createElement("button");
         editBtn.className = "app-card-edit-btn";
-        editBtn.textContent = "✏️ Edit details";
+        editBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/edit.png" alt=""> Edit details';
         editBtn.addEventListener("click", () => openEditAppDescriptionModal(app));
         actions.appendChild(editBtn);
 
@@ -7546,7 +7552,7 @@ function buildSharedFileItem(file) {
 
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "shared-file-download-btn";
-    downloadBtn.textContent = "⬇️ Download";
+    downloadBtn.innerHTML = '<img class="btn-icon" src="/assets/icons/download.png" alt=""> Download';
     downloadBtn.addEventListener("click", async () => {
         downloadBtn.disabled = true;
         const result = await window.riftgate.invoke("download-shared-file", { storagePath: file.storage_path, filename: file.filename });

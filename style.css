@@ -1681,8 +1681,44 @@ body.is-fullscreen #mainContent{
 
 .dice-icon{
     display:inline-block;
-    font-size:15px;
+    width:17px;
+    height:17px;
+    vertical-align:-3px;
     animation:diceRoll 2.4s ease-in-out infinite;
+}
+
+/* Raster crystal-badge icons (new art direction) dropped into the
+   existing hollow-SVG uiIcon() slots. Sized to match the SVG icons they
+   replace; the favourite badge dims when not yet favourited so the
+   on/off state still reads clearly without needing two separate art
+   files. */
+.ui-icon-raster{
+    width:1.3em;
+    height:1.3em;
+    object-fit:contain;
+    opacity:.5;
+    filter:grayscale(.4);
+    transition:opacity .2s ease, filter .2s ease;
+}
+
+.ui-icon-raster.ui-icon-raster-active{
+    opacity:1;
+    filter:none;
+}
+
+.btn-icon{
+    width:1.1em;
+    height:1.1em;
+    object-fit:contain;
+    vertical-align:-2px;
+    margin-right:2px;
+}
+
+.section-heading-icon{
+    width:1em;
+    height:1em;
+    object-fit:contain;
+    vertical-align:-2px;
 }
 
 @keyframes diceRoll{
