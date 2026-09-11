@@ -741,7 +741,14 @@ function startLocalServer() {
                 const ext = path.extname(resolvedFile).toLowerCase();
 
                 res.writeHead(200, {
-                    "Content-Type": MIME_TYPES[ext] || "application/octet-stream"
+                    "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
+                    // Chromium (this is what actually renders the window)
+                    // will otherwise cache these on disk and keep serving
+                    // stale HTML/CSS/JS/images after an update, even across
+                    // a full app restart — every file this server hands out
+                    // is local and can change at any time, so never let the
+                    // browser cache it.
+                    "Cache-Control": "no-store"
                 });
 
                 res.end(data);
