@@ -93,81 +93,24 @@ body{
         var(--bg-primary);
 }
 
+/* Real banner artwork replaces the old animated circuit/hub SVG scene —
+   the wordmark, tagline, and gem art are all baked into the image
+   itself, so the header is just a responsive full-width <img> now. */
 .hero-banner{
     position:relative;
-    height:52px;
     overflow:hidden;
     display:flex;
     align-items:center;
     justify-content:center;
-    background:
-        radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--accent-1) 14%, transparent), transparent 70%),
-        var(--bg-primary);
+    background:var(--bg-primary);
     border-bottom:1px solid var(--border-color);
     transition:background .3s ease, border-color .3s ease;
 }
 
-/* The full-width animated circuit/hub scene only reads correctly at the
-   old 200px hero height — cropped into a slim bar it just looks like
-   noise. The compact header carries the brand instead with a small
-   standalone icon (.hero-mark, same hexagon geometry at icon scale) next
-   to the gradient-filled wordmark (.hero-title). */
-.banner-svg{
-    display:none;
-}
-
-.banner-traces path{
-    stroke-dasharray:6 4;
-    animation:traceFlow 2.2s linear infinite;
-}
-
-@keyframes traceFlow{
-    to{ stroke-dashoffset:-20; }
-}
-
-.hero-hub{
-    animation:hubPulse 3s ease-in-out infinite;
-    transform-origin:700px 115px;
-}
-
-@keyframes hubPulse{
-    0%,100%{ opacity:.88; }
-    50%{ opacity:1; }
-}
-
-.hero-titlewrap{
-    position:relative;
-    z-index:2;
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-
-.hero-mark{
-    width:32px;
-    height:32px;
-    flex-shrink:0;
-    filter:drop-shadow(0 0 5px color-mix(in srgb, var(--accent-1) 50%, transparent));
-}
-
-.hero-title{
-    margin:0;
-    font-family:"Orbitron", "Bahnschrift", "Segoe UI Semibold", "Segoe UI", sans-serif;
-    font-size:20px;
-    font-weight:900;
-    letter-spacing:3px;
-    background:var(--accent-gradient);
-    -webkit-background-clip:text;
-    background-clip:text;
-    color:transparent;
-}
-
-/* Dropped from the compact header — it read fine under the old 200px
-   hero but has no room to breathe at 64px. Kept in the DOM/markup in
-   case a future full-size hero (e.g. a dedicated Home view) wants it
-   back. */
-.hero-tagline{
-    display:none;
+.hero-banner-img{
+    display:block;
+    width:100%;
+    height:auto;
 }
 
 
@@ -1763,9 +1706,13 @@ body.is-fullscreen #mainContent{
 
 /* ================= Notification bell ================= */
 
-#notifyBtn{
+#notifyBtn,
+#suggestBtn,
+#closeLauncherBtn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
     padding:9px 12px;
-    font-size:15px;
 }
 
 /* ================= Wheel modal ================= */

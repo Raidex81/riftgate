@@ -12,7 +12,7 @@
 <svg class="icon-sprite-defs" style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
 <defs>
 
-<linearGradient id="nav-icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+<linearGradient id="nav-icon-gradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
   <stop class="nav-icon-grad-stop-1" offset="0%"/>
   <stop class="nav-icon-grad-stop-2" offset="100%"/>
 </linearGradient>
@@ -115,6 +115,29 @@
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <rect x="7" y="2.5" width="10" height="19" rx="1.6"/>
     <line x1="10.5" y1="19" x2="13.5" y2="19"/>
+  </g>
+</symbol>
+
+<symbol id="icon-notify" viewBox="0 0 24 24">
+  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5 C9.8 3.5 8.2 5.2 8.2 7.5 V10.8 C8.2 12.6 7.4 13.7 6 15 H18 C16.6 13.7 15.8 12.6 15.8 10.8 V7.5 C15.8 5.2 14.2 3.5 12 3.5 Z"/>
+    <path d="M9.8 17.5 a2.2 2.2 0 0 0 4.4 0"/>
+  </g>
+</symbol>
+
+<symbol id="icon-suggest" viewBox="0 0 24 24">
+  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3 A6 6 0 0 0 8.5 13.9 C9.3 14.7 9.7 15.7 9.7 17 H14.3 C14.3 15.7 14.7 14.7 15.5 13.9 A6 6 0 0 0 12 3 Z"/>
+    <line x1="10" y1="20" x2="14" y2="20"/>
+    <line x1="10.5" y1="17.3" x2="10.5" y2="19.3"/>
+    <line x1="13.5" y1="17.3" x2="13.5" y2="19.3"/>
+  </g>
+</symbol>
+
+<symbol id="icon-close" viewBox="0 0 24 24">
+  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.5 6.5 a8 8 0 1 1 -11 0"/>
+    <line x1="12" y1="2.5" x2="12" y2="12"/>
   </g>
 </symbol>
 
@@ -465,104 +488,7 @@
     <div id="mainContent">
 
     <header class="hero-banner">
-
-        <svg class="banner-svg" viewBox="0 0 1400 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="hubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="var(--accent-1)"/>
-                    <stop offset="100%" stop-color="var(--accent-2)"/>
-                </linearGradient>
-                <radialGradient id="hubAmbient" cx="50%" cy="35%" r="65%">
-                    <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.22"/>
-                    <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
-                </radialGradient>
-                <filter id="hubGlow" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation="10" result="blur"/>
-                    <feMerge>
-                        <feMergeNode in="blur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                </filter>
-            </defs>
-
-            <g class="banner-traces" fill="none" stroke="var(--accent-1)" stroke-width="1.5" opacity="0.5">
-                <path d="M700,115 L520,115 L520,42 L230,42"/>
-                <path d="M700,115 L520,115 L520,188 L230,188"/>
-                <path d="M700,115 L880,115 L880,42 L1170,42"/>
-                <path d="M700,115 L880,115 L880,188 L1170,188"/>
-            </g>
-
-            <g class="banner-nodes" fill="var(--accent-1)">
-                <circle cx="520" cy="115" r="3"/>
-                <circle cx="520" cy="42" r="3"/>
-                <circle cx="520" cy="188" r="3"/>
-                <circle cx="880" cy="115" r="3"/>
-                <circle cx="880" cy="42" r="3"/>
-                <circle cx="880" cy="188" r="3"/>
-            </g>
-
-            <g transform="translate(185,15)">
-                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
-                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
-                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-            </g>
-            <g transform="translate(185,161)">
-                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
-                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
-                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-            </g>
-            <g transform="translate(1125,15)">
-                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-2)" stroke-width="1"/>
-                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-2)" opacity="0.65"/>
-                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-            </g>
-            <g transform="translate(1125,161)">
-                <rect width="90" height="55" rx="6" fill="var(--bg-secondary)" stroke="var(--accent-1)" stroke-width="1"/>
-                <rect x="8" y="10" width="74" height="6" rx="2" fill="var(--accent-1)" opacity="0.65"/>
-                <rect x="8" y="22" width="50" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-                <rect x="8" y="32" width="60" height="5" rx="2" fill="var(--text-muted)" opacity="0.5"/>
-            </g>
-
-            <g class="hero-hub" transform="translate(700,115)" filter="url(#hubGlow)">
-                <circle cx="0" cy="0" r="72" fill="url(#hubAmbient)"/>
-                <image href="/assets/riftgate-gem.png" x="-70" y="-70" width="140" height="140"/>
-                <g stroke="var(--accent-2)" stroke-width="2" opacity="0.85">
-                    <line x1="0" y1="-55" x2="0" y2="-68"/>
-                    <line x1="47.6" y1="-27.5" x2="60" y2="-35"/>
-                    <line x1="47.6" y1="27.5" x2="60" y2="35"/>
-                    <line x1="0" y1="55" x2="0" y2="68"/>
-                    <line x1="-47.6" y1="27.5" x2="-60" y2="35"/>
-                    <line x1="-47.6" y1="-27.5" x2="-60" y2="-35"/>
-                </g>
-            </g>
-        </svg>
-
-        <div class="hero-titlewrap">
-            <svg class="hero-mark" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <radialGradient id="hubAmbientSm" cx="50%" cy="35%" r="65%">
-                        <stop offset="0%" stop-color="var(--accent-1)" stop-opacity="0.35"/>
-                        <stop offset="100%" stop-color="var(--accent-1)" stop-opacity="0"/>
-                    </radialGradient>
-                    <filter id="hubGlowSm" x="-100%" y="-100%" width="300%" height="300%">
-                        <feGaussianBlur stdDeviation="5" result="blur"/>
-                        <feMerge>
-                            <feMergeNode in="blur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                    </filter>
-                </defs>
-                <g transform="translate(70,70)" filter="url(#hubGlowSm)">
-                    <circle cx="0" cy="0" r="58" fill="url(#hubAmbientSm)"/>
-                    <image href="/assets/riftgate-gem.png" x="-58" y="-58" width="116" height="116"/>
-                </g>
-            </svg>
-            <h1 class="hero-title">RIFTGATE</h1>
-            <div class="hero-tagline">YOUR GAMES · YOUR APPS · YOUR MEDIA · ONE GATEWAY</div>
-        </div>
+        <img class="hero-banner-img" src="/assets/riftgate-banner.png" alt="Riftgate — All your worlds. One gateway.">
     </header>
 
     <div class="fact-ticker">
@@ -596,13 +522,13 @@
         <button id="adminBtn" class="login-status-btn" title="Log in">🔑 Login</button>
 
         <div class="header-actions">
-            <button id="notifyBtn" title="What's new">🔔</button>
-            <button id="suggestBtn" title="Suggest something">💡</button>
+            <button id="notifyBtn" title="What's new"><svg class="nav-icon"><use href="#icon-notify"></use></svg></button>
+            <button id="suggestBtn" title="Suggest something"><svg class="nav-icon"><use href="#icon-suggest"></use></svg></button>
             <button id="surpriseBtn" title="Surprise me — spin the wheel">
                 <span class="dice-icon">🎲</span>
                 <span class="surprise-label">Surprise Me</span>
             </button>
-            <button id="closeLauncherBtn" title="Close Riftgate">⏻</button>
+            <button id="closeLauncherBtn" title="Close Riftgate"><svg class="nav-icon"><use href="#icon-close"></use></svg></button>
         </div>
     </div>
 
