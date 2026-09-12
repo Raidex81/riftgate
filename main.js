@@ -58,7 +58,6 @@ const DEFAULT_SETTINGS = {
     uiSounds: true,
     startupSound: true,
     ambientBackground: true,
-    lightTheme: false,
     colorTheme: "riftgate",
     lastSeenVersion: null,
     lastSeenTourVersion: null,
@@ -458,12 +457,16 @@ async function findAllInstalledCandidates() {
 
     const combined = [...storeGames, ...shortcutApps];
 
-    // De-dupe by resolved path — the same install can turn up both as a
-    // store manifest entry and a Start Menu shortcut.
+    // De-dupe by resolved path + name — the same install can turn up both
+    // as a store manifest entry and a Start Menu shortcut. Name is part of
+    // the key (not path alone) for the same reason scanStartMenuShortcuts
+    // includes it above: several distinct shortcut-only games can share
+    // one launcher .exe as their path (every Battle.net title, for one),
+    // and deduping by path alone would collapse all of them into one.
     const seenPaths = new Set();
     const deduped = [];
     for (const item of combined) {
-        const key = item.path.toLowerCase();
+        const key = item.path.toLowerCase() + "|" + item.name.toLowerCase();
         if (seenPaths.has(key)) continue;
         seenPaths.add(key);
         deduped.push(item);
@@ -560,7 +563,19 @@ function scanStartMenuShortcuts() {
                     const deduped = [];
                     for (const item of parsed) {
                         if (!item || !item.name || !item.path) continue;
-                        const key = String(item.path).toLowerCase();
+                        // Keyed by path+name, not path alone: every game
+                        // installed through a launcher (Battle.net,
+                        // Ubisoft Connect, GOG Galaxy, EA App, ...) has a
+                        // Start Menu shortcut whose TargetPath is that
+                        // shared launcher .exe, not a path unique to the
+                        // game itself — e.g. every Battle.net title
+                        // (Diablo, Overwatch, WoW, ...) resolves to the
+                        // same "Battle.net.exe". Deduping by path alone
+                        // silently collapsed all of them down to whichever
+                        // one happened to be scanned first, which is why
+                        // titles like Diablo never turned up even though
+                        // their shortcut was right there.
+                        const key = String(item.path).toLowerCase() + "|" + String(item.name).toLowerCase();
                         if (seen.has(key)) continue;
                         seen.add(key);
                         deduped.push({ name: item.name, path: item.path, source: "Detected" });
@@ -4271,6 +4286,44 @@ function openLibraryDocMentionsAny(doc, keywords) {
     return keywords.some((kw) => openLibraryDocMentions(doc, kw));
 }
 
+// Open Library's search.json groups results by WORK, not edition — and a
+// work's "subject" list is the union of every edition's subjects. A classic,
+// centuries-old text (a Shakespeare play, a public-domain novel) that later
+// got a manga/graphic-novel adaptation (e.g. the real "Manga Shakespeare"
+// series, or "Cirque du Freak: The Manga") ends up with "manga"/"comic" in
+// its aggregate subject list even though the specific cover/edition Open
+// Library hands back for that work is the original prose/play, not the
+// adaptation — which is exactly how a Shakespeare title page or a plain
+// novel cover was showing up inside Manga/Comics. first_publish_year is
+// also a work-level minimum across all editions, so it still reflects the
+// ORIGINAL work's date even when the match came from a much later
+// adaptation — making it a reliable, already-fetched signal for filtering
+// these out: manga as a format didn't exist before the mid-20th century,
+// and neither did the modern comic book, so a work whose earliest known
+// edition predates that has to be a false positive from this aggregation
+// quirk, not an actual period-appropriate manga/comic.
+function openLibraryYearIsPlausible(doc, minYear) {
+    if (!minYear || !doc.first_publish_year) return true;
+    return doc.first_publish_year >= minYear;
+}
+
+// A subject string like "Comics, graphic novels, manga" is a broad
+// umbrella tag some libraries file ANY graphic-format book under — it
+// makes a plain Western-style graphic novel (Dog Man, say — nothing
+// Japanese about it) match a bare "manga" keyword search even though it
+// isn't manga at all. A subject genuinely specific to manga is almost
+// never phrased as "comic ... manga" in the same breath, so this requires
+// a subject that mentions manga WITHOUT also reading like one of those
+// umbrella comic/graphic-novel categories.
+function openLibraryDocHasSpecificManga(doc) {
+    if ((doc.title || "").toLowerCase().includes("manga")) return true;
+    const subjects = Array.isArray(doc.subject) ? doc.subject : [];
+    return subjects.some((s) => {
+        const lower = String(s).toLowerCase();
+        return lower.includes("manga") && !lower.includes("comic") && !lower.includes("graphic novel");
+    });
+}
+
 function mapOpenLibraryBook(doc) {
     const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null;
     const workKey = doc.key || null;
@@ -4328,7 +4381,7 @@ async function fetchOpenLibraryBooks(query, sort) {
 // exhausted and there still aren't enough, return what was found
 // rather than padding with bare listings — a shorter, fully-illustrated
 // row beats a full one that's mostly blank placeholders.
-async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword, requireKeywords) {
+async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword, requireKeywords, minYear) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const pageSize = 200;
     const maxPages = 10; // up to 2000 candidates before giving up — Manga/Comics now ask for a much bigger list (150) than the original 40, so this needs more room to find that many with real cover art
@@ -4352,7 +4405,17 @@ async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, exclud
         for (const d of docs) {
             if (!d.title || !d.cover_i) continue;
             if (excludeKeyword && openLibraryDocMentions(d, excludeKeyword)) continue;
-            if (requireKeywords && !openLibraryDocMentionsAny(d, requireKeywords)) continue;
+            // requireKeywords can be a plain keyword list (checked with
+            // openLibraryDocMentionsAny) or a custom predicate function,
+            // for cases like manga that need sharper logic than a bare
+            // substring match (see openLibraryDocHasSpecificManga).
+            if (requireKeywords) {
+                const passes = typeof requireKeywords === "function"
+                    ? requireKeywords(d)
+                    : openLibraryDocMentionsAny(d, requireKeywords);
+                if (!passes) continue;
+            }
+            if (!openLibraryYearIsPlausible(d, minYear)) continue;
             const dedupeKey = d.key || d.cover_edition_key;
             if (dedupeKey) {
                 if (seenKeys.has(dedupeKey)) continue;
@@ -4412,8 +4475,13 @@ ipcMain.handle("get-manga-books", async () => {
     try {
         // Scoped to the actual "manga" subject rather than a loose
         // keyword search, so this doesn't also pull in books that just
-        // mention manga in passing.
-        const books = await fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150, null, ["manga"]);
+        // mention manga in passing. minYear=1950 filters out classic
+        // pre-manga-era works whose only "manga" hit is a much later
+        // adaptation polluting Open Library's work-level subject list
+        // (see openLibraryYearIsPlausible), and openLibraryDocHasSpecificManga
+        // filters out Western comics/graphic novels caught by a broad
+        // "comics, graphic novels, manga" umbrella subject tag.
+        const books = await fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150, null, openLibraryDocHasSpecificManga, 1950);
         saveDataCache("cache-manga-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -4429,8 +4497,10 @@ ipcMain.handle("get-comics-books", async () => {
         // Open Library files a lot of manga under the generic "comics"
         // subject too, so this excludes anything that mentions manga in
         // its own title/subjects — manga always belongs in the Manga
-        // tab, never duplicated into Comics.
-        const books = await fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 150, "manga", ["comic", "graphic novel"]);
+        // tab, never duplicated into Comics. minYear=1930 filters out
+        // classic pre-comic-era works whose only "comic"/"graphic novel"
+        // hit is a much later adaptation (see openLibraryYearIsPlausible).
+        const books = await fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 150, "manga", ["comic", "graphic novel"], 1930);
         saveDataCache("cache-comics-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -4456,9 +4526,14 @@ ipcMain.handle("search-genre-books", async (event, { term, kind } = {}) => {
             10000
         );
         const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
+        // Same work-level-aggregation guard as the default lists above
+        // (see openLibraryYearIsPlausible) — without it, searching Manga
+        // or Comics could still surface a classic work whose only real
+        // link to the genre is a much later adaptation.
+        const minYear = isManga ? 1950 : 1930;
         const scoped = isManga
-            ? docs.filter((d) => openLibraryDocMentions(d, "manga"))
-            : docs.filter((d) => !openLibraryDocMentions(d, "manga") && openLibraryDocMentionsAny(d, ["comic", "graphic novel"]));
+            ? docs.filter((d) => openLibraryDocHasSpecificManga(d) && openLibraryYearIsPlausible(d, minYear))
+            : docs.filter((d) => !openLibraryDocMentions(d, "manga") && openLibraryDocMentionsAny(d, ["comic", "graphic novel"]) && openLibraryYearIsPlausible(d, minYear));
         const books = scoped.filter((d) => d.title).map(mapOpenLibraryBook);
         return { success: true, books };
     } catch (err) {

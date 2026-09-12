@@ -1304,6 +1304,26 @@ body.density-compact .categoryPicker{
     margin-bottom:22px;
 }
 
+.sidebar-user-banner{
+    font-size:12px;
+    color:var(--text-secondary);
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-bottom:12px;
+}
+
+#adminPreviewRoleSwitcher.admin-role-switcher{
+    margin-bottom:10px;
+}
+
+#manageUsersBtn.admin-sidebar-btn{
+    margin-top:0;
+    margin-bottom:18px;
+    width:100%;
+}
+
 .sidebar-diamond{
     width:20px;
     height:20px;

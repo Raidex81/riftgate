@@ -72,6 +72,47 @@ let draggedCategoryKey = null;
 let draggedSectionKey = null;
 let draggedNewBlockKey = null;
 
+// Auto-scrolls the page during ANY drag-to-reorder gesture (library
+// categories, section tabs, New-tab blocks, game/app cards) whenever the
+// pointer nears the top or bottom of the window. Native HTML5 drag-and-drop
+// never scrolls the page on its own, so without this a target sitting above
+// or below the current scroll position is simply impossible to drag onto —
+// this listens at the document level so it works for every drag source at
+// once, rather than being wired into each reorder feature separately.
+let dragAutoScrollSpeed = 0;
+let dragAutoScrollRAF = null;
+
+function stepDragAutoScroll() {
+    if (!dragAutoScrollSpeed) {
+        dragAutoScrollRAF = null;
+        return;
+    }
+    window.scrollBy(0, dragAutoScrollSpeed);
+    dragAutoScrollRAF = requestAnimationFrame(stepDragAutoScroll);
+}
+
+document.addEventListener("dragover", (event) => {
+    const EDGE = 90; // px from the top/bottom edge that starts auto-scrolling
+    const MAX_SPEED = 22; // px per animation frame right at the edge
+    const y = event.clientY;
+    const viewportHeight = window.innerHeight;
+
+    if (y < EDGE) {
+        dragAutoScrollSpeed = -MAX_SPEED * (1 - y / EDGE);
+    } else if (y > viewportHeight - EDGE) {
+        dragAutoScrollSpeed = MAX_SPEED * (1 - (viewportHeight - y) / EDGE);
+    } else {
+        dragAutoScrollSpeed = 0;
+    }
+
+    if (dragAutoScrollSpeed && !dragAutoScrollRAF) {
+        dragAutoScrollRAF = requestAnimationFrame(stepDragAutoScroll);
+    }
+});
+
+document.addEventListener("dragend", () => { dragAutoScrollSpeed = 0; });
+document.addEventListener("drop", () => { dragAutoScrollSpeed = 0; });
+
 // Moves a game to sit right before targetPath within targetCategory
 // (reassigning its category too, if dropped into a different one), then
 // renumbers the whole category's order field and persists it.
@@ -133,7 +174,6 @@ let settings = {
     uiSounds: true,
     startupSound: true,
     ambientBackground: true,
-    lightTheme: false,
     colorTheme: "riftgate",
     launchAtStartup: false,
     defaultCategory: "ask",
@@ -2232,12 +2272,7 @@ const steamId64Input = document.getElementById("steamId64Input");
 const refreshSteamPlaytimeBtn = document.getElementById("refreshSteamPlaytimeBtn");
 const steamPlaytimeStatus = document.getElementById("steamPlaytimeStatus");
 const toggleFullscreen = document.getElementById("toggleFullscreen");
-const toggleLightTheme = document.getElementById("toggleLightTheme");
 const themeButtons = document.querySelectorAll(".themeOption");
-
-function applyTheme(isLight) {
-    document.body.classList.toggle("light-theme", isLight);
-}
 
 function applyColorTheme(themeName) {
     document.body.classList.remove(
@@ -2326,8 +2361,10 @@ function applySettingsToUI() {
     toggleStartupSound.checked = settings.startupSound;
     toggleStartupAnimation.checked = settings.startupAnimation !== false;
     toggleAmbientBg.checked = settings.ambientBackground;
-    toggleLightTheme.checked = settings.lightTheme;
-    applyTheme(settings.lightTheme);
+    // Light theme was removed — force it off unconditionally so anyone
+    // who had it enabled from before reverts to the normal app theme
+    // instead of getting stuck on it with no toggle left to turn it off.
+    document.body.classList.remove("light-theme");
     applyColorTheme(settings.colorTheme || "riftgate");
 
     toggleLaunchAtStartup.checked = settings.launchAtStartup;
@@ -2419,11 +2456,6 @@ toggleUiSounds.addEventListener("change", () => saveSetting("uiSounds", toggleUi
 toggleStartupSound.addEventListener("change", () => saveSetting("startupSound", toggleStartupSound.checked));
 toggleStartupAnimation.addEventListener("change", () => saveSetting("startupAnimation", toggleStartupAnimation.checked));
 toggleAmbientBg.addEventListener("change", () => saveSetting("ambientBackground", toggleAmbientBg.checked));
-
-toggleLightTheme.addEventListener("change", () => {
-    applyTheme(toggleLightTheme.checked);
-    saveSetting("lightTheme", toggleLightTheme.checked);
-});
 
 // --- Custom titlebar (window is frameless) ---------------------------
 
@@ -7902,9 +7934,19 @@ function updateAdminUiVisibility() {
     // Visible from every section (unlike the Vault's own username line),
     // so it's always clear at a glance which account is signed in.
     if (isLoggedIn && settings.username) {
-        currentUsernameLabel.textContent = "👤 " + (isAdminMode ? adminSuffixedName(settings.username) : settings.username);
-        sidebarUserBanner.style.display = "";
-    } else {
+        const displayName = isAdminMode ? adminSuffixedName(settings.username) : settings.username;
+        currentUsernameLabel.textContent = "👤 " + displayName;
+        // sidebarUserBanner didn't actually exist in index.html — reading
+        // its .style off a null getElementById() result threw here every
+        // time, which silently aborted the rest of this function (the
+        // lines below never ran), taking the admin-only sidebar controls
+        // down with it even though isAdminMode was correctly true. Now
+        // guarded, and given real content instead of only being toggled.
+        if (sidebarUserBanner) {
+            sidebarUserBanner.textContent = "👤 Logged in as " + displayName;
+            sidebarUserBanner.style.display = "";
+        }
+    } else if (sidebarUserBanner) {
         sidebarUserBanner.style.display = "none";
     }
     manageUsersBtn.style.display = isAdminMode ? "" : "none";
