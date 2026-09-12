@@ -69,6 +69,8 @@ let sortMode = "name";
 
 let draggedGamePath = null;
 let draggedCategoryKey = null;
+let draggedSectionKey = null;
+let draggedNewBlockKey = null;
 
 // Moves a game to sit right before targetPath within targetCategory
 // (reassigning its category too, if dropped into a different one), then
@@ -139,7 +141,8 @@ let settings = {
     gridDensity: "comfortable",
     trailerVolume: 50,
     runInBackground: false,
-    categoryOrder: ["game", "app", "vr", "other"],
+    categoryOrder: ["game", "vr", "app", "other"],
+    sectionOrder: ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"],
     movieCountry: "US",
     // Deliberately separate from movieCountry (which drives Now Playing /
     // showtimes) — sharing one setting meant changing your country for
@@ -155,7 +158,17 @@ let settings = {
     steamPlaytimesUpdatedAt: null
 };
 
-let CATEGORY_ORDER = ["game", "app", "vr", "other"];
+let CATEGORY_ORDER = ["game", "vr", "app", "other"];
+
+// User-customizable order for the section tabs (New / Installed / Free
+// Games / etc.) — same idea as CATEGORY_ORDER above, but for the sidebar
+// nav list and the persistent top tab strip, which are kept in sync.
+let SECTION_ORDER = ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"];
+
+// The "New" tab's three blocks (Upcoming Games/Movies, New Series) —
+// reorderable the same way the sidebar tabs are, just stacked vertically
+// instead of laid out in a row.
+let NEW_BLOCK_ORDER = ["upcoming-games", "upcoming-movies", "new-series"];
 
 const CATEGORY_LABELS = {
     game: "🎮 Games",
@@ -310,6 +323,71 @@ function closeDescModal() {
 }
 
 descModal.addEventListener("mouseleave", closeDescModal);
+
+// --- Riftgate-styled replacement for window.alert()/window.confirm() -----
+//
+// The OS's own message box looks nothing like the rest of the app, so
+// every alert()/confirm() call below goes through one of these two
+// instead. Both resolve a Promise once the user responds (native confirm()
+// blocks synchronously; this recreates that with async/await at each call
+// site instead), and calls are queued so a second one made while the first
+// is still open doesn't clobber it — the same one-at-a-time guarantee the
+// native dialogs gave for free.
+
+const customAlertModal = document.getElementById("customAlertModal");
+const customAlertTitleEl = document.getElementById("customAlertTitle");
+const customAlertMessageEl = document.getElementById("customAlertMessage");
+const customAlertCancelBtn = document.getElementById("customAlertCancelBtn");
+const customAlertOkBtn = document.getElementById("customAlertOkBtn");
+
+let customAlertResolve = null;
+let customAlertQueue = Promise.resolve();
+
+function closeCustomAlertModal(result) {
+    customAlertModal.classList.remove("active");
+    if (customAlertResolve) {
+        const resolve = customAlertResolve;
+        customAlertResolve = null;
+        resolve(result);
+    }
+}
+
+customAlertOkBtn.addEventListener("click", () => closeCustomAlertModal(true));
+customAlertCancelBtn.addEventListener("click", () => closeCustomAlertModal(false));
+
+customAlertModal.addEventListener("click", (event) => {
+    if (event.target === customAlertModal) closeCustomAlertModal(false);
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && customAlertModal.classList.contains("active")) {
+        closeCustomAlertModal(false);
+    }
+});
+
+function openCustomAlertModal(message, title, showCancel) {
+    return new Promise((resolve) => {
+        customAlertResolve = resolve;
+        customAlertTitleEl.textContent = title || "Riftgate";
+        customAlertMessageEl.textContent = message;
+        customAlertCancelBtn.style.display = showCancel ? "" : "none";
+        customAlertModal.classList.add("active");
+    });
+}
+
+// Drop-in replacement for window.alert(message) — single OK button.
+function showCustomAlert(message, title) {
+    customAlertQueue = customAlertQueue.then(() => openCustomAlertModal(message, title, false));
+    return customAlertQueue;
+}
+
+// Drop-in replacement for window.confirm(message) — resolves true/false
+// depending on OK vs Cancel (or dismissing via the backdrop/Escape, which
+// counts as Cancel, same as the native dialog).
+function showCustomConfirm(message, title) {
+    customAlertQueue = customAlertQueue.then(() => openCustomAlertModal(message, title, true));
+    return customAlertQueue;
+}
 
 // --- Notes & tags modal --------------------------------------------------
 
@@ -851,7 +929,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Movie Night?";
 
         if (wheelGames.length < 2) {
-            alert("No movies loaded yet — open In Theaters first, or add at least 2 games to spin for a game instead.");
+            showCustomAlert("No movies loaded yet — open In Theaters first, or add at least 2 games to spin for a game instead.");
             return;
         }
     } else if (currentSection === "free-games") {
@@ -874,7 +952,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Free Game Time?";
 
         if (wheelGames.length < 2) {
-            alert("Not enough free games match your current filter to spin — try widening it, or give the list a moment to load.");
+            showCustomAlert("Not enough free games match your current filter to spin — try widening it, or give the list a moment to load.");
             return;
         }
     } else if (currentSection === "reading-room" && activeReadingRoomTab === "library") {
@@ -883,7 +961,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Pick Something to Read?";
 
         if (wheelGames.length < 2) {
-            alert("Add at least 2 books to your library to spin the wheel!");
+            showCustomAlert("Add at least 2 books to your library to spin the wheel!");
             return;
         }
     } else if (currentSection === "reading-room" && activeReadingRoomTab === "discover") {
@@ -902,7 +980,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Discover a New Book?";
 
         if (wheelGames.length < 2) {
-            alert("Free eBooks haven't loaded yet — give it a moment and try again.");
+            showCustomAlert("Free eBooks haven't loaded yet — give it a moment and try again.");
             return;
         }
     } else if (currentSection === "reading-room" && activeReadingRoomTab === "buyfree") {
@@ -921,7 +999,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Find Something to Buy?";
 
         if (wheelGames.length < 2) {
-            alert("Buy Books hasn't loaded yet — give it a moment and try again.");
+            showCustomAlert("Buy Books hasn't loaded yet — give it a moment and try again.");
             return;
         }
     } else {
@@ -933,7 +1011,7 @@ function openWheelModal() {
         wheelTitle.textContent = "Feeling lucky?";
 
         if (wheelGames.length < 2) {
-            alert("Not enough games match your current search to spin — clear the search, or add more games!");
+            showCustomAlert("Not enough games match your current search to spin — clear the search, or add more games!");
             return;
         }
     }
@@ -1027,7 +1105,7 @@ wheelPlayBtn.addEventListener("click", async () => {
         }
     } else if (wheelMode === "readingdiscover") {
         if (!wheelWinner.downloadUrl) {
-            alert("No EPUB download is available for this book.");
+            showCustomAlert("No EPUB download is available for this book.");
         } else {
             const result = await window.riftgate.invoke("download-free-ebook", wheelWinner);
             if (result.success) {
@@ -1042,7 +1120,7 @@ wheelPlayBtn.addEventListener("click", async () => {
                 });
                 if (activeReadingRoomTab === "library") renderReadingRoom();
             } else if (!result.duplicate) {
-                alert(result.error || "Download failed.");
+                showCustomAlert(result.error || "Download failed.");
             }
         }
     } else if (wheelMode === "readingbuy") {
@@ -1050,7 +1128,7 @@ wheelPlayBtn.addEventListener("click", async () => {
         if (link) {
             window.riftgate.invoke("open-external", link);
         } else {
-            alert("No link available for this book.");
+            showCustomAlert("No link available for this book.");
         }
     } else {
         await window.riftgate.invoke("launch-app", wheelWinner.path);
@@ -1326,7 +1404,7 @@ let manualUpdateCheckInProgress = false;
 
 window.riftgate.on("update-not-available", () => {
     if (manualUpdateCheckInProgress) {
-        alert("You're already on the latest version of Riftgate.");
+        showCustomAlert("You're already on the latest version of Riftgate.");
         manualUpdateCheckInProgress = false;
     }
 });
@@ -1335,7 +1413,7 @@ window.riftgate.on("update-error", (message) => {
     console.error("[updater]", message);
     updateModal.classList.remove("active");
     if (manualUpdateCheckInProgress) {
-        alert(`Couldn't check for updates: ${message}`);
+        showCustomAlert(`Couldn't check for updates: ${message}`);
         manualUpdateCheckInProgress = false;
     }
 });
@@ -1392,6 +1470,11 @@ async function checkForUpdatePopup() {
     // every historical version's notes before the user's even touched the
     // app (see GENERAL_TOUR / maybeRunFeatureTour).
     if (!isFirstRunEver && settings.lastSeenVersion !== appVersion) {
+        // A real update, not a first-ever install — clear the one New-tab
+        // cache that persists across restarts so its next load is a
+        // genuinely fresh fetch under this version's logic, not whatever
+        // got cached under the version being upgraded from.
+        window.riftgate.invoke("clear-new-section-cache");
         openChangelogModal();
         saveSetting("lastSeenVersion", appVersion);
 
@@ -1435,7 +1518,7 @@ const GENERAL_TOUR = [
         section: null,
         selector: "#sectionPill",
         title: "Your main menu",
-        description: "Click here to jump between New, Installed, Free Games, Theatre, Reading Room, Applications, and The Vault."
+        description: "Jump between New, Installed, Free Games, Theatre, Reading Room, Applications, and The Vault right here."
     },
     {
         section: null,
@@ -1725,15 +1808,21 @@ importYesBtn.addEventListener("click", async () => {
         }
     }
 
-    if (!cover) {
-        cover = "covers/default.jpg";
+    // A plain Windows shortcut/tool (as opposed to a Steam/Epic game)
+    // essentially never has real cover art to find — falling back to the
+    // same generic "no cover" placeholder used for games made it look
+    // like a failed game-cover lookup. A dedicated placeholder shared
+    // across every such tool reads instead as "this is a system tool,"
+    // which is the actual, expected case.
+    if (!cover || cover === "covers/default.jpg") {
+        cover = currentImport.source === "Detected" ? "covers/windows-tool-default.jpg" : "covers/default.jpg";
     }
 
     const game = {
         name: gameName,
         path: currentImport.path,
         image: cover,
-        category: "game"
+        category: currentImport.source === "Detected" ? "app" : "game"
     };
 
     if (override && override.trailerId) {
@@ -1756,14 +1845,22 @@ async function checkForNewGames() {
     }
 }
 
-// --- Manual "Scan for Apps & Games" — checklist version of the above ---
+// --- Manual "Scan for Apps & Games" — cover-tile grid picker ---
+//
+// Each found item is shown as a cover-art tile (real cover art when
+// find-cover can match one locally, the shared Windows-tool placeholder
+// otherwise) rather than a plain text row. Clicking a tile toggles it
+// in/out of the "Add Selected" batch; the three buttons above the grid
+// are bulk-select shortcuts by type rather than a view filter, so every
+// found item stays visible regardless of which one was last clicked.
 
 const scanInstalledBtn = document.getElementById("scanInstalledBtn");
 const scanResultsModal = document.getElementById("scanResultsModal");
 const scanResultsSummary = document.getElementById("scanResultsSummary");
 const scanResultsList = document.getElementById("scanResultsList");
-const scanResultsSelectAllBtn = document.getElementById("scanResultsSelectAllBtn");
-const scanResultsSelectNoneBtn = document.getElementById("scanResultsSelectNoneBtn");
+const scanResultsGamesOnlyBtn = document.getElementById("scanResultsGamesOnlyBtn");
+const scanResultsAppsOnlyBtn = document.getElementById("scanResultsAppsOnlyBtn");
+const scanResultsBothBtn = document.getElementById("scanResultsBothBtn");
 const scanResultsCancelBtn = document.getElementById("scanResultsCancelBtn");
 const scanResultsAddBtn = document.getElementById("scanResultsAddBtn");
 
@@ -1774,6 +1871,24 @@ function closeScanResultsModal() {
     scanResultsList.innerHTML = "";
     scanResultsCache = [];
 }
+
+function setScanTileSelected(tile, selected) {
+    tile.classList.toggle("selected", selected);
+    tile.querySelector(".scan-tile-toggle").textContent = selected ? "✓" : "+";
+}
+
+function applyScanResultsTypeSelection(mode) {
+    scanResultsList.querySelectorAll(".scan-tile").forEach((tile) => {
+        const isGame = tile.dataset.category === "game";
+        const matches = mode === "both" || (mode === "game" && isGame) || (mode === "app" && !isGame);
+        tile.style.display = matches ? "" : "none";
+        setScanTileSelected(tile, matches);
+    });
+}
+
+scanResultsGamesOnlyBtn.addEventListener("click", () => applyScanResultsTypeSelection("game"));
+scanResultsAppsOnlyBtn.addEventListener("click", () => applyScanResultsTypeSelection("app"));
+scanResultsBothBtn.addEventListener("click", () => applyScanResultsTypeSelection("both"));
 
 scanInstalledBtn.addEventListener("click", async () => {
     scanInstalledBtn.disabled = true;
@@ -1789,60 +1904,105 @@ scanInstalledBtn.addEventListener("click", async () => {
     }
 
     if (!found || found.length === 0) {
-        alert("No new apps or games found — everything Riftgate could detect is already in your library.");
+        showCustomAlert("No new apps or games found — everything Riftgate could detect is already in your library.");
         return;
     }
 
     scanResultsCache = found;
-    scanResultsSummary.textContent = `Found ${found.length} app${found.length === 1 ? "" : "s"}/game${found.length === 1 ? "" : "s"} not yet in Riftgate. Uncheck anything you don't want, then Add Selected.`;
+    scanResultsSummary.textContent = `Found ${found.length} app${found.length === 1 ? "" : "s"}/game${found.length === 1 ? "" : "s"} not yet in Riftgate. Games are pre-selected — click a tile to include or exclude it, then Add Selected.`;
     scanResultsList.innerHTML = "";
 
+    // A quick local cover lookup (find-cover only reads the local covers
+    // folder — no network) so the grid can show real box art immediately
+    // where one already exists. Run in parallel, unlike the sequential
+    // add step below — this part never touches the online lookup, so
+    // there's no proxy/rate concern here. The slower online lookup still
+    // only runs per selected item at Add time.
+    const previews = await Promise.all(found.map(async (item) => {
+        const category = item.source === "Detected" ? "app" : "game";
+
+        if (category === "app") {
+            // The exe path this came from is real and already verified to
+            // exist, so ask Windows for that file's own icon first — a
+            // proper, recognizable per-app icon with no lookup needed.
+            const fileIcon = await window.riftgate.invoke("get-file-icon", item.path);
+            if (fileIcon) return { category, previewCover: fileIcon };
+
+            let previewCover = await window.riftgate.invoke("find-cover", item.name);
+            if (!previewCover || previewCover === "covers/default.jpg") {
+                previewCover = "covers/windows-tool-default.jpg";
+            }
+            return { category, previewCover };
+        }
+
+        // Games: local cache first (instant), and only reach out to
+        // SteamGridDB if nothing's cached yet. A scan only ever turns up a
+        // handful of new "game" entries at once (Steam/Epic manifests
+        // only — Start Menu apps are never tagged "game" here), so adding
+        // the network lookup for just these doesn't slow the grid down.
+        let previewCover = await window.riftgate.invoke("find-cover", item.name);
+        if (!previewCover || previewCover === "covers/default.jpg") {
+            const online = await window.riftgate.invoke("fetch-online-cover", item.name);
+            previewCover = online || "covers/default.jpg";
+        }
+        return { category, previewCover };
+    }));
+
     found.forEach((item, index) => {
-        const row = document.createElement("div");
-        row.className = "scan-result-row";
-        // item.name/path/source come from local shortcuts and store
-        // manifests on the user's own machine, but still go through
-        // textContent below rather than innerHTML out of caution.
-        row.innerHTML = `
-            <label class="scan-result-check">
-                <input type="checkbox" checked data-index="${index}">
-                <span class="scan-result-name"></span>
-            </label>
-            <span class="scan-result-source"></span>
-            <select class="scan-result-category">
-                <option value="game">Game</option>
-                <option value="app">App</option>
-            </select>
+        const { category, previewCover } = previews[index];
+
+        const tile = document.createElement("div");
+        tile.className = "scan-tile" + (category === "game" ? " selected" : "");
+        tile.dataset.index = index;
+        tile.dataset.category = category;
+        // item.name/source come from local shortcuts and store manifests
+        // on the user's own machine, but still go through textContent
+        // below rather than innerHTML out of caution.
+        tile.innerHTML = `
+            <img alt="">
+            <span class="scan-tile-source"></span>
+            <span class="scan-tile-toggle">${category === "game" ? "✓" : "+"}</span>
+            <span class="scan-tile-label"></span>
         `;
-        row.querySelector(".scan-result-name").textContent = item.name;
-        row.querySelector(".scan-result-source").textContent = item.source;
-        row.querySelector(".scan-result-category").value = item.source === "Detected" ? "app" : "game";
-        scanResultsList.appendChild(row);
+        const scanTileImg = tile.querySelector("img");
+        scanTileImg.alt = item.name;
+        const scanTileFallback = category === "app" ? "covers/windows-tool-default.jpg" : "covers/default.jpg";
+        scanTileImg.onerror = () => {
+            // If the src that just failed IS already the fallback, don't
+            // retry that same (apparently broken) path — step down to the
+            // plain universal default instead.
+            const nextFallback = scanTileImg.getAttribute("src") === scanTileFallback ? "covers/default.jpg" : scanTileFallback;
+            scanTileImg.onerror = nextFallback === "covers/default.jpg" ? null : () => {
+                scanTileImg.onerror = null;
+                scanTileImg.src = "covers/default.jpg";
+            };
+            scanTileImg.src = nextFallback;
+        };
+        scanTileImg.src = previewCover;
+        tile.querySelector(".scan-tile-source").textContent = item.source;
+        tile.querySelector(".scan-tile-label").textContent = item.name;
+
+        tile.addEventListener("click", () => {
+            setScanTileSelected(tile, !tile.classList.contains("selected"));
+        });
+
+        scanResultsList.appendChild(tile);
     });
 
     scanResultsModal.classList.add("active");
 });
 
-scanResultsSelectAllBtn.addEventListener("click", () => {
-    scanResultsList.querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = true; });
-});
-
-scanResultsSelectNoneBtn.addEventListener("click", () => {
-    scanResultsList.querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = false; });
-});
-
 scanResultsCancelBtn.addEventListener("click", closeScanResultsModal);
 
 scanResultsAddBtn.addEventListener("click", async () => {
-    const rows = Array.from(scanResultsList.querySelectorAll(".scan-result-row"));
+    const tiles = Array.from(scanResultsList.querySelectorAll(".scan-tile"));
     const selected = [];
 
-    rows.forEach((row, index) => {
-        const checkbox = row.querySelector("input[type=checkbox]");
-        if (checkbox.checked) {
+    tiles.forEach((tile) => {
+        if (tile.classList.contains("selected")) {
             selected.push({
-                ...scanResultsCache[index],
-                category: row.querySelector(".scan-result-category").value
+                ...scanResultsCache[Number(tile.dataset.index)],
+                category: tile.dataset.category
             });
         }
     });
@@ -1869,7 +2029,13 @@ scanResultsAddBtn.addEventListener("click", async () => {
                     cover = await window.riftgate.invoke("fetch-online-cover", item.name);
                 }
             }
-            if (!cover) cover = "covers/default.jpg";
+
+            // Same reasoning as the single-item import prompt above — a
+            // detected Windows tool gets its own shared placeholder cover
+            // instead of the generic game "no cover" one.
+            if (!cover || cover === "covers/default.jpg") {
+                cover = item.source === "Detected" ? "covers/windows-tool-default.jpg" : "covers/default.jpg";
+            }
 
             const game = {
                 name: item.name,
@@ -1892,6 +2058,139 @@ scanResultsAddBtn.addEventListener("click", async () => {
     scanResultsAddBtn.disabled = false;
     scanResultsAddBtn.textContent = "Add Selected";
     closeScanResultsModal();
+});
+
+// --- Manual "Remove Apps & Games" — cover-tile grid picker, mirrors the
+// Scan grid above but the opposite direction: lists everything already
+// in the library (using its own already-known cover) so a batch can be
+// selected/removed in one pass instead of one at a time via each card's
+// own X button. Nothing is pre-selected here, since removing is
+// destructive — unlike the Scan grid, silence means "leave it alone."
+
+const removeAppsBtn = document.getElementById("removeAppsBtn");
+const removeResultsModal = document.getElementById("removeResultsModal");
+const removeResultsSummary = document.getElementById("removeResultsSummary");
+const removeResultsList = document.getElementById("removeResultsList");
+const removeResultsGamesOnlyBtn = document.getElementById("removeResultsGamesOnlyBtn");
+const removeResultsAppsOnlyBtn = document.getElementById("removeResultsAppsOnlyBtn");
+const removeResultsBothBtn = document.getElementById("removeResultsBothBtn");
+const removeResultsCancelBtn = document.getElementById("removeResultsCancelBtn");
+const removeResultsRemoveBtn = document.getElementById("removeResultsRemoveBtn");
+
+let removeResultsCache = [];
+
+function closeRemoveResultsModal() {
+    removeResultsModal.classList.remove("active");
+    removeResultsList.innerHTML = "";
+    removeResultsCache = [];
+}
+
+function setRemoveTileSelected(tile, selected) {
+    tile.classList.toggle("selected", selected);
+    tile.querySelector(".scan-tile-toggle").textContent = selected ? "✓" : "+";
+}
+
+// "Both" selects every item regardless of category. Games Only/Apps Only
+// leave VR/Other tiles exactly as they were, rather than deselecting
+// them, since neither button claims to speak for those categories.
+function applyRemoveResultsTypeSelection(mode) {
+    removeResultsList.querySelectorAll(".scan-tile").forEach((tile) => {
+        const category = tile.dataset.category;
+        const matches = mode === "both" ? true : category === mode;
+        tile.style.display = matches ? "" : "none";
+        setRemoveTileSelected(tile, matches);
+    });
+}
+
+removeResultsGamesOnlyBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("game"));
+removeResultsAppsOnlyBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("app"));
+removeResultsBothBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("both"));
+
+removeAppsBtn.addEventListener("click", () => {
+    if (allGames.length === 0) {
+        showCustomAlert("Your library is empty — nothing to remove.");
+        return;
+    }
+
+    removeResultsCache = [...allGames].sort((a, b) => a.name.localeCompare(b.name));
+    removeResultsSummary.textContent = `${removeResultsCache.length} item${removeResultsCache.length === 1 ? "" : "s"} in your library. Click a tile to select it, then Remove Selected.`;
+    removeResultsList.innerHTML = "";
+
+    removeResultsCache.forEach((item, index) => {
+        const category = item.category || "game";
+
+        const tile = document.createElement("div");
+        tile.className = "scan-tile";
+        tile.dataset.index = index;
+        tile.dataset.category = category;
+        // item.name comes from the user's own saved library entry, but a
+        // game's name can itself originate from an untrusted .exe
+        // version-resource string or an online listing — still routed
+        // through textContent below rather than innerHTML out of caution.
+        tile.innerHTML = `
+            <img alt="">
+            <span class="scan-tile-source"></span>
+            <span class="scan-tile-toggle">+</span>
+            <span class="scan-tile-label"></span>
+        `;
+        const removeTileImg = tile.querySelector("img");
+        removeTileImg.alt = item.name;
+        removeTileImg.onerror = () => {
+            removeTileImg.onerror = null;
+            removeTileImg.src = "covers/default.jpg";
+        };
+        removeTileImg.src = item.image || "covers/default.jpg";
+        tile.querySelector(".scan-tile-source").textContent = CATEGORY_LABELS[category] || "";
+        tile.querySelector(".scan-tile-label").textContent = item.name;
+
+        tile.addEventListener("click", () => {
+            setRemoveTileSelected(tile, !tile.classList.contains("selected"));
+        });
+
+        removeResultsList.appendChild(tile);
+    });
+
+    removeResultsModal.classList.add("active");
+});
+
+removeResultsCancelBtn.addEventListener("click", closeRemoveResultsModal);
+
+removeResultsRemoveBtn.addEventListener("click", async () => {
+    const tiles = Array.from(removeResultsList.querySelectorAll(".scan-tile"));
+    const selected = [];
+
+    tiles.forEach((tile) => {
+        if (tile.classList.contains("selected")) {
+            selected.push(removeResultsCache[Number(tile.dataset.index)]);
+        }
+    });
+
+    if (selected.length === 0) {
+        closeRemoveResultsModal();
+        return;
+    }
+
+    const confirmed = !settings.confirmBeforeRemove || await showCustomConfirm(
+        `Remove ${selected.length} item${selected.length === 1 ? "" : "s"} from Riftgate? This only removes ${selected.length === 1 ? "it" : "them"} from the library list — installed files aren't touched.`
+    );
+    if (!confirmed) return;
+
+    removeResultsRemoveBtn.disabled = true;
+    removeResultsRemoveBtn.textContent = "Removing…";
+
+    for (const item of selected) {
+        try {
+            await window.riftgate.invoke("remove-game", item.path);
+            allGames = allGames.filter((g) => g.path !== item.path);
+        } catch (err) {
+            console.error("[remove] failed to remove", item.name, err);
+        }
+    }
+
+    renderLibrary();
+    removeResultsRemoveBtn.disabled = false;
+    removeResultsRemoveBtn.textContent = "Remove Selected";
+    closeRemoveResultsModal();
 });
 
 // --- Category modal (used when adding a new entry) ---------------------
@@ -2056,6 +2355,26 @@ async function loadSettings() {
         CATEGORY_ORDER = settings.categoryOrder;
     }
 
+    if (Array.isArray(settings.sectionOrder)) {
+        const knownSections = new Set(SECTION_ORDER);
+        const restoredOrder = settings.sectionOrder.filter((key) => knownSections.has(key));
+        SECTION_ORDER.forEach((key) => {
+            if (!restoredOrder.includes(key)) restoredOrder.push(key);
+        });
+        SECTION_ORDER = restoredOrder;
+        applySectionOrder();
+    }
+
+    if (Array.isArray(settings.newBlockOrder)) {
+        const knownBlocks = new Set(NEW_BLOCK_ORDER);
+        const restoredBlockOrder = settings.newBlockOrder.filter((key) => knownBlocks.has(key));
+        NEW_BLOCK_ORDER.forEach((key) => {
+            if (!restoredBlockOrder.includes(key)) restoredBlockOrder.push(key);
+        });
+        NEW_BLOCK_ORDER = restoredBlockOrder;
+        applyNewBlockOrder();
+    }
+
     applySettingsToUI();
 }
 
@@ -2156,15 +2475,15 @@ exportBackupBtn.addEventListener("click", async () => {
     if (result.canceled) return;
 
     if (!result.success) {
-        alert(result.error || "Couldn't create the backup.");
+        showCustomAlert(result.error || "Couldn't create the backup.");
         return;
     }
 
-    alert(`Backup saved to:\n${result.path}`);
+    showCustomAlert(`Backup saved to:\n${result.path}`);
 });
 
 importBackupBtn.addEventListener("click", async () => {
-    if (!confirm("Importing a backup will replace your current library, watchlist, notes, and settings with what's in the backup file. Continue?")) {
+    if (!await showCustomConfirm("Importing a backup will replace your current library, watchlist, notes, and settings with what's in the backup file. Continue?")) {
         return;
     }
 
@@ -2175,12 +2494,11 @@ importBackupBtn.addEventListener("click", async () => {
     if (result.canceled) return;
 
     if (!result.success) {
-        alert(result.error || "Couldn't import that backup.");
+        showCustomAlert(result.error || "Couldn't import that backup.");
         return;
     }
 
-    alert("Backup imported. Riftgate will now reload to apply it.");
-    location.reload();
+    showCustomAlert("Backup imported. Riftgate will now reload to apply it.").then(() => location.reload());
 });
 
 openDataFolderBtn.addEventListener("click", () => {
@@ -2217,80 +2535,41 @@ function playStartupChime() {
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
 
-    // A quick rising energy sweep right at the start, like the gem
-    // gathering light before its pieces snap into place.
-    const whoosh = ctx.createOscillator();
-    const whooshGain = ctx.createGain();
-    const whooshFilter = ctx.createBiquadFilter();
+    // A soft, filtered pad swell right at the start — a gentle rise in
+    // volume and brightness rather than the old sawtooth "energy sweep",
+    // closer to the quiet startup/notification sound of a modern app
+    // (macOS, Slack) than a game effect.
+    const pad = ctx.createOscillator();
+    const padGain = ctx.createGain();
+    const padFilter = ctx.createBiquadFilter();
 
-    whoosh.type = "sawtooth";
-    whooshFilter.type = "bandpass";
-    whooshFilter.Q.value = 0.8;
-    whooshFilter.frequency.setValueAtTime(200, now);
-    whooshFilter.frequency.exponentialRampToValueAtTime(2200, now + 0.22);
+    pad.type = "sine";
+    pad.frequency.setValueAtTime(220, now);
+    pad.frequency.exponentialRampToValueAtTime(330, now + 0.5);
 
-    whoosh.frequency.setValueAtTime(80, now);
-    whoosh.frequency.exponentialRampToValueAtTime(500, now + 0.22);
+    padFilter.type = "lowpass";
+    padFilter.Q.value = 0.3;
+    padFilter.frequency.setValueAtTime(400, now);
+    padFilter.frequency.exponentialRampToValueAtTime(2200, now + 0.5);
 
-    whooshGain.gain.setValueAtTime(0, now);
-    whooshGain.gain.linearRampToValueAtTime(0.05, now + 0.05);
-    whooshGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+    padGain.gain.setValueAtTime(0, now);
+    padGain.gain.linearRampToValueAtTime(0.07, now + 0.22);
+    padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
 
-    whoosh.connect(whooshFilter).connect(whooshGain).connect(ctx.destination);
-    whoosh.start(now);
-    whoosh.stop(now + 0.26);
+    pad.connect(padFilter).connect(padGain).connect(ctx.destination);
+    pad.start(now);
+    pad.stop(now + 0.6);
 
-    // Six quick, percussive "pieces snapping together" ticks — one per
-    // facet — timed to land roughly as each one assembles, alternating
-    // timbre slightly so it doesn't feel like the same sound repeating.
-    const clicks = [
-        { freq: 1100, start: 0.05, type: "triangle" },
-        { freq: 1300, start: 0.17, type: "square" },
-        { freq: 1500, start: 0.29, type: "triangle" },
-        { freq: 1350, start: 0.41, type: "square" },
-        { freq: 1600, start: 0.53, type: "triangle" },
-        { freq: 1800, start: 0.65, type: "square" }
+    // A plain two-note chime once the gem settles — a single rising
+    // interval, each note one soft sine tone with a slow attack/release,
+    // instead of the old six-click "assembly" percussion plus a four-note
+    // arpeggio and high sparkle.
+    const chime = [
+        { freq: 523.25, start: 0.55, dur: 0.55 }, // C5
+        { freq: 783.99, start: 0.78, dur: 0.75 }  // G5
     ];
 
-    clicks.forEach((c) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = c.type;
-        osc.frequency.value = c.freq;
-
-        gain.gain.setValueAtTime(0, now + c.start);
-        gain.gain.linearRampToValueAtTime(0.11, now + c.start + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + c.start + 0.09);
-
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now + c.start);
-        osc.stop(now + c.start + 0.12);
-    });
-
-    // Fuller resolving chord once the gem is fully formed — added a fifth
-    // note and a low sub-thump underneath for more weight than a plain
-    // three-note arpeggio.
-    const subThump = ctx.createOscillator();
-    const subGain = ctx.createGain();
-    subThump.type = "sine";
-    subThump.frequency.setValueAtTime(110, now + 0.75);
-    subThump.frequency.exponentialRampToValueAtTime(55, now + 1.0);
-    subGain.gain.setValueAtTime(0, now + 0.75);
-    subGain.gain.linearRampToValueAtTime(0.18, now + 0.78);
-    subGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
-    subThump.connect(subGain).connect(ctx.destination);
-    subThump.start(now + 0.75);
-    subThump.stop(now + 1.15);
-
-    const notes = [
-        { freq: 440.00, start: 0.75, dur: 0.30 },
-        { freq: 659.25, start: 0.85, dur: 0.42 },
-        { freq: 880.00, start: 0.95, dur: 0.55 },
-        { freq: 1108.73, start: 1.05, dur: 0.6 }
-    ];
-
-    notes.forEach((n) => {
+    chime.forEach((n) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
@@ -2298,7 +2577,7 @@ function playStartupChime() {
         osc.frequency.value = n.freq;
 
         gain.gain.setValueAtTime(0, now + n.start);
-        gain.gain.linearRampToValueAtTime(0.15, now + n.start + 0.04);
+        gain.gain.linearRampToValueAtTime(0.12, now + n.start + 0.08);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
 
         osc.connect(gain).connect(ctx.destination);
@@ -2306,24 +2585,18 @@ function playStartupChime() {
         osc.stop(now + n.start + n.dur + 0.05);
     });
 
-    // A brief high sparkle timed with the gem's glossy highlight fading
-    // in, like light catching a facet.
-    [2637, 3520].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const start = 0.85 + i * 0.06;
-
-        osc.type = "sine";
-        osc.frequency.value = freq;
-
-        gain.gain.setValueAtTime(0, now + start);
-        gain.gain.linearRampToValueAtTime(0.05, now + start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + 0.35);
-
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now + start);
-        osc.stop(now + start + 0.4);
-    });
+    // A very soft low undertone beneath the second note, for a touch of
+    // weight without the old sub-thump's punch.
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = "sine";
+    sub.frequency.value = 130.81; // C3
+    subGain.gain.setValueAtTime(0, now + 0.78);
+    subGain.gain.linearRampToValueAtTime(0.06, now + 0.9);
+    subGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
+    sub.connect(subGain).connect(ctx.destination);
+    sub.start(now + 0.78);
+    sub.stop(now + 1.35);
 }
 
 let lastHoveredEl = null;
@@ -2443,7 +2716,11 @@ function renderLibrary() {
 
     // A short "Your Library" line up top gives the page something to say
     // even when only a couple of items are installed, instead of a
-    // couple of cards followed by a lot of unexplained empty space.
+    // couple of cards followed by a lot of unexplained empty space. A
+    // "Clear All" button sits alongside it — the single top-level
+    // control for wiping the whole library at once, as opposed to each
+    // section's own "Clear" button below which only touches that one
+    // category.
     if (allGames.length > 0) {
         const counted = CATEGORY_ORDER
             .map((category) => ({
@@ -2453,12 +2730,40 @@ function renderLibrary() {
             .filter((c) => c.count > 0);
 
         if (counted.length > 0) {
+            const summaryRow = document.createElement("div");
+            summaryRow.className = "library-summary-row";
+
             const summary = document.createElement("div");
             summary.className = "library-summary";
             summary.textContent = "Your Library — " + counted
                 .map((c) => LIBRARY_SUMMARY_LABELS[c.category](c.count))
                 .join(" · ");
-            libraryContainer.appendChild(summary);
+            summaryRow.appendChild(summary);
+
+            const clearAllBtn = document.createElement("button");
+            clearAllBtn.className = "clear-section-btn clear-all-btn";
+            clearAllBtn.title = "Remove every item from your library";
+            clearAllBtn.textContent = "🗑️ Clear All";
+            clearAllBtn.addEventListener("click", async () => {
+                const total = allGames.length;
+                const confirmed = await showCustomConfirm(`Remove all ${total} item${total === 1 ? "" : "s"} from your entire library? This only removes them from Riftgate's list — installed files aren't touched. This cannot be undone.`);
+                if (!confirmed) return;
+
+                clearAllBtn.disabled = true;
+                const toRemove = [...allGames];
+                for (const item of toRemove) {
+                    try {
+                        await window.riftgate.invoke("remove-game", item.path);
+                    } catch (err) {
+                        console.error("[clear-all] failed to remove", item.name, err);
+                    }
+                }
+                allGames = [];
+                renderLibrary();
+            });
+            summaryRow.appendChild(clearAllBtn);
+
+            libraryContainer.appendChild(summaryRow);
         }
     }
 
@@ -2527,7 +2832,44 @@ function renderLibrary() {
             renderLibrary();
         });
 
-        section.appendChild(heading);
+        const headingRow = document.createElement("div");
+        headingRow.className = "category-heading-row";
+        headingRow.appendChild(heading);
+
+        // Per-section "Clear" — removes only this one category's items,
+        // as opposed to the single "Clear All" button above the whole
+        // list which wipes every section at once. Hidden for a category
+        // that's genuinely empty (there's nothing to clear), but still
+        // shown while a search happens to hide all of its items, since
+        // it operates on the whole category, not just what's visible.
+        if (totalInCategory > 0) {
+            const clearSectionBtn = document.createElement("button");
+            clearSectionBtn.className = "clear-section-btn";
+            clearSectionBtn.title = `Remove all ${CATEGORY_LABELS[category]} items from your library`;
+            clearSectionBtn.textContent = "🧹 Clear";
+            clearSectionBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                const itemsInCategory = allGames.filter((g) => (g.category || "game") === category);
+                if (itemsInCategory.length === 0) return;
+
+                const confirmed = await showCustomConfirm(`Remove all ${itemsInCategory.length} item${itemsInCategory.length === 1 ? "" : "s"} from ${CATEGORY_LABELS[category]}? This only removes them from Riftgate's list — installed files aren't touched. This cannot be undone.`);
+                if (!confirmed) return;
+
+                clearSectionBtn.disabled = true;
+                for (const item of itemsInCategory) {
+                    try {
+                        await window.riftgate.invoke("remove-game", item.path);
+                    } catch (err) {
+                        console.error("[clear-section] failed to remove", item.name, err);
+                    }
+                }
+                allGames = allGames.filter((g) => (g.category || "game") !== category);
+                renderLibrary();
+            });
+            headingRow.appendChild(clearSectionBtn);
+        }
+
+        section.appendChild(headingRow);
 
         const grid = document.createElement("div");
         grid.className = "games-grid";
@@ -2566,7 +2908,7 @@ function renderLibrary() {
             grid.appendChild(hint);
         } else {
             gamesInCategory.forEach((game) => {
-                const card = buildCard(game);
+                const card = buildCard(game, gamesInCategory);
                 grid.appendChild(card);
 
                 if (!game.description) {
@@ -2615,7 +2957,7 @@ function formatPlaytime(seconds) {
     return `⏱ ${minutes}m`;
 }
 
-function buildCard(game) {
+function buildCard(game, navList) {
 
     const card = document.createElement("div");
 
@@ -2700,7 +3042,7 @@ function buildCard(game) {
             // our polling can't follow, so "Running" can occasionally get
             // stuck even after the app closed — clicking it again lets the
             // user manually clear that.
-            const confirmed = confirm(`Still shows as Running. Has ${game.name} actually closed?`);
+            const confirmed = await showCustomConfirm(`Still shows as Running. Has ${game.name} actually closed?`);
             if (confirmed) {
                 await window.riftgate.invoke("force-stop-tracking", game.path);
                 launchBtn.textContent = "Launch";
@@ -2746,7 +3088,7 @@ function buildCard(game) {
         .addEventListener("click", async () => {
 
             const confirmed =
-                !settings.confirmBeforeRemove || confirm(`Remove ${game.name}?`);
+                !settings.confirmBeforeRemove || await showCustomConfirm(`Remove ${game.name}?`);
 
             if (!confirmed) return;
 
@@ -2764,7 +3106,7 @@ function buildCard(game) {
         uninstallBtn.addEventListener("click", async (event) => {
             event.stopPropagation();
 
-            if (!confirm(`Uninstall ${game.name}? This launches Windows' own uninstaller for it — Riftgate won't delete anything itself.`)) {
+            if (!await showCustomConfirm(`Uninstall ${game.name}? This launches Windows' own uninstaller for it — Riftgate won't delete anything itself.`)) {
                 return;
             }
 
@@ -2773,7 +3115,7 @@ function buildCard(game) {
             uninstallBtn.disabled = false;
 
             if (!result.success) {
-                alert(result.error || "Couldn't find or run an uninstaller for this.");
+                showCustomAlert(result.error || "Couldn't find or run an uninstaller for this.");
                 return;
             }
 
@@ -2781,7 +3123,7 @@ function buildCard(game) {
                 ? `\n\n(Matched by name only — double check the uninstaller window is for the right program.)`
                 : "";
 
-            const removeToo = confirm(
+            const removeToo = await showCustomConfirm(
                 `Launched the uninstaller for "${result.displayName}".${lowConfidenceNote}\n\nOnce you've finished uninstalling, remove it from Riftgate's list too?`
             );
 
@@ -2803,22 +3145,13 @@ function buildCard(game) {
         modsBtn.addEventListener("click", () => openMods(game));
     }
 
-    let descHoverTimer = null;
     const descEl = card.querySelector(".game-desc");
+    descEl.style.cursor = "pointer";
+    descEl.addEventListener("click", () => openGameDetailModal(game, "installed", navList));
 
-    descEl.addEventListener("mouseenter", () => {
-        clearTimeout(descHoverTimer);
-        descHoverTimer = setTimeout(() => {
-            if (game.description) {
-                openDescModal(game.name, game.description, descEl);
-            }
-        }, 1000);
-    });
-
-    descEl.addEventListener("mouseleave", () => {
-        clearTimeout(descHoverTimer);
-        closeDescModal();
-    });
+    const cardCoverImgEl = card.querySelector(".cover-img");
+    cardCoverImgEl.style.cursor = "pointer";
+    cardCoverImgEl.addEventListener("click", () => openGameDetailModal(game, "installed", navList));
 
     card.querySelectorAll(".categoryFlyoutOption")
         .forEach((btn) => {
@@ -2865,7 +3198,7 @@ function buildCard(game) {
             if (trailerId) {
                 openTheaterMode(trailerId);
             } else {
-                alert("No trailer could be found for this title.");
+                showCustomAlert("No trailer could be found for this title.");
             }
         });
     }
@@ -3331,14 +3664,165 @@ const sidebarNavButtons = document.querySelectorAll(".sidebarNavBtn");
 // remember to update.
 function populateStartupSectionOptions() {
     startupSectionSelect.innerHTML = "";
-    sidebarNavButtons.forEach((btn) => {
+    SECTION_ORDER.forEach((key) => {
+        const btn = document.querySelector(`.sidebarNavBtn[data-section="${key}"]`);
+        if (!btn) return;
         const option = document.createElement("option");
-        option.value = btn.dataset.section;
+        option.value = key;
         option.textContent = btn.textContent;
         startupSectionSelect.appendChild(option);
     });
 }
 populateStartupSectionOptions();
+
+// Reorders the actual DOM nodes (sidebar nav list + the persistent top tab
+// strip) to match SECTION_ORDER — appendChild moves an existing node rather
+// than cloning it, so this just re-sequences the same buttons instead of
+// rebuilding them. Also keeps the "Start on section" dropdown in step.
+function applyNewBlockOrder() {
+    const container = document.getElementById("newContainer");
+    if (!container) return;
+    NEW_BLOCK_ORDER.forEach((key) => {
+        const block = container.querySelector(`.theatre-block[data-block="${key}"]`);
+        if (block) container.appendChild(block);
+    });
+}
+
+function wireNewBlockDragReorder() {
+    const container = document.getElementById("newContainer");
+    if (!container) return;
+
+    container.querySelectorAll(".theatre-block[data-block]").forEach((block) => {
+        const heading = block.querySelector(".theatre-block-header h2");
+        if (!heading) return;
+        heading.draggable = true;
+        heading.title = "Drag to reorder this section";
+        heading.style.cursor = "grab";
+
+        heading.addEventListener("dragstart", (event) => {
+            draggedNewBlockKey = block.dataset.block;
+            event.dataTransfer.effectAllowed = "move";
+        });
+
+        heading.addEventListener("dragover", (event) => {
+            if (!draggedNewBlockKey || draggedNewBlockKey === block.dataset.block) return;
+            event.preventDefault();
+            heading.classList.add("section-drag-over");
+        });
+
+        heading.addEventListener("dragleave", () => {
+            heading.classList.remove("section-drag-over");
+        });
+
+        heading.addEventListener("drop", (event) => {
+            event.preventDefault();
+            heading.classList.remove("section-drag-over");
+            if (!draggedNewBlockKey || draggedNewBlockKey === block.dataset.block) return;
+
+            const fromIndex = NEW_BLOCK_ORDER.indexOf(draggedNewBlockKey);
+            const targetIndex = NEW_BLOCK_ORDER.indexOf(block.dataset.block);
+            if (fromIndex === -1 || targetIndex === -1) return;
+
+            // Which half was it dropped on? Top = insert before, bottom =
+            // insert after — these blocks stack vertically, so this uses
+            // the vertical midpoint instead of the horizontal one the
+            // sidebar tabs use.
+            const rect = block.getBoundingClientRect();
+            const insertAfter = (event.clientY - rect.top) > rect.height / 2;
+
+            const newOrder = [...NEW_BLOCK_ORDER];
+            newOrder.splice(fromIndex, 1);
+            let insertIndex = newOrder.indexOf(block.dataset.block);
+            if (insertAfter) insertIndex += 1;
+            newOrder.splice(insertIndex, 0, draggedNewBlockKey);
+
+            NEW_BLOCK_ORDER = newOrder;
+            draggedNewBlockKey = null;
+            saveSetting("newBlockOrder", NEW_BLOCK_ORDER);
+            applyNewBlockOrder();
+        });
+
+        heading.addEventListener("dragend", () => {
+            draggedNewBlockKey = null;
+        });
+    });
+}
+wireNewBlockDragReorder();
+
+function applySectionOrder() {
+    const sidebarNavContainer = document.querySelector(".sidebar-nav-section");
+    const pillContainer = document.getElementById("sectionPill");
+
+    SECTION_ORDER.forEach((key) => {
+        const navBtn = sidebarNavContainer.querySelector(`.sidebarNavBtn[data-section="${key}"]`);
+        if (navBtn) sidebarNavContainer.appendChild(navBtn);
+
+        const pillBtn = pillContainer.querySelector(`.sectionOption[data-section="${key}"]`);
+        if (pillBtn) pillContainer.appendChild(pillBtn);
+    });
+
+    populateStartupSectionOptions();
+}
+
+// Lets the user drag a section tab into a new position — first, second,
+// last, wherever matches their own priorities. Same insert-before/after-by
+// -cursor-half pattern used for reordering game cards (see reorderGames
+// above): dragging either button group updates the one shared SECTION_ORDER
+// array, which then re-applies to both groups together.
+function wireSectionDragReorder(buttons) {
+    buttons.forEach((btn) => {
+        btn.draggable = true;
+
+        btn.addEventListener("dragstart", (event) => {
+            draggedSectionKey = btn.dataset.section;
+            event.dataTransfer.effectAllowed = "move";
+        });
+
+        btn.addEventListener("dragover", (event) => {
+            if (!draggedSectionKey || draggedSectionKey === btn.dataset.section) return;
+            event.preventDefault();
+            btn.classList.add("section-drag-over");
+        });
+
+        btn.addEventListener("dragleave", () => {
+            btn.classList.remove("section-drag-over");
+        });
+
+        btn.addEventListener("drop", (event) => {
+            event.preventDefault();
+            btn.classList.remove("section-drag-over");
+            if (!draggedSectionKey || draggedSectionKey === btn.dataset.section) return;
+
+            const fromIndex = SECTION_ORDER.indexOf(draggedSectionKey);
+            const targetIndex = SECTION_ORDER.indexOf(btn.dataset.section);
+            if (fromIndex === -1 || targetIndex === -1) return;
+
+            // Which half of the button was it dropped on? Left = insert
+            // before, right = insert after — lets something land after the
+            // very last tab too, not just between two existing ones.
+            const rect = btn.getBoundingClientRect();
+            const insertAfter = (event.clientX - rect.left) > rect.width / 2;
+
+            const newOrder = [...SECTION_ORDER];
+            newOrder.splice(fromIndex, 1);
+            let insertIndex = newOrder.indexOf(btn.dataset.section);
+            if (insertAfter) insertIndex += 1;
+            newOrder.splice(insertIndex, 0, draggedSectionKey);
+
+            SECTION_ORDER = newOrder;
+            draggedSectionKey = null;
+            saveSetting("sectionOrder", SECTION_ORDER);
+            applySectionOrder();
+        });
+
+        btn.addEventListener("dragend", () => {
+            draggedSectionKey = null;
+        });
+    });
+}
+
+wireSectionDragReorder(sidebarNavButtons);
+wireSectionDragReorder(sectionOptions);
 const installedTopbar = document.getElementById("installedTopbar");
 const sectionPill = document.getElementById("sectionPill");
 const installedBlurb = document.getElementById("installedBlurb");
@@ -3579,7 +4063,35 @@ function resetAllSectionSearchBars() {
     }
 }
 
+let sectionSwitchInProgress = false;
+
 function switchSection(section) {
+    const contentEl = document.getElementById("sectionContentArea");
+
+    // Switching to the section already showing (e.g. re-clicking the same
+    // tab) or before the DOM is ready shouldn't fade anything.
+    if (!contentEl || section === currentSection) {
+        performSectionSwitch(section);
+        return;
+    }
+
+    if (sectionSwitchInProgress) return;
+    sectionSwitchInProgress = true;
+
+    contentEl.classList.add("section-fade-out");
+    setTimeout(() => {
+        performSectionSwitch(section);
+        // Letting the browser apply the new (still-transparent) content
+        // for a frame before removing the class is what makes it fade
+        // BACK IN instead of just snapping to visible.
+        requestAnimationFrame(() => {
+            contentEl.classList.remove("section-fade-out");
+            sectionSwitchInProgress = false;
+        });
+    }, 160);
+}
+
+function performSectionSwitch(section) {
     resetAllSectionSearchBars();
     currentSection = section;
     sectionPill.title = "You're viewing: " + SECTION_LABELS[section];
@@ -3593,6 +4105,14 @@ function switchSection(section) {
     surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications") ? "none" : "";
 
     sidebarNavButtons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.section === section);
+    });
+    // The top .sectionOption tabs are now an always-visible persistent
+    // strip (used to live inside a hover-to-reveal dropdown, where the
+    // "current" section was only ever shown via the pill's title
+    // tooltip) — so they need the same active-highlight treatment the
+    // sidebar's duplicate list already got above.
+    sectionOptions.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.section === section);
     });
 
@@ -3750,7 +4270,7 @@ function attachSeeMore(grid, rowsVisible = 2, expandedRowsCap = null) {
     });
 }
 
-function buildFreeGameCard(game) {
+function buildFreeGameCard(game, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
     // game.name comes from Steam/Epic/GOG's own listing data — treated as
@@ -3774,26 +4294,20 @@ function buildFreeGameCard(game) {
 
     const getGameBtn = card.querySelector(".getGameBtn");
 
-    getGameBtn.addEventListener("click", () => {
+    getGameBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
         window.riftgate.invoke("open-external", game.url);
     });
 
-    // Description only appears as a hover tooltip on this button, rather
-    // than always taking up space on the card — matches the pattern used
-    // for movie descriptions elsewhere in the app.
-    let descHoverTimer = null;
+    // Same click-to-open description window every other section uses,
+    // instead of the old hover-only tooltip on this button.
+    const freeGameCoverImgEl = card.querySelector(".cover-img");
+    freeGameCoverImgEl.style.cursor = "pointer";
+    freeGameCoverImgEl.addEventListener("click", () => openGameDetailModal(game, "freegame", navList));
 
-    getGameBtn.addEventListener("mouseenter", () => {
-        clearTimeout(descHoverTimer);
-        descHoverTimer = setTimeout(() => {
-            openDescModal(game.name, game.description || `Free on ${game.source}.`, getGameBtn);
-        }, 350);
-    });
-
-    getGameBtn.addEventListener("mouseleave", () => {
-        clearTimeout(descHoverTimer);
-        closeDescModal();
-    });
+    const freeGameTitleEl = card.querySelector(".game-info h3");
+    freeGameTitleEl.style.cursor = "pointer";
+    freeGameTitleEl.addEventListener("click", () => openGameDetailModal(game, "freegame", navList));
 
     card.querySelector(".soundToggle").addEventListener("click", (event) => {
         event.stopPropagation();
@@ -3815,8 +4329,10 @@ function buildFreeGameCard(game) {
         event.stopPropagation();
         const id = await fetchTrailerOnce();
         if (id) openTheaterMode(id);
-        else alert("No trailer could be found for this title.");
+        else showCustomAlert("No trailer could be found for this title.");
     });
+
+    attachAdminRemoveButton(card, "freegame", game.id, game.name);
 
     return card;
 }
@@ -3908,6 +4424,7 @@ function renderFreeGames() {
     const categoryFilter = freeGamesCategorySelect.value;
 
     const filtered = freeGamesCache.filter((g) => {
+        if (isItemRemoved("freegame", g.id)) return false;
         if (searchTerm && !g.name.toLowerCase().includes(searchTerm)) return false;
         if (platformFilter !== "all" && g.source !== platformFilter) return false;
         if (categoryFilter !== "all") {
@@ -3959,7 +4476,7 @@ function renderFreeGames() {
             section.appendChild(heading);
             const grid = document.createElement("div");
             grid.className = "games-grid browse-grid";
-            items.forEach((g) => grid.appendChild(buildFreeGameCard(g)));
+            items.forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
             section.appendChild(grid);
             newRow.appendChild(section);
             attachSeeMore(grid, 2, 4);
@@ -3996,7 +4513,7 @@ function renderFreeGames() {
 
         const grid = document.createElement("div");
         grid.className = "games-grid browse-grid";
-        items.forEach((g) => grid.appendChild(buildFreeGameCard(g)));
+        items.forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
         section.appendChild(grid);
         restRow.appendChild(section);
         attachSeeMore(grid, 2, 4);
@@ -4005,7 +4522,7 @@ function renderFreeGames() {
 
 // --- Reading Room (eBook library) ------------------------------------------
 
-function buildEbookCard(book) {
+function buildEbookCard(book, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
 
@@ -4015,10 +4532,9 @@ function buildEbookCard(book) {
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
-    cover.addEventListener("mouseenter", () => {
-        openDescModal(book.title, book.description || "No description available for this book.", cover);
+    cover.addEventListener("click", () => {
+        openGameDetailModal(book, "book", navList);
     });
-    cover.addEventListener("mouseleave", closeDescModal);
     card.appendChild(cover);
 
     const manualCoverBtn = document.createElement("button");
@@ -4067,7 +4583,7 @@ function buildEbookCard(book) {
         event.stopPropagation();
         const result = await window.riftgate.invoke("launch-ebook", book.path);
         if (!result.success) {
-            alert(`Couldn't open this file: ${result.error}`);
+            showCustomAlert(`Couldn't open this file: ${result.error}`);
             return;
         }
         await window.riftgate.invoke("mark-ebook-opened", book.path);
@@ -4107,11 +4623,11 @@ function buildEbookCard(book) {
         if (result.canceled) return;
 
         if (!result.success) {
-            alert(result.error || "Couldn't send this book to your device.");
+            showCustomAlert(result.error || "Couldn't send this book to your device.");
             return;
         }
 
-        alert(`Sent to:\n${result.path}`);
+        showCustomAlert(`Sent to:\n${result.path}`);
     });
     actions.appendChild(sendToDeviceBtn);
 
@@ -4121,7 +4637,7 @@ function buildEbookCard(book) {
     removeBtn.title = "Remove from Reading Room";
     removeBtn.addEventListener("click", async (event) => {
         event.stopPropagation();
-        const confirmed = !settings.confirmBeforeRemove || confirm(`Delete "${book.title}" permanently? This removes the actual file from your Reading Room folder, not just the list.`);
+        const confirmed = !settings.confirmBeforeRemove || await showCustomConfirm(`Delete "${book.title}" permanently? This removes the actual file from your Reading Room folder, not just the list.`);
         if (!confirmed) return;
         await window.riftgate.invoke("remove-ebook", book.path);
         ebooksCache = ebooksCache.filter((b) => b.path !== book.path);
@@ -4165,7 +4681,7 @@ function renderReadingRoom() {
         return;
     }
 
-    filtered.forEach((book) => readingRoomContainer.appendChild(buildEbookCard(book)));
+    filtered.forEach((book) => readingRoomContainer.appendChild(buildEbookCard(book, filtered)));
 }
 
 async function loadReadingRoom() {
@@ -4183,7 +4699,7 @@ const topDownloadedEbooksGrid = document.getElementById("topDownloadedEbooksGrid
 
 let ebookDiscoveryLoaded = false;
 
-function buildDiscoveryEbookCard(book) {
+function buildDiscoveryEbookCard(book, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
 
@@ -4193,10 +4709,9 @@ function buildDiscoveryEbookCard(book) {
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
-    cover.addEventListener("mouseenter", () => {
-        openDescModal(book.title, book.summary || "No description available for this book.", cover);
+    cover.addEventListener("click", () => {
+        openGameDetailModal(book, "book", navList);
     });
-    cover.addEventListener("mouseleave", closeDescModal);
     card.appendChild(cover);
 
     const manualCoverBtn = document.createElement("button");
@@ -4242,7 +4757,7 @@ function buildDiscoveryEbookCard(book) {
         event.stopPropagation();
 
         if (!book.downloadUrl) {
-            alert("No EPUB download is available for this book.");
+            showCustomAlert("No EPUB download is available for this book.");
             return;
         }
 
@@ -4267,7 +4782,7 @@ function buildDiscoveryEbookCard(book) {
         } else {
             downloadBtn.textContent = "⬇️ Download";
             downloadBtn.disabled = false;
-            alert(result.error || "Download failed.");
+            showCustomAlert(result.error || "Download failed.");
         }
     });
     actions.appendChild(downloadBtn);
@@ -4289,22 +4804,26 @@ function buildDiscoveryEbookCard(book) {
     overlay.appendChild(actions);
     card.appendChild(overlay);
 
+    attachAdminRemoveButton(card, "book", book.id, book.title);
+
     return card;
 }
 
 function renderEbookDiscoveryGrid(grid, books, errorMessage) {
     grid.innerHTML = "";
 
-    const visibleBooks = canSeeMatureContent()
+    const visibleBooks = (canSeeMatureContent()
         ? books
-        : books.filter((book) => !isItemMature("book", book.id, book.isMature));
+        : books.filter((book) => !isItemMature("book", book.id, book.isMature))
+    ).filter((book) => !isItemRemoved("book", book.id));
 
     if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;grid-column:1/-1;">Couldn't load this right now${detail} — check your connection and reopen Reading Room.</p>`;
         return;
     }
-    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book)));
+    const sortedDiscoveryBooks = sortNoCoverLast(visibleBooks, "cover");
+    sortedDiscoveryBooks.forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book, sortedDiscoveryBooks)));
 }
 
 async function loadEbookDiscovery() {
@@ -4372,7 +4891,29 @@ async function loadEbookDiscovery() {
 }
 
 
-function buildBuyFreeBookCard(book, section) {
+// Preloads descriptions for New Releases right after the list loads,
+// instead of only fetching one the moment its cover is hovered (see
+// buildBuyFreeBookCard below) — Open Library's search results carry no
+// description text, only the separate per-book endpoint does. Sequential,
+// same reasoning as preloadUpcomingGameDetails above. book.description
+// starts as the explicit `null` sentinel mapOpenLibraryBook gives every
+// book (see main.js) meaning "not fetched yet" — this fills it in place,
+// so a card already on screen (or built later from the same cached array)
+// picks it up with no further fetch needed.
+async function preloadBookDescriptions(books) {
+    for (const book of books) {
+        if (book.description !== null || !book.workKey) continue;
+        try {
+            const desc = await window.riftgate.invoke("get-openlibrary-description", book.workKey);
+            book.description = desc || undefined;
+        } catch (err) {
+            // Best-effort — hovering the cover falls back to fetching it
+            // normally.
+        }
+    }
+}
+
+function buildBuyFreeBookCard(book, section, navList) {
     section = section || "book";
     const card = document.createElement("div");
     card.className = "game-card";
@@ -4383,22 +4924,19 @@ function buildBuyFreeBookCard(book, section) {
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
-    cover.addEventListener("mouseenter", async () => {
+    cover.addEventListener("click", async () => {
+        openGameDetailModal(book, "book", navList);
         if (book.description === null && book.workKey) {
-            openDescModal(book.title, "Loading description...", cover);
             const desc = await window.riftgate.invoke("get-openlibrary-description", book.workKey);
             book.description = desc || undefined;
-            // Only update the modal if still hovering this same cover —
+            // Only update the modal if it's still showing this same book —
             // avoids an in-flight fetch overwriting whatever's showing
             // after the user has already moved on to another book.
-            if (cover.matches(":hover")) {
-                openDescModal(book.title, book.description || "No description available for this book.", cover);
+            if (gameDetailCurrentItem === book) {
+                gameDetailDesc.textContent = getBookDescription(book) || "No description available for this book.";
             }
-            return;
         }
-        openDescModal(book.title, book.description || "No description available for this book.", cover);
     });
-    cover.addEventListener("mouseleave", closeDescModal);
     card.appendChild(cover);
 
     const manualCoverBtn = document.createElement("button");
@@ -4472,7 +5010,7 @@ function buildBuyFreeBookCard(book, section) {
         if (link) {
             window.riftgate.invoke("open-external", link);
         } else {
-            alert("No link available for this book.");
+            showCustomAlert("No link available for this book.");
         }
     });
     actions.appendChild(actionBtn);
@@ -4491,7 +5029,7 @@ function buildBuyFreeBookCard(book, section) {
             if (link) {
                 window.riftgate.invoke("open-external", link);
             } else {
-                alert("No link available for this book.");
+                showCustomAlert("No link available for this book.");
             }
         });
         actions.appendChild(readOnlineBtn);
@@ -4499,6 +5037,8 @@ function buildBuyFreeBookCard(book, section) {
 
     overlay.appendChild(actions);
     card.appendChild(overlay);
+
+    attachAdminRemoveButton(card, section, book.workKey || book.id, book.title);
 
     return card;
 }
@@ -4510,9 +5050,10 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
 
     grid.innerHTML = "";
 
-    const visibleBooks = canSeeMatureContent()
+    const visibleBooks = (canSeeMatureContent()
         ? books
-        : books.filter((book) => !isItemMature(section, book.workKey || book.id, book.isMature));
+        : books.filter((book) => !isItemMature(section, book.workKey || book.id, book.isMature))
+    ).filter((book) => !isItemRemoved(section, book.workKey || book.id));
 
     if (visibleBooks.length === 0) {
         const detail = errorMessage ? ` (${errorMessage})` : "";
@@ -4524,7 +5065,7 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
         ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
         : sortNoCoverLast(visibleBooks, "cover");
 
-    ordered.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, section)));
+    ordered.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, section, ordered)));
 
     // Manga/Comics specifically get a much bigger list than before, so
     // this keeps that from dominating the screen by default — same
@@ -4628,7 +5169,8 @@ function renderFreeFindsSection() {
 
     section.style.display = activeReadingRoomTab === "discover" ? "" : "none";
     grid.innerHTML = "";
-    sortNoCoverLast(visibleBooks, "cover").forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, "book")));
+    const sortedFreeFinds = sortNoCoverLast(visibleBooks, "cover");
+    sortedFreeFinds.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, "book", sortedFreeFinds)));
 }
 
 async function loadBuyFreeBooks() {
@@ -4673,6 +5215,7 @@ async function loadBuyFreeBooks() {
         renderBuyFreeGrid(popularGrid, cachedPopularPaid);
         renderBuyFreeGrid(mostSoldGrid, cachedMostSoldPaid);
         renderBuyFreeGrid(newReleasesGrid, cachedNewReleasesPaid);
+        preloadBookDescriptions(cachedNewReleasesPaid);
         attachSeeMore(newReleasesGrid, 5);
 
         buyFreeBooksCache = { popular: cachedPopularPaid, mostSold: cachedMostSoldPaid, newReleases: cachedNewReleasesPaid };
@@ -4701,8 +5244,12 @@ async function loadBuyFreeBooks() {
     if (mostSoldPaid) renderBuyFreeGrid(mostSoldGrid, mostSoldPaid, mostSold.error);
     else if (!cachedMostSold.length) renderBuyFreeGrid(mostSoldGrid, [], mostSold.error);
 
-    if (newReleasesPaid) renderBuyFreeGrid(newReleasesGrid, newReleasesPaid, newReleases.error);
-    else if (!cachedNewReleases.length) renderBuyFreeGrid(newReleasesGrid, [], newReleases.error);
+    if (newReleasesPaid) {
+        renderBuyFreeGrid(newReleasesGrid, newReleasesPaid, newReleases.error);
+        preloadBookDescriptions(newReleasesPaid);
+    } else if (!cachedNewReleases.length) {
+        renderBuyFreeGrid(newReleasesGrid, [], newReleases.error);
+    }
 
     attachSeeMore(newReleasesGrid, 5);
 
@@ -4908,7 +5455,7 @@ async function addEbookFromPath(originalPath) {
     // first (a no-op if it's already there), then track the copy.
     const copyResult = await window.riftgate.invoke("add-ebook-to-library", originalPath);
     if (!copyResult.success) {
-        alert(copyResult.error || "Couldn't add this file.");
+        showCustomAlert(copyResult.error || "Couldn't add this file.");
         return;
     }
     const filePath = copyResult.path;
@@ -5121,7 +5668,7 @@ showSearchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") searchShows();
 });
 
-function buildShowCard(show) {
+function buildShowCard(show, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
     // show.name/description come from TVMaze's own (community-editable, HTML
@@ -5157,19 +5704,12 @@ function buildShowCard(show) {
     });
 
     const descEl = card.querySelector(".game-desc");
-    let descHoverTimer = null;
+    descEl.style.cursor = "pointer";
+    descEl.addEventListener("click", () => openGameDetailModal(show, "show", navList));
 
-    descEl.addEventListener("mouseenter", () => {
-        clearTimeout(descHoverTimer);
-        descHoverTimer = setTimeout(() => {
-            openDescModal(show.name, show.description || "No description available.", descEl);
-        }, 1000);
-    });
-
-    descEl.addEventListener("mouseleave", () => {
-        clearTimeout(descHoverTimer);
-        closeDescModal();
-    });
+    const showCoverImgEl = card.querySelector(".cover-img");
+    showCoverImgEl.style.cursor = "pointer";
+    showCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", navList));
 
     if (!show.description) {
         window.riftgate.invoke("fetch-description", show.name).then(async (description) => {
@@ -5205,7 +5745,7 @@ function buildShowCard(show) {
         if (trailerId) {
             openTheaterMode(trailerId);
         } else {
-            alert("No trailer could be found for this title.");
+            showCustomAlert("No trailer could be found for this title.");
         }
     });
 
@@ -5226,7 +5766,8 @@ function renderMyShows() {
         return;
     }
 
-    sortNoCoverLast(filtered, "image").forEach((show) => myShowsGrid.appendChild(buildShowCard(show)));
+    const sortedMyShows = sortNoCoverLast(filtered, "image");
+    sortedMyShows.forEach((show) => myShowsGrid.appendChild(buildShowCard(show, sortedMyShows)));
     attachSeeMore(myShowsGrid);
 }
 
@@ -5271,13 +5812,15 @@ function renderRecentEpisodes() {
 
         card.querySelector(".whereToWatchBtn").addEventListener("click", () => {
             const query = encodeURIComponent(ep.showName);
-            // Previously hardcoded to "/us/", so a user with a different
-            // country selected up top would still get US-only streaming
-            // results. JustWatch keys its region off a lowercase country
-            // code in the URL path, which matches the codes Riftgate
-            // already uses for movieCountrySelect.
-            const jwCountry = (movieCountrySelect.value || "US").toLowerCase();
-            window.riftgate.invoke("open-external", `https://www.justwatch.com/${jwCountry}/search?q=${query}`);
+            // A country-prefixed search URL (e.g. "/pt/search?q=...") 404s
+            // on JustWatch for most locales — that route only appears to be
+            // reliably served for a handful of markets, confirmed against
+            // the "pt" locale returning a bare 404. The un-prefixed
+            // "/search?q=..." endpoint is JustWatch's own geo-aware search
+            // entry point, so it resolves to the right region from the
+            // user's real location without us guessing which country-
+            // prefixed route actually exists for them.
+            window.riftgate.invoke("open-external", `https://www.justwatch.com/search?q=${query}`);
         });
 
         // Keyed by show+season+number so a newly aired episode (a
@@ -5390,7 +5933,7 @@ const COUNTRY_NAMES = {
     CL: "Chile", CO: "Colombia", JP: "Japan", KR: "South Korea",
     CN: "China", HK: "Hong Kong", TW: "Taiwan", IN: "India", RU: "Russia",
     SE: "Sweden", NO: "Norway", DK: "Denmark", FI: "Finland", PL: "Poland",
-    TR: "Turkey", GR: "Greece", CZ: "Czechia", HU: "Hungary", RO: "Romania",
+    TR: "Turkey", GR: "Greece", CZ: "Czech Republic", HU: "Hungary", RO: "Romania",
     ZA: "South Africa", NZ: "New Zealand", PH: "Philippines",
     ID: "Indonesia", MY: "Malaysia", SG: "Singapore", TH: "Thailand",
     VN: "Vietnam", SA: "Saudi Arabia", AE: "United Arab Emirates",
@@ -5493,7 +6036,7 @@ theaterYoutubeBtn.addEventListener("click", () => {
 
 let moviesCache = [];
 
-function buildMovieCard(movie, showReleaseDate) {
+function buildMovieCard(movie, showReleaseDate, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
     // movie.title/description come from TMDB's own listing data — untrusted
@@ -5541,7 +6084,7 @@ function buildMovieCard(movie, showReleaseDate) {
         if (trailerId) {
             openTheaterMode(trailerId);
         } else {
-            alert("No trailer could be found for this title.");
+            showCustomAlert("No trailer could be found for this title.");
         }
     });
 
@@ -5550,7 +6093,7 @@ function buildMovieCard(movie, showReleaseDate) {
         if (trailerId) {
             window.riftgate.invoke("open-external", `https://www.youtube.com/watch?v=${trailerId}`);
         } else {
-            alert("No trailer could be found for this title.");
+            showCustomAlert("No trailer could be found for this title.");
         }
     });
 
@@ -5579,19 +6122,12 @@ function buildMovieCard(movie, showReleaseDate) {
     }
 
     const descEl = card.querySelector(".game-desc");
-    let descHoverTimer = null;
+    descEl.style.cursor = "pointer";
+    descEl.addEventListener("click", () => openGameDetailModal(movie, "movie", navList));
 
-    descEl.addEventListener("mouseenter", () => {
-        clearTimeout(descHoverTimer);
-        descHoverTimer = setTimeout(() => {
-            openDescModal(movie.title, movie.description || "No description available.", descEl);
-        }, 1000);
-    });
-
-    descEl.addEventListener("mouseleave", () => {
-        clearTimeout(descHoverTimer);
-        closeDescModal();
-    });
+    const movieCoverImgEl = card.querySelector(".cover-img");
+    movieCoverImgEl.style.cursor = "pointer";
+    movieCoverImgEl.addEventListener("click", () => openGameDetailModal(movie, "movie", navList));
 
     card.querySelector(".ticketsBtn").addEventListener("click", () => {
         const countryCode = movieCountrySelect.value || "US";
@@ -5607,6 +6143,8 @@ function buildMovieCard(movie, showReleaseDate) {
         window.riftgate.invoke("open-external", `https://www.google.${domain}/search?q=${query}`);
     });
 
+    attachAdminRemoveButton(card, "movie", movie.id, movie.title);
+
     return card;
 }
 
@@ -5614,9 +6152,10 @@ const moviesFilterInput = document.getElementById("moviesFilterInput");
 
 function renderMovies() {
     const filterTerm = moviesFilterInput.value.trim().toLowerCase();
-    const visible = canSeeMatureContent()
+    const visible = (canSeeMatureContent()
         ? moviesCache
-        : moviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
+        : moviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature))
+    ).filter((m) => !isItemRemoved("movie", m.id));
     const filtered = filterTerm
         ? visible.filter((m) => m.title.toLowerCase().includes(filterTerm))
         : visible;
@@ -5628,8 +6167,8 @@ function renderMovies() {
         return;
     }
 
-    sortNoCoverLast(filtered, "poster").forEach((movie) => moviesGrid.appendChild(buildMovieCard(movie, false)));
-    attachSeeMore(moviesGrid);
+    const sortedMovies = sortNoCoverLast(filtered, "poster");
+    sortedMovies.forEach((movie) => moviesGrid.appendChild(buildMovieCard(movie, false, sortedMovies)));
 }
 
 moviesFilterInput.addEventListener("input", renderMovies);
@@ -5651,13 +6190,367 @@ async function loadMovies() {
 // --- "NEW" section: upcoming movies, new series, upcoming games -----------
 
 let newSectionLoaded = false;
+let upcomingGamesCache = [];
 let upcomingMoviesCache = [];
+
+// Arrow-scroll wiring for the New tab's three rows (replaces the old
+// fold/unfold "See more" bar — same click-to-scroll pattern already used
+// for Reading Room's carousels above).
+document.getElementById("upcomingGamesLeftArrow").addEventListener("click", () => {
+    document.getElementById("upcomingGamesGrid").scrollBy({ left: -900, behavior: "smooth" });
+});
+document.getElementById("upcomingGamesRightArrow").addEventListener("click", () => {
+    document.getElementById("upcomingGamesGrid").scrollBy({ left: 900, behavior: "smooth" });
+});
+document.getElementById("upcomingMoviesLeftArrow").addEventListener("click", () => {
+    document.getElementById("upcomingMoviesGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("upcomingMoviesRightArrow").addEventListener("click", () => {
+    document.getElementById("upcomingMoviesGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("newShowsLeftArrow").addEventListener("click", () => {
+    document.getElementById("newShowsGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("newShowsRightArrow").addEventListener("click", () => {
+    document.getElementById("newShowsGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+
+// --- Shared big cover-and-description detail window ---------------------
+//
+// Originally built just for the Upcoming Games row ("New" tab), this modal
+// is shared by every section that shows a cover + description: Installed
+// games/apps, Movies (In Theaters and New), Series (My Shows and New), and
+// all three book sections. Platforms/minimum specs/buy button/related row
+// are a RAWG (Upcoming Games) concept, so they only ever show for
+// kind === "game" — every other kind hides them and just shows the cover,
+// title and description, enlarged.
+
+const gameDetailModal = document.getElementById("gameDetailModal");
+const gameDetailBox = gameDetailModal.querySelector(".game-detail-box");
+const gameDetailCoverImg = document.getElementById("gameDetailCoverImg");
+const gameDetailTitle = document.getElementById("gameDetailTitle");
+const gameDetailRelease = document.getElementById("gameDetailRelease");
+const gameDetailPlatforms = document.getElementById("gameDetailPlatforms");
+const gameDetailDesc = document.getElementById("gameDetailDesc");
+const gameDetailSpecs = document.getElementById("gameDetailSpecs");
+const gameDetailSpecsText = document.getElementById("gameDetailSpecsText");
+const gameDetailBuyBtn = document.getElementById("gameDetailBuyBtn");
+const gameDetailSecondaryBtn = document.getElementById("gameDetailSecondaryBtn");
+const gameDetailRelatedSection = document.getElementById("gameDetailRelatedSection");
+const gameDetailRelatedRow = document.getElementById("gameDetailRelatedRow");
+
+// Guards against an older, slower fetch's details response landing after a
+// newer open already replaced the modal's content.
+let gameDetailRequestToken = 0;
+let gameDetailCurrentIndex = -1;
+let gameDetailNavList = null;
+let gameDetailKind = "game";
+let gameDetailCurrentItem = null;
+
+const gameDetailPrevArrow = document.getElementById("gameDetailPrevArrow");
+const gameDetailNextArrow = document.getElementById("gameDetailNextArrow");
+
+// Open Library book objects carry their text in `description`; Gutenberg
+// discovery cards use `summary` instead — this is the one place both need
+// checking, so every book-kind caller can just rely on this helper.
+function getBookDescription(item) {
+    return item.description || item.summary || null;
+}
+
+// kind: "game" (Upcoming Games — full RAWG detail fetch), "installed"
+// (Library games/apps), "movie", "show", or "book". navList is the exact
+// array of items the row/grid currently being viewed was built from — it's
+// what the prev/next arrows step through; pass null to hide the arrows.
+// Reading Room's three tabs hand this window three differently-shaped book
+// objects (see buildEbookCard/buildDiscoveryEbookCard/buildBuyFreeBookCard),
+// so the action button(s) it shows are picked by which fields are actually
+// present, mirroring exactly what each tab's own card already offers —
+// same behavior, just also reachable from the enlarged window.
+function configureBookDetailActions(item) {
+    gameDetailSecondaryBtn.style.display = "none";
+
+    // My Library — a real local file on disk.
+    if (item.path) {
+        gameDetailBuyBtn.style.display = "";
+        gameDetailBuyBtn.disabled = false;
+        gameDetailBuyBtn.textContent = "📖 Open";
+        gameDetailBuyBtn.onclick = async () => {
+            const result = await window.riftgate.invoke("launch-ebook", item.path);
+            if (!result.success) {
+                showCustomAlert(`Couldn't open this file: ${result.error}`);
+                return;
+            }
+            await window.riftgate.invoke("mark-ebook-opened", item.path);
+            const cached = ebooksCache.find((b) => b.path === item.path);
+            if (cached) cached.lastOpenedAt = Date.now();
+            renderRecentlyOpenedRow();
+        };
+        return;
+    }
+
+    // Buy/Free Finds (and Manga/Comics, which reuse the same card) —
+    // isFree/buyLink/infoLink/accessLevel, never a downloadUrl.
+    if (item.isFree !== undefined || item.buyLink !== undefined || item.accessLevel !== undefined) {
+        gameDetailBuyBtn.style.display = "";
+        gameDetailBuyBtn.disabled = false;
+        gameDetailBuyBtn.textContent = item.isFree ? "📖 View Free" : "🛒 Buy";
+        gameDetailBuyBtn.onclick = () => {
+            const link = item.buyLink || item.infoLink;
+            if (link) window.riftgate.invoke("open-external", link);
+            else showCustomAlert("No link available for this book.");
+        };
+
+        if (item.accessLevel === "public") {
+            gameDetailSecondaryBtn.style.display = "";
+            gameDetailSecondaryBtn.textContent = "📖 Read Online";
+            gameDetailSecondaryBtn.onclick = () => {
+                const link = item.buyLink || item.infoLink;
+                if (link) window.riftgate.invoke("open-external", link);
+                else showCustomAlert("No link available for this book.");
+            };
+        }
+        return;
+    }
+
+    // Discover Online (Project Gutenberg) — downloadUrl/readUrl, neither of
+    // the field sets above.
+    gameDetailBuyBtn.style.display = item.downloadUrl ? "" : "none";
+    gameDetailBuyBtn.disabled = false;
+    gameDetailBuyBtn.textContent = "⬇️ Download";
+    gameDetailBuyBtn.onclick = async () => {
+        if (!item.downloadUrl) {
+            showCustomAlert("No EPUB download is available for this book.");
+            return;
+        }
+        gameDetailBuyBtn.disabled = true;
+        gameDetailBuyBtn.textContent = "Downloading...";
+        const result = await window.riftgate.invoke("download-free-ebook", item);
+        gameDetailBuyBtn.disabled = false;
+        if (result.success) {
+            gameDetailBuyBtn.textContent = "✓ Added to Library";
+            ebooksCache.push({
+                path: result.path,
+                title: result.title,
+                author: result.author,
+                cover: result.cover,
+                format: "epub",
+                addedAt: Date.now()
+            });
+            renderReadingRoom();
+        } else if (result.duplicate) {
+            gameDetailBuyBtn.textContent = "Already Downloaded";
+        } else {
+            gameDetailBuyBtn.textContent = "⬇️ Download";
+            showCustomAlert(result.error || "Download failed.");
+        }
+    };
+
+    if (item.readUrl) {
+        gameDetailSecondaryBtn.style.display = "";
+        gameDetailSecondaryBtn.textContent = "📖 Read Online";
+        gameDetailSecondaryBtn.onclick = () => window.riftgate.invoke("open-external", item.readUrl);
+    }
+}
+
+async function openGameDetailModal(item, kind = "game", navList = null) {
+    const requestToken = ++gameDetailRequestToken;
+    const isGame = kind === "game";
+    // Free Games items don't have RAWG platforms/specs/related, but they do
+    // get the same cover+title+description window plus a buy-equivalent
+    // button (here, "Get It Free") instead of the old separate hover-only
+    // tooltip system — every section now opens the same window.
+    const showBuyBtn = isGame || kind === "freegame";
+
+    gameDetailKind = kind;
+    gameDetailCurrentItem = item;
+    gameDetailNavList = navList;
+    gameDetailCurrentIndex = navList ? navList.indexOf(item) : -1;
+    gameDetailPrevArrow.style.visibility = navList && gameDetailCurrentIndex > 0 ? "visible" : "hidden";
+    gameDetailNextArrow.style.visibility =
+        navList && gameDetailCurrentIndex >= 0 && gameDetailCurrentIndex < navList.length - 1 ? "visible" : "hidden";
+
+    gameDetailCoverImg.src = item.image || item.poster || item.cover || "covers/default.jpg";
+    gameDetailCoverImg.alt = item.name || item.title || "";
+    gameDetailTitle.textContent = item.name || item.title || "";
+    gameDetailRelease.textContent = item.releaseDate
+        ? `📅 Releases ${item.releaseDate}`
+        : (item.firstAirDate ? `📅 First aired ${item.firstAirDate}` : "");
+    gameDetailPlatforms.innerHTML = "";
+    gameDetailPlatforms.style.display = isGame ? "" : "none";
+    gameDetailSpecs.style.display = "none";
+    gameDetailSpecsText.textContent = "";
+    gameDetailBuyBtn.style.display = showBuyBtn ? "" : "none";
+    gameDetailSecondaryBtn.style.display = "none";
+    gameDetailRelatedSection.style.display = isGame ? "" : "none";
+
+    gameDetailModal.classList.add("active");
+    gameDetailModal.querySelector(".game-detail-box").scrollTop = 0;
+
+    if (!isGame) {
+        // No minimum-requirements concept outside games — just the cover,
+        // title, and whatever description this item already has (books
+        // fetched lazily on click keep their own "still loading" sentinel).
+        const desc = getBookDescription(item);
+        if (desc) {
+            gameDetailDesc.textContent = desc;
+        } else if (item.description === null) {
+            gameDetailDesc.textContent = "Loading description…";
+        } else {
+            gameDetailDesc.textContent =
+                item.description || (kind === "freegame" ? `Free on ${item.source || "this store"}.` : "No description available.");
+        }
+
+        if (kind === "freegame") {
+            gameDetailBuyBtn.textContent = `🔗 Get It Free${item.source ? ` (${item.source})` : ""}`;
+            gameDetailBuyBtn.onclick = () => window.riftgate.invoke("open-external", item.url);
+        } else if (kind === "book") {
+            configureBookDetailActions(item);
+        }
+        return;
+    }
+
+    gameDetailBuyBtn.textContent = "🛒 Buy / More Info";
+    gameDetailDesc.textContent = "Loading description…";
+    gameDetailBuyBtn.onclick = () => window.riftgate.invoke("open-external", item.url);
+    gameDetailRelatedRow.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">Loading…</p>`;
+
+    let details = item.__detailsCache;
+    if (!details) {
+        details = await window.riftgate.invoke("get-upcoming-game-details", item.id);
+        if (requestToken !== gameDetailRequestToken) return; // a newer open took over
+        item.__detailsCache = details;
+    }
+
+    gameDetailDesc.textContent = details.description || item.description || "No description available yet.";
+
+    (details.platforms || []).forEach((name) => {
+        const span = document.createElement("span");
+        span.textContent = name;
+        gameDetailPlatforms.appendChild(span);
+    });
+
+    gameDetailSpecs.style.display = "block";
+    gameDetailSpecsText.textContent =
+        details.minSpecs || "Not listed — this title may be console-only, or requirements haven't been published yet.";
+
+    renderRelatedGames(details.related || []);
+}
+
+function closeGameDetailModal() {
+    gameDetailModal.classList.remove("active");
+    // Cancel any slide in progress and drop the inline styles it used, so
+    // the box is guaranteed to be centered/opaque the next time it opens —
+    // otherwise closing mid-transition (backdrop click, Escape) could leave
+    // it offset or transparent on the next open.
+    gameDetailNavInProgress = false;
+    gameDetailBox.style.transition = "";
+    gameDetailBox.style.transform = "";
+    gameDetailBox.style.opacity = "";
+}
+
+document.getElementById("gameDetailCloseBtn").addEventListener("click", closeGameDetailModal);
+
+// Step to the previous/next item in the same row/grid without closing the
+// window — lets you flip through covers and descriptions in one pass
+// instead of closing, clicking another card, and reopening. Works the same
+// way regardless of which section opened the modal.
+//
+// The swap itself is a short slide: the current content glides out in the
+// direction of travel while fading, the new item's content is dropped in
+// already offset on the opposite side, then it glides back to center —
+// reads as moving along the row rather than the content just popping to
+// something new.
+let gameDetailNavInProgress = false;
+
+function navigateGameDetail(step) {
+    if (!gameDetailNavList || gameDetailNavInProgress) return;
+    const targetIndex = gameDetailCurrentIndex + step;
+    if (targetIndex < 0 || targetIndex >= gameDetailNavList.length) return;
+
+    gameDetailNavInProgress = true;
+    const outDistance = step > 0 ? -60 : 60;
+
+    gameDetailBox.style.transition = "transform .2s ease, opacity .2s ease";
+    gameDetailBox.style.transform = `translateX(${outDistance}px)`;
+    gameDetailBox.style.opacity = "0";
+
+    setTimeout(() => {
+        openGameDetailModal(gameDetailNavList[targetIndex], gameDetailKind, gameDetailNavList);
+        // Jump to the opposite offset with no transition, then release it
+        // on the next frame so the browser animates FROM there back to
+        // center instead of just snapping into place.
+        gameDetailBox.style.transition = "none";
+        gameDetailBox.style.transform = `translateX(${-outDistance}px)`;
+        requestAnimationFrame(() => {
+            gameDetailBox.style.transition = "transform .2s ease, opacity .2s ease";
+            gameDetailBox.style.transform = "translateX(0)";
+            gameDetailBox.style.opacity = "1";
+            gameDetailNavInProgress = false;
+        });
+    }, 200);
+}
+
+gameDetailPrevArrow.addEventListener("click", () => navigateGameDetail(-1));
+gameDetailNextArrow.addEventListener("click", () => navigateGameDetail(1));
+
+gameDetailModal.addEventListener("click", (event) => {
+    if (event.target === gameDetailModal) closeGameDetailModal();
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && gameDetailModal.classList.contains("active")) {
+        closeGameDetailModal();
+    }
+});
+
+// A small, simple related-games row — same style/genre as the game being
+// viewed (via RAWG's own suggested-games list), not just other entries
+// from the Upcoming Games row above. Same cover+title shape as every other
+// card, without the buy/trailer controls, so it reads as "more like this."
+// Clicking one swaps the modal over to that game.
+document.getElementById("gameDetailRelatedLeftArrow").addEventListener("click", () => {
+    document.getElementById("gameDetailRelatedRow").scrollBy({ left: -600, behavior: "smooth" });
+});
+
+document.getElementById("gameDetailRelatedRightArrow").addEventListener("click", () => {
+    document.getElementById("gameDetailRelatedRow").scrollBy({ left: 600, behavior: "smooth" });
+});
+
+function renderRelatedGames(rawGames) {
+    gameDetailRelatedRow.innerHTML = "";
+
+    const games = rawGames.filter((g) => !isItemRemoved("game", g.id));
+
+    if (games.length === 0) {
+        gameDetailRelatedRow.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">No related games found.</p>`;
+        return;
+    }
+
+    games.forEach((game) => {
+        const card = document.createElement("div");
+        card.className = "game-card";
+        card.innerHTML = `
+            <div class="cover-wrap">
+                <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
+            </div>
+            <div class="game-info">
+                <h3></h3>
+            </div>
+        `;
+        card.querySelector(".cover-img").alt = game.name;
+        card.querySelector(".game-info h3").textContent = game.name;
+        card.addEventListener("click", () => openGameDetailModal(game, "game", games));
+        attachAdminRemoveButton(card, "game", game.id, game.name);
+        gameDetailRelatedRow.appendChild(card);
+    });
+}
 
 function renderUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
-    const visible = canSeeMatureContent()
+    const visible = (canSeeMatureContent()
         ? upcomingMoviesCache
-        : upcomingMoviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature));
+        : upcomingMoviesCache.filter((m) => !isItemMature("movie", m.id, m.isMature))
+    ).filter((m) => !isItemRemoved("movie", m.id));
 
     if (visible.length === 0) {
         grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
@@ -5665,8 +6558,8 @@ function renderUpcomingMovies() {
     }
 
     grid.innerHTML = "";
-    sortNoCoverLast(visible, "poster").forEach((movie) => grid.appendChild(buildMovieCard(movie, true)));
-    attachSeeMore(grid);
+    const sortedUpcomingMovies = sortNoCoverLast(visible, "poster");
+    sortedUpcomingMovies.forEach((movie) => grid.appendChild(buildMovieCard(movie, true, sortedUpcomingMovies)));
 }
 
 async function loadUpcomingMovies() {
@@ -5690,9 +6583,10 @@ const newShowsFilterInput = document.getElementById("newShowsFilterInput");
 function renderNewShows() {
     const grid = document.getElementById("newShowsGrid");
     const filterTerm = newShowsFilterInput.value.trim().toLowerCase();
-    const visible = canSeeMatureContent()
+    const visible = (canSeeMatureContent()
         ? newShowsCache
-        : newShowsCache.filter((s) => !isItemMature("show", s.id, s.isMature));
+        : newShowsCache.filter((s) => !isItemMature("show", s.id, s.isMature))
+    ).filter((s) => !isItemRemoved("show", s.id));
     const filtered = filterTerm
         ? visible.filter((s) => s.name.toLowerCase().includes(filterTerm))
         : visible;
@@ -5704,7 +6598,8 @@ function renderNewShows() {
 
     grid.innerHTML = "";
 
-    sortNoCoverLast(filtered, "image").forEach((show) => {
+    const sortedNewShows = sortNoCoverLast(filtered, "image");
+    sortedNewShows.forEach((show) => {
         const card = document.createElement("div");
         card.className = "game-card";
         // show.name/description come from TMDB's own listing data —
@@ -5729,6 +6624,16 @@ function renderNewShows() {
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
 
+        const newShowDescEl = card.querySelector(".game-desc");
+        newShowDescEl.style.cursor = "pointer";
+        newShowDescEl.addEventListener("click", () => {
+            openGameDetailModal(show, "show", sortedNewShows);
+        });
+
+        const newShowCoverImgEl = card.querySelector(".cover-img");
+        newShowCoverImgEl.style.cursor = "pointer";
+        newShowCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", sortedNewShows));
+
         let newShowTrailerId;
 
         async function fetchNewShowTrailerOnce() {
@@ -5744,7 +6649,7 @@ function renderNewShows() {
             if (trailerId) {
                 openTheaterMode(trailerId);
             } else {
-                alert("No trailer could be found for this title.");
+                showCustomAlert("No trailer could be found for this title.");
             }
         });
 
@@ -5761,7 +6666,7 @@ function renderNewShows() {
             const results = await window.riftgate.invoke("search-tv-shows", show.name);
 
             if (!results || results.length === 0) {
-                alert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
+                showCustomAlert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
                 return;
             }
 
@@ -5771,10 +6676,10 @@ function renderNewShows() {
             loadRecentEpisodes();
         });
 
+        attachAdminRemoveButton(card, "show", show.id, show.name);
+
         grid.appendChild(card);
     });
-
-    attachSeeMore(grid);
 }
 
 newShowsFilterInput.addEventListener("input", renderNewShows);
@@ -5794,6 +6699,20 @@ async function loadNewShows() {
     renderNewShows();
 }
 
+async function preloadUpcomingGameDetails(games) {
+    for (const game of games) {
+        if (game.__detailsCache) continue;
+        try {
+            const details = await window.riftgate.invoke("get-upcoming-game-details", game.id);
+            game.__detailsCache = details;
+            if (details && details.description) game.description = details.description;
+        } catch (err) {
+            // Best-effort — the detail modal falls back to fetching it
+            // normally the moment it's opened.
+        }
+    }
+}
+
 async function loadUpcomingGames() {
     const grid = document.getElementById("upcomingGamesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
@@ -5807,7 +6726,12 @@ async function loadUpcomingGames() {
 
     grid.innerHTML = "";
 
-    sortNoCoverLast(games, "image").forEach((game) => {
+    const visibleGames = games.filter((g) => !isItemRemoved("game", g.id));
+    const sortedGames = sortNoCoverLast(visibleGames, "image");
+    upcomingGamesCache = sortedGames;
+    preloadUpcomingGameDetails(sortedGames);
+
+    sortedGames.forEach((game) => {
         const card = document.createElement("div");
         card.className = "game-card";
         // game.name comes from the upcoming-games API listing — untrusted
@@ -5821,14 +6745,15 @@ async function loadUpcomingGames() {
             <div class="game-info">
                 <h3></h3>
                 ${game.releaseDate ? `<p class="game-playtime">📅 Releases ${game.releaseDate}</p>` : ""}
-                <div class="card-footer">
-                    <button class="launchBtn buyGameBtn">🔎 More Info</button>
-                </div>
+                ${game.platforms && game.platforms.length ? `<p class="game-desc upcoming-game-platforms"></p>` : ""}
             </div>
         `;
 
         card.querySelector(".cover-img").alt = game.name;
         card.querySelector(".game-info h3").textContent = game.name;
+        // Third-party platform names from RAWG — textContent, never innerHTML.
+        const platformsEl = card.querySelector(".upcoming-game-platforms");
+        if (platformsEl) platformsEl.textContent = `🖥️ ${game.platforms.join(", ")}`;
 
         let upcomingTrailerId;
 
@@ -5845,7 +6770,7 @@ async function loadUpcomingGames() {
             if (trailerId) {
                 openTheaterMode(trailerId);
             } else {
-                alert("No trailer could be found for this title.");
+                showCustomAlert("No trailer could be found for this title.");
             }
         });
 
@@ -5856,14 +6781,19 @@ async function loadUpcomingGames() {
             applySoundToAllFrames();
         });
 
-        card.querySelector(".buyGameBtn").addEventListener("click", () => {
-            window.riftgate.invoke("open-external", game.url);
+        // Clicking the card (rather than hovering it) opens the large detail
+        // window — cover + full description + platform/specs + buy, with
+        // related games further down. The card's own "More Info" button was
+        // removed since this does the same thing with one less click.
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+            openGameDetailModal(game, "game", upcomingGamesCache);
         });
+
+        attachAdminRemoveButton(card, "game", game.id, game.name);
 
         grid.appendChild(card);
     });
-
-    attachSeeMore(grid);
 }
 
 async function loadNewSection() {
@@ -5879,17 +6809,25 @@ async function loadNewSection() {
 // playing out.
 function playStartupAnimation() {
     const overlay = document.getElementById("startupOverlay");
-    if (!overlay) return;
+    if (!overlay) {
+        document.body.classList.remove("startup-locked");
+        return;
+    }
 
     if (settings.startupAnimation === false) {
         overlay.remove();
+        document.body.classList.remove("startup-locked");
         return;
     }
 
     // Let the reveal (~0.9s) and the glow pulse (starts at 0.9s, now runs
     // 3.6s — 2s longer than before) finish, then fade the whole overlay out.
+    // The page stays non-scrollable (see body.startup-locked in style.css)
+    // right up to this same moment, so the side scrollbars never show up
+    // early.
     setTimeout(() => {
         overlay.classList.add("startup-hidden");
+        document.body.classList.remove("startup-locked");
         setTimeout(() => overlay.remove(), 550);
     }, 4500);
 }
@@ -6236,11 +7174,11 @@ exportSuggestionsBtn.addEventListener("click", async () => {
     if (result.canceled) return;
 
     if (!result.success) {
-        alert(result.error || "Couldn't export suggestions.");
+        showCustomAlert(result.error || "Couldn't export suggestions.");
         return;
     }
 
-    alert(`Exported to:\n${result.path}`);
+    showCustomAlert(`Exported to:\n${result.path}`);
 });
 
 
@@ -6385,6 +7323,72 @@ function isItemMature(section, itemKey, keywordFlag) {
     return !!keywordFlag;
 }
 
+// Items an admin/super-admin has removed from Riftgate for everyone —
+// same "section:itemKey" shape and load pattern as matureOverridesCache
+// above, just a permanent hide instead of a mature flag.
+let removedItemsCache = new Set();
+
+async function loadRemovedItems() {
+    try {
+        const result = await window.riftgate.invoke("get-removed-items");
+        if (result && result.success) {
+            removedItemsCache = new Set(result.removed.map((o) => `${o.section}:${o.item_key}`));
+        }
+    } catch (err) {
+        // Leave whatever was already cached — a failed refresh shouldn't
+        // suddenly bring back items that were removed a moment ago.
+    }
+}
+
+function isItemRemoved(section, itemKey) {
+    return removedItemsCache.has(`${section}:${itemKey}`);
+}
+
+// Appends the admin-only "remove from list" corner button to a card —
+// shared by every catalog/browsing section (games, free games, movies,
+// shows, books) so removal behaves identically everywhere. Not used on
+// personal collections (Installed Library, My Shows, My Library) since
+// those aren't a shared catalog to remove things from for everyone.
+// Visibility is re-checked on click rather than only at build time, so a
+// card built while logged out (or as a non-admin) still won't let a
+// stale reference through if admin status somehow changed without a
+// re-render — belt and suspenders, cheap to check.
+function attachAdminRemoveButton(card, section, itemKey, itemName) {
+    const btn = document.createElement("button");
+    btn.className = "admin-remove-item-btn";
+    btn.title = "Remove this item from Riftgate for everyone";
+    btn.textContent = "✕";
+    btn.style.display = isAdminMode ? "" : "none";
+    btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!isAdminMode) return;
+
+        const confirmed = await showCustomConfirm(
+            `Remove "${itemName}" from Riftgate for every user? This can't be undone from the app.`
+        );
+        if (!confirmed) return;
+
+        btn.disabled = true;
+        const result = await window.riftgate.invoke("admin-remove-item", {
+            username: settings.username,
+            password: adminPasswordCache,
+            section,
+            itemKey: String(itemKey),
+            itemName
+        });
+
+        if (!result.success) {
+            btn.disabled = false;
+            showCustomAlert(result.error || "Couldn't remove this item — try again.");
+            return;
+        }
+
+        removedItemsCache.add(`${section}:${itemKey}`);
+        card.remove();
+    });
+    card.appendChild(btn);
+}
+
 const matureContentSidebarSection = document.getElementById("matureContentSidebarSection");
 const toggleMatureContent = document.getElementById("toggleMatureContent");
 
@@ -6479,8 +7483,8 @@ function isRecentlyTreated(s) {
 }
 
 function suggestionStatusBadge(s) {
-    if (s.status === "applied") return `<span style="color:#4ade80;font-weight:600;">· ✅ Applied</span>`;
-    if (s.status === "rejected") return `<span style="color:#ff8f8f;font-weight:600;">· ❌ Refused</span>`;
+    if (s.status === "applied") return `· <span class="suggestion-status-badge" style="color:#4ade80;">✅ Applied</span>`;
+    if (s.status === "rejected") return `· <span class="suggestion-status-badge" style="color:#ff8f8f;">❌ Refused</span>`;
     return "";
 }
 
@@ -6505,7 +7509,7 @@ function parseSuggestionCategory(rawText) {
 function suggestionCategoryBadge(category) {
     const info = SUGGESTION_CATEGORIES[category];
     if (!info) return "";
-    return `<span style="color:${info.color};font-weight:600;">${info.icon} ${category}</span>`;
+    return `<span class="suggestion-status-badge" style="color:${info.color};">${info.icon} ${category}</span>`;
 }
 
 async function loadSuggestionsList() {
@@ -6758,7 +7762,7 @@ async function loadReviewSuggestionsList() {
             } else {
                 applyBtn.disabled = false;
                 rejectBtn.disabled = false;
-                alert(res.error || "Couldn't approve this suggestion — make sure you're logged in as a super-admin.");
+                showCustomAlert(res.error || "Couldn't approve this suggestion — make sure you're logged in as a super-admin.");
             }
         });
 
@@ -6781,7 +7785,7 @@ async function loadReviewSuggestionsList() {
             } else {
                 applyBtn.disabled = false;
                 rejectBtn.disabled = false;
-                alert(res.error || "Couldn't reject this suggestion.");
+                showCustomAlert(res.error || "Couldn't reject this suggestion.");
             }
         });
 
@@ -6857,6 +7861,8 @@ suggestionSubmitBtn.addEventListener("click", async () => {
 // --- Admin authentication ---------------------------------------------
 
 const adminBtn = document.getElementById("adminBtn");
+const currentUsernameLabel = document.getElementById("currentUsernameLabel");
+const sidebarUserBanner = document.getElementById("sidebarUserBanner");
 const manageUsersBtn = document.getElementById("manageUsersBtn");
 const adminManageModal = document.getElementById("adminManageModal");
 const adminSearchInput = document.getElementById("adminSearchInput");
@@ -6892,7 +7898,22 @@ function updateAdminUiVisibility() {
         ? (isAdminMode ? "🛡️ Log Out" : "🔓 Log Out")
         : "🔑 Login";
     adminBtn.title = isLoggedIn ? "Log out" : "Log in";
+
+    // Visible from every section (unlike the Vault's own username line),
+    // so it's always clear at a glance which account is signed in.
+    if (isLoggedIn && settings.username) {
+        currentUsernameLabel.textContent = "👤 " + (isAdminMode ? adminSuffixedName(settings.username) : settings.username);
+        sidebarUserBanner.style.display = "";
+    } else {
+        sidebarUserBanner.style.display = "none";
+    }
     manageUsersBtn.style.display = isAdminMode ? "" : "none";
+    // Already-built cards keep whatever "remove item" button visibility
+    // they were created with otherwise — this catches admin status
+    // changing (login/logout) without every open section re-rendering.
+    document.querySelectorAll(".admin-remove-item-btn").forEach((btn) => {
+        btn.style.display = isAdminMode ? "" : "none";
+    });
     updateAdminPreviewRoleUi();
 
     // The Vault's admin-only buttons were only ever set inside
@@ -7306,7 +8327,7 @@ function buildCommunityAppCard(app) {
 }
 
 async function deleteCommunityApp(app) {
-    if (!confirm(`Remove "${app.name}"?`)) return;
+    if (!await showCustomConfirm(`Remove "${app.name}"?`)) return;
 
     const result = await window.riftgate.invoke("delete-community-app", {
         adminUsername: settings.username,
@@ -7315,7 +8336,7 @@ async function deleteCommunityApp(app) {
     });
 
     if (!result.success) {
-        alert(result.error || "Couldn't remove that app.");
+        showCustomAlert(result.error || "Couldn't remove that app.");
         return;
     }
 
@@ -7552,7 +8573,7 @@ function buildSharedFileItem(file) {
         const result = await window.riftgate.invoke("download-shared-file", { storagePath: file.storage_path, filename: file.filename });
         downloadBtn.disabled = false;
         if (!result.canceled && !result.success) {
-            alert(result.error || "Download failed.");
+            showCustomAlert(result.error || "Download failed.");
         }
     });
     actions.appendChild(downloadBtn);
@@ -7564,7 +8585,7 @@ function buildSharedFileItem(file) {
         deleteBtn.textContent = "✕";
         deleteBtn.title = "Remove this file";
         deleteBtn.addEventListener("click", async () => {
-            if (!confirm(`Remove "${file.filename}"?`)) return;
+            if (!await showCustomConfirm(`Remove "${file.filename}"?`)) return;
             const result = await window.riftgate.invoke("delete-shared-file", {
                 username: settings.username,
                 fileId: file.id,
@@ -7575,7 +8596,7 @@ function buildSharedFileItem(file) {
             if (result) {
                 renderSharedFiles();
             } else {
-                alert("Couldn't remove this file.");
+                showCustomAlert("Couldn't remove this file.");
             }
         });
         actions.appendChild(deleteBtn);
@@ -7664,7 +8685,7 @@ function buildSharedLinkItem(link) {
         deleteBtn.textContent = "✕";
         deleteBtn.title = "Remove this link";
         deleteBtn.addEventListener("click", async () => {
-            if (!confirm("Remove this link?")) return;
+            if (!await showCustomConfirm("Remove this link?")) return;
             const result = await window.riftgate.invoke("delete-shared-link", {
                 username: settings.username,
                 linkId: link.id,
@@ -7674,7 +8695,7 @@ function buildSharedLinkItem(link) {
             if (result) {
                 renderSharedLinks();
             } else {
-                alert("Couldn't remove this link.");
+                showCustomAlert("Couldn't remove this link.");
             }
         });
         actions.appendChild(deleteBtn);
@@ -7870,6 +8891,7 @@ async function completeLogin(password) {
     // admin bypass depends on it).
     await fetchAccountProfile();
     loadMatureOverrides();
+    loadRemovedItems();
 }
 
 async function attemptVaultLogin() {
@@ -8034,7 +9056,7 @@ async function loadAllowlistPanel() {
         removeBtn.className = "allowlist-remove-btn";
         removeBtn.textContent = "Remove";
         removeBtn.addEventListener("click", async () => {
-            if (!confirm(`Remove ${entry.username} from the allowlist?`)) return;
+            if (!await showCustomConfirm(`Remove ${entry.username} from the allowlist?`)) return;
             const removeResult = await window.riftgate.invoke("remove-from-share-allowlist", {
                 adminUsername: settings.username,
                 adminPassword: adminPasswordCache,
@@ -8043,7 +9065,7 @@ async function loadAllowlistPanel() {
             if (removeResult.success) {
                 loadAllowlistPanel();
             } else {
-                alert(removeResult.error || "Couldn't remove this user.");
+                showCustomAlert(removeResult.error || "Couldn't remove this user.");
             }
         });
         item.appendChild(removeBtn);
@@ -8099,7 +9121,7 @@ async function loadAccessRequestsPanel() {
                 loadAccessRequestsPanel();
                 loadAllowlistPanel();
             } else {
-                alert(approveResult.error || "Couldn't approve this request.");
+                showCustomAlert(approveResult.error || "Couldn't approve this request.");
             }
         });
         actions.appendChild(approveBtn);
@@ -8108,7 +9130,7 @@ async function loadAccessRequestsPanel() {
         denyBtn.className = "allowlist-remove-btn";
         denyBtn.textContent = "Deny";
         denyBtn.addEventListener("click", async () => {
-            if (!confirm(`Deny ${entry.username}'s request for Vault access?`)) return;
+            if (!await showCustomConfirm(`Deny ${entry.username}'s request for Vault access?`)) return;
             const denyResult = await window.riftgate.invoke("deny-share-access-request", {
                 adminUsername: settings.username,
                 adminPassword: adminPasswordCache,
@@ -8117,7 +9139,7 @@ async function loadAccessRequestsPanel() {
             if (denyResult.success) {
                 loadAccessRequestsPanel();
             } else {
-                alert(denyResult.error || "Couldn't deny this request.");
+                showCustomAlert(denyResult.error || "Couldn't deny this request.");
             }
         });
         actions.appendChild(denyBtn);
@@ -8137,7 +9159,7 @@ function openAllowlistModal() {
 document.getElementById("manageAllowlistBtn").addEventListener("click", openAllowlistModal);
 
 document.getElementById("cleanVaultNowBtn").addEventListener("click", async () => {
-    if (!confirm("Immediately remove every file and link in The Vault, regardless of when they're set to expire? This can't be undone.")) return;
+    if (!await showCustomConfirm("Immediately remove every file and link in The Vault, regardless of when they're set to expire? This can't be undone.")) return;
 
     const btn = document.getElementById("cleanVaultNowBtn");
     btn.disabled = true;
@@ -8159,7 +9181,7 @@ document.getElementById("cleanVaultNowBtn").addEventListener("click", async () =
     if (linksResult.success) renderSharedLinks();
 
     if (!filesResult.success || !linksResult.success) {
-        alert(filesResult.error || linksResult.error || "Couldn't fully clean The Vault.");
+        showCustomAlert(filesResult.error || linksResult.error || "Couldn't fully clean The Vault.");
     }
 });
 document.getElementById("openAllowlistFromAdminBtn").addEventListener("click", openAllowlistModal);
@@ -8186,7 +9208,7 @@ document.getElementById("allowlistAddBtn").addEventListener("click", async () =>
         loadAllowlistPanel();
         loadAccessRequestsPanel();
     } else {
-        alert(result.error || "Couldn't add this user.");
+        showCustomAlert(result.error || "Couldn't add this user.");
     }
 });
 
@@ -8253,6 +9275,14 @@ async function init() {
             window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: vaultPasswordCache });
         }
     }, 15 * 60 * 1000);
+
+    // The New tab (Upcoming Games/Movies, New Series) should always be
+    // fresh at launch, regardless of which section the user starts on —
+    // previously this only loaded the first time "New" was actually
+    // opened (see loadNewSection's own newSectionLoaded guard, still in
+    // place so this never double-fetches if the startup section below is
+    // "new" too).
+    loadNewSection();
 
     // Start on whichever section the user picked in settings (defaults to New)
     switchSection(settings.startupSection || "new");

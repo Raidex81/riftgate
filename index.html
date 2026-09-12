@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body class="startup-locked">
 
 <svg class="icon-sprite-defs" style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
 <defs>
@@ -23,11 +23,11 @@
 
 <symbol id="icon-installed" viewBox="0 0 24 24">
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M6 9 h12 a4 4 0 0 1 4 4.5 l-1 4 a2.2 2.2 0 0 1 -3.8 1.3 L15 17 H9 l-2.2 1.8 A2.2 2.2 0 0 1 3 17.5 l-1-4 A4 4 0 0 1 6 9 Z"/>
-    <line x1="7.5" y1="11.7" x2="7.5" y2="14.3"/>
-    <line x1="6.2" y1="13" x2="8.8" y2="13"/>
-    <circle cx="16" cy="12.3" r="0.9"/>
-    <circle cx="18.2" cy="14.2" r="0.9"/>
+    <path d="M7 9 H17 A4 4 0 0 1 21 13 V15.5 A2.5 2.5 0 0 1 16.8 17.2 L15 15 H9 L7.2 17.2 A2.5 2.5 0 0 1 3 15.5 V13 A4 4 0 0 1 7 9 Z"/>
+    <line x1="7.5" y1="13" x2="7.5" y2="15"/>
+    <line x1="6.5" y1="14" x2="8.5" y2="14"/>
+    <circle cx="16" cy="12.5" r="0.9"/>
+    <circle cx="18" cy="14.3" r="0.9"/>
   </g>
 </symbol>
 
@@ -43,17 +43,20 @@
 
 <symbol id="icon-theatre" viewBox="0 0 24 24">
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3 9.5 L4.5 5 L19.5 5 L21 9.5 Z"/>
-    <line x1="6" y1="5" x2="8" y2="9.5"/>
-    <line x1="10.5" y1="5" x2="12.5" y2="9.5"/>
-    <line x1="15" y1="5" x2="17" y2="9.5"/>
-    <rect x="3" y="9.5" width="18" height="9.5" rx="1"/>
+    <circle cx="12" cy="12" r="8.5"/>
+    <circle cx="12" cy="12" r="2"/>
+    <circle cx="12" cy="6.2" r="1.1"/>
+    <circle cx="17.2" cy="9.6" r="1.1"/>
+    <circle cx="15.3" cy="15.9" r="1.1"/>
+    <circle cx="8.7" cy="15.9" r="1.1"/>
+    <circle cx="6.8" cy="9.6" r="1.1"/>
   </g>
 </symbol>
 
 <symbol id="icon-readingroom" viewBox="0 0 24 24">
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 6 L4 4.5 V17.5 L12 19 L20 17.5 V4.5 Z"/>
+    <path d="M12 6 C10 4.3 6.5 4 4 4.8 V17.8 C6.5 17 10 17.3 12 19"/>
+    <path d="M12 6 C14 4.3 17.5 4 20 4.8 V17.8 C17.5 17 14 17.3 12 19"/>
     <line x1="12" y1="6" x2="12" y2="19"/>
   </g>
 </symbol>
@@ -99,16 +102,13 @@
 </symbol>
 
 <symbol id="icon-manga" viewBox="0 0 24 24">
-  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M5 4 H17 L19 6 V20 H7 A2 2 0 0 1 5 18 Z"/>
-    <line x1="8" y1="4" x2="8" y2="20"/>
-  </g>
+  <!-- Alfredo's own "Mangas" hexagon icon art, used as-is (just scaled to fit). -->
+  <image href="/assets/nav-icons/mangas.png" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>
 </symbol>
 
 <symbol id="icon-comics" viewBox="0 0 24 24">
-  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 5 H20 A1 1 0 0 1 21 6 V15 A1 1 0 0 1 20 16 H10 L6 20 V16 H4 A1 1 0 0 1 3 15 V6 A1 1 0 0 1 4 5 Z"/>
-  </g>
+  <!-- Alfredo's own "Comics" hexagon icon art, used as-is (just scaled to fit). -->
+  <image href="/assets/nav-icons/comics.png" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>
 </symbol>
 
 <symbol id="icon-ebookapps" viewBox="0 0 24 24">
@@ -138,6 +138,13 @@
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M17.5 6.5 a8 8 0 1 1 -11 0"/>
     <line x1="12" y1="2.5" x2="12" y2="12"/>
+  </g>
+</symbol>
+
+<symbol id="icon-search" viewBox="0 0 24 24">
+  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="6.5"/>
+    <line x1="15.6" y1="15.6" x2="20.5" y2="20.5"/>
   </g>
 </symbol>
 
@@ -216,6 +223,23 @@
         </div>
     </div>
 
+    <!-- Generic replacement for the OS-native window.alert()/window.confirm()
+         popups — same modal-overlay/modal-box shell used everywhere else in
+         Riftgate, so an error or confirmation message never looks like a
+         stray Windows dialog. One shared instance, reused for every call
+         (see showCustomAlert/showCustomConfirm in renderer.js); the Cancel
+         button is hidden for a plain alert and shown for a confirm. -->
+    <div class="modal-overlay" id="customAlertModal">
+        <div class="modal-box" style="max-width:420px;">
+            <h3 id="customAlertTitle">Riftgate</h3>
+            <p id="customAlertMessage" style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;white-space:pre-wrap;"></p>
+            <div class="modal-actions">
+                <button id="customAlertCancelBtn">Cancel</button>
+                <button id="customAlertOkBtn" class="wheel-play">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="logoutConfirmModal">
         <div class="modal-box">
             <h3>Log Out?</h3>
@@ -287,6 +311,9 @@
         </div>
     </div>
 
+    <div class="titlebar-hover-zone"></div>
+    <div class="app-credit">Riftgate — made by Raidex</div>
+
     <div class="custom-titlebar">
         <div class="titlebar-drag">Riftgate</div>
         <div class="titlebar-controls">
@@ -320,6 +347,31 @@
                 <button class="sidebarNavBtn" data-section="reading-room"><svg class="nav-icon"><use href="#icon-readingroom"></use></svg> Reading Room</button>
                 <button class="sidebarNavBtn" data-section="applications"><svg class="nav-icon"><use href="#icon-applications"></use></svg> Applications</button>
                 <button class="sidebarNavBtn" data-section="shared-folder"><svg class="nav-icon"><use href="#icon-vault"></use></svg> The Vault</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgLibrary">Library</h3>
+                <button id="refreshMetadataBtn" class="sidebar-btn">🔄 <span id="lblRefreshMetadata">Refresh All Metadata</span></button>
+                <button id="scanInstalledBtn" class="sidebar-btn" title="Scan your computer for installed apps and games not yet in Riftgate">🔍 <span id="lblScanInstalled">Scan for Apps &amp; Games</span></button>
+                <button id="removeAppsBtn" class="sidebar-btn" title="Remove apps and games from your Riftgate library in bulk">🗑️ <span id="lblRemoveApps">Remove Apps &amp; Games</span></button>
+
+                <div class="sidebar-stats">
+                    <div id="statCounts">🎮 0 · 🖥️ 0 · 📦 0 · 🥽 0</div>
+                    <div id="statLaunches">🚀 0 total launches</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 id="hdgSteamPlaytime">Steam Playtime</h3>
+                <p class="sidebar-hint">
+                    Riftgate can't track Steam games itself (they launch through Steam's own protocol, not a normal .exe), so this pulls your real playtime from Steam instead. You'll need your SteamID64, and your profile's "Game details" privacy set to Public — otherwise Steam returns nothing.
+                </p>
+                <div class="sidebar-select-row">
+                    <span>SteamID64</span>
+                    <input type="text" id="steamId64Input" placeholder="76561198012345678" inputmode="numeric">
+                </div>
+                <button id="refreshSteamPlaytimeBtn" class="sidebar-btn">🔄 <span>Refresh Steam Playtime</span></button>
+                <div id="steamPlaytimeStatus" class="sidebar-hint"></div>
             </div>
 
             <div class="sidebar-section">
@@ -441,30 +493,6 @@
             </div>
 
             <div class="sidebar-section">
-                <h3 id="hdgLibrary">Library</h3>
-                <button id="refreshMetadataBtn" class="sidebar-btn">🔄 <span id="lblRefreshMetadata">Refresh All Metadata</span></button>
-                <button id="scanInstalledBtn" class="sidebar-btn" title="Scan your computer for installed apps and games not yet in Riftgate">🔍 <span id="lblScanInstalled">Scan for Apps &amp; Games</span></button>
-
-                <div class="sidebar-stats">
-                    <div id="statCounts">🎮 0 · 🖥️ 0 · 📦 0 · 🥽 0</div>
-                    <div id="statLaunches">🚀 0 total launches</div>
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3 id="hdgSteamPlaytime">Steam Playtime</h3>
-                <p class="sidebar-hint">
-                    Riftgate can't track Steam games itself (they launch through Steam's own protocol, not a normal .exe), so this pulls your real playtime from Steam instead. You'll need your SteamID64, and your profile's "Game details" privacy set to Public — otherwise Steam returns nothing.
-                </p>
-                <div class="sidebar-select-row">
-                    <span>SteamID64</span>
-                    <input type="text" id="steamId64Input" placeholder="76561198012345678" inputmode="numeric">
-                </div>
-                <button id="refreshSteamPlaytimeBtn" class="sidebar-btn">🔄 <span>Refresh Steam Playtime</span></button>
-                <div id="steamPlaytimeStatus" class="sidebar-hint"></div>
-            </div>
-
-            <div class="sidebar-section">
                 <h3 id="hdgBackup">Backup</h3>
                 <button id="exportBackupBtn" class="sidebar-btn" title="Save your library, watchlist, notes and settings to a file">💾 <span id="lblExportBackup">Export Backup</span></button>
                 <button id="importBackupBtn" class="sidebar-btn" title="Restore your library, watchlist, notes and settings from a backup file">📥 <span id="lblImportBackup">Import Backup</span></button>
@@ -488,37 +516,61 @@
     <div id="mainContent">
 
     <header class="hero-banner">
-        <img class="hero-banner-img" src="/assets/riftgate-banner.png" alt="Riftgate — All your worlds. One gateway.">
+        <!-- Real animated artwork (the CSS/SVG pulse+lightning overlay
+             from earlier attempts is gone — this video already has all of
+             that baked in). Re-encoded from the original mpeg4 export,
+             which Chromium can't play at all, into two web-safe formats:
+             VP9/WebM (always supported, no licensing dependency — this is
+             the one that actually renders) with an H.264/MP4 fallback.
+             Also shrank it from ~2.6MB down to ~300-470KB either way.
+             Muted+autoplay+loop+playsinline is what lets it autoplay at
+             all in Chromium without a user gesture. -->
+        <video class="hero-banner-video" autoplay loop muted playsinline aria-label="Riftgate — All your worlds. One gateway.">
+            <source src="/assets/riftgate-banner-video.webm" type="video/webm">
+            <source src="/assets/riftgate-banner-video.mp4" type="video/mp4">
+        </video>
     </header>
+    <script>
+        // Respect prefers-reduced-motion: a looping video isn't something
+        // CSS can pause on its own, so do it directly.
+        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            const heroVideo = document.querySelector(".hero-banner-video");
+            if (heroVideo) heroVideo.pause();
+        }
+    </script>
 
     <div class="fact-ticker">
         <div class="fact-ticker-track" id="factTickerTrack"></div>
     </div>
 
-    <div class="topbar-row">
-        <div class="section-switcher">
-            <div class="section-pill" id="sectionPill" title="You're viewing: Installed">
-                <span class="section-pill-label">☰ Riftgate</span>
-                <span class="section-arrow">▾</span>
-            </div>
-            <div class="section-dropdown">
-                <div class="section-dropdown-inner">
-                    <button class="sectionOption" data-section="new"><svg class="nav-icon"><use href="#icon-new"></use></svg> New</button>
-                    <button class="sectionOption" data-section="installed"><svg class="nav-icon"><use href="#icon-installed"></use></svg> Installed</button>
-                    <button class="sectionOption" data-section="free-games"><svg class="nav-icon"><use href="#icon-freegames"></use></svg> Free Games</button>
-                    <button class="sectionOption" data-section="theatre"><svg class="nav-icon"><use href="#icon-theatre"></use></svg> Theatre</button>
-                    <button class="sectionOption" data-section="reading-room"><svg class="nav-icon"><use href="#icon-readingroom"></use></svg> Reading Room</button>
-                    <button class="sectionOption" data-section="shared-folder"><svg class="nav-icon"><use href="#icon-vault"></use></svg> The Vault</button>
-                    <button class="sectionOption" data-section="applications"><svg class="nav-icon"><use href="#icon-applications"></use></svg> Applications</button>
-                </div>
-            </div>
-        </div>
+    <!-- Persistent section tab strip — replaces the old hover-to-reveal
+         dropdown ("☰ Riftgate ▾") with an always-visible row, so every
+         section is one click away and the current one is obvious at a
+         glance (matches the reference sheet's own NAVIGATION TABS mockup,
+         and reuses the same active-pill language as the Reading Room's
+         own tab bar for one consistent tab system app-wide). id stays
+         "sectionPill" and the same .sectionOption buttons/data-section
+         attributes are kept as-is so renderer.js's switchSection, the
+         onboarding tour's #sectionPill target, and the "Start on
+         section" settings list all keep working unchanged. -->
+    <div class="section-tabs" id="sectionPill" title="You're viewing: Installed">
+        <button class="sectionOption" data-section="new"><svg class="nav-icon"><use href="#icon-new"></use></svg> New</button>
+        <button class="sectionOption" data-section="installed"><svg class="nav-icon"><use href="#icon-installed"></use></svg> Installed</button>
+        <button class="sectionOption" data-section="free-games"><svg class="nav-icon"><use href="#icon-freegames"></use></svg> Free Games</button>
+        <button class="sectionOption" data-section="theatre"><svg class="nav-icon"><use href="#icon-theatre"></use></svg> Theatre</button>
+        <button class="sectionOption" data-section="reading-room"><svg class="nav-icon"><use href="#icon-readingroom"></use></svg> Reading Room</button>
+        <button class="sectionOption" data-section="shared-folder"><svg class="nav-icon"><use href="#icon-vault"></use></svg> The Vault</button>
+        <button class="sectionOption" data-section="applications"><svg class="nav-icon"><use href="#icon-applications"></use></svg> Applications</button>
+    </div>
 
+    <div class="topbar-row">
         <div class="global-search" id="globalSearchWrap">
-            <input type="text" id="globalSearchInput" placeholder="🔍 Search your games, free games, books, and shows…" autocomplete="off">
+            <input type="text" id="globalSearchInput" placeholder="Search your games, free games, books, and shows…" autocomplete="off">
+            <svg class="nav-icon global-search-icon"><use href="#icon-search"></use></svg>
             <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
         </div>
 
+        <span id="currentUsernameLabel" class="current-username" style="display:none;"></span>
         <button id="adminBtn" class="login-status-btn" title="Log in">🔑 Login</button>
 
         <div class="header-actions">
@@ -531,6 +583,13 @@
             <button id="closeLauncherBtn" title="Close Riftgate"><svg class="nav-icon"><use href="#icon-close"></use></svg></button>
         </div>
     </div>
+
+    <!-- Everything below this line is per-section content. The fade
+         transition on section switch (see switchSection in renderer.js)
+         targets THIS wrapper specifically, not #mainContent — so the hero
+         banner, section tabs, and the search/username/login topbar above
+         stay fully visible and only the actual section content fades. -->
+    <div id="sectionContentArea">
 
     <div class="topbar" id="installedTopbar">
         <div class="actions">
@@ -1033,7 +1092,7 @@
                 <option value="PL">Poland</option>
                 <option value="TR">Turkey</option>
                 <option value="GR">Greece</option>
-                <option value="CZ">Czechia</option>
+                <option value="CZ">Czech Republic</option>
                 <option value="HU">Hungary</option>
                 <option value="RO">Romania</option>
                 <option value="ZA">South Africa</option>
@@ -1104,27 +1163,39 @@
             </p>
         </div>
 
-        <div class="theatre-block">
+        <div class="theatre-block" data-block="upcoming-games">
             <div class="theatre-block-header">
                 <h2>🎮 Upcoming Games</h2>
             </div>
-            <div id="upcomingGamesGrid" class="games-grid browse-grid"></div>
+            <div class="hscroll-row">
+                <button class="carousel-arrow carousel-arrow-left" id="upcomingGamesLeftArrow" aria-label="Scroll left">‹</button>
+                <div id="upcomingGamesGrid" class="carousel-track upcoming-games-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="upcomingGamesRightArrow" aria-label="Scroll right">›</button>
+            </div>
         </div>
 
-        <div class="theatre-block">
+        <div class="theatre-block" data-block="upcoming-movies">
             <div class="theatre-block-header">
                 <h2>🎬 Upcoming Movies</h2>
                 <select id="upcomingMoviesCountrySelect" title="Country — release schedules vary a lot by country"></select>
             </div>
-            <div id="upcomingMoviesGrid" class="games-grid browse-grid"></div>
+            <div class="hscroll-row">
+                <button class="carousel-arrow carousel-arrow-left" id="upcomingMoviesLeftArrow" aria-label="Scroll left">‹</button>
+                <div id="upcomingMoviesGrid" class="hscroll-grid-2row"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="upcomingMoviesRightArrow" aria-label="Scroll right">›</button>
+            </div>
         </div>
 
-        <div class="theatre-block">
+        <div class="theatre-block" data-block="new-series">
             <div class="theatre-block-header">
                 <h2>📺 New Series</h2>
                 <input type="text" id="newShowsFilterInput" class="subsection-filter" placeholder="Filter by show name...">
             </div>
-            <div id="newShowsGrid" class="games-grid browse-grid"></div>
+            <div class="hscroll-row">
+                <button class="carousel-arrow carousel-arrow-left" id="newShowsLeftArrow" aria-label="Scroll left">‹</button>
+                <div id="newShowsGrid" class="carousel-track new-shows-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="newShowsRightArrow" aria-label="Scroll right">›</button>
+            </div>
         </div>
 
     </div>
@@ -1159,6 +1230,8 @@
 
     </div>
 
+    </div>
+
     <div class="modal-overlay" id="pathModal">
         <div class="modal-box">
             <h3>Game Path</h3>
@@ -1174,6 +1247,45 @@
         <div class="modal-box">
             <h3 id="descModalTitle">Description</h3>
             <p class="modal-path" id="descModalText"></p>
+        </div>
+    </div>
+
+    <!-- Large hover-triggered detail window for Upcoming Games (New tab):
+         cover fills the left ~2/3, full description/platforms/specs/buy
+         sit on the right, and scrolling the box itself (it's taller than
+         the visible viewport) reveals a related-games row below the fold. -->
+    <div class="modal-overlay" id="gameDetailModal">
+        <button class="game-detail-nav-arrow game-detail-nav-prev" id="gameDetailPrevArrow" aria-label="Previous game">‹</button>
+        <button class="game-detail-nav-arrow game-detail-nav-next" id="gameDetailNextArrow" aria-label="Next game">›</button>
+        <div class="game-detail-box">
+            <button class="game-detail-close" id="gameDetailCloseBtn" aria-label="Close">✕</button>
+            <div class="game-detail-main">
+                <div class="game-detail-cover">
+                    <img id="gameDetailCoverImg" src="" alt="">
+                </div>
+                <div class="game-detail-info">
+                    <h2 id="gameDetailTitle"></h2>
+                    <p class="game-detail-release" id="gameDetailRelease"></p>
+                    <div class="game-detail-platforms" id="gameDetailPlatforms"></div>
+                    <div class="game-detail-desc" id="gameDetailDesc"></div>
+                    <div class="game-detail-specs" id="gameDetailSpecs" style="display:none;">
+                        <h4>Minimum Requirements</h4>
+                        <p id="gameDetailSpecsText"></p>
+                    </div>
+                    <div class="game-detail-buy-row">
+                        <button class="launchBtn game-detail-buy" id="gameDetailBuyBtn">🛒 Buy / More Info</button>
+                        <button class="launchBtn game-detail-buy" id="gameDetailSecondaryBtn" style="display:none;">📖 Read Online</button>
+                    </div>
+                </div>
+            </div>
+            <div class="game-detail-related" id="gameDetailRelatedSection">
+                <h3>Related Games</h3>
+                <div class="carousel-wrap">
+                    <button class="carousel-arrow carousel-arrow-left" id="gameDetailRelatedLeftArrow" aria-label="Scroll left">‹</button>
+                    <div class="carousel-track" id="gameDetailRelatedRow"></div>
+                    <button class="carousel-arrow carousel-arrow-right" id="gameDetailRelatedRightArrow" aria-label="Scroll right">›</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1355,17 +1467,35 @@
     </div>
 
     <div class="modal-overlay" id="scanResultsModal">
-        <div class="modal-box scan-results-box">
+        <div class="modal-box scan-results-box scan-results-box-wide">
             <h3>Scan results</h3>
             <p class="import-modal-text" id="scanResultsSummary"></p>
             <div class="scan-results-actions">
-                <button id="scanResultsSelectAllBtn" type="button">Select All</button>
-                <button id="scanResultsSelectNoneBtn" type="button">Select None</button>
+                <button id="scanResultsGamesOnlyBtn" type="button">🎮 Games Only</button>
+                <button id="scanResultsAppsOnlyBtn" type="button">🖥️ Apps Only</button>
+                <button id="scanResultsBothBtn" type="button">Select Both</button>
             </div>
-            <div id="scanResultsList" class="scan-results-list"></div>
+            <div id="scanResultsList" class="scan-tile-grid"></div>
             <div class="modal-actions">
                 <button id="scanResultsCancelBtn">Cancel</button>
                 <button id="scanResultsAddBtn" class="wheel-play">Add Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="removeResultsModal">
+        <div class="modal-box scan-results-box scan-results-box-wide">
+            <h3>Remove from library</h3>
+            <p class="import-modal-text" id="removeResultsSummary"></p>
+            <div class="scan-results-actions">
+                <button id="removeResultsGamesOnlyBtn" type="button">🎮 Games Only</button>
+                <button id="removeResultsAppsOnlyBtn" type="button">🖥️ Apps Only</button>
+                <button id="removeResultsBothBtn" type="button">Select Both</button>
+            </div>
+            <div id="removeResultsList" class="scan-tile-grid"></div>
+            <div class="modal-actions">
+                <button id="removeResultsCancelBtn">Cancel</button>
+                <button id="removeResultsRemoveBtn" class="danger-btn">Remove Selected</button>
             </div>
         </div>
     </div>

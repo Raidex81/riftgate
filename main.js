@@ -69,7 +69,8 @@ const DEFAULT_SETTINGS = {
     trailerVolume: 50,
     runInBackground: false,
     dismissedImports: [],
-    categoryOrder: ["game", "app", "vr", "other"],
+    categoryOrder: ["game", "vr", "app", "other"],
+    sectionOrder: ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"],
     movieCountry: "US",
     upcomingMoviesCountry: "US",
     startupSection: "new",
@@ -435,6 +436,51 @@ function scanEpicGames() {
     return games;
 }
 
+// Steam/Epic manifests only cover those two stores — anything installed
+// through a different launcher (Battle.net, Ubisoft Connect, GOG Galaxy,
+// EA App, Riot, Wargaming Game Center, Rockstar Games Launcher, ...) or as
+// a plain standalone install has no manifest for scanSteamGames/
+// scanEpicGames to read, so it only turns up via the Start Menu shortcut
+// sweep below. This combined list is deliberately used ONLY by the manual,
+// user-initiated "Scan for Apps & Games" button (scan-all-installed) — the
+// shortcut sweep finds literally every piece of software already sitting
+// on the computer, and running it automatically at startup meant Riftgate
+// asked, one at a time, "Add X to Riftgate?" for every pre-existing
+// Windows app it had never seen before, not just genuinely new installs.
+// The automatic startup check (scan-new-games, below) intentionally stays
+// narrower — Steam/Epic only, the "outside" stores Riftgate actually
+// watches for new installs — so a game like World of Tanks or any other
+// shortcut-only software is still fully discoverable, just through the
+// manual scan the user opens on their own rather than an unprompted popup.
+async function findAllInstalledCandidates() {
+    const storeGames = [...scanSteamGames(), ...scanEpicGames()];
+    const shortcutApps = await scanStartMenuShortcuts();
+
+    const combined = [...storeGames, ...shortcutApps];
+
+    // De-dupe by resolved path — the same install can turn up both as a
+    // store manifest entry and a Start Menu shortcut.
+    const seenPaths = new Set();
+    const deduped = [];
+    for (const item of combined) {
+        const key = item.path.toLowerCase();
+        if (seenPaths.has(key)) continue;
+        seenPaths.add(key);
+        deduped.push(item);
+    }
+
+    return deduped;
+}
+
+// Automatic startup check — deliberately limited to Steam/Epic store
+// detections ("outside apps"), not the full Start Menu shortcut sweep
+// findAllInstalledCandidates() also does. Sweeping every already-installed
+// piece of Windows software into this automatic, one-at-a-time prompt was
+// too noisy: it re-litigated the user's entire existing software library
+// instead of only flagging genuinely new installs. Anything shortcut-only
+// (World of Tanks, other launchers, regular desktop apps) is still fully
+// reachable — just through the manual "Scan for Apps & Games" button
+// (scan-all-installed below), which the user opens on their own terms.
 ipcMain.handle("scan-new-games", async () => {
 
     try {
@@ -541,30 +587,16 @@ ipcMain.handle("scan-all-installed", async () => {
             : [];
         const existingPaths = new Set(existingGames.map((g) => g.path));
 
-        let dismissed = [];
-        if (fs.existsSync(SETTINGS_FILE)) {
-            const s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
-            dismissed = s.dismissedImports || [];
-        }
-        const dismissedSet = new Set(dismissed);
+        // Deliberately NOT filtering out dismissedImports here, unlike
+        // scan-new-games above — dismissing the automatic one-at-a-time
+        // prompt only means "stop asking me about this automatically," not
+        // "hide it from me forever." The manual scan is exactly where a
+        // dismissed item should still be reachable, so the user can add it
+        // later if they change their mind. Only things already in the
+        // library are excluded here.
+        const found = await findAllInstalledCandidates();
 
-        const storeGames = [...scanSteamGames(), ...scanEpicGames()];
-        const shortcutApps = await scanStartMenuShortcuts();
-
-        const combined = [...storeGames, ...shortcutApps];
-
-        // De-dupe by resolved path — the same install can turn up both as
-        // a Steam manifest entry and a Start Menu shortcut.
-        const seenPaths = new Set();
-        const deduped = [];
-        for (const item of combined) {
-            const key = item.path.toLowerCase();
-            if (seenPaths.has(key)) continue;
-            seenPaths.add(key);
-            deduped.push(item);
-        }
-
-        return deduped.filter((g) => !existingPaths.has(g.path) && !dismissedSet.has(g.path));
+        return found.filter((g) => !existingPaths.has(g.path));
     } catch (err) {
         console.error("[import] scan-all-installed failed:", err.message || err);
         return [];
@@ -806,6 +838,13 @@ function initUserData() {
 
     if (!fs.existsSync(userNoCover) && fs.existsSync(seedNoCover)) {
         fs.copyFileSync(seedNoCover, userNoCover);
+    }
+
+    const seedToolDefault = path.join(__dirname, "covers", "windows-tool-default.jpg");
+    const userToolDefault = path.join(COVERS_FOLDER, "windows-tool-default.jpg");
+
+    if (!fs.existsSync(userToolDefault) && fs.existsSync(seedToolDefault)) {
+        fs.copyFileSync(seedToolDefault, userToolDefault);
     }
 
     if (!fs.existsSync(GAMES_FILE)) {
@@ -2146,10 +2185,12 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
                 description: m.overview,
                 poster,
                 releaseDate: m.release_date,
+                popularity: m.popularity || 0,
                 isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));
 
+        mapped.sort((a, b) => b.popularity - a.popularity);
         return mapped;
     } catch (err) {
         console.error("[movies] now_playing fetch failed:", err.message || err);
@@ -2157,21 +2198,25 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
     }
 });
 
+// Prefers a real "Trailer" over a "Teaser" — but falls back to a teaser
+// rather than nothing, since that's frequently all that exists yet for a
+// title that hasn't released. Within whichever type is used, an official
+// upload is preferred over an arbitrary fan/regional one, since TMDB
+// doesn't guarantee "best" results come first.
+function pickBestYoutubeTrailer(videos) {
+    const youtubeVideos = (videos || []).filter((v) => v.site === "YouTube");
+    const trailers = youtubeVideos.filter((v) => v.type === "Trailer");
+    const teasers = youtubeVideos.filter((v) => v.type === "Teaser");
+    const pool = trailers.length ? trailers : teasers;
+    const best = pool.find((v) => v.official) || pool[0];
+    return best ? best.key : null;
+}
+
 ipcMain.handle("get-movie-trailer", async (event, movieId) => {
 
     try {
         const data = await mediaProxyGetJsonPlain("tmdb", `/movie/${movieId}/videos`, {});
-
-        const candidates = (data.results || []).filter(
-            (v) => v.site === "YouTube" && v.type === "Trailer"
-        );
-
-        // TMDB doesn't guarantee "best" results first — prefer the one
-        // it explicitly marks as official over an arbitrary fan upload
-        // or regional variant that happens to be listed first.
-        const trailer = candidates.find((v) => v.official) || candidates[0];
-
-        return trailer ? trailer.key : null;
+        return pickBestYoutubeTrailer(data.results);
     } catch (err) {
         console.error("[movies] trailer fetch failed:", err.message || err);
         return null;
@@ -2189,18 +2234,14 @@ ipcMain.handle("get-show-trailer", async (event, showName) => {
 
     try {
         const searchData = await mediaProxyGetJsonPlain("tmdb", "/search/tv", { query: showName });
+        const results = searchData.results || [];
+        if (results.length === 0) return null;
 
-        const match = searchData.results && searchData.results[0];
-        if (!match) return null;
+        const lowerName = String(showName || "").toLowerCase();
+        const match = results.find((r) => (r.name || "").toLowerCase() === lowerName) || results[0];
 
         const videoData = await mediaProxyGetJsonPlain("tmdb", `/tv/${match.id}/videos`, {});
-
-        const candidates = (videoData.results || []).filter(
-            (v) => v.site === "YouTube" && v.type === "Trailer"
-        );
-        const trailer = candidates.find((v) => v.official) || candidates[0];
-
-        return trailer ? trailer.key : null;
+        return pickBestYoutubeTrailer(videoData.results);
     } catch (err) {
         console.error("[shows] trailer fetch failed:", err.message || err);
         return null;
@@ -2238,10 +2279,12 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
                 description: m.overview,
                 poster,
                 releaseDate: m.release_date,
+                popularity: m.popularity || 0,
                 isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));
 
+        mapped.sort((a, b) => b.popularity - a.popularity);
         return mapped;
     } catch (err) {
         console.error("[new] upcoming movies fetch failed:", err.message || err);
@@ -2252,7 +2295,7 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
 ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
     try {
         const data = await mediaProxyGetJsonPlain("tmdb", "/discover/tv", {
-            sort_by: "first_air_date.desc",
+            sort_by: "popularity.desc",
             "air_date.lte": new Date().toISOString().slice(0, 10),
             "vote_count.gte": "5",
             language: "en-US",
@@ -2290,12 +2333,7 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
 ipcMain.handle("get-tv-show-trailer", async (event, tmdbId) => {
     try {
         const data = await mediaProxyGetJsonPlain("tmdb", `/tv/${tmdbId}/videos`, {});
-
-        const trailer = (data.results || []).find(
-            (v) => v.site === "YouTube" && v.type === "Trailer"
-        );
-
-        return trailer ? trailer.key : null;
+        return pickBestYoutubeTrailer(data.results);
     } catch (err) {
         console.error("[new] TV trailer fetch failed:", err.message || err);
         return null;
@@ -2310,31 +2348,172 @@ ipcMain.handle("get-tv-show-trailer", async (event, tmdbId) => {
 // closest free equivalent to "what people are talking about most" —
 // covering both the "any platform" and "most talked about" parts of
 // what this list is supposed to show.
+// Once a game's own release date arrives it stops matching the "still
+// upcoming" date filter below and would otherwise just vanish from the
+// list the instant that happens — instead it stays visible for a short
+// grace window after release, and gets backfilled with a newly-anticipated
+// game once that window closes, via a small persisted cache of whatever
+// was shown last time (see below).
+const UPCOMING_GAMES_TARGET_COUNT = 24;
+const UPCOMING_GAMES_GRACE_MS = 14 * 24 * 60 * 60 * 1000; // 2 weeks
+// A genuinely unreleased game cannot have accumulated meaningful player
+// ratings yet — anything at or above this is almost certainly already out
+// in reality, regardless of what RAWG's own "released" field claims.
+const UPCOMING_GAMES_MAX_RATINGS_COUNT = 10;
+
+// Called once when renderer.js notices the app version just changed (see
+// checkForUpdatePopup) — clears the one New-tab cache that survives
+// restarts, so an update's users see a genuinely fresh Upcoming Games list
+// built under the new logic instead of carrying forward whatever was
+// cached under the previous version.
+ipcMain.handle("clear-new-section-cache", async () => {
+    try {
+        const cachePath = path.join(app.getPath("userData"), "cache-upcoming-games-recent.json");
+        if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+        return { success: true };
+    } catch (err) {
+        console.error("[new] clear-new-section-cache failed:", err.message || err);
+        return { success: false };
+    }
+});
+
 ipcMain.handle("get-upcoming-games", async () => {
     try {
         const today = new Date();
+        // "Upcoming" means strictly after today — a game releasing today
+        // no longer belongs in "new releases coming up," it belongs in the
+        // just-released grace period below instead.
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
         const sixMonthsOut = new Date(today);
         sixMonthsOut.setMonth(sixMonthsOut.getMonth() + 6);
         const fmt = (d) => d.toISOString().slice(0, 10);
 
+        // A few extra beyond the target count, so there's still enough left
+        // over to backfill with after excluding anything already carried
+        // forward from the grace list below.
         const data = await mediaProxyGetJsonPlain("rawg", "/games", {
-            dates: `${fmt(today)},${fmt(sixMonthsOut)}`,
+            dates: `${fmt(tomorrow)},${fmt(sixMonthsOut)}`,
             ordering: "-added",
-            page_size: "24"
+            page_size: String(UPCOMING_GAMES_TARGET_COUNT + 10)
         });
 
-        const results = data.results || [];
+        const freshUpcoming = (data.results || [])
+            .filter((g) => !g.tba && (g.ratings_count || 0) < UPCOMING_GAMES_MAX_RATINGS_COUNT)
+            .map((g) => ({
+                id: `rawg-${g.id}`,
+                name: g.name,
+                image: g.background_image || null,
+                url: `https://rawg.io/games/${g.slug}`,
+                releaseDate: g.released || null,
+                platforms: (g.platforms || [])
+                    .map((p) => p.platform && p.platform.name)
+                    .filter(Boolean)
+            }));
 
-        return results.map((g) => ({
-            id: `rawg-${g.id}`,
-            name: g.name,
-            image: g.background_image || null,
-            url: `https://rawg.io/games/${g.slug}`,
-            releaseDate: g.released || null
-        }));
+        // Carry forward anything shown last time that has since released
+        // but is still within its 2-week grace window.
+        const previous = loadDataCache("cache-upcoming-games-recent.json") || [];
+        const graced = previous.filter((g) => {
+            if (!g.releaseDate) return false;
+            const msSinceRelease = today - new Date(g.releaseDate);
+            return msSinceRelease > 0 && msSinceRelease <= UPCOMING_GAMES_GRACE_MS;
+        });
+
+        // Graced entries fill their slots first, then freshly-fetched
+        // upcoming games top the list back up to the target count — this
+        // is the "add another awaited game" backfill once a graced game's
+        // window finally closes and drops off.
+        const gracedIds = new Set(graced.map((g) => g.id));
+        const combined = [...graced];
+        for (const g of freshUpcoming) {
+            if (combined.length >= UPCOMING_GAMES_TARGET_COUNT) break;
+            if (gracedIds.has(g.id)) continue;
+            combined.push(g);
+        }
+
+        saveDataCache("cache-upcoming-games-recent.json", combined);
+        return combined;
     } catch (err) {
         console.error("[new] upcoming games fetch failed:", err.message || err);
         return [];
+    }
+});
+
+// Fetches richer per-game detail (full description, platforms, minimum PC
+// specs) for the New tab's Upcoming Games hover-detail window. Kept as a
+// separate, on-demand call rather than folded into the 24-game listing
+// above, since RAWG only returns this level of detail from its single-game
+// endpoint, and fetching it for all 24 up front would be slow and mostly
+// wasted on games the user never hovers.
+ipcMain.handle("get-upcoming-game-details", async (event, rawgId) => {
+    try {
+        // rawgId arrives as "rawg-12345" (see get-upcoming-games above) —
+        // strip the prefix back to the bare numeric RAWG id the detail
+        // endpoint expects.
+        const numericId = String(rawgId).replace(/^rawg-/, "");
+        const g = await mediaProxyGetJsonPlain("rawg", `/games/${numericId}`);
+
+        const platformNames = (g.platforms || [])
+            .map((p) => p.platform && p.platform.name)
+            .filter(Boolean);
+
+        const pcEntry = (g.platforms || []).find(
+            (p) => p.platform && p.platform.name === "PC" && p.requirements && p.requirements.minimum
+        );
+
+        // RAWG's requirements text comes back as an HTML-ish blob
+        // ("Minimum:<br>OS: ...<br>CPU: ..."). This is third-party API
+        // content, so it's stripped down to plain text with line breaks
+        // here rather than ever being passed to innerHTML in the renderer.
+        const stripHtml = (s) =>
+            (s || "")
+                .replace(/<br\s*\/?>/gi, "\n")
+                .replace(/<[^>]+>/g, "")
+                .trim();
+
+        // Related games — this game's own primary genre, queried against
+        // RAWG's main game list and ranked by popularity, rather than
+        // RAWG's "suggested-games" endpoint (which is based on player
+        // behavior data that barely exists yet for an unreleased title —
+        // that's why it so often came back empty here). Genre data is
+        // present even for brand-new/unannounced games, so this works far
+        // more consistently, and "same genre" is a more literal match for
+        // what "related" means in this row anyway. Its own try/catch means
+        // a failure here never breaks the description/specs above.
+        let related = [];
+        try {
+            const primaryGenreSlug = g.genres && g.genres[0] && g.genres[0].slug;
+            if (primaryGenreSlug) {
+                const genreGames = await mediaProxyGetJsonPlain("rawg", "/games", {
+                    genres: primaryGenreSlug,
+                    ordering: "-added",
+                    page_size: "13"
+                });
+                related = (genreGames.results || [])
+                    .filter((sg) => String(sg.id) !== String(numericId))
+                    .slice(0, 12)
+                    .map((sg) => ({
+                        id: `rawg-${sg.id}`,
+                        name: sg.name,
+                        image: sg.background_image || null,
+                        url: `https://rawg.io/games/${sg.slug}`,
+                        releaseDate: sg.released || null
+                    }));
+            }
+        } catch (relErr) {
+            console.error("[new] related games fetch failed:", relErr.message || relErr);
+        }
+
+        return {
+            description: stripHtml(g.description_raw || g.description || ""),
+            platforms: platformNames,
+            minSpecs: pcEntry ? stripHtml(pcEntry.requirements.minimum) : null,
+            related
+        };
+    } catch (err) {
+        console.error("[new] upcoming game details fetch failed:", err.message || err);
+        return { description: "", platforms: [], minSpecs: null, related: [] };
     }
 });
 
@@ -2667,6 +2846,17 @@ ipcMain.handle("launch-app", async (event, exePath) => {
     }
 
     return { started: true, alreadyRunning: false, launches: newCount };
+});
+
+ipcMain.handle("get-file-icon", async (event, exePath) => {
+    try {
+        if (!exePath || !fs.existsSync(exePath)) return null;
+        const icon = await app.getFileIcon(exePath, { size: "large" });
+        if (!icon || icon.isEmpty()) return null;
+        return icon.toDataURL();
+    } catch (err) {
+        return null;
+    }
 });
 
 ipcMain.handle("find-cover", async (event, gameName) => {
@@ -4077,6 +4267,10 @@ function openLibraryDocMentions(doc, keyword) {
     return subjects.some((s) => String(s).toLowerCase().includes(lowerKeyword));
 }
 
+function openLibraryDocMentionsAny(doc, keywords) {
+    return keywords.some((kw) => openLibraryDocMentions(doc, kw));
+}
+
 function mapOpenLibraryBook(doc) {
     const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null;
     const workKey = doc.key || null;
@@ -4134,7 +4328,7 @@ async function fetchOpenLibraryBooks(query, sort) {
 // exhausted and there still aren't enough, return what was found
 // rather than padding with bare listings — a shorter, fully-illustrated
 // row beats a full one that's mostly blank placeholders.
-async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword) {
+async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword, requireKeywords) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const pageSize = 200;
     const maxPages = 10; // up to 2000 candidates before giving up — Manga/Comics now ask for a much bigger list (150) than the original 40, so this needs more room to find that many with real cover art
@@ -4158,6 +4352,7 @@ async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, exclud
         for (const d of docs) {
             if (!d.title || !d.cover_i) continue;
             if (excludeKeyword && openLibraryDocMentions(d, excludeKeyword)) continue;
+            if (requireKeywords && !openLibraryDocMentionsAny(d, requireKeywords)) continue;
             const dedupeKey = d.key || d.cover_edition_key;
             if (dedupeKey) {
                 if (seenKeys.has(dedupeKey)) continue;
@@ -4218,7 +4413,7 @@ ipcMain.handle("get-manga-books", async () => {
         // Scoped to the actual "manga" subject rather than a loose
         // keyword search, so this doesn't also pull in books that just
         // mention manga in passing.
-        const books = await fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150);
+        const books = await fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150, null, ["manga"]);
         saveDataCache("cache-manga-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -4235,7 +4430,7 @@ ipcMain.handle("get-comics-books", async () => {
         // subject too, so this excludes anything that mentions manga in
         // its own title/subjects — manga always belongs in the Manga
         // tab, never duplicated into Comics.
-        const books = await fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 150, "manga");
+        const books = await fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 150, "manga", ["comic", "graphic novel"]);
         saveDataCache("cache-comics-books.json", books);
         return { success: true, books };
     } catch (err) {
@@ -4261,7 +4456,9 @@ ipcMain.handle("search-genre-books", async (event, { term, kind } = {}) => {
             10000
         );
         const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
-        const scoped = isManga ? docs : docs.filter((d) => !openLibraryDocMentions(d, "manga"));
+        const scoped = isManga
+            ? docs.filter((d) => openLibraryDocMentions(d, "manga"))
+            : docs.filter((d) => !openLibraryDocMentions(d, "manga") && openLibraryDocMentionsAny(d, ["comic", "graphic novel"]));
         const books = scoped.filter((d) => d.title).map(mapOpenLibraryBook);
         return { success: true, books };
     } catch (err) {
@@ -5241,6 +5438,39 @@ ipcMain.handle("admin-toggle-item-mature", async (event, { username, password, s
     });
     if (!r.success) return r;
     return { success: true, isMature: r.result === true };
+});
+
+// Every item an admin/super-admin has removed from Riftgate's catalog
+// sections — removal is global, so this is read by every user (same
+// pattern as get-mature-overrides) to filter their own view client-side.
+// Only ever written through admin-remove-item.
+ipcMain.handle("get-removed-items", async () => {
+    try {
+        const result = await supabaseRequest("removed_items?select=section,item_key", "GET");
+        if (result.statusCode !== 200 || !Array.isArray(result.body)) {
+            return { success: false, removed: [] };
+        }
+        return { success: true, removed: result.body };
+    } catch (err) {
+        console.error("[removed-items] fetch failed:", err.message || err);
+        return { success: false, removed: [] };
+    }
+});
+
+// Admin/super-admin-only: permanently removes an item from Riftgate for
+// every user. Re-verifies the admin's password server-side inside
+// admin_remove_item, exactly like every other admin-gated action in this
+// app — idempotent, so removing an already-removed item is a no-op.
+ipcMain.handle("admin-remove-item", async (event, { username, password, section, itemKey, itemName }) => {
+    const r = await callAdminRpc("admin_remove_item", {
+        input_username: username,
+        input_password: password,
+        target_section: section,
+        target_item_key: itemKey,
+        target_item_name: itemName || null
+    });
+    if (!r.success) return r;
+    return { success: true };
 });
 
 // --- Suggestions (Supabase) ------------------------------------------------

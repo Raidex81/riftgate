@@ -60,42 +60,42 @@ body{
     inset:0;
     z-index:-1;
     background:
-        radial-gradient(circle at 25% 25%, rgba(120,90,255,.10), transparent 55%),
+        radial-gradient(circle at 25% 25%, rgba(120,90,255,.06), transparent 55%),
         var(--bg-primary);
     transition:background 0.7s ease;
 }
 
 .ambient-bg.theme-game{
     background:
-        radial-gradient(circle at 20% 25%, rgba(255,60,90,.18), transparent 55%),
-        radial-gradient(circle at 80% 75%, rgba(255,150,60,.12), transparent 55%),
+        radial-gradient(circle at 20% 25%, rgba(255,60,90,.10), transparent 55%),
+        radial-gradient(circle at 80% 75%, rgba(255,150,60,.07), transparent 55%),
         var(--bg-primary);
 }
 
 .ambient-bg.theme-app{
     background:
-        radial-gradient(circle at 25% 25%, rgba(60,140,255,.18), transparent 55%),
-        radial-gradient(circle at 75% 75%, rgba(60,255,220,.12), transparent 55%),
+        radial-gradient(circle at 25% 25%, rgba(60,140,255,.10), transparent 55%),
+        radial-gradient(circle at 75% 75%, rgba(60,255,220,.07), transparent 55%),
         var(--bg-primary);
 }
 
 .ambient-bg.theme-other{
     background:
-        radial-gradient(circle at 30% 20%, rgba(120,255,120,.15), transparent 55%),
-        radial-gradient(circle at 70% 80%, rgba(255,220,80,.12), transparent 55%),
+        radial-gradient(circle at 30% 20%, rgba(120,255,120,.09), transparent 55%),
+        radial-gradient(circle at 70% 80%, rgba(255,220,80,.07), transparent 55%),
         var(--bg-primary);
 }
 
 .ambient-bg.theme-vr{
     background:
-        radial-gradient(circle at 25% 25%, rgba(140,90,255,.20), transparent 55%),
-        radial-gradient(circle at 75% 75%, rgba(90,220,255,.15), transparent 55%),
+        radial-gradient(circle at 25% 25%, rgba(140,90,255,.12), transparent 55%),
+        radial-gradient(circle at 75% 75%, rgba(90,220,255,.09), transparent 55%),
         var(--bg-primary);
 }
 
-/* Real banner artwork replaces the old animated circuit/hub SVG scene —
-   the wordmark, tagline, and gem art are all baked into the image
-   itself, so the header is just a responsive full-width <img> now. */
+/* Real animated video banner — the wordmark, tagline, gem pulse and
+   lightning are all baked into the video itself, so the header is just
+   a responsive full-width <video> now. No CSS/SVG overlay needed. */
 .hero-banner{
     position:relative;
     overflow:hidden;
@@ -107,10 +107,11 @@ body{
     transition:background .3s ease, border-color .3s ease;
 }
 
-.hero-banner-img{
+.hero-banner-video{
     display:block;
     width:100%;
     height:auto;
+    filter:brightness(.72) contrast(1.45) saturate(1.3);
 }
 
 
@@ -153,7 +154,20 @@ input{
 }
 
 .category-section{
-    padding:0 16px;
+    padding:0 20px;
+}
+
+.library-summary-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:0 16px 10px;
+}
+
+.library-summary-row .library-summary{
+    padding:0;
 }
 
 .library-summary{
@@ -162,6 +176,41 @@ input{
     font-weight:600;
     color:var(--text-secondary);
     letter-spacing:.2px;
+}
+
+/* "Clear" controls for the Installed library — a small danger-tinted
+   button next to each category heading to wipe just that section, plus
+   a slightly larger one next to the "Your Library" summary line above
+   to wipe everything at once. */
+.clear-section-btn{
+    background:rgba(229,57,53,.12);
+    border:1px solid #e53935;
+    color:#e53935;
+    border-radius:6px;
+    padding:4px 10px;
+    font-size:11px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .15s ease, color .15s ease;
+}
+
+.clear-section-btn:hover{
+    background:#e53935;
+    color:#fff;
+}
+
+.clear-all-btn{
+    font-size:12px;
+    padding:6px 14px;
+}
+
+.category-heading-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:32px 0 14px;
 }
 
 .category-empty-hint{
@@ -191,15 +240,31 @@ input{
 }
 
 .category-section h2{
-    font-size:15px;
-    color:var(--text-secondary);
-    margin:20px 0 10px;
-    padding-left:2px;
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.2px;
+    color:var(--text-primary);
+    margin:0;
+    padding-left:14px;
     cursor:grab;
-    display:inline-block;
+    display:inline-flex;
+    align-items:center;
     border-radius:6px;
-    padding:4px 8px;
+    padding:6px 10px 6px 14px;
     transition:background .15s ease;
+    position:relative;
+}
+
+.category-section h2::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:50%;
+    transform:translateY(-50%);
+    width:4px;
+    height:18px;
+    border-radius:3px;
+    background:var(--accent-gradient);
 }
 
 .category-section h2:hover{
@@ -210,27 +275,38 @@ input{
     outline:2px dashed var(--accent-1);
 }
 
+.sidebarNavBtn.section-drag-over,
+.sectionOption.section-drag-over{
+    outline:2px dashed var(--accent-1);
+    outline-offset:-2px;
+}
+
+.theatre-block-header h2.section-drag-over{
+    outline:2px dashed var(--accent-1);
+    outline-offset:2px;
+}
+
 .games-grid{
     display:grid;
     /* A minimum readable width instead of a fixed one — cards stay at
-       least 150px so titles like "Grand Theft Auto VI" have room to
-       breathe, and grow up to 210px to use extra space on larger
+       least 170px so titles like "Grand Theft Auto VI" have room to
+       breathe, and grow up to 230px to use extra space on larger
        windows/monitors instead of leaving it unused. */
-    grid-template-columns:repeat(auto-fill, minmax(150px, 210px));
+    grid-template-columns:repeat(auto-fill, minmax(170px, 230px));
     justify-content:start;
-    gap:14px;
-    padding:0 0 8px;
+    align-items:start;
+    gap:18px;
+    padding:0 0 12px;
+}
+
+.browse-grid{
+    align-items:stretch;
 }
 
 body.density-compact .games-grid{
     grid-template-columns:repeat(auto-fill, minmax(120px, 160px));
     justify-content:start;
     gap:10px;
-}
-
-body.density-compact .game-card img,
-body.density-compact .cover-wrap{
-    height:120px;
 }
 
 body.density-compact .game-desc{
@@ -307,9 +383,33 @@ body.density-compact .categoryPicker{
     border-radius:12px;
     overflow:hidden;
     box-shadow:0 5px 20px rgba(0,0,0,.5);
+    border:1.5px solid transparent;
     display:flex;
     flex-direction:column;
     cursor:grab;
+    transition:box-shadow .25s ease, border-color .25s ease, transform .2s ease;
+}
+
+/* Universal card frame — thin, unlit border at rest; it only blooms into
+   the violet glow on hover/focus (the closest thing this grid has to a
+   "selected" state), matching Alfredo's note: "glow only when selected."
+   A favourited card (gold star, see .favoriteBtn.active below) gets its
+   own gold-tinted frame instead, so favourites read as a distinct card
+   state even before you hover — the "Favourite" variant in the reference
+   sheet — layered with the same hover glow language everything else uses. */
+.game-card:hover, .game-card:focus-visible{
+    border-color:var(--accent-1);
+    box-shadow:0 5px 20px rgba(0,0,0,.5), 0 0 0 1px var(--accent-1), 0 0 22px -6px var(--accent-1), 0 0 40px -12px var(--accent-2);
+    transform:translateY(-2px);
+}
+
+.game-card:has(.favoriteBtn.active){
+    border-color:rgba(244,197,66,.4);
+}
+
+.game-card:has(.favoriteBtn.active):hover, .game-card:has(.favoriteBtn.active):focus-visible{
+    border-color:#f4c542;
+    box-shadow:0 5px 20px rgba(0,0,0,.5), 0 0 0 1px #f4c542, 0 0 22px -6px #f4c542, 0 0 40px -12px var(--accent-2);
 }
 
 .game-card.dragging{
@@ -323,15 +423,53 @@ body.density-compact .categoryPicker{
 
 .game-card img{
     width:100%;
-    height:170px;
-    object-fit:cover;
+    height:auto;
+    object-fit:contain;
     background:var(--bg-primary);
+}
+
+.game-card img.cover{
+    height:230px;
+    object-fit:cover;
+    display:block;
+}
+
+.card-overlay{
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    flex:1;
+}
+
+.game-title{
+    margin:0 0 4px;
+    font-size:15px;
+    font-weight:700;
+    color:var(--text-primary);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.game-meta{
+    font-size:11px;
+    color:var(--text-muted);
+    margin:0 0 10px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.card-actions{
+    display:flex;
+    gap:8px;
+    margin-top:auto;
 }
 
 .cover-wrap{
     position:relative;
     width:100%;
-    height:170px;
+    height:230px;
     overflow:hidden;
     background:var(--bg-primary);
 }
@@ -353,6 +491,8 @@ body.density-compact .categoryPicker{
     align-items:center;
     justify-content:center;
     background:var(--bg-tertiary);
+    aspect-ratio:1/1;
+    height:auto;
 }
 
 .game-card.card-app .cover-wrap img{
@@ -399,7 +539,7 @@ body.density-compact .categoryPicker{
 }
 
 .game-info{
-    padding:10px;
+    padding:14px;
     display:flex;
     flex-direction:column;
     flex:1;
@@ -569,6 +709,40 @@ body.density-compact .categoryPicker{
     background:#e53935;
 }
 
+/* Admin/super-admin-only "remove from Riftgate for everyone" button —
+   same corner treatment as .removeBtn (which is Installed Library's own
+   personal, local-only removal), kept as a separate class since the two
+   never appear on the same card but do the very different things: this
+   one is a global, permanent removal written to the shared backend.
+   Visibility itself is set from JS (isAdminMode) — the hover-reveal here
+   only governs a visible button's opacity, same as every other corner
+   button on these cards. */
+.admin-remove-item-btn{
+    position:absolute;
+    top:10px;
+    right:10px;
+    width:26px;
+    height:26px;
+    border:none;
+    border-radius:50%;
+    background:#c62828;
+    color:white;
+    cursor:pointer;
+    opacity:0;
+    transition:0.2s;
+    font-size:14px;
+    font-weight:bold;
+    z-index:4;
+}
+
+.game-card:hover .admin-remove-item-btn{
+    opacity:1;
+}
+
+.admin-remove-item-btn:hover{
+    background:#e53935;
+}
+
 .launchBtn:hover{
     background:#2ea043;
 }
@@ -651,6 +825,109 @@ body.density-compact .categoryPicker{
 
 .scan-results-actions button:hover{
     border-color:var(--accent-1);
+}
+
+.scan-results-box-wide{
+    max-width:920px;
+}
+
+/* Cover-tile grid used by both the "Scan for Apps & Games" and "Remove
+   Apps & Games" bulk pickers — a poster per detected/owned item with a
+   name label baked into a bottom scrim and a select/deselect badge in
+   the corner, instead of the old plain checkbox list. */
+.scan-tile-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(108px, 1fr));
+    gap:10px;
+    max-height:480px;
+    overflow-y:auto;
+    padding:4px 2px;
+    margin-bottom:16px;
+}
+
+.scan-tile{
+    position:relative;
+    aspect-ratio:2/3;
+    border-radius:8px;
+    overflow:hidden;
+    cursor:pointer;
+    background:var(--bg-tertiary);
+    border:2px solid transparent;
+    transition:transform .15s ease, border-color .15s ease, opacity .15s ease;
+    opacity:.55;
+}
+
+.scan-tile:hover{
+    transform:translateY(-3px);
+}
+
+.scan-tile.selected{
+    border-color:var(--accent-1);
+    opacity:1;
+}
+
+.scan-tile img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+
+.scan-tile-label{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    padding:16px 6px 6px;
+    background:linear-gradient(to top, rgba(0,0,0,.88), transparent);
+    color:#fff;
+    font-size:10.5px;
+    font-weight:700;
+    text-align:center;
+    line-height:1.25;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+}
+
+.scan-tile-toggle{
+    position:absolute;
+    top:6px;
+    right:6px;
+    width:22px;
+    height:22px;
+    border-radius:6px;
+    background:rgba(13,17,23,.8);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:800;
+    border:1px solid rgba(255,255,255,.25);
+    pointer-events:none;
+}
+
+.scan-tile.selected .scan-tile-toggle{
+    background:var(--accent-gradient);
+    border-color:transparent;
+}
+
+.scan-tile-source{
+    position:absolute;
+    top:6px;
+    left:6px;
+    font-size:8.5px;
+    font-weight:700;
+    padding:2px 5px;
+    border-radius:999px;
+    background:rgba(13,17,23,.8);
+    color:var(--text-secondary);
+    max-width:62%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    pointer-events:none;
 }
 
 .scan-results-list{
@@ -868,7 +1145,7 @@ body.density-compact .categoryPicker{
 
 .sidebar{
     position:fixed;
-    top:var(--titlebar-height);
+    top:0;
     left:0;
     bottom:0;
     width:280px;
@@ -882,11 +1159,12 @@ body.density-compact .categoryPicker{
     flex-direction:column;
     padding:22px 18px;
     box-shadow:8px 0 34px rgba(0,0,0,.55);
-    overflow-y:auto;
+    overflow-y:hidden;
 }
 
 .sidebar:hover{
     transform:translateX(0);
+    overflow-y:auto;
 }
 
 .custom-titlebar{
@@ -902,6 +1180,31 @@ body.density-compact .categoryPicker{
     background:var(--bg-primary);
     border-bottom:1px solid var(--border-color);
     -webkit-app-region:drag;
+    transform:translateY(-100%);
+    opacity:0;
+    pointer-events:none;
+    transition:transform .18s ease, opacity .18s ease;
+    box-shadow:0 8px 22px -6px rgba(0,0,0,.6);
+}
+
+/* Thin invisible strip along the very top edge of the window: hovering it
+   (or the titlebar itself, once revealed) slides the custom titlebar down
+   into view so drag/minimize/maximize/close stay reachable without the
+   bar sitting there permanently. */
+.titlebar-hover-zone{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    height:36px;
+    z-index:199;
+}
+
+.titlebar-hover-zone:hover ~ .custom-titlebar,
+.custom-titlebar:hover{
+    transform:translateY(0);
+    opacity:1;
+    pointer-events:auto;
 }
 
 .titlebar-drag{
@@ -938,8 +1241,20 @@ body.density-compact .categoryPicker{
 }
 
 #mainContent{
-    margin-top:var(--titlebar-height);
+    margin-top:0;
     margin-left:26px;
+}
+
+/* Scoped to the per-section content wrapper (see #sectionContentArea in
+   index.html), not the whole #mainContent pane — so the hero banner,
+   section tabs, and search/login topbar never fade, only the content
+   below them does, when switchSection (renderer.js) swaps sections. */
+#sectionContentArea{
+    transition:opacity .18s ease;
+}
+
+#sectionContentArea.section-fade-out{
+    opacity:0;
 }
 
 .sidebar-handle{
@@ -1283,33 +1598,34 @@ body.density-compact .categoryPicker{
 /* ================= Themed scrollbars ================= */
 
 ::-webkit-scrollbar{
-    width:14px;
-    height:14px;
+    width:12px;
+    height:12px;
 }
 
 ::-webkit-scrollbar-track{
-    background:var(--bg-primary);
+    background:var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb{
-    background:var(--text-muted);
-    border-radius:7px;
-    border:3px solid var(--bg-primary);
+    background:var(--accent-gradient);
+    border-radius:8px;
+    border:2px solid var(--bg-secondary);
+    box-shadow:0 0 6px -1px var(--accent-1);
 }
 
 ::-webkit-scrollbar-thumb:hover{
-    background:var(--accent-1);
+    box-shadow:0 0 10px 0 var(--accent-1);
 }
 
 ::-webkit-scrollbar-corner{
-    background:var(--bg-primary);
+    background:var(--bg-secondary);
 }
 
 /* ================= Fun fact ticker ================= */
 
 .fact-ticker{
     position:sticky;
-    top:var(--titlebar-height);
+    top:0;
     z-index:40;
     height:38px;
     overflow:hidden;
@@ -1638,7 +1954,7 @@ body.is-fullscreen #mainContent{
 
 .header-actions{
     position:sticky;
-    top:calc(var(--titlebar-height) + 38px);
+    top:38px;
     z-index:45;
     display:flex;
     align-items:center;
@@ -1651,19 +1967,21 @@ body.is-fullscreen #mainContent{
 
 .header-actions button{
     padding:9px 14px;
-    border-radius:10px;
-    border:1px solid var(--border-color);
+    border-radius:999px;
+    border:1px solid rgba(176,38,255,.35);
     background:var(--bg-secondary);
     color:var(--text-secondary);
     font-size:13px;
     font-weight:600;
     cursor:pointer;
     transition:.2s;
+    box-shadow:0 0 10px -6px var(--accent-1);
 }
 
 .header-actions button:hover{
     background:var(--bg-tertiary);
     color:var(--text-primary);
+    border-color:var(--accent-1);
 }
 
 #surpriseBtn{
@@ -1894,6 +2212,18 @@ body.is-fullscreen #mainContent{
     filter:brightness(1.15);
 }
 
+.danger-btn{
+    background:rgba(229,57,53,.12);
+    border-color:#e53935;
+    color:#e53935;
+}
+
+.danger-btn:hover{
+    background:#e53935;
+    border-color:#e53935;
+    color:#fff;
+}
+
 /* ================= Changelog popup ================= */
 
 .changelog-body{
@@ -1939,16 +2269,49 @@ body.is-fullscreen #mainContent{
     flex-wrap:wrap;
     row-gap:12px;
     gap:16px;
-    margin:16px 20px 14px 20px;
+    margin:16px 20px 22px 20px;
     padding-bottom:14px;
     border-bottom:1px solid var(--border-color);
 }
 
-.section-switcher{
+/* Persistent section tab strip (replaces the old hover-dropdown pill).
+   Same visual language as .reading-room-tab below — one consistent tab
+   system across the whole app instead of two different ones. */
+.section-tabs{
     position:sticky;
-    top:calc(var(--titlebar-height) + 38px);
-    z-index:45;
-    display:inline-block;
+    top:38px;
+    /* Higher than .login-status-btn/.header-actions (both z-index:45) —
+       all three stick at the same top offset while scrolling, and this
+       bar needs to be the one that stays fully visible on top of the
+       other two rather than sliding underneath them. */
+    z-index:46;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:0 20px 14px;
+    padding:10px;
+    background:var(--bg-secondary);
+    border-radius:14px;
+    border:1px solid var(--border-color);
+}
+
+.sidebar-user-banner{
+    margin:-10px 0 20px;
+    padding:10px 14px;
+    background:var(--bg-tertiary);
+    border-radius:10px;
+    border:1px solid var(--border-color);
+    text-align:center;
+}
+
+.current-username{
+    display:block;
+    font-size:16px;
+    font-weight:700;
+    color:var(--text-primary);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
 
 /* Login/Logout control — sits next to the section switcher so it's
@@ -1957,7 +2320,7 @@ body.is-fullscreen #mainContent{
    both flip on login/logout — see updateAdminUiVisibility in renderer.js). */
 .login-status-btn{
     position:sticky;
-    top:calc(var(--titlebar-height) + 38px);
+    top:38px;
     z-index:45;
     flex-shrink:0;
     font-size:14px;
@@ -1983,80 +2346,24 @@ body.is-fullscreen #mainContent{
     border-color:transparent;
 }
 
-.section-pill{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-size:15px;
-    font-weight:700;
-    color:var(--text-primary);
-    cursor:pointer;
-    padding:11px 20px;
-    border-radius:12px;
-    background:var(--bg-secondary);
-    border:1.5px solid var(--accent-1);
-    transition:background .2s ease, transform .15s ease;
-}
-
-.section-pill:hover{
-    background:var(--bg-tertiary);
-    transform:translateY(-1px);
-}
-
-.section-arrow{
-    display:inline-block;
-    font-size:12px;
-    color:var(--accent-1);
-    transition:transform .25s ease;
-}
-
-.section-switcher:hover .section-arrow{
-    transform:rotate(180deg);
-}
-
-.section-dropdown{
-    position:absolute;
-    top:100%;
-    left:0;
-    padding-top:8px;
-    display:flex;
-    flex-direction:column;
-    min-width:170px;
-    z-index:50;
-    opacity:0;
-    transform:translateY(-6px);
-    pointer-events:none;
-    transition:opacity .18s ease, transform .18s ease;
-}
-
-.section-dropdown-inner{
-    background:var(--bg-secondary);
-    border:1px solid var(--border-color);
-    border-radius:10px;
-    padding:6px;
-    box-shadow:0 10px 30px rgba(0,0,0,.5);
-    display:flex;
-    flex-direction:column;
-}
-
-.section-switcher:hover .section-dropdown{
-    opacity:1;
-    transform:translateY(0);
-    pointer-events:auto;
-}
-
 .sectionOption{
-    background:transparent;
-    border:none;
-    color:var(--text-secondary);
-    font-size:13px;
-    text-align:left;
-    padding:9px 10px;
-    border-radius:6px;
-    cursor:pointer;
-    display:flex;
+    display:inline-flex;
     align-items:center;
-    gap:9px;
+    gap:8px;
+    padding:9px 16px;
+    border-radius:10px;
+    border:1.5px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.18s;
+}
+
+.sectionOption .nav-icon{
+    width:18px;
+    height:18px;
 }
 
 /* Cross-section search — searches Installed, Free Games, Reading Room, and
@@ -2067,20 +2374,40 @@ body.is-fullscreen #mainContent{
     max-width:440px;
 }
 
+/* Real inline icon (was an emoji baked into the placeholder text) — sits
+   inside the pill on the left, same way the reference apps' search bars
+   do it, and fades from muted to the accent color on focus. */
+.global-search-icon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    width:16px;
+    height:16px;
+    opacity:.55;
+    pointer-events:none;
+    transition:opacity .2s ease;
+}
+
 .global-search input{
     width:100%;
-    padding:11px 16px;
-    border-radius:12px;
+    padding:11px 16px 11px 42px;
+    border-radius:999px;
     background:var(--bg-secondary);
     border:1.5px solid var(--border-color);
     color:var(--text-primary);
     font-size:14px;
     outline:none;
-    transition:border-color .2s ease;
+    transition:border-color .2s ease, box-shadow .2s ease;
 }
 
 .global-search input:focus{
     border-color:var(--accent-1);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-1) 18%, transparent);
+}
+
+.global-search input:focus ~ .global-search-icon{
+    opacity:.9;
 }
 
 .global-search-results{
@@ -2153,8 +2480,14 @@ body.is-fullscreen #mainContent{
 }
 
 .sectionOption:hover{
-    background:var(--bg-tertiary);
+    border-color:var(--border-color);
     color:var(--text-primary);
+}
+
+.sectionOption.active{
+    color:#fff;
+    background:var(--accent-gradient);
+    border-color:transparent;
 }
 
 .secondary-section{
@@ -2198,9 +2531,25 @@ body.is-fullscreen #mainContent{
 }
 
 .theatre-block-header h2{
-    font-size:15px;
-    color:var(--text-secondary);
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.2px;
+    color:var(--text-primary);
     margin:0;
+    padding-left:14px;
+    position:relative;
+}
+
+.theatre-block-header h2::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:50%;
+    transform:translateY(-50%);
+    width:4px;
+    height:18px;
+    border-radius:3px;
+    background:var(--accent-gradient);
 }
 
 /* Whatever trailing control sits after the heading (a select, a filter
@@ -2316,16 +2665,22 @@ body.is-fullscreen #mainContent{
     border:1px solid var(--accent-1);
     border-radius:10px;
     overflow:hidden;
+    display:flex;
+    flex-direction:column;
 }
 
 .recent-episode-card img{
     width:100%;
     height:100px;
     object-fit:cover;
+    flex-shrink:0;
 }
 
 .recent-episode-info{
     padding:10px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
 }
 
 .recent-episode-info h4{
@@ -2348,6 +2703,7 @@ body.is-fullscreen #mainContent{
     display:flex;
     flex-direction:column;
     gap:4px;
+    margin-top:auto;
 }
 
 .whereToWatchBtn{
@@ -2397,6 +2753,7 @@ body.is-fullscreen #mainContent{
 .movie-card-actions{
     display:flex;
     gap:6px;
+    margin-top:auto;
 }
 
 .ticketsBtn{
@@ -2470,6 +2827,204 @@ body.is-fullscreen #mainContent{
 
 .section-info.expanded .section-blurb{
     display:block;
+}
+
+/* ================= Upcoming Games hover detail window ================= */
+/* Cover fills the left ~2/3 of the box, description/platforms/specs/buy sit
+   on the right, and the box itself is taller than its own visible area so
+   scrolling it reveals a "Related Upcoming Games" row below the fold. */
+
+.game-detail-box{
+    position:relative;
+    width:min(1100px, 94vw);
+    max-height:88vh;
+    overflow-y:auto;
+    background:var(--bg-secondary);
+    border-radius:16px;
+    border:1px solid var(--border-color);
+    box-shadow:0 24px 70px rgba(0,0,0,.6);
+}
+
+.game-detail-close{
+    position:absolute;
+    top:14px;
+    right:14px;
+    z-index:5;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    border:1px solid var(--border-color);
+    background:rgba(13,17,23,.7);
+    color:var(--text-primary);
+    font-size:14px;
+    cursor:pointer;
+}
+
+.game-detail-close:hover{
+    background:var(--accent-gradient);
+    border-color:transparent;
+}
+
+.game-detail-nav-arrow{
+    position:fixed;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:1001;
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    border:1px solid var(--border-color);
+    background:rgba(13,17,23,.75);
+    color:var(--text-primary);
+    font-size:24px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.game-detail-nav-arrow:hover{
+    background:var(--accent-gradient);
+    border-color:transparent;
+}
+
+.game-detail-nav-prev{
+    left:calc(3% + 12px);
+}
+
+.game-detail-nav-next{
+    right:calc(3% + 12px);
+}
+
+@media (max-width: 900px){
+    .game-detail-nav-prev{ left:8px; }
+    .game-detail-nav-next{ right:8px; }
+}
+
+.game-detail-main{
+    display:flex;
+    height:min(640px, 80vh);
+    overflow:hidden;
+}
+
+.game-detail-cover{
+    flex:0 0 66%;
+    min-width:0;
+    background:var(--bg-primary);
+    overflow:hidden;
+    border-radius:16px 0 0 0;
+}
+
+.game-detail-cover img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block;
+}
+
+.game-detail-info{
+    flex:1;
+    min-width:0;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    padding:30px 26px;
+    gap:10px;
+}
+
+.game-detail-info h2{
+    margin:0;
+    font-size:22px;
+    font-weight:800;
+    color:var(--text-primary);
+}
+
+.game-detail-release{
+    margin:0;
+    color:var(--text-muted);
+    font-size:12px;
+}
+
+.game-detail-platforms{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.game-detail-platforms span{
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    font-size:11px;
+    color:var(--text-secondary);
+}
+
+.game-detail-desc{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    color:var(--text-secondary);
+    font-size:13px;
+    line-height:1.6;
+    white-space:pre-line;
+}
+
+.game-detail-specs{
+    background:var(--bg-tertiary);
+    border-radius:10px;
+    padding:10px 12px;
+}
+
+.game-detail-specs h4{
+    margin:0 0 6px;
+    font-size:12px;
+    color:var(--text-primary);
+}
+
+.game-detail-specs p{
+    margin:0;
+    font-size:12px;
+    color:var(--text-muted);
+    white-space:pre-line;
+    line-height:1.5;
+}
+
+.game-detail-buy-row{
+    display:flex;
+    gap:8px;
+    margin-top:auto;
+}
+
+.game-detail-buy{
+    flex:0 0 auto;
+}
+
+.game-detail-related{
+    padding:22px 26px 28px;
+    border-top:1px solid var(--border-color);
+}
+
+.game-detail-related h3{
+    margin:0 0 14px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--text-primary);
+}
+
+.game-detail-related .game-card{
+    width:170px;
+}
+
+@media (max-width: 720px){
+    .game-detail-main{
+        flex-direction:column;
+    }
+    .game-detail-cover{
+        flex:0 0 auto;
+        aspect-ratio:16/9;
+        border-radius:16px 16px 0 0;
+    }
 }
 
 /* ================= Large "theater mode" video popup ================= */
@@ -2709,6 +3264,14 @@ body.is-fullscreen #mainContent{
     cursor:pointer;
 }
 
+/* Suppresses the app's own scrollbars while the startup overlay is up —
+   a fixed, opaque overlay still doesn't reliably cover a native/webkit
+   scrollbar, so the scroll itself is disabled instead until the animation
+   hands off (see playStartupAnimation() in renderer.js). */
+body.startup-locked{
+    overflow:hidden !important;
+}
+
 /* ================= Startup animation: 3D faceted gem assembly ================= */
 
 .startup-overlay{
@@ -2768,6 +3331,20 @@ body.is-fullscreen #mainContent{
     100%{ transform:scale(1); opacity:0; }
 }
 
+.app-credit{
+    position:fixed;
+    left:50%;
+    bottom:6px;
+    transform:translateX(-50%);
+    z-index:150;
+    font-size:11px;
+    letter-spacing:.3px;
+    color:var(--text-muted);
+    opacity:.5;
+    pointer-events:none;
+    white-space:nowrap;
+}
+
 /* ================= Free Games platform badges ================= */
 
 .platform-badge-wrap{
@@ -2825,11 +3402,13 @@ body.is-fullscreen #mainContent{
 .ambient-icon{
     position:absolute;
     bottom:-15vh;
-    /* Already subtle at 0.09, but the review asked for it to go further —
-       "felt, not noticed". 0.05 keeps the icons doing their job (a bit of
-       life behind the content) without drawing the eye. */
-    opacity:0.05;
-    filter:blur(0.3px) grayscale(0.3);
+    /* Section backgrounds got darker (to match the video banner's own
+       darkened, high-contrast look), so the floating icons need to read
+       lighter/brighter to still show up against them — opacity bumped up
+       from the earlier "felt, not noticed" 0.05, and lightened via less
+       grayscale plus a brightness lift rather than opacity alone. */
+    opacity:0.14;
+    filter:blur(0.3px) grayscale(0.1) brightness(1.35);
     animation-name:ambientFloat;
     animation-timing-function:linear;
     animation-iteration-count:infinite;
@@ -3003,8 +3582,8 @@ body.is-fullscreen #mainContent{
 
 .admin-badge{
     display:inline-block;
-    padding:2px 6px;
-    border-radius:6px;
+    padding:2px 8px;
+    border-radius:999px;
     background:var(--accent-gradient);
     color:#fff;
     font-size:10px;
@@ -3254,6 +3833,7 @@ body.is-fullscreen #mainContent{
 
 .carousel-track{
     display:flex;
+    align-items:flex-start;
     gap:14px;
     overflow-x:auto;
     scroll-behavior:smooth;
@@ -3285,6 +3865,79 @@ body.is-fullscreen #mainContent{
 .carousel-arrow:hover{
     border-color:var(--accent-1);
     color:var(--accent-1);
+}
+
+/* ================= New tab: arrow-scroll rows (replaces fold/unfold) ================= */
+
+.hscroll-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.hscroll-row .carousel-track,
+.hscroll-row .hscroll-grid-2row{
+    flex:1;
+    min-width:0;
+}
+
+/* Upcoming Games — single row, covers ~50% bigger than the standard
+   170-230px game-card so they read as more important, per Alfredo's
+   request. */
+.upcoming-games-track .game-card{
+    width:300px;
+}
+
+.upcoming-games-track .cover-wrap{
+    height:340px;
+}
+
+.upcoming-games-track .cover-wrap img{
+    object-fit:cover;
+}
+
+/* Upcoming Movies — items keep their existing size (no resize requested),
+   they just flow into 2 rows and scroll sideways instead of folding.
+   grid-auto-flow:column fills a column with 2 rows before starting the
+   next column, and grid-auto-columns gives every card the same column
+   width instead of relying on parent-width-based auto-fill sizing, which
+   only makes sense for a wrapping grid, not a horizontally-scrolling one. */
+.hscroll-grid-2row{
+    display:grid;
+    grid-auto-flow:column;
+    grid-template-rows:repeat(2, auto);
+    grid-auto-columns:210px;
+    gap:18px;
+    overflow-x:auto;
+    scroll-behavior:smooth;
+    scrollbar-width:none;
+    padding:4px 2px;
+}
+
+.hscroll-grid-2row::-webkit-scrollbar{
+    display:none;
+}
+
+.hscroll-grid-2row .cover-wrap{
+    height:300px;
+}
+
+.hscroll-grid-2row .cover-wrap img{
+    object-fit:cover;
+}
+
+/* New Series — single row, same card size it already had under the old
+   fold/unfold grid (170-230px range), just not resized here either. */
+.new-shows-track .game-card{
+    width:210px;
+}
+
+.new-shows-track .cover-wrap{
+    height:300px;
+}
+
+.new-shows-track .cover-wrap img{
+    object-fit:cover;
 }
 
 
@@ -3681,4 +4334,129 @@ body.is-fullscreen #mainContent{
 .tour-tooltip-actions button:first-child:hover{
     color:var(--text-primary);
     border-color:var(--accent-1);
+}
+/* ================= Crystal/Gem Button System (visual reskin) =================
+   Layered on top of the per-group rules above rather than rewriting them, so
+   every button keeps its existing layout (padding, flex, icon spacing,
+   semantic colors like the red delete / green copy buttons) — only the
+   chrome changes: a violet border that blooms into a glow on hover/focus
+   (using currentColor so red/green/gradient buttons glow their own color
+   instead of clashing with purple), small uppercase labels, and a gentle
+   lift. Window titlebar controls (minimize/maximize/close) are deliberately
+   left alone — that's OS chrome, not app UI.
+   Two buttons get a *standing* glow instead of hover-only, because they're
+   calls-to-action the eye should find at a glance: the header's Surprise Me
+   discovery button and the header/sidebar login-status button — matching
+   the "Primary/User Buttons" treatment in the reference sheet (pill shape,
+   glowing border) rather than the hover-only glow the card frames use. */
+
+.scan-results-actions button,
+.modal-actions button,
+.header-actions button,
+.show-search-row button,
+.show-result-chip button,
+.theater-actions button,
+.free-games-controls button,
+.suggestion-admin-actions button,
+.app-card-actions button,
+.shared-file-actions button,
+.tour-tooltip-actions button,
+.wheel-action-btn,
+.admin-sidebar-btn,
+.login-status-btn{
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    transition:border-color .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease, transform .15s ease;
+}
+
+.scan-results-actions button:hover,
+.modal-actions button:hover,
+.header-actions button:hover,
+.show-search-row button:hover,
+.show-result-chip button:hover,
+.theater-actions button:hover,
+.free-games-controls button:not(:disabled):hover,
+.suggestion-admin-actions button:hover,
+.app-card-actions button:hover,
+.shared-file-actions button:hover,
+.tour-tooltip-actions button:hover,
+.wheel-action-btn:hover,
+.admin-sidebar-btn:hover,
+.login-status-btn:hover{
+    box-shadow:0 0 0 1px currentColor, 0 0 14px -3px currentColor, 0 0 26px -10px currentColor;
+    transform:translateY(-1px);
+}
+
+.scan-results-actions button:active,
+.modal-actions button:active,
+.header-actions button:active,
+.show-search-row button:active,
+.theater-actions button:active,
+.free-games-controls button:not(:disabled):active,
+.suggestion-admin-actions button:active,
+.app-card-actions button:active,
+.shared-file-actions button:active,
+.wheel-action-btn:active,
+.admin-sidebar-btn:active,
+.login-status-btn:active{
+    transform:translateY(0);
+}
+
+.free-games-controls button:disabled,
+.header-actions button:disabled{
+    box-shadow:none;
+    transform:none;
+}
+
+/* Primary discovery action — pill shape + standing violet glow, matching
+   the reference "Primary Buttons" (Fresh From The Rift / Find My Next
+   Favourite / Open A Random Rift): dark chrome, glowing purple border,
+   bold uppercase label. */
+#surpriseBtn{
+    border-radius:999px;
+    border-color:var(--accent-1);
+    box-shadow:0 0 0 1px rgba(176,38,255,.5), 0 0 16px -5px var(--accent-1);
+}
+
+#surpriseBtn:hover{
+    background:var(--accent-gradient);
+    border-color:transparent;
+    box-shadow:0 0 0 1px var(--accent-2), 0 0 22px -3px var(--accent-1), 0 0 40px -10px var(--accent-2);
+    color:#fff;
+    transform:translateY(-1px);
+}
+
+/* Login/User button — a standing glow (not hover-only) since it's an
+   identity/account control that should be findable at a glance, matching
+   the reference "User Buttons" pill treatment. */
+.login-status-btn{
+    border-radius:999px;
+    box-shadow:0 0 0 1px rgba(176,38,255,.35), 0 0 10px -5px var(--accent-1);
+}
+
+.login-status-btn.active{
+    box-shadow:0 0 0 1px var(--accent-2), 0 0 16px -4px var(--accent-1);
+}
+
+/* ================= Status pill badges (reskin) =================
+   Suggestion status ("Applied"/"Refused") and category ("Bug"/"Feature
+   Request"/"Other") used to be plain colored text — turned into small
+   pill badges to match the reference sheet's STATUS BADGES treatment
+   (colored pill, icon + label). Each badge sets its own `color` inline
+   (see suggestionStatusBadge/suggestionCategoryBadge in renderer.js);
+   this class turns that single color into the whole pill via
+   currentColor, so no per-status CSS rule is needed here. */
+.suggestion-status-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    border:1px solid currentColor;
+    background:color-mix(in srgb, currentColor 16%, transparent);
+    white-space:nowrap;
 }
