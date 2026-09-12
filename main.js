@@ -590,6 +590,56 @@ function scanStartMenuShortcuts() {
     });
 }
 
+// A Start Menu shortcut alone can't tell a game from any other desktop
+// software — that's exactly why every shortcut-only find (GOG Galaxy,
+// Battle.net, Ubisoft Connect, itch.io, a standalone indie install, ...)
+// used to get lumped in as a plain "app" here, with only Steam/Epic
+// manifest entries ever counted as "game". Checking each shortcut's name
+// against SteamGridDB — a database of games, not general software — gives
+// a real signal instead of guessing from the source alone, so an indie or
+// GOG/Battle.net title now gets recognized as a game just like a Steam
+// one would. Steam/Epic entries are always real games regardless and skip
+// the lookup entirely. Runs with limited concurrency (a full scan can
+// easily turn up 100+ shortcuts) so this doesn't hammer the proxy or take
+// forever; anything inconclusive (lookup failed, or genuinely no match)
+// safely falls back to "app" — worse case, that title just isn't
+// pre-selected under "Games only" and the user can still switch to "Both".
+async function classifyScanCandidates(items) {
+    const CONCURRENCY = 5;
+    const results = new Array(items.length);
+    let nextIndex = 0;
+
+    async function worker() {
+        while (nextIndex < items.length) {
+            const index = nextIndex++;
+            const item = items[index];
+
+            if (item.source !== "Detected") {
+                results[index] = { ...item, category: "game" };
+                continue;
+            }
+
+            let isGame = false;
+            try {
+                for (const variant of generateNameVariants(item.name)) {
+                    if (await searchSteamGridDb(variant)) {
+                        isGame = true;
+                        break;
+                    }
+                }
+            } catch (err) {
+                // Lookup failed (network hiccup, proxy issue) — fall back
+                // to "app" rather than letting one failure abort the scan.
+            }
+
+            results[index] = { ...item, category: isGame ? "game" : "app" };
+        }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
+    return results;
+}
+
 // Manual, on-demand version of the automatic Steam/Epic-only scan-new-games
 // above — also sweeps Start Menu shortcuts to catch launchers and regular
 // software scan-new-games never looked at. Meant to back a "Scan for Apps &
@@ -610,8 +660,9 @@ ipcMain.handle("scan-all-installed", async () => {
         // later if they change their mind. Only things already in the
         // library are excluded here.
         const found = await findAllInstalledCandidates();
+        const newOnly = found.filter((g) => !existingPaths.has(g.path));
 
-        return found.filter((g) => !existingPaths.has(g.path));
+        return await classifyScanCandidates(newOnly);
     } catch (err) {
         console.error("[import] scan-all-installed failed:", err.message || err);
         return [];
@@ -2309,9 +2360,21 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
 
 ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
     try {
+        // "air_date.lte: today" only ever excluded shows that haven't
+        // aired yet — it never had a LOWER bound, so sorting the entire
+        // rest of TMDB's catalog by popularity.desc surfaced whatever's
+        // most popular all-time (Breaking Bad, Game of Thrones, ...),
+        // not anything actually new. first_air_date.gte adds that lower
+        // bound: only shows whose first season started within the last
+        // ~90 days (long enough to cover a full weekly-release season)
+        // are eligible at all, so "New Series" only ever shows what its
+        // name says, most popular among those first.
+        const today = new Date();
+        const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
         const data = await mediaProxyGetJsonPlain("tmdb", "/discover/tv", {
             sort_by: "popularity.desc",
-            "air_date.lte": new Date().toISOString().slice(0, 10),
+            "first_air_date.gte": ninetyDaysAgo.toISOString().slice(0, 10),
+            "air_date.lte": today.toISOString().slice(0, 10),
             "vote_count.gte": "5",
             language: "en-US",
             page: "1"
@@ -6458,7 +6521,15 @@ ipcMain.handle("start-update-download", async () => {
 
 ipcMain.handle("quit-and-install-update", async () => {
     isQuitting = true;
-    autoUpdater.quitAndInstall();
+    // quitAndInstall(isSilent, isForceRunAfter) — both default to false,
+    // which is what was making this feel manual: isSilent=false pops the
+    // NSIS installer's own window (the user had to click through it
+    // themselves), and isForceRunAfter=false meant Riftgate didn't
+    // necessarily relaunch afterward even once that finished. Passing
+    // true for both makes the installer run completely unattended in the
+    // background and relaunches Riftgate the moment it's done — the user
+    // only ever clicks "Update Now" once, nothing else.
+    autoUpdater.quitAndInstall(true, true);
 });
 
 app.whenReady().then(async () => {

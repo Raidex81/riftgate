@@ -31,11 +31,16 @@ introScreen.addEventListener("drop", async (event) => {
     }
 });
 const introAddBtn = document.getElementById("introAddBtn");
+const introScanGamesBtn = document.getElementById("introScanGamesBtn");
 const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
 const surpriseBtn = document.getElementById("surpriseBtn");
 
 introAddBtn.addEventListener("click", () => addBtn.click());
+// runInstalledScan is declared further down (with the rest of the scan
+// modal wiring) — safe to reference here since this only actually runs on
+// click, well after the whole script has finished loading.
+introScanGamesBtn.addEventListener("click", () => runInstalledScan(introScanGamesBtn, "game"));
 
 searchInput.addEventListener("input", () => {
     searchTerm = searchInput.value.trim().toLowerCase();
@@ -1930,17 +1935,23 @@ scanResultsGamesOnlyBtn.addEventListener("click", () => applyScanResultsTypeSele
 scanResultsAppsOnlyBtn.addEventListener("click", () => applyScanResultsTypeSelection("app"));
 scanResultsBothBtn.addEventListener("click", () => applyScanResultsTypeSelection("both"));
 
-scanInstalledBtn.addEventListener("click", async () => {
-    scanInstalledBtn.disabled = true;
-    const originalLabel = scanInstalledBtn.innerHTML;
-    scanInstalledBtn.innerHTML = "🔍 <span>Scanning your computer…</span>";
+// Shared by the sidebar's "Scan for Apps & Games" button and the empty-
+// library screen's "Scan for Installed Games" shortcut — same scan, same
+// results modal, just a different trigger element (for its own disabled/
+// loading label) and a different default filter once the modal opens
+// (the empty-library entry point only ever wants games, so it pre-applies
+// the "Games only" view instead of showing everything).
+async function runInstalledScan(triggerBtn, defaultFilter) {
+    triggerBtn.disabled = true;
+    const originalLabel = triggerBtn.innerHTML;
+    triggerBtn.innerHTML = "🔍 <span>Scanning your computer…</span>";
 
     let found = [];
     try {
         found = await window.riftgate.invoke("scan-all-installed");
     } finally {
-        scanInstalledBtn.disabled = false;
-        scanInstalledBtn.innerHTML = originalLabel;
+        triggerBtn.disabled = false;
+        triggerBtn.innerHTML = originalLabel;
     }
 
     if (!found || found.length === 0) {
@@ -1959,7 +1970,14 @@ scanInstalledBtn.addEventListener("click", async () => {
     // there's no proxy/rate concern here. The slower online lookup still
     // only runs per selected item at Add time.
     const previews = await Promise.all(found.map(async (item) => {
-        const category = item.source === "Detected" ? "app" : "game";
+        // main.js now tells us definitively whether a "Detected" (Start
+        // Menu shortcut) entry is actually a game — checked there against
+        // SteamGridDB's game database, since a shortcut alone can't tell a
+        // game from any other desktop software. Steam/Epic manifest
+        // entries are always real games regardless. Falls back to the old
+        // source-based guess only if an older main.js build didn't send
+        // category at all.
+        const category = item.category || (item.source === "Detected" ? "app" : "game");
 
         if (category === "app") {
             // The exe path this came from is real and already verified to
@@ -2030,7 +2048,10 @@ scanInstalledBtn.addEventListener("click", async () => {
     });
 
     scanResultsModal.classList.add("active");
-});
+    applyScanResultsTypeSelection(defaultFilter || "both");
+}
+
+scanInstalledBtn.addEventListener("click", () => runInstalledScan(scanInstalledBtn, "both"));
 
 scanResultsCancelBtn.addEventListener("click", closeScanResultsModal);
 

@@ -1141,6 +1141,24 @@ body.density-compact .categoryPicker{
 .intro-cta:hover{
     background:#2ea043;
 }
+
+.intro-cta-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+}
+
+.intro-cta-secondary{
+    background:transparent;
+    border:1px solid var(--border-color);
+    color:var(--text-primary);
+}
+
+.intro-cta-secondary:hover{
+    background:var(--bg-tertiary);
+    border-color:var(--accent-1);
+}
 /* ================= Sidebar ================= */
 
 .sidebar{
@@ -1302,16 +1320,6 @@ body.density-compact .categoryPicker{
     align-items:center;
     gap:10px;
     margin-bottom:22px;
-}
-
-.sidebar-user-banner{
-    font-size:12px;
-    color:var(--text-secondary);
-    background:var(--bg-tertiary);
-    border:1px solid var(--border-color);
-    border-radius:8px;
-    padding:8px 10px;
-    margin-bottom:12px;
 }
 
 #adminPreviewRoleSwitcher.admin-role-switcher{
@@ -2316,8 +2324,10 @@ body.is-fullscreen #mainContent{
 }
 
 .sidebar-user-banner{
-    margin:-10px 0 20px;
-    padding:10px 14px;
+    margin:0 0 14px;
+    padding:8px 14px;
+    font-size:12px;
+    color:var(--text-secondary);
     background:var(--bg-tertiary);
     border-radius:10px;
     border:1px solid var(--border-color);
