@@ -76,6 +76,7 @@ let draggedGamePath = null;
 let draggedCategoryKey = null;
 let draggedSectionKey = null;
 let draggedNewBlockKey = null;
+let draggedFreeGamesPlatform = null;
 
 // Auto-scrolls the page during ANY drag-to-reorder gesture (library
 // categories, section tabs, New-tab blocks, game/app cards) whenever the
@@ -214,6 +215,17 @@ let SECTION_ORDER = ["new", "installed", "free-games", "theatre", "reading-room"
 // reorderable the same way the sidebar tabs are, just stacked vertically
 // instead of laid out in a row.
 let NEW_BLOCK_ORDER = ["upcoming-games", "upcoming-movies", "new-series"];
+
+// Free Games' platform rows (Steam, Epic, GOG, ...), reorderable the same
+// drag-a-heading way as the New tab's blocks above. Unlike NEW_BLOCK_ORDER
+// this has no fixed known set of keys — which platforms even exist depends
+// on what's currently in the catalog — so it starts empty (meaning "no
+// custom order yet, use the normal count/alphabetical sort") and only ever
+// holds whatever platform names the user has actually dragged at some
+// point; anything not in it falls back to that normal sort, appended after
+// whatever IS explicitly ordered. See applyFreeGamesPlatformOrder/
+// wireFreeGamesPlatformDragReorder below and its use in renderFreeGames.
+let FREE_GAMES_PLATFORM_ORDER = [];
 
 const CATEGORY_LABELS = {
     game: "🎮 Games",
@@ -1185,6 +1197,33 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.9": [
+        "Fixed: updates now install silently in the background — clicking \"Update Now\" used to pop up the full Windows installer wizard and could show a \"Riftgate cannot be closed\" error instead of just updating and relaunching on its own"
+    ],
+    "1.3.8": [
+        "Fixed: Free Games covers with a different shape than the card no longer show black bars — every cover now fills its card completely",
+        "Changed: Free Games cover art is now cached to disk, so reopening the section shows every cover instantly instead of re-downloading them",
+        "Fixed: the Free Games spotlight banner no longer resizes and shoves the rest of the page around every time it rotates to a new game",
+        "Removed: Installed library category sections no longer grow and shrink as you scroll one into the center of the screen"
+    ],
+    "1.3.7": [
+        "New: a \"🔍 Scan for Installed Games\" button on the empty-library welcome screen finds every installed game via Steam, Epic, and Start Menu shortcuts — not just Steam and Epic",
+        "Fixed: games installed through a shared launcher (Battle.net, GOG Galaxy, Ubisoft Connect, itch.io, etc.) are now told apart from ordinary software during a scan, instead of every shortcut-only find getting lumped in as a plain \"app\"",
+        "Fixed: \"New Series\" was showing all-time popular old shows (Breaking Bad, Game of Thrones) instead of anything actually new — it now only shows shows whose first season started in the last ~90 days"
+    ],
+    "1.3.6": [
+        "Fixed: several titles sharing one launcher (every Battle.net game — Diablo, Overwatch, WoW, etc.) could get collapsed into a single entry during a scan instead of showing up individually",
+        "Fixed: Manga/Comics could show a classic work (like a Shakespeare play) that only ended up tagged \"manga\"/\"comic\" because of a much later adaptation, not the original text itself",
+        "New: an admin-only preview switcher (🛡️ Admin / 🧑 Adult / 🔞 Minor) lets admins see what a different kind of user would see, without logging out",
+        "Removed: the Light theme toggle"
+    ],
+    "1.3.5": [
+        "New: new faceted purple gem app icon and logo, used in the startup animation and header",
+        "Changed: nav icons replaced with a hollow faceted-line SVG set with a purple-to-pink gradient stroke",
+        "New: a new application banner",
+        "Removed: the redundant mature-content checkbox from the search bar",
+        "Fixed: app assets (icons, images) could keep showing a stale cached version after an update — asset caching is now disabled so changes always show up right away"
+    ],
     "1.3.4": [
         "Fixed: leaving Reading Room while Manga or Comics was the open tab could leave that full list of covers sitting on screen, overlapping whatever section you switched to next (The Vault, Free Games, etc.)"
     ],
@@ -2463,6 +2502,14 @@ async function loadSettings() {
         });
         NEW_BLOCK_ORDER = restoredBlockOrder;
         applyNewBlockOrder();
+    }
+
+    // No "known keys" filtering here (unlike newBlockOrder above) — which
+    // platforms exist is dynamic, so whatever was saved is kept as-is;
+    // renderFreeGames itself already tolerates a saved name that no longer
+    // matches anything currently rendered, same as one it's never seen.
+    if (Array.isArray(settings.freeGamesPlatformOrder)) {
+        FREE_GAMES_PLATFORM_ORDER = settings.freeGamesPlatformOrder;
     }
 
     applySettingsToUI();
@@ -4433,6 +4480,56 @@ function freeGameCoverCacheSrc(url) {
     return url;
 }
 
+// A cover that's meaningfully wider than tall (a landscape screenshot or
+// piece of banner key art, not the ~2:3 portrait box art most covers use)
+// gets cropped badly by object-fit:cover — whatever made that art worth
+// using is usually right at the edges a crop trims off. Rather than crop
+// it, or leave that one card shorter than its neighbors (the ~true
+// intrinsic height it'd naturally want), this widens that one card
+// instead: spans extra grid columns in a browse-grid, or gets a direct
+// inline width in a carousel row (not a grid, so column-span means
+// nothing there) — either way at the SAME height as every other card in
+// the row, sized close enough to the image's own shape that
+// object-fit:contain (see the .free-game-wide-cover rules in style.css)
+// shows the whole picture with nothing left worth calling a bar.
+function applyFreeGameWideCoverIfNeeded(card, img) {
+    if (card.classList.contains("free-game-wide-cover")) return;
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    if (!naturalW || !naturalH) return;
+
+    const coverWrap = card.querySelector(".cover-wrap");
+    if (!coverWrap) return;
+
+    // Measured before any span/width override is applied, so this is
+    // genuinely the same single-column size every other card in this row
+    // is using right now.
+    const columnWidth = coverWrap.getBoundingClientRect().width;
+    const rowHeight = coverWrap.getBoundingClientRect().height;
+    if (!columnWidth || !rowHeight) return;
+
+    const desiredWidth = rowHeight * (naturalW / naturalH);
+    // Only meaningfully wider than one column counts as "horizontal"
+    // here — anything close to (or narrower than) a single column already
+    // looks right cropped to fill, same as before.
+    if (desiredWidth <= columnWidth * 1.1) return;
+
+    card.classList.add("free-game-wide-cover");
+    coverWrap.style.height = `${rowHeight}px`;
+
+    const grid = card.closest(".games-grid");
+    if (grid) {
+        const gridStyle = getComputedStyle(grid);
+        const gapPx = parseFloat(gridStyle.columnGap || gridStyle.gap) || 18;
+        const colSpan = Math.min(4, Math.max(2, Math.ceil((desiredWidth + gapPx) / (columnWidth + gapPx))));
+        card.style.gridColumn = `span ${colSpan}`;
+    } else {
+        // A horizontally-scrolling carousel row, not a grid — just widen
+        // this one tile directly instead of spanning columns.
+        card.style.width = `${Math.round(desiredWidth)}px`;
+    }
+}
+
 function buildFreeGameCard(game, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
@@ -4461,16 +4558,13 @@ function buildFreeGameCard(game, navList) {
     // Free Games cards need every row to line up at the same height (a
     // carousel/grid of mismatched-height cards from wildly different cover
     // shapes — tall portrait posters next to wide banners — looks broken),
-    // but leaving height intrinsic (as the rest of the app does) produced
-    // visibly uneven rows. This used to be object-fit:contain with a
-    // separate darkened backdrop layer filling in the gap around covers
-    // that didn't match this box's shape — after that backdrop (through two
-    // different implementations) kept failing to reliably paint in some
-    // cases, Alfredo opted for a simpler, structurally guaranteed fix:
-    // .cover-wrap img.cover-img is now object-fit:cover (see style.css), so
-    // every cover just crops to fill the box completely and there's no gap
-    // left for anything to fail to fill. No backdrop element needed here at
-    // all any more.
+    // so unlike the rest of the app this box has a fixed aspect-ratio
+    // rather than an intrinsic one. .cover-wrap img.cover-img is
+    // object-fit:cover (see style.css) by default, so a normal ~2:3
+    // portrait or square cover just crops to fill the box completely — no
+    // gap, no bar. A cover that's genuinely wide/horizontal instead gets
+    // widened rather than cropped or left short once it's loaded — see
+    // applyFreeGameWideCoverIfNeeded above.
     //
     // Steam entries point .image at the portrait "library capsule" (see
     // fetchSteamFreeGames in main.js); not every Steam appid has that asset
@@ -4487,6 +4581,17 @@ function buildFreeGameCard(game, navList) {
             freeGameCoverImgEl.src = "covers/default.jpg";
         }
     });
+
+    freeGameCoverImgEl.addEventListener("load", () => {
+        applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl);
+    });
+    // "load" doesn't reliably re-fire for an image that's already cached/
+    // complete by the time this listener attaches — deferred to the next
+    // frame so it runs after the caller has appended this card to the DOM
+    // (buildFreeGameCard just returns the card; the grid/track it belongs
+    // in only gets it via appendChild right after), since the measurement
+    // above needs real layout dimensions to work from.
+    requestAnimationFrame(() => applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl));
 
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
@@ -4574,7 +4679,14 @@ freeGamesRefreshBtn.addEventListener("click", async () => {
     freeGamesRefreshBtn.textContent = "🔄 Refreshing...";
 
     try {
-        const fresh = await window.riftgate.invoke("force-refresh-free-games");
+        // Viewing a single platform (or the VR lens)? Only that platform's
+        // live source gets re-fetched — every other platform's cached
+        // entries are left exactly as they were, instead of a full
+        // all-platforms refresh nobody asked for.
+        const platformFilter = freeGamesPlatformSelect.value;
+        const fresh = platformFilter === "all"
+            ? await window.riftgate.invoke("force-refresh-free-games")
+            : await window.riftgate.invoke("force-refresh-free-games-platform", platformFilter);
         if (fresh && fresh.length > 0) {
             freeGamesCache = fresh;
             updateFreeGamesPlatformOptions();
@@ -4838,9 +4950,13 @@ function renderFreeGamesSpotlight() {
 // pattern as the New tab's Upcoming Games/New Series rows) and appends it
 // to `container`. Used for both the Newly Added row and each platform's
 // row below it.
-function buildFreeGamesCarouselSection(container, headingText, items) {
+function buildFreeGamesCarouselSection(container, headingText, items, platformName) {
     const section = document.createElement("div");
     section.className = "theatre-block free-games-platform-block";
+    // Only set for an actual per-platform row (see renderFreeGames) — the
+    // cross-platform "Newly Added" row doesn't pass one, and stays out of
+    // the platform drag-reorder since there's nothing to reorder it against.
+    if (platformName) section.dataset.platform = platformName;
 
     const header = document.createElement("div");
     header.className = "theatre-block-header";
@@ -4887,6 +5003,7 @@ function buildFreeGamesCarouselSection(container, headingText, items) {
 function buildFreeGamesPreviewSection(container, headingText, items, platformName) {
     const section = document.createElement("div");
     section.className = "theatre-block free-games-platform-block";
+    section.dataset.platform = platformName;
 
     const header = document.createElement("div");
     header.className = "theatre-block-header";
@@ -5136,6 +5253,20 @@ function renderFreeGames() {
         platformNames.sort((a, b) => byPlatform[a].length - byPlatform[b].length);
     }
 
+    // A manual drag-to-reorder (see wireFreeGamesPlatformDragReorder) wins
+    // over both sorts above, same as every other manual-order-beats-default
+    // pattern in this app (SECTION_ORDER, NEW_BLOCK_ORDER). Anything not in
+    // FREE_GAMES_PLATFORM_ORDER yet — a platform never dragged, or a brand
+    // new one this refresh — just keeps its place from the sort above,
+    // appended after everything that IS explicitly ordered.
+    if (FREE_GAMES_PLATFORM_ORDER.length > 0) {
+        const orderIndex = new Map(FREE_GAMES_PLATFORM_ORDER.map((name, i) => [name, i]));
+        platformNames = platformNames
+            .map((name, i) => ({ name, i, rank: orderIndex.has(name) ? orderIndex.get(name) : Infinity }))
+            .sort((a, b) => (a.rank - b.rank) || (a.i - b.i))
+            .map((entry) => entry.name);
+    }
+
     platformNames.forEach((platformName) => {
         const items = byPlatform[platformName];
         const label = PLATFORM_LABELS[platformName] || platformName.toUpperCase();
@@ -5144,8 +5275,100 @@ function renderFreeGames() {
         if (items.length > FREE_GAMES_PREVIEW_CAP) {
             buildFreeGamesPreviewSection(restRow, headingText, items, platformName);
         } else {
-            buildFreeGamesCarouselSection(restRow, headingText, items);
+            buildFreeGamesCarouselSection(restRow, headingText, items, platformName);
         }
+    });
+
+    wireFreeGamesPlatformDragReorder();
+}
+
+// Reorders the actual DOM nodes (appendChild moves rather than rebuilds
+// them) to match FREE_GAMES_PLATFORM_ORDER — same pattern as
+// applyNewBlockOrder. Only ever touches rows currently on screen; a saved
+// name with no matching row right now (filtered out, or not refreshed in
+// yet) is simply skipped.
+function applyFreeGamesPlatformOrder() {
+    const restRow = document.getElementById("freeGamesRestRow");
+    if (!restRow) return;
+    FREE_GAMES_PLATFORM_ORDER.forEach((name) => {
+        const block = restRow.querySelector(`.free-games-platform-block[data-platform="${CSS.escape(name)}"]`);
+        if (block) restRow.appendChild(block);
+    });
+}
+
+function currentFreeGamesPlatformDomOrder() {
+    const restRow = document.getElementById("freeGamesRestRow");
+    if (!restRow) return [];
+    return Array.from(restRow.querySelectorAll(".free-games-platform-block[data-platform]"))
+        .map((el) => el.dataset.platform);
+}
+
+// Lets the user drag a platform row's heading into a new position, exactly
+// like wireNewBlockDragReorder does for the New tab's blocks. renderFreeGames
+// rebuilds these rows from scratch every call (unlike the New tab's static
+// blocks), so this has to be re-wired after every render rather than once.
+function wireFreeGamesPlatformDragReorder() {
+    const restRow = document.getElementById("freeGamesRestRow");
+    if (!restRow) return;
+
+    restRow.querySelectorAll(".free-games-platform-block[data-platform]").forEach((block) => {
+        const heading = block.querySelector(".theatre-block-header h2");
+        if (!heading) return;
+        heading.draggable = true;
+        heading.title = "Drag to reorder this platform";
+        heading.style.cursor = "grab";
+
+        heading.addEventListener("dragstart", (event) => {
+            draggedFreeGamesPlatform = block.dataset.platform;
+            event.dataTransfer.effectAllowed = "move";
+        });
+
+        heading.addEventListener("dragover", (event) => {
+            if (!draggedFreeGamesPlatform || draggedFreeGamesPlatform === block.dataset.platform) return;
+            event.preventDefault();
+            heading.classList.add("section-drag-over");
+        });
+
+        heading.addEventListener("dragleave", () => {
+            heading.classList.remove("section-drag-over");
+        });
+
+        heading.addEventListener("drop", (event) => {
+            event.preventDefault();
+            heading.classList.remove("section-drag-over");
+            if (!draggedFreeGamesPlatform || draggedFreeGamesPlatform === block.dataset.platform) return;
+
+            // Built from the DOM as it's rendered right now, not from
+            // FREE_GAMES_PLATFORM_ORDER directly — that array can be empty,
+            // or missing platforms that were never dragged before, and this
+            // way the splice below always has every row currently on screen
+            // to work with regardless.
+            const order = currentFreeGamesPlatformDomOrder();
+            const fromIndex = order.indexOf(draggedFreeGamesPlatform);
+            const targetIndex = order.indexOf(block.dataset.platform);
+            if (fromIndex === -1 || targetIndex === -1) return;
+
+            // Which half was it dropped on? Top = insert before, bottom =
+            // insert after — same vertically-stacked pattern as the New
+            // tab's blocks.
+            const rect = block.getBoundingClientRect();
+            const insertAfter = (event.clientY - rect.top) > rect.height / 2;
+
+            const newOrder = [...order];
+            newOrder.splice(fromIndex, 1);
+            let insertIndex = newOrder.indexOf(block.dataset.platform);
+            if (insertAfter) insertIndex += 1;
+            newOrder.splice(insertIndex, 0, draggedFreeGamesPlatform);
+
+            FREE_GAMES_PLATFORM_ORDER = newOrder;
+            draggedFreeGamesPlatform = null;
+            saveSetting("freeGamesPlatformOrder", FREE_GAMES_PLATFORM_ORDER);
+            applyFreeGamesPlatformOrder();
+        });
+
+        heading.addEventListener("dragend", () => {
+            draggedFreeGamesPlatform = null;
+        });
     });
 }
 

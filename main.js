@@ -416,7 +416,20 @@ function registerFreeGamesCoverCacheProtocol() {
     protocol.handle("covercache", async (request) => {
         let realUrl;
         try {
-            realUrl = decodeURIComponent(new URL(request.url).searchParams.get("u") || "");
+            // searchParams.get() already percent-decodes the query value
+            // once (that's what turns the renderer's encodeURIComponent
+            // back into the real cover URL) — an extra decodeURIComponent
+            // on top of that used to double-decode it. Harmless for a URL
+            // with nothing else percent-encoded in it (Steam/Epic/GOG
+            // covers), but itch.io's own CDN URLs (img.itch.zone) contain a
+            // pre-encoded "%23" in their path — after surviving the first
+            // decode intact, the second decode turned that into a literal
+            // "#", which the HTTP request then read as a URL fragment and
+            // silently chopped off everything after it, turning a real
+            // image URL into one that resolves to nothing. That's why every
+            // itch.io cover (and only itch.io's) was falling back to the
+            // "no cover" placeholder.
+            realUrl = new URL(request.url).searchParams.get("u") || "";
         } catch (err) {
             realUrl = "";
         }
@@ -2351,7 +2364,23 @@ async function fetchItchFreeGamesFromPage(url, vr) {
             throw new Error(`HTTP ${page.statusCode}`);
         }
 
-        const cells = page.body.split('class="game_cell').slice(1);
+        // The trailing space in the delimiter below is load-bearing, not
+        // cosmetic — every real cell's wrapper div is `class="game_cell
+        // has_cover lazy_images"` (the class list always continues after a
+        // space), but itch.io also nests two OTHER elements inside that same
+        // div whose class names happen to start with the same "game_cell"
+        // prefix with no space: `class="game_cell_tools"` (the "add to
+        // collection" button) and `class="game_cell_data"`. Splitting on the
+        // bare `class="game_cell` (no trailing space) matched those too,
+        // fracturing a single real cell into multiple pieces right between
+        // its cover image and its title link — the image ended up alone in
+        // one piece with no title (silently dropped by the `!title` check
+        // below) while the title ended up alone in the next piece with no
+        // image, so this returned a title for every game but `image: null`
+        // for literally all of them, no matter what URL they pointed to.
+        // Requiring the space after "game_cell" only matches the real
+        // wrapper div, never the two nested lookalikes.
+        const cells = page.body.split('class="game_cell ').slice(1);
         const games = [];
 
         for (const chunk of cells) {
@@ -2585,12 +2614,27 @@ const CURATED_ALWAYS_FREE_POPULARITY = 85;
 
 function getCuratedAlwaysFreeGames() {
     return [
-        // Battle.net (Blizzard) — verified via Blizzard's own statements
-        // (Sept 2026): Overwatch, Hearthstone, and Diablo Immortal are the
-        // only titles that are fully free with no purchase ever required.
-        // World of Warcraft, Diablo 4, and StarCraft II's campaign all
-        // still require a purchase or subscription despite sometimes being
-        // mistaken for free, so none of them are listed here.
+        // Battle.net (Blizzard) — every family in Battle.net's current
+        // catalog was checked live against its own shop/product page (Sept
+        // 2026); this is the complete result, not a partial pass. Free:
+        // Overwatch, Hearthstone, Diablo Immortal, Heroes of the Storm
+        // (fully free since launch, simply missed earlier), StarCraft II's
+        // base game (Wings of Liberty campaign + multiplayer + co-op, free
+        // since Nov 2017 — only the Heart of the Swarm/Legacy of the Void
+        // "Campaign Collection" costs anything), the original StarCraft
+        // (base game AND the Brood War expansion, both included in the free
+        // "StarCraft" tier — only the graphically-upgraded "Remastered" and
+        // "Cartooned" tiers of the same product cost money), and Call of
+        // Duty: Warzone (a genuinely standalone download, not a mode gated
+        // behind a paid Call of Duty purchase). Checked and confirmed NOT
+        // free, despite each having a tier that could be mistaken for one:
+        // World of Warcraft (the "free trial" is time/level-capped, not the
+        // genuine article), World of Warcraft Classic (needs an active
+        // subscription), Diablo, Diablo II, Diablo III (also only a capped
+        // "Try For Free" trial, not the real game), Diablo IV, and every
+        // Warcraft RTS title (Orcs & Humans, II, III/Reforged, and their
+        // Remastered/Battle Chest editions) — none of them has a genuinely
+        // free tier the way StarCraft's classic version does.
         {
             id: "curated-battlenet-overwatch",
             name: "Overwatch",
@@ -2620,6 +2664,46 @@ function getCuratedAlwaysFreeGames() {
             source: "Battle.net",
             releaseDate: "2022",
             tags: ["RPG"]
+        },
+        {
+            id: "curated-battlenet-heroes-of-the-storm",
+            name: "Heroes of the Storm",
+            description: "Blizzard's team brawler MOBA, starring heroes and villains from across the Warcraft, StarCraft, and Diablo universes — free to play, now in permanent maintenance mode with no new content but fully playable.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/blt8c01f980b76eb350/67ce291560fcdc2c6cfed487/og_image.webp",
+            url: "https://heroesofthestorm.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2015",
+            tags: ["MOBA"]
+        },
+        {
+            id: "curated-battlenet-starcraft-2",
+            name: "StarCraft II",
+            description: "Blizzard's real-time strategy classic — the Wings of Liberty base campaign, full multiplayer, and co-op have been free to play since 2017. Only the Heart of the Swarm/Legacy of the Void expansion campaigns cost extra.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/bltbe2068a317e02d9f/6966bac0fb2fd910dbda4a26/og_image.webp",
+            url: "https://starcraft2.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2010",
+            tags: ["Strategy"]
+        },
+        {
+            id: "curated-battlenet-starcraft",
+            name: "StarCraft",
+            description: "Blizzard's original 1998 real-time strategy classic — includes the full campaign and the Brood War expansion, both free to play in their original (non-Remastered) form.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/bltf408a0557f4e4998/blt2677c62b90f6fa37/612546ec23c35625084478ac/9458-47270.png",
+            url: "https://starcraft.blizzard.com/en-us",
+            source: "Battle.net",
+            releaseDate: "1998",
+            tags: ["Strategy"]
+        },
+        {
+            id: "curated-battlenet-cod-warzone",
+            name: "Call of Duty: Warzone",
+            description: "Call of Duty's standalone free-to-play battle royale — playable through the Battle.net app with no other Call of Duty purchase required.",
+            image: "https://imgs.callofduty.com/content/dam/atvi/callofduty/cod-touchui/warzone2/blackops7/evergreen/WZ_LP-Update_Meta.webp",
+            url: "https://www.callofduty.com/warzone",
+            source: "Battle.net",
+            releaseDate: "2020",
+            tags: ["Battle Royale"]
         },
 
         // EA / EA App (Origin) — Apex Legends is EA's flagship permanently
@@ -3047,6 +3131,126 @@ async function runFreeGamesRefresh(forceFullCheck) {
     return allFree;
 }
 
+// Every "platform" a single-platform Refresh can be scoped to falls into
+// one of two buckets: Steam/Epic Games/GOG/itch.io each have their own
+// dedicated live fetcher above, while everything else (Battle.net, EA,
+// Riot Games, Ubisoft Connect, Wargaming.net, Gaijin.net, Grinding Gear
+// Games, or any platform GamerPower starts covering later) only ever gets
+// live entries through fetchGamerPowerFreeGames's giveaway feed — see its
+// own COVERED_PLATFORMS list, which deliberately excludes those four so
+// they're never double-fetched. That split is what lets a scoped refresh
+// know exactly which network call(s) a given platform actually needs,
+// without a hardcoded per-platform table that would silently go stale the
+// day a fifth dedicated fetcher gets added.
+//
+// Same in-flight-sharing idea as freeGamesRefreshPromise above, but keyed
+// per platform — clicking Refresh twice in a row while viewing "Steam"
+// shouldn't fire two overlapping Steam fetches, but a scoped refresh for
+// one platform is free to run alongside one for another (or a full
+// all-platforms refresh) instead of waiting on it.
+const freeGamesPlatformRefreshPromises = new Map();
+
+// Refreshes only what the currently-displayed platform (or the VR lens)
+// actually needs, instead of every source — backs the manual Refresh
+// button when the Free Games view is scoped to one platform, so clicking
+// it doesn't also re-hit Steam/Epic/GOG/itch.io/GamerPower for stores the
+// user isn't even looking at right now. Everything already cached for
+// every OTHER platform is left completely untouched: no re-fetch, no
+// re-verification, and nothing disappears from it even if this pass fails.
+async function runFreeGamesRefreshForPlatform(platform) {
+    const cached = loadDataCache("cache-free-games.json") || [];
+
+    const isTouched = platform === "VR" ? (g) => !!g.vr : (g) => g.source === platform;
+    const untouched = cached.filter((g) => !isTouched(g));
+    const liveElsewhere = untouched.filter((g) => !String(g.id).startsWith("curated-"));
+
+    let freshLive;
+    try {
+        if (platform === "VR") {
+            // The VR lens spans whichever live sources can actually carry a
+            // vr tag today (itch.io's dedicated VR listing, and any
+            // GamerPower giveaway itself tagged VR) — curated entries never
+            // carry one, so there's nothing curated to fold in here.
+            const [itchVr, gamerPower] = await Promise.all([fetchItchVrFreeGames(), fetchGamerPowerFreeGames()]);
+            freshLive = [...itchVr, ...gamerPower.filter((g) => g.vr)];
+        } else if (platform === "Steam") {
+            freshLive = await fetchSteamFreeGames(true);
+        } else if (platform === "Epic Games") {
+            freshLive = await fetchEpicFreeGames();
+        } else if (platform === "GOG") {
+            freshLive = await fetchGogFreeGames();
+        } else if (platform === "itch.io") {
+            const [general, vr] = await Promise.all([fetchItchFreeGames(), fetchItchVrFreeGames()]);
+            const generalIds = new Set(general.map((g) => g.id));
+            const vrById = new Map(vr.map((g) => [g.id, g.vr]));
+            general.forEach((g) => {
+                if (vrById.has(g.id)) g.vr = vrById.get(g.id);
+            });
+            freshLive = [...general, ...vr.filter((g) => !generalIds.has(g.id))];
+        } else {
+            const gamerPower = await fetchGamerPowerFreeGames();
+            freshLive = gamerPower.filter((g) => g.source === platform);
+        }
+    } catch (err) {
+        console.error(`[free-games] Scoped refresh for "${platform}" failed:`, err.message || err);
+        // Never overwrite the cache over a single failed fetch — just hand
+        // back what was already there (still re-stamped with any curated
+        // edits, same as a normal get-free-games read).
+        return mergeFreshCuratedGames(cached);
+    }
+
+    // Curated entries belonging to this platform get the same live-vs-
+    // curated dedup a full refresh runs — checked against this platform's
+    // fresh live results plus whatever's already cached for every OTHER
+    // platform, so e.g. a curated EA/Ubisoft title that's also legitimately
+    // findable on Steam still gets dropped in favor of the live listing,
+    // exactly like a full refresh would.
+    const curatedForPlatform = platform === "VR"
+        ? []
+        : getCuratedAlwaysFreeGames().filter((g) => g.source === platform);
+    const curatedDeduped = dedupeCuratedAgainstLive(curatedForPlatform, [...freshLive, ...liveElsewhere]);
+
+    const seenCache = readFreeGamesSeenCache();
+    const now = Date.now();
+    [...freshLive, ...curatedDeduped].forEach((game) => {
+        if (!seenCache[game.id]) {
+            seenCache[game.id] = now;
+        }
+        game.firstSeenAt = seenCache[game.id];
+    });
+
+    const merged = [...untouched, ...freshLive, ...curatedDeduped];
+
+    // Only prune "first seen" entries that actually belonged to this
+    // platform and are genuinely gone now — everything untouched keeps its
+    // existing entry exactly as it was.
+    const mergedIds = new Set(merged.map((g) => g.id));
+    const prunedSeenCache = {};
+    Object.keys(seenCache).forEach((id) => {
+        if (mergedIds.has(id)) prunedSeenCache[id] = seenCache[id];
+    });
+
+    fs.writeFileSync(FREEGAMES_SEEN_FILE, JSON.stringify(prunedSeenCache, null, 2));
+    saveDataCache("cache-free-games.json", merged);
+    // Deliberately NOT calling saveFreeGamesLastRefresh here — this was a
+    // scoped, single-platform pass, not a real full refresh, so the normal
+    // 24h auto-refresh gate for every other platform stays exactly as it
+    // was before this click.
+
+    return merged;
+}
+
+async function performFreeGamesRefreshForPlatform(platform) {
+    if (freeGamesPlatformRefreshPromises.has(platform)) {
+        return freeGamesPlatformRefreshPromises.get(platform);
+    }
+    const promise = runFreeGamesRefreshForPlatform(platform).finally(() => {
+        freeGamesPlatformRefreshPromises.delete(platform);
+    });
+    freeGamesPlatformRefreshPromises.set(platform, promise);
+    return promise;
+}
+
 ipcMain.handle("get-free-games", async () => {
     // Riftgate already has last run's list on disk (cache-free-games.json)
     // — there's no reason to re-hit Steam/Epic/GOG (and re-verify every
@@ -3068,6 +3272,18 @@ ipcMain.handle("get-free-games", async () => {
 // when the user specifically wants an up-to-date list right now rather
 // than waiting out the rest of the 24h window.
 ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh(true));
+
+// Backs the same manual Refresh button, but for when the Free Games view
+// is scoped to one platform (or the VR lens) — only that platform's live
+// source gets hit, every other platform's cached entries are left exactly
+// as they were. Falls back to a real full refresh if the renderer somehow
+// calls this without a valid platform string.
+ipcMain.handle("force-refresh-free-games-platform", async (event, platform) => {
+    if (typeof platform !== "string" || !platform || platform === "all") {
+        return performFreeGamesRefresh(true);
+    }
+    return performFreeGamesRefreshForPlatform(platform);
+});
 
 // Instant retrieval of the last successfully fetched Free Games list —
 // same "show something immediately, refresh quietly after" pattern as

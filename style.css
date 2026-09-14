@@ -3646,47 +3646,36 @@ body.is-fullscreen #mainContent{
    class) reuse the same theatre-block/hscroll-row carousel pattern as the
    New tab (Upcoming Games, New Series, etc.) for visual consistency across
    the app — this just sets the card width, since a flex/carousel context
-   (unlike the wrapping .games-grid) needs an explicit one. Matched exactly
-   to Upcoming Games' 300px card (per Alfredo) rather than just "bigger" —
-   small, easy-to-miss cards work against a browse-and-discover section
-   like this one. */
+   (unlike the wrapping .games-grid) needs an explicit one. Matches the
+   Installed library's card width exactly (see .games-grid above) instead
+   of the larger fixed size this carousel used to have — Alfredo wants Free
+   Games and Installed reading as one consistent card size across the app. */
 .free-games-track .game-card{
-    width:320px;
+    width:230px;
 }
 
 /* Same reasoning for the non-carousel Free Games grids — the capped
    platform previews (buildFreeGamesPreviewSection), the single-platform
    full list, and the VR native/adapted groups all render into a plain
-   .games-grid.browse-grid inside #freeGamesContainer. Scoped to this
-   container specifically so Library/Theatre/Reading Room grids (which
-   also use .games-grid.browse-grid) keep their own sizing. */
-#freeGamesContainer .games-grid{
-    grid-template-columns:repeat(auto-fill, minmax(300px, 320px));
-    gap:22px;
-}
+   .games-grid.browse-grid inside #freeGamesContainer. No column-width/gap
+   override here any more — this now just inherits the same sizing as
+   every other .games-grid (Installed included), per Alfredo. */
 
-/* Every Free Games card needs to line up at the same height within its
-   row — unlike Upcoming Games (one live source, similar cover shapes),
-   Free Games mixes portrait posters, square icons and wide banner key art
-   side by side, so leaving height intrinsic (as the rest of the app does)
-   produced visibly uneven rows.
-   This used to be object-fit:contain with a separate darkened "backdrop"
-   layer behind it to fill in the gap for any cover that didn't match this
-   box's 2:3 portrait shape — first attempted with a CSS filter:blur() that
-   silently failed to composite on this GPU/remote-desktop setup, then with
-   a plain <img> backdrop that, for reasons never fully pinned down even
-   after directly confirming its own source image loaded cleanly, still
-   didn't reliably paint behind every fallback-path cover. Per Alfredo,
-   object-fit:cover instead — every cover crops to fill this box completely,
-   full stop. No gap ever exists in the first place, so there's nothing left
-   for any backdrop layer to fail to fill: simpler, and the one approach
-   that's structurally guaranteed to never show a bar, at the cost of
-   trimming the edges off covers that don't already match this box's shape
-   (mostly square logos and wide banner key art — most Steam covers, this
-   catalog's large majority, are already close to this exact ratio and lose
-   little to nothing). */
+/* Letting height stay fully intrinsic (Installed's own approach, and
+   Free Games' briefly too) puts a short landscape banner right next to a
+   tall portrait poster in the same row — technically no cropping and no
+   bars on any single cover, but the row itself reads as broken, with each
+   card's info text landing at a different height below it. Per Alfredo,
+   Free Games cards need every row at one uniform height instead — this
+   aspect-ratio (rather than a flat pixel height) keeps that box
+   proportional to whatever width this card actually renders at. A cover
+   that's genuinely wide/horizontal relative to this box gets handled
+   separately — see the .free-game-wide-cover rules below and
+   applyFreeGameWideCoverIfNeeded in renderer.js — by widening that one
+   card at the SAME height instead of cropping it or leaving it short. */
 #freeGamesContainer .cover-wrap{
-    height:480px;
+    aspect-ratio:2/3;
+    height:auto;
 }
 
 #freeGamesContainer .cover-wrap img.cover-img{
@@ -3696,6 +3685,22 @@ body.is-fullscreen #mainContent{
     display:block;
 }
 
+/* Set by applyFreeGameWideCoverIfNeeded (renderer.js) once a cover's own
+   image has loaded and turns out meaningfully wider than this box's usual
+   2:3 shape. Rather than cropping it (the default above) or leaving that
+   one card shorter than its neighbors, the card itself gets wider —
+   either by spanning extra grid columns (browse-grid) or a direct inline
+   width (carousel rows, which aren't a grid) — at the SAME height as
+   every other card in the row, sized close to the image's own shape so
+   object-fit:contain shows the whole thing with nothing worth calling a
+   bar. */
+.game-card.free-game-wide-cover .cover-wrap{
+    aspect-ratio:unset;
+}
+
+.game-card.free-game-wide-cover .cover-wrap img.cover-img{
+    object-fit:contain;
+}
 
 
 .subsection-filter{
