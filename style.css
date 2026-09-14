@@ -388,6 +388,10 @@ body.density-compact .categoryPicker{
     flex-direction:column;
     cursor:grab;
     transition:box-shadow .25s ease, border-color .25s ease, transform .2s ease;
+    /* Only takes effect inside a scroll-snap container (.carousel-track,
+       .hscroll-grid-2row) — harmless everywhere else, like the wrapping
+       (non-scrolling) .games-grid. */
+    scroll-snap-align:start;
 }
 
 /* Universal card frame — thin, unlit border at rest; it only blooms into
@@ -429,8 +433,9 @@ body.density-compact .categoryPicker{
 }
 
 .game-card img.cover{
-    height:230px;
-    object-fit:cover;
+    height:auto;
+    object-fit:contain;
+    background:var(--bg-primary);
     display:block;
 }
 
@@ -469,15 +474,21 @@ body.density-compact .categoryPicker{
 .cover-wrap{
     position:relative;
     width:100%;
-    height:230px;
+    /* No fixed height on purpose — a fixed box forces every cover into the
+       same rectangle regardless of the source image's own shape, which is
+       exactly what produced both complaints: object-fit:cover cropped the
+       overflow, and object-fit:contain (the previous fix) padded the gap
+       with visible bars above/below instead. Letting height follow the
+       image's own natural aspect ratio at the card's width means the box
+       IS the image's shape, so there's nothing left over to crop or pad
+       either way. */
     overflow:hidden;
     background:var(--bg-primary);
 }
 
 .cover-wrap img{
     width:100%;
-    height:100%;
-    object-fit:cover;
+    height:auto;
     display:block;
 }
 
@@ -511,6 +522,41 @@ body.density-compact .categoryPicker{
     height:100%;
     border:none;
     pointer-events:none;
+}
+
+/* Shared "glass pill" look for a platform label — used both as the
+   always-visible badge overlaid on a Free Games card's cover, and as a
+   plain inline tag in the spotlight banner's meta row. */
+.free-games-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    background:rgba(13,17,23,.85);
+    border:1px solid #30363d;
+    color:#c9d1d9;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.03em;
+    padding:4px 10px;
+    border-radius:20px;
+    white-space:nowrap;
+}
+
+/* Non-interactive platform label overlaid on a Free Games card's cover —
+   always visible (unlike soundToggle/enlargeBtn, which only reveal on
+   hover), since it's identification, not an action. */
+.freeGameBadge{
+    position:absolute;
+    top:8px;
+    left:8px;
+    z-index:3;
+    font-size:10px;
+    padding:4px 8px;
+    pointer-events:none;
+    max-width:calc(100% - 16px);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
 
 .soundToggle{
@@ -809,8 +855,20 @@ body.density-compact .categoryPicker{
 
 .scan-results-actions{
     display:flex;
+    flex-wrap:wrap;
+    align-items:center;
     gap:8px;
     margin-bottom:8px;
+}
+
+/* Separates the type filters (Games Only/Apps Only/Both) from the
+   Select All/Unselect All pair, which act on whatever's currently visible
+   rather than changing that filter themselves. */
+.scan-results-actions-divider{
+    width:1px;
+    align-self:stretch;
+    background:var(--border-color);
+    margin:2px 2px;
 }
 
 .scan-results-actions button{
@@ -869,7 +927,8 @@ body.density-compact .categoryPicker{
 .scan-tile img{
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:contain;
+    background:var(--bg-primary);
     display:block;
 }
 
@@ -1190,36 +1249,59 @@ body.density-compact .categoryPicker{
     top:0;
     left:0;
     right:0;
-    height:var(--titlebar-height);
+    /* Flush with the true top edge and fully painted (no transparent gap,
+       no oversized block) — just a small buffer above the normal control
+       row height. The outermost few px of the window's top edge don't
+       reliably receive mouse events (Windows' own non-client resize
+       hit-testing claims that strip), so align-items:flex-end still pins
+       the actual title text + buttons a little below the very top,
+       keeping them clickable, while the bar itself stays a normal,
+       flush-looking size instead of the old 44px+ tall block. */
+    height:calc(10px + var(--titlebar-height));
     z-index:200;
     display:flex;
-    align-items:center;
+    align-items:flex-end;
     justify-content:space-between;
     background:var(--bg-primary);
     border-bottom:1px solid var(--border-color);
-    -webkit-app-region:drag;
-    transform:translateY(-100%);
+    box-shadow:0 8px 22px -6px rgba(0,0,0,.6);
+    transform:translateY(-140%);
     opacity:0;
     pointer-events:none;
     transition:transform .18s ease, opacity .18s ease;
-    box-shadow:0 8px 22px -6px rgba(0,0,0,.6);
+    /* Native OS window-drag instead of manually tracking the cursor —
+       gives smooth, native, multi-monitor dragging for free (same
+       "grab and move" behavior as any normal Windows title bar), where
+       the earlier hand-rolled JS/IPC version only tracked mousemove
+       within this window's own bounds and lost the drag once the cursor
+       crossed onto a second monitor. */
+    -webkit-app-region:drag;
 }
 
-/* Thin invisible strip along the very top edge of the window: hovering it
-   (or the titlebar itself, once revealed) slides the custom titlebar down
-   into view so drag/minimize/maximize/close stay reachable without the
-   bar sitting there permanently. */
+/* Strip along the very top edge of the window: hovering it slides the
+   custom titlebar down into view so drag/minimize/maximize/close stay
+   reachable without the bar sitting there permanently. Show/hide timing
+   (the grace period before it folds back up) is handled in renderer.js
+   via the ".visible" class below, rather than pure CSS :hover — :hover
+   was cancelling pointer-events the instant the cursor moved off the
+   bar, which happens on the very first pixel of any drag gesture. */
 .titlebar-hover-zone{
     position:fixed;
     top:0;
     left:0;
     right:0;
-    height:36px;
+    /* Kept clear of .section-tabs, which sticks at top:38px — at 80px this
+       zone used to overlap it, so hovering up toward the section tabs to
+       click one would trigger the OS titlebar to slide down (z-index:200,
+       well above the tabs' z-index:46) and eat the click. 30px leaves the
+       titlebar comfortably reachable (it's only ~42px tall once revealed,
+       and re-entering it directly keeps it open via its own mouseenter
+       handler in renderer.js) while staying clear of any in-page UI. */
+    height:30px;
     z-index:199;
 }
 
-.titlebar-hover-zone:hover ~ .custom-titlebar,
-.custom-titlebar:hover{
+.custom-titlebar.visible{
     transform:translateY(0);
     opacity:1;
     pointer-events:auto;
@@ -1230,12 +1312,14 @@ body.density-compact .categoryPicker{
     font-size:11px;
     letter-spacing:2px;
     color:var(--text-muted);
+    cursor:move;
+    flex:1;
     -webkit-app-region:drag;
 }
 
 .titlebar-controls{
     display:flex;
-    height:100%;
+    height:var(--titlebar-height);
     -webkit-app-region:no-drag;
 }
 
@@ -2193,7 +2277,8 @@ body.is-fullscreen #mainContent{
     width:100%;
     max-width:220px;
     height:120px;
-    object-fit:cover;
+    object-fit:contain;
+    background:var(--bg-primary);
     border-radius:10px;
     margin:0 auto 12px;
     display:block;
@@ -2702,7 +2787,8 @@ body.is-fullscreen #mainContent{
 .recent-episode-card img{
     width:100%;
     height:100px;
-    object-fit:cover;
+    object-fit:contain;
+    background:var(--bg-primary);
     flex-shrink:0;
 }
 
@@ -2784,6 +2870,22 @@ body.is-fullscreen #mainContent{
     display:flex;
     gap:6px;
     margin-top:auto;
+    flex-wrap:wrap;
+}
+
+/* Theatre's "Now Playing" grid (#moviesGrid) packs three action controls
+   into one row — Tickets, the YouTube trailer link, and Mark as Watched —
+   which doesn't fit the standard 170-230px card width without the last
+   one getting pushed out of frame. Widen just this grid's cards and let
+   the long-text Tickets button take its own full-width row, with the
+   trailer link and Watched toggle sharing the row below, so every button
+   stays fully visible instead of overflowing. */
+#moviesGrid.games-grid{
+    grid-template-columns:repeat(auto-fill, minmax(220px, 260px));
+}
+
+#moviesGrid .ticketsBtn{
+    flex:1 1 100%;
 }
 
 .ticketsBtn{
@@ -3217,13 +3319,14 @@ body.is-fullscreen #mainContent{
 
 .free-games-controls{
     display:flex;
+    flex-wrap:wrap;
     gap:10px;
-    max-width:700px;
-    margin:0 auto 24px;
+    max-width:920px;
+    margin:0 auto 28px;
 }
 
 .free-games-controls input{
-    flex:1;
+    flex:1 1 200px;
     padding:10px 12px;
     border-radius:8px;
     border:none;
@@ -3233,6 +3336,7 @@ body.is-fullscreen #mainContent{
 }
 
 .free-games-controls select{
+    flex:0 1 auto;
     padding:10px 12px;
     border-radius:8px;
     border:none;
@@ -3263,6 +3367,333 @@ body.is-fullscreen #mainContent{
     cursor:default;
     background:var(--bg-tertiary);
     color:var(--text-primary);
+}
+
+/* "Clear Filters" — only shown once a search/platform/genre filter is
+   actually active (see renderFreeGames), so it never sits there doing
+   nothing on the default unfiltered view. */
+.free-games-clear-btn{
+    background:transparent;
+    border:1px solid var(--border-color, rgba(255,255,255,0.15));
+    color:var(--text-secondary, var(--text-primary));
+}
+
+.free-games-clear-btn:hover{
+    background:rgba(255,255,255,0.08);
+    color:var(--text-primary);
+}
+
+/* A quick, always-visible sense of how many games currently match —
+   confirms the list IS filtered (rather than just short) once any filter
+   narrows it down. */
+.free-games-result-count{
+    max-width:920px;
+    margin:-8px auto 18px;
+    font-size:12px;
+    color:var(--text-muted);
+    text-align:center;
+}
+
+/* Platform tab buttons — the primary one-click way to jump straight to a
+   single platform's full list (or back to the all-platforms overview)
+   without opening the (visually hidden) platform <select> that still
+   backs this state. */
+.free-games-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    max-width:920px;
+    margin:0 auto 16px;
+    justify-content:center;
+}
+
+.free-games-tab{
+    padding:8px 14px;
+    border-radius:20px;
+    border:1px solid var(--border-color, rgba(255,255,255,0.1));
+    background:var(--bg-tertiary);
+    color:var(--text-secondary, var(--text-primary));
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.free-games-tab:hover{
+    background:var(--accent-1);
+    color:#fff;
+}
+
+.free-games-tab.active{
+    background:var(--accent-1);
+    color:#fff;
+    border-color:var(--accent-1);
+}
+
+/* "View all N →" button under a capped platform preview (see
+   FREE_GAMES_PREVIEW_CAP in renderer.js) — jumps into that platform's
+   single-platform full-list view from the same spot on the page. */
+.free-games-view-all-btn{
+    display:block;
+    margin:14px auto 4px;
+    padding:9px 18px;
+    border-radius:8px;
+    border:none;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.free-games-view-all-btn:hover{
+    background:var(--accent-1);
+    color:#fff;
+}
+
+/* Spotlight banner — one flagship "free right now" game, always shown at
+   the top of the section regardless of the filters below, using
+   Riftgate's own accent-gradient (so it re-themes with the app's theme
+   picker) as a soft glass/glow backdrop instead of a flat panel. */
+/* Fixed height on purpose: this banner auto-rotates through a different
+   free-right-now game every ~10s (see the rotation timer in renderer.js),
+   and with no explicit height here the box's height used to follow
+   whatever that game's title/description happened to need — a short
+   one-line title collapsed the whole banner, a long one or a longer
+   description grew it. Every rotation was therefore shoving the platform
+   tabs and everything below them up or down the page, which is both
+   annoying to read mid-scroll and made this banner's own children an
+   unreliable click target (a click aimed at content just below it could
+   land on a different, just-shifted-into-place element by the time it
+   registered). Height is fixed and overflow:hidden already clips anything
+   that doesn't fit — the info column below caps its own title/description
+   growth so clipping should be rare, not the normal case. */
+.free-games-spotlight{
+    position:relative;
+    display:flex;
+    gap:28px;
+    align-items:stretch;
+    height:300px;
+    margin:0 auto 28px;
+    max-width:1100px;
+    padding:24px;
+    border-radius:18px;
+    background:var(--bg-secondary);
+    border:1px solid var(--border-color);
+    overflow:hidden;
+    isolation:isolate;
+}
+
+.free-games-spotlight::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:var(--accent-gradient);
+    opacity:.14;
+    z-index:-1;
+}
+
+.free-games-spotlight::after{
+    content:"";
+    position:absolute;
+    top:-45%;
+    right:-8%;
+    width:320px;
+    height:320px;
+    background:var(--accent-gradient);
+    opacity:.28;
+    filter:blur(75px);
+    border-radius:50%;
+    z-index:-1;
+}
+
+.free-games-spotlight-cover{
+    flex:0 0 260px;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+    cursor:pointer;
+}
+
+.free-games-spotlight-cover img{
+    width:100%;
+    height:100%;
+    /* Cropped to fill, same as the grid cards below (.cover-wrap
+       img.cover-img) and for the same reason — guarantees this box is
+       never left with an unfilled bar around a cover that doesn't match
+       its shape. */
+    object-fit:cover;
+    background:var(--bg-primary);
+    display:block;
+}
+
+.free-games-spotlight-info{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:10px;
+    /* Belt-and-suspenders alongside the fixed height on .free-games-spotlight
+       above and the h2 line-clamp below: this column is a flex child
+       stretched to that fixed height, so if some combination of a long
+       title, a wrapping meta row, and a full 3-line description ever adds
+       up to more than the box allows, clip it here rather than letting it
+       push the card's own bottom edge (and the CTA button with it) out
+       past the fixed-height banner. */
+    overflow:hidden;
+}
+
+.free-games-spotlight-eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    align-self:flex-start;
+    padding:5px 12px;
+    border-radius:20px;
+    background:var(--accent-gradient);
+    color:#fff;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+}
+
+.free-games-spotlight-eyebrow .ui-icon{
+    width:12px;
+    height:12px;
+}
+
+.free-games-spotlight-info h2{
+    margin:0;
+    font-size:26px;
+    font-weight:800;
+    color:var(--text-primary);
+    line-height:1.2;
+    cursor:pointer;
+    /* Capped the same way .free-games-spotlight-desc already was — an
+       uncapped title was the biggest single source of the banner's height
+       varying between rotations (a long name wraps to 2-3 lines, a short
+       one sits on 1), now fixed at .free-games-spotlight above. */
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+}
+
+.free-games-spotlight-meta{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+    color:var(--text-muted);
+}
+
+.free-games-spotlight-desc{
+    font-size:13px;
+    color:var(--text-muted);
+    max-width:560px;
+    display:-webkit-box;
+    -webkit-line-clamp:3;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+}
+
+.free-games-spotlight-cta{
+    margin-top:4px;
+    align-self:flex-start;
+    padding:11px 22px;
+    border:none;
+    border-radius:10px;
+    background:var(--accent-gradient);
+    color:#fff;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:filter .2s ease, transform .2s ease;
+}
+
+.free-games-spotlight-cta:hover{
+    filter:brightness(1.12);
+    transform:translateY(-1px);
+}
+
+@media (max-width: 720px){
+    .free-games-spotlight{
+        flex-direction:column;
+        /* The 300px fixed height above assumes the cover and info columns
+           sit side by side (align-items:stretch sharing one height) — once
+           this stacks them instead, that same 300px would only leave about
+           100px for the whole info column below a 200px cover, clipping it
+           hard. Taller fixed height here for the same reason as the 300px
+           value: stays constant across rotations, just sized for the
+           stacked layout instead of the side-by-side one. */
+        height:540px;
+    }
+    .free-games-spotlight-cover{
+        flex:0 0 auto;
+        width:100%;
+        height:200px;
+    }
+}
+
+/* Free Games platform rows (including Newly Added, which shares this same
+   class) reuse the same theatre-block/hscroll-row carousel pattern as the
+   New tab (Upcoming Games, New Series, etc.) for visual consistency across
+   the app — this just sets the card width, since a flex/carousel context
+   (unlike the wrapping .games-grid) needs an explicit one. Matched exactly
+   to Upcoming Games' 300px card (per Alfredo) rather than just "bigger" —
+   small, easy-to-miss cards work against a browse-and-discover section
+   like this one. */
+.free-games-track .game-card{
+    width:320px;
+}
+
+/* Same reasoning for the non-carousel Free Games grids — the capped
+   platform previews (buildFreeGamesPreviewSection), the single-platform
+   full list, and the VR native/adapted groups all render into a plain
+   .games-grid.browse-grid inside #freeGamesContainer. Scoped to this
+   container specifically so Library/Theatre/Reading Room grids (which
+   also use .games-grid.browse-grid) keep their own sizing. */
+#freeGamesContainer .games-grid{
+    grid-template-columns:repeat(auto-fill, minmax(300px, 320px));
+    gap:22px;
+}
+
+/* Every Free Games card needs to line up at the same height within its
+   row — unlike Upcoming Games (one live source, similar cover shapes),
+   Free Games mixes portrait posters, square icons and wide banner key art
+   side by side, so leaving height intrinsic (as the rest of the app does)
+   produced visibly uneven rows.
+   This used to be object-fit:contain with a separate darkened "backdrop"
+   layer behind it to fill in the gap for any cover that didn't match this
+   box's 2:3 portrait shape — first attempted with a CSS filter:blur() that
+   silently failed to composite on this GPU/remote-desktop setup, then with
+   a plain <img> backdrop that, for reasons never fully pinned down even
+   after directly confirming its own source image loaded cleanly, still
+   didn't reliably paint behind every fallback-path cover. Per Alfredo,
+   object-fit:cover instead — every cover crops to fill this box completely,
+   full stop. No gap ever exists in the first place, so there's nothing left
+   for any backdrop layer to fail to fill: simpler, and the one approach
+   that's structurally guaranteed to never show a bar, at the cost of
+   trimming the edges off covers that don't already match this box's shape
+   (mostly square logos and wide banner key art — most Steam covers, this
+   catalog's large majority, are already close to this exact ratio and lose
+   little to nothing). */
+#freeGamesContainer .cover-wrap{
+    height:480px;
+}
+
+#freeGamesContainer .cover-wrap img.cover-img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
 }
 
 
@@ -3732,7 +4163,8 @@ body.startup-locked{
 .slot-reel-item img{
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:contain;
+    background:var(--bg-primary);
     display:block;
 }
 
@@ -3869,6 +4301,12 @@ body.startup-locked{
     scroll-behavior:smooth;
     scrollbar-width:none;
     padding:4px 2px;
+    /* Without this, the arrow buttons' fixed 600px scrollBy (renderer.js)
+       — or just a manual trackpad/wheel scroll — can land mid-card,
+       leaving a sliced-off card sitting right at the edge next to the
+       arrow. Snapping means every scroll, however it started, settles
+       with a full card flush at the edge instead. */
+    scroll-snap-type:x mandatory;
 }
 
 .carousel-track::-webkit-scrollbar{
@@ -3913,17 +4351,11 @@ body.startup-locked{
 
 /* Upcoming Games — single row, covers ~50% bigger than the standard
    170-230px game-card so they read as more important, per Alfredo's
-   request. */
+   request. Height is intrinsic (see .cover-wrap) — the wider 300px card
+   already makes the cover read as bigger without needing a forced box
+   height that would crop or letterbox it. */
 .upcoming-games-track .game-card{
     width:300px;
-}
-
-.upcoming-games-track .cover-wrap{
-    height:340px;
-}
-
-.upcoming-games-track .cover-wrap img{
-    object-fit:cover;
 }
 
 /* Upcoming Movies — items keep their existing size (no resize requested),
@@ -3942,19 +4374,16 @@ body.startup-locked{
     scroll-behavior:smooth;
     scrollbar-width:none;
     padding:4px 2px;
+    /* Same reasoning as .carousel-track above — keeps the arrow buttons'
+       fixed-pixel scrollBy (and manual scrolling) from ever resting with
+       a movie poster sliced off at the edge. */
+    scroll-snap-type:x mandatory;
 }
 
 .hscroll-grid-2row::-webkit-scrollbar{
     display:none;
 }
 
-.hscroll-grid-2row .cover-wrap{
-    height:300px;
-}
-
-.hscroll-grid-2row .cover-wrap img{
-    object-fit:cover;
-}
 
 /* New Series — single row, same card size it already had under the old
    fold/unfold grid (170-230px range), just not resized here either. */
@@ -3962,13 +4391,6 @@ body.startup-locked{
     width:210px;
 }
 
-.new-shows-track .cover-wrap{
-    height:300px;
-}
-
-.new-shows-track .cover-wrap img{
-    object-fit:cover;
-}
 
 
 /* Consistent breathing room between Reading Room's stacked subsections

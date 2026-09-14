@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage, protocol } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { execFile } = require("child_process");
 const fs = require("fs");
@@ -7,6 +7,18 @@ const https = require("https");
 const http = require("http");
 const crypto = require("crypto");
 const AdmZip = require("adm-zip");
+
+// Registering a custom scheme's privileges must happen before the app is
+// "ready" — Electron ignores registerSchemesAsPrivileged calls made any
+// later, so this has to sit at module load time rather than inside
+// initUserData()/app.whenReady() alongside the rest of this cache's setup.
+// "standard"+"supportFetchAPI" let it behave like a normal origin (so an
+// <img src="covercache://..."> loads exactly like any other image URL);
+// "corsEnabled" avoids a same-origin surprise since the covers grid mixes
+// this scheme with genuine https:// URLs.
+protocol.registerSchemesAsPrivileged([
+    { scheme: "covercache", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }
+]);
 
 // GAMES_FILE, COVERS_FOLDER and SETTINGS_FILE point into the user's writable
 // AppData folder, not the app's own install directory (which is read-only
@@ -19,12 +31,14 @@ let WATCHLIST_FILE;
 let FREEGAMES_SEEN_FILE;
 let FREEGAMES_UNAVAILABLE_FILE;
 let FREEGAMES_VERIFIED_FILE;
+let FREEGAMES_VR_FILE;
 let FREEGAMES_LAST_REFRESH_FILE;
 let FREEGAMES_BULK_SEARCH_DONE_FILE;
 let TRAILER_CACHE_FILE;
 let SESSION_FILE;
 let EBOOKS_FILE;
 let EBOOKS_DROPZONE_FOLDER;
+let FREEGAMES_COVER_CACHE_FOLDER;
 
 // --- Generic on-disk cache for online data (Free Games, Discover Online,
 // Buy Books) — so the app can show the last successful result instantly
@@ -295,6 +309,166 @@ function downloadFileFollowingRedirects(url, destPath, redirectsLeft = 5) {
 
 function safeFileName(name) {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// --- Free Games cover image cache -----------------------------------------
+// Free Games can show thousands of cover images (Steam alone verifies
+// 4000+ titles), all re-fetched from their original CDN on every single
+// visit since renderer.js used to point <img>/background-image straight at
+// the remote URL — slow every time, even though a given game's box art
+// never changes. Covers now load through this custom "covercache://"
+// protocol instead: the first request for a given URL fetches it and saves
+// it to disk under the app's userData folder, and every request after that
+// (including on the next app launch) is served straight from disk.
+function freeGamesCoverCachePathFor(realUrl) {
+    const hash = crypto.createHash("sha1").update(realUrl).digest("hex");
+    const extMatch = realUrl.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : "jpg";
+    return path.join(FREEGAMES_COVER_CACHE_FOLDER, `${hash}.${ext}`);
+}
+
+function freeGamesCoverMimeFor(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === ".png") return "image/png";
+    if (ext === ".webp") return "image/webp";
+    if (ext === ".gif") return "image/gif";
+    return "image/jpeg";
+}
+
+// Same shape as downloadFileFollowingRedirects, but resolves with the image
+// bytes in memory instead of writing straight to a known destination path —
+// this cache doesn't know the right on-disk filename (extension included)
+// until it sees where a redirect chain actually ends up.
+function fetchBufferFollowingRedirects(url, redirectsLeft = 5) {
+    return new Promise((resolve, reject) => {
+        const client = url.startsWith("http://") ? http : https;
+        client.get(url, { headers: { "User-Agent": "RiftgateApp/1.0" } }, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+                res.resume();
+                const nextUrl = new URL(res.headers.location, url).toString();
+                fetchBufferFollowingRedirects(nextUrl, redirectsLeft - 1).then(resolve).catch(reject);
+                return;
+            }
+            if (res.statusCode !== 200) {
+                res.resume();
+                reject(new Error(`Cover fetch failed: ${res.statusCode}`));
+                return;
+            }
+            const chunks = [];
+            res.on("data", (chunk) => chunks.push(chunk));
+            res.on("end", () => resolve(Buffer.concat(chunks)));
+            res.on("error", reject);
+        }).on("error", reject);
+    });
+}
+
+// Every Free Games card now paints TWO images from the same cover URL — the
+// sharp foreground <img> and the .cover-bg-img backdrop behind it (see
+// renderer.js's buildFreeGameCard) — and a grid can have hundreds of cards
+// with covers loading around the same time even with loading="lazy" (the
+// browser starts a generous margin of them ahead of the actual viewport).
+// Without anything here, that's two independent cache-miss requests per
+// card hitting Steam's CDN at once, and thousands of cards' worth of these
+// bursting out together with no cap at all — which is exactly the kind of
+// load that gets connections reset/timed out partway through, showing up as
+// MORE covers failing to load (including the foreground one, which used to
+// load fine on its own before the backdrop started requesting the same URL
+// alongside it) rather than fewer. Two fixes below address this together:
+// requests for the same not-yet-cached URL that arrive close together now
+// share one real fetch instead of issuing two, and real network fetches
+// (cache hits still return immediately, uncapped) are capped to a small
+// number running at once, queueing the rest instead of firing them all
+// simultaneously — roughly mirroring how a browser limits connections per
+// host on its own.
+const inFlightCoverFetches = new Map(); // cachePath -> Promise<Buffer>
+const MAX_CONCURRENT_COVER_FETCHES = 6;
+let activeCoverFetchCount = 0;
+const coverFetchQueue = [];
+
+function runNextQueuedCoverFetch() {
+    if (activeCoverFetchCount >= MAX_CONCURRENT_COVER_FETCHES) return;
+    const next = coverFetchQueue.shift();
+    if (!next) return;
+    activeCoverFetchCount++;
+    fetchBufferFollowingRedirects(next.url)
+        .then(next.resolve, next.reject)
+        .finally(() => {
+            activeCoverFetchCount--;
+            runNextQueuedCoverFetch();
+        });
+}
+
+function queuedFetchBuffer(url) {
+    return new Promise((resolve, reject) => {
+        coverFetchQueue.push({ url, resolve, reject });
+        runNextQueuedCoverFetch();
+    });
+}
+
+// Registered once, in app.whenReady() before the window is created, so the
+// scheme is already live by the time index.html's first cover image asks
+// for it. Requests look like covercache://cover?u=<encodeURIComponent(url)>
+// — the encoded original URL rides along as a query param rather than the
+// path so it survives untouched (encodeURIComponent already escapes any
+// "/" it contains, but keeping it out of the path sidesteps ever having to
+// think about that).
+function registerFreeGamesCoverCacheProtocol() {
+    protocol.handle("covercache", async (request) => {
+        let realUrl;
+        try {
+            realUrl = decodeURIComponent(new URL(request.url).searchParams.get("u") || "");
+        } catch (err) {
+            realUrl = "";
+        }
+        if (!realUrl) {
+            return new Response(null, { status: 400 });
+        }
+
+        const cachePath = freeGamesCoverCachePathFor(realUrl);
+        // Cached responses are content-hashed and never change in place, so
+        // the renderer/Chromium's own HTTP cache is safe to lean on too —
+        // this cuts out a second round trip through this handler entirely
+        // for the common case of the foreground and backdrop images on one
+        // card requesting the exact same URL.
+        const cacheHeaders = { "Cache-Control": "public, max-age=31536000, immutable" };
+
+        if (fs.existsSync(cachePath)) {
+            try {
+                const data = fs.readFileSync(cachePath);
+                return new Response(data, { headers: { "Content-Type": freeGamesCoverMimeFor(cachePath), ...cacheHeaders } });
+            } catch (err) {
+                // Fall through and re-fetch — a corrupt/half-written cache
+                // file shouldn't permanently break this one cover.
+            }
+        }
+
+        try {
+            // Share one in-flight fetch across every request that lands
+            // while it's still running, instead of letting each kick off
+            // its own — this is what actually stops the foreground and
+            // backdrop images (or several cards' worth of duplicate URLs)
+            // from doubling up on the same network request and disk write.
+            let bufferPromise = inFlightCoverFetches.get(cachePath);
+            if (!bufferPromise) {
+                bufferPromise = queuedFetchBuffer(realUrl).finally(() => {
+                    inFlightCoverFetches.delete(cachePath);
+                });
+                inFlightCoverFetches.set(cachePath, bufferPromise);
+            }
+            const buffer = await bufferPromise;
+            // Best-effort write: a failed disk write still lets this one
+            // request succeed from the buffer already in hand, it just
+            // won't be cached for next time.
+            try {
+                fs.writeFileSync(cachePath, buffer);
+            } catch (err) {
+                // Ignore — see above.
+            }
+            return new Response(buffer, { headers: { "Content-Type": freeGamesCoverMimeFor(cachePath), ...cacheHeaders } });
+        } catch (err) {
+            return new Response(null, { status: 502 });
+        }
+    });
 }
 
 // --- Detecting installed games from Steam / Epic ---------------------------
@@ -876,12 +1050,14 @@ function initUserData() {
     FREEGAMES_SEEN_FILE = path.join(userDataDir, "freegames-seen.json");
     FREEGAMES_UNAVAILABLE_FILE = path.join(userDataDir, "freegames-unavailable.json");
     FREEGAMES_VERIFIED_FILE = path.join(userDataDir, "freegames-verified.json");
+    FREEGAMES_VR_FILE = path.join(userDataDir, "freegames-vr.json");
     FREEGAMES_LAST_REFRESH_FILE = path.join(userDataDir, "freegames-last-refresh.json");
     FREEGAMES_BULK_SEARCH_DONE_FILE = path.join(userDataDir, "freegames-bulk-search-done.json");
     TRAILER_CACHE_FILE = path.join(userDataDir, "trailer-cache.json");
     SESSION_FILE = path.join(userDataDir, "session.dat");
     EBOOKS_FILE = path.join(userDataDir, "ebooks.json");
     EBOOKS_DROPZONE_FOLDER = path.join(userDataDir, "Reading Room Dropzone");
+    FREEGAMES_COVER_CACHE_FOLDER = path.join(userDataDir, "freegames-cover-cache");
 
     if (!fs.existsSync(EBOOKS_DROPZONE_FOLDER)) {
         fs.mkdirSync(EBOOKS_DROPZONE_FOLDER, { recursive: true });
@@ -889,6 +1065,10 @@ function initUserData() {
 
     if (!fs.existsSync(COVERS_FOLDER)) {
         fs.mkdirSync(COVERS_FOLDER, { recursive: true });
+    }
+
+    if (!fs.existsSync(FREEGAMES_COVER_CACHE_FOLDER)) {
+        fs.mkdirSync(FREEGAMES_COVER_CACHE_FOLDER, { recursive: true });
     }
 
     // Seed the placeholder covers once, copied from the app's bundled assets
@@ -943,6 +1123,10 @@ function initUserData() {
 
     if (!fs.existsSync(FREEGAMES_VERIFIED_FILE)) {
         fs.writeFileSync(FREEGAMES_VERIFIED_FILE, "{}");
+    }
+
+    if (!fs.existsSync(FREEGAMES_VR_FILE)) {
+        fs.writeFileSync(FREEGAMES_VR_FILE, "{}");
     }
 
     if (!fs.existsSync(FREEGAMES_LAST_REFRESH_FILE)) {
@@ -1001,6 +1185,12 @@ async function createWindow() {
         title: "Riftgate",
         autoHideMenuBar: true,
         frame: false,
+        // Without this, Windows falls back to the .exe's own embedded icon
+        // for the taskbar/alt-tab entry — correct for a packaged build, but
+        // in dev mode ("electron .") that .exe is just Electron's own
+        // generic one, so the taskbar icon would never match the app icon
+        // this file actually sets everywhere else (Tray, theme switching).
+        icon: resolveIconPath("icon.ico"),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -1494,6 +1684,8 @@ async function fetchEpicFreeGames() {
                     (img) => img.type === "OfferImageWide" || img.type === "Thumbnail"
                 );
 
+                const tagNames = (el.tags || []).map((t) => t.name).filter(Boolean);
+
                 return {
                     id: `epic-${el.id}`,
                     name: el.title,
@@ -1501,7 +1693,12 @@ async function fetchEpicFreeGames() {
                     image: image ? image.url : null,
                     url: `https://store.epicgames.com/en-US/p/${(el.productSlug || el.urlSlug || "").replace(/\/home$/, "")}`,
                     source: "Epic Games",
-                    tags: (el.tags || []).map((t) => t.name).filter(Boolean)
+                    tags: tagNames,
+                    // Epic's own tag list occasionally includes "VR" outright
+                    // for a promo giveaway built for VR — no way to tell
+                    // native vs. adapted from this data, but a VR-tagged
+                    // free giveaway is virtually always a native VR title.
+                    vr: tagNames.some((t) => /^vr$|virtual reality/i.test(t)) ? "native" : null
                 };
             });
     } catch (err) {
@@ -1572,9 +1769,41 @@ const MAX_STEAM_CHECKS_PER_REFRESH = 200;
 // since the exact same title can legitimately go free again later (a
 // future promo, a different giveaway) and needs to be able to reappear
 // once SteamSpy/Steam's own data reflects that.
+// Steam's appdetails response carries a "categories" array of store-page
+// badges — things like "Single-player", "Steam Achievements", "VR Only",
+// "VR Supported". checkSteamAppAvailability already fetches this exact
+// response for every game it verifies, so reading VR support out of it is
+// free — no extra request. "VR Only" means a headset is required to play
+// at all (native VR); "VR Supported" means an ordinary flatscreen game
+// that ALSO works in VR (adapted). Neither, or unrecognized data, is null.
+function categorizeSteamVrSupport(categories) {
+    if (!Array.isArray(categories)) return null;
+    const descriptions = categories.map((c) => (c && c.description ? String(c.description).toLowerCase() : ""));
+    if (descriptions.some((d) => d.includes("vr only"))) return "native";
+    if (descriptions.some((d) => d.includes("vr support"))) return "adapted";
+    return null;
+}
+
+// freegames-vr.json entries were originally a bare vr string per appid;
+// they're now a {vr, releaseDate} object so the same cache/appdetails
+// fetch can carry both. These two accessors read either shape so an
+// existing user's on-disk cache from before releaseDate existed keeps
+// working instead of losing its already-learned VR data on upgrade.
+function getSteamVr(entry) {
+    if (!entry) return null;
+    return typeof entry === "string" ? entry : entry.vr || null;
+}
+
+function getSteamReleaseDate(entry) {
+    if (!entry || typeof entry === "string") return null;
+    return entry.releaseDate || null;
+}
+
 async function checkSteamAppAvailability(appid) {
     let apiAvailable = true;
     let stillFree = true;
+    let vr = null;
+    let releaseDate = null;
     try {
         // No filters=basic here on purpose — "basic" trims the response
         // down far enough that it drops is_free, which is exactly the
@@ -1588,6 +1817,14 @@ async function checkSteamAppAvailability(appid) {
         apiAvailable = !!(entry && entry.success);
         if (apiAvailable && entry.data) {
             stillFree = entry.data.is_free === true;
+            vr = categorizeSteamVrSupport(entry.data.categories);
+            // Same reasoning as VR above — release_date rides along on this
+            // same appdetails response for free, no extra request. Only
+            // kept when Steam has an actual date (coming_soon means the
+            // date field is empty/placeholder).
+            if (entry.data.release_date && !entry.data.release_date.coming_soon && entry.data.release_date.date) {
+                releaseDate = entry.data.release_date.date;
+            }
         }
     } catch (err) {
         // A failed/timed-out request confirms nothing either way — treat
@@ -1597,19 +1834,19 @@ async function checkSteamAppAvailability(appid) {
         stillFree = true;
     }
 
-    if (!apiAvailable) return { show: false, delisted: true };
-    if (!stillFree) return { show: false, delisted: false };
+    if (!apiAvailable) return { show: false, delisted: true, vr, releaseDate };
+    if (!stillFree) return { show: false, delisted: false, vr, releaseDate };
 
     try {
         const page = await httpsGetTextPlain(`https://store.steampowered.com/app/${appid}/?l=english`, 10000);
         if (page.statusCode === 200 && /is no longer available on the steam store/i.test(page.body)) {
-            return { show: false, delisted: true };
+            return { show: false, delisted: true, vr, releaseDate };
         }
     } catch (err) {
         // Same reasoning as above — an unreadable page proves nothing.
     }
 
-    return { show: true, delisted: false };
+    return { show: true, delisted: false, vr, releaseDate };
 }
 
 // First-run-only helper: Steam's own store search (the /search/results/
@@ -1784,6 +2021,7 @@ async function fetchSteamFreeGames(forceFullCheck) {
         // hoping a concurrency cap keeps it under some limit that isn't
         // precisely documented.
         const verified = readFreeGamesVerifiedCache();
+        const vrCache = readFreeGamesVrCache();
 
         // Bulk-search results already reflect Steam's current live price —
         // that's the entire point of using that endpoint on a first run —
@@ -1799,14 +2037,30 @@ async function fetchSteamFreeGames(forceFullCheck) {
             markBulkSearchDone();
             console.log(`[free-games] First-run bulk search complete — ${stillListed.length} free Steam game(s) ready, no verification needed.`);
 
+            // No appdetails categories were fetched on this path (the bulk
+            // search endpoint doesn't return them), so VR status is
+            // unknown for all of these until a later refresh's normal
+            // verification pass checks each one individually.
             return stillListed.map((item) => ({
                 id: `steam-${item.appid}`,
                 name: item.name,
                 description: null,
-                image: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/header.jpg`,
+                // The portrait "library capsule" (2:3, same shape Steam's
+                // own library grid uses) instead of the old landscape
+                // header.jpg (460x215) — a portrait cover-wrap box (see
+                // #freeGamesContainer .cover-wrap in style.css) fits this
+                // shape almost exactly, instead of needing to shrink a
+                // wide banner down to a sliver and pad the rest. Not every
+                // appid has this asset (very old/obscure titles sometimes
+                // don't), so fallbackImage carries the old header.jpg for
+                // the renderer to fall back to on a load error.
+                image: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/library_600x900.jpg`,
+                fallbackImage: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/header.jpg`,
                 url: `https://store.steampowered.com/app/${item.appid}`,
                 source: "Steam",
-                tags: [genreMap[String(item.appid)] || "Other"]
+                tags: [genreMap[String(item.appid)] || "Other"],
+                vr: null,
+                releaseDate: null
             }));
         }
 
@@ -1880,11 +2134,30 @@ async function fetchSteamFreeGames(forceFullCheck) {
             );
 
             let batchHasNewDelisted = false;
+            let vrChanged = false;
             batchResults.forEach((res) => {
                 checkedCount++;
                 if (res.status !== "fulfilled") return; // network hiccup — leave unverified, retried next refresh
                 const appid = String(res.value.appid);
-                const { show, delisted } = res.value.result;
+                const { show, delisted, vr, releaseDate } = res.value.result;
+
+                // Learned independently of show/delisted/free status below —
+                // a game's VR support/release date don't change just
+                // because it's temporarily not free, so both are recorded
+                // whenever appdetails actually returned data at all. Cache
+                // entries here are {vr, releaseDate} objects; getSteamVr/
+                // getSteamReleaseDate below also accept the older plain-
+                // string shape this cache used before releaseDate existed.
+                const prevEntry = vrCache[appid];
+                const prevVr = getSteamVr(prevEntry);
+                const prevReleaseDate = getSteamReleaseDate(prevEntry);
+                const nextVr = vr || prevVr;
+                const nextReleaseDate = releaseDate || prevReleaseDate;
+                if (nextVr !== prevVr || nextReleaseDate !== prevReleaseDate) {
+                    vrCache[appid] = { vr: nextVr || null, releaseDate: nextReleaseDate || null };
+                    vrChanged = true;
+                }
+
                 if (show) {
                     verified[appid] = Date.now();
                     verifiedChanged = true;
@@ -1903,6 +2176,7 @@ async function fetchSteamFreeGames(forceFullCheck) {
 
             if (verifiedChanged) saveFreeGamesVerifiedCache(verified);
             if (batchHasNewDelisted) saveFreeGamesUnavailableCache(knownUnavailable);
+            if (vrChanged) saveFreeGamesVrCache(vrCache);
 
             if (needsCheck.length > 200 && (checkedCount % 500 < STEAM_CHECK_BATCH_SIZE || checkedCount === needsCheck.length)) {
                 console.log(`[free-games] Verified ${checkedCount}/${needsCheck.length} Steam games so far...`);
@@ -1924,10 +2198,18 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 id: `steam-${item.appid}`,
                 name: item.name,
                 description: null,
-                image: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/header.jpg`,
+                image: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/library_600x900.jpg`,
+                fallbackImage: `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/header.jpg`,
                 url: `https://store.steampowered.com/app/${item.appid}`,
                 source: "Steam",
-                tags: [genreMap[String(item.appid)] || "Other"]
+                tags: [genreMap[String(item.appid)] || "Other"],
+                // From vrCache, not the (possibly stale/unchecked-this-run)
+                // result above — a game not due for re-verification this
+                // refresh still keeps whatever VR status/release date was
+                // learned the last time it WAS checked, instead of
+                // resetting to "unknown" every run.
+                vr: getSteamVr(vrCache[String(item.appid)]),
+                releaseDate: getSteamReleaseDate(vrCache[String(item.appid)])
             }));
     } catch (err) {
         console.error("[free-games] SteamSpy fetch failed:", err.message || err);
@@ -1959,6 +2241,12 @@ async function fetchGogFreeGames() {
 
         console.log(`[free-games] GOG: found ${products.length} results, ${genuinelyFree.length} confirmed free.`);
 
+        // GOG's catalog API doesn't expose a reliable VR flag the way
+        // Steam's appdetails categories do — genuinely detecting it here
+        // would mean guessing at field names GOG has never documented, so
+        // this is left null (unknown) rather than risk mislabeling. A GOG
+        // VR title still shows up fine everywhere else, just not under the
+        // cross-platform VR view.
         return genuinelyFree.map((p) => ({
             id: `gog-${p.id}`,
             name: p.title,
@@ -1966,12 +2254,158 @@ async function fetchGogFreeGames() {
             image: p.coverHorizontal || p.coverVertical || null,
             url: p.slug ? `https://www.gog.com/en/game/${p.slug}` : "https://www.gog.com",
             source: "GOG",
-            tags: [(p.genres && p.genres[0] && (p.genres[0].name || p.genres[0])) || "Other"]
+            tags: [(p.genres && p.genres[0] && (p.genres[0].name || p.genres[0])) || "Other"],
+            vr: null
         }));
     } catch (err) {
         console.error("[free-games] GOG fetch failed:", err.message || err);
         return [];
     }
+}
+
+function decodeHtmlEntities(str) {
+    return str
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ");
+}
+
+// GamerPower aggregates giveaways from many stores at once, including ones
+// Riftgate already fetches natively with real availability verification
+// (Steam/Epic/GOG) and itch.io (fetched separately below) — only entries
+// for a platform with no dedicated fetcher of its own are kept here, so
+// nothing ever shows twice and this never overrides the more carefully
+// verified native result. If GamerPower currently has nothing for a given
+// platform (Origin, Battle.net, etc. have never shown up in its data),
+// that platform simply produces no entries here — no empty bucket is ever
+// created for it.
+async function fetchGamerPowerFreeGames() {
+    try {
+        const data = await httpsGetJsonPlain(
+            "https://www.gamerpower.com/api/giveaways?type=game&sort-by=date",
+            10000
+        );
+
+        const list = Array.isArray(data) ? data : (data && Array.isArray(data.giveaways) ? data.giveaways : []);
+        const COVERED_PLATFORMS = ["steam", "epic games store", "gog", "itch.io", "itch"];
+
+        return list
+            .map((g) => {
+                if (!g || g.status === "Expired") return null;
+                if (g.type && g.type !== "Game") return null;
+
+                const platformsRaw = (g.platforms || "").split(",").map((p) => p.trim()).filter(Boolean);
+                const lower = platformsRaw.map((p) => p.toLowerCase());
+
+                // Riftgate is a PC launcher — skip mobile-only/console-only
+                // giveaways, which GamerPower also lists alongside PC ones.
+                const isVrPlatform = lower.includes("vr");
+                if (!lower.includes("pc") && !isVrPlatform) return null;
+
+                const distinctPlatforms = platformsRaw.filter((p) => p.toLowerCase() !== "pc");
+                const sourcePlatform = distinctPlatforms.find((p) => !COVERED_PLATFORMS.includes(p.toLowerCase()));
+                if (!sourcePlatform) return null;
+
+                const name = (g.title || "")
+                    .replace(/\s*Giveaway\s*$/i, "")
+                    .replace(/\s*\([^)]*\)\s*$/, "")
+                    .trim() || g.title;
+
+                return {
+                    id: `gamerpower-${g.id}`,
+                    name,
+                    description: g.description || null,
+                    image: g.image || g.thumbnail || null,
+                    url: g.open_giveaway_url || g.gamerpower_url || "https://www.gamerpower.com",
+                    source: sourcePlatform,
+                    tags: [],
+                    vr: isVrPlatform ? "native" : null
+                };
+            })
+            .filter(Boolean);
+    } catch (err) {
+        console.error("[free-games] GamerPower fetch failed:", err.message || err);
+        return [];
+    }
+}
+
+// itch.io has no public discovery API — its "new & popular, free" browse
+// page is plain server-rendered HTML (verified live), so this scrapes it
+// directly. itch.io does NOT keep a fixed attribute order within a tag
+// (href sometimes comes before class="...", sometimes after), so each
+// anchor's attributes are captured as one blob and href/class are found
+// independently inside it rather than assuming either order.
+// Shared scraper for any itch.io "free games" listing page — the general
+// new-and-popular list and the dedicated VR-tag list have identical markup,
+// just a different URL and a different fixed vr value for everything found
+// on that page (itch.io's own tag browsing doesn't return per-game
+// metadata beyond title/url/image, so vr is set by the caller rather than
+// detected here).
+async function fetchItchFreeGamesFromPage(url, vr) {
+    try {
+        const page = await httpsGetTextPlain(url, 10000);
+        if (page.statusCode !== 200) {
+            throw new Error(`HTTP ${page.statusCode}`);
+        }
+
+        const cells = page.body.split('class="game_cell').slice(1);
+        const games = [];
+
+        for (const chunk of cells) {
+            const anchorRegex = /<a\b([^>]*)>([^<]*)<\/a>/g;
+            let title = null;
+            let gameUrl = null;
+            let m;
+            while ((m = anchorRegex.exec(chunk))) {
+                if (!/class="title game_link"/.test(m[1])) continue;
+                const hrefMatch = m[1].match(/href="([^"]+)"/);
+                if (!hrefMatch) continue;
+                title = decodeHtmlEntities(m[2].trim());
+                gameUrl = hrefMatch[1];
+                break;
+            }
+            if (!title || !gameUrl) continue;
+
+            const imageMatch = chunk.match(/data-lazy_src="([^"]+)"/);
+
+            games.push({
+                id: "itch-" + gameUrl.replace(/^https?:\/\//, "").replace(/[^a-z0-9]+/gi, "-").toLowerCase(),
+                name: title,
+                description: null,
+                image: imageMatch ? imageMatch[1] : null,
+                url: gameUrl,
+                source: "itch.io",
+                tags: [],
+                vr: vr || null
+            });
+        }
+
+        return games.slice(0, 48);
+    } catch (err) {
+        console.error(`[free-games] itch.io fetch failed (${url}):`, err.message || err);
+        return [];
+    }
+}
+
+async function fetchItchFreeGames() {
+    const games = await fetchItchFreeGamesFromPage("https://itch.io/games/new-and-popular/free", null);
+    console.log(`[free-games] itch.io: found ${games.length} free games.`);
+    return games;
+}
+
+// itch.io's own "VR" tag, scoped to free games — a completely separate
+// listing page from the general new-and-popular one above, so it needs its
+// own fetch rather than being derived from the same data. Every game
+// itch.io files under this tag was built specifically for VR (itch has no
+// "flatscreen game that also happens to support VR" distinction the way
+// Steam does), so all of these come back tagged "native".
+async function fetchItchVrFreeGames() {
+    const games = await fetchItchFreeGamesFromPage("https://itch.io/games/free/tag-vr", "native");
+    console.log(`[free-games] itch.io VR: found ${games.length} free VR game(s).`);
+    return games;
 }
 
 function readFreeGamesSeenCache() {
@@ -2023,6 +2457,31 @@ function saveFreeGamesVerifiedCache(data) {
         fs.writeFileSync(FREEGAMES_VERIFIED_FILE, JSON.stringify(data, null, 2));
     } catch (err) {
         console.error("[free-games] failed to save verified-games cache:", err.message || err);
+    }
+}
+
+// Which Steam appids are known to be VR games ("native" = VR Only, "adapted"
+// = a flatscreen game that also supports VR), keyed by appid. This is
+// learned as a side effect of the availability check every Steam game
+// already goes through (see checkSteamAppAvailability/categorizeSteamVrSupport)
+// — no extra requests — but since only a capped subset of games gets
+// checked on any single refresh (see MAX_STEAM_CHECKS_PER_REFRESH), this
+// cache is what lets a game's VR status, once learned, keep applying on
+// every later refresh instead of resetting to "unknown" the moment it's
+// not due for re-verification.
+function readFreeGamesVrCache() {
+    try {
+        return JSON.parse(fs.readFileSync(FREEGAMES_VR_FILE, "utf8"));
+    } catch (err) {
+        return {};
+    }
+}
+
+function saveFreeGamesVrCache(data) {
+    try {
+        fs.writeFileSync(FREEGAMES_VR_FILE, JSON.stringify(data, null, 2));
+    } catch (err) {
+        console.error("[free-games] failed to save VR-games cache:", err.message || err);
     }
 }
 
@@ -2100,27 +2559,448 @@ async function performFreeGamesRefresh(forceFullCheck) {
     return freeGamesRefreshPromise;
 }
 
+// Battle.net (Blizzard), EA/EA App, Riot Games, and Ubisoft Connect all
+// have well-known, permanently free-to-play titles, but none of them
+// expose a public "what's free right now" API the way Epic/Steam/
+// GamerPower do — Ubisoft's and EA's own free-to-play pages are
+// JS-rendered storefronts with no stable public endpoint, and Blizzard
+// doesn't publish one at all. Per Alfredo's explicit request, these are
+// hand-curated instead of skipped. Every title below was checked against
+// that publisher's own current site (or, for Battle.net, a dedicated
+// tracker cross-referencing Blizzard's own statements) at the time this
+// was written, and only genuinely, PERMANENTLY free-to-play titles are
+// included — never a time-limited promo, and never a game that just has a
+// free trial or demo. Unlike every other source in this file, a static
+// list can't self-correct if a title's free status ever changes, so this
+// is the one place that needs occasional manual upkeep.
+//
+// There's no live signal to score popularity against for any of these
+// (see popularityFromRank/popularityFromValue above), so every entry gets
+// the same flat, deliberately high score instead of a fabricated ranking
+// — every title on this list is a genuinely major, globally-known release
+// (League of Legends, Valorant, Overwatch, Apex Legends, etc.), so a high
+// flat baseline is more honest than pretending to rank them precisely
+// against each other.
+const CURATED_ALWAYS_FREE_POPULARITY = 85;
+
+function getCuratedAlwaysFreeGames() {
+    return [
+        // Battle.net (Blizzard) — verified via Blizzard's own statements
+        // (Sept 2026): Overwatch, Hearthstone, and Diablo Immortal are the
+        // only titles that are fully free with no purchase ever required.
+        // World of Warcraft, Diablo 4, and StarCraft II's campaign all
+        // still require a purchase or subscription despite sometimes being
+        // mistaken for free, so none of them are listed here.
+        {
+            id: "curated-battlenet-overwatch",
+            name: "Overwatch",
+            description: "Blizzard's team-based hero shooter — free to play in full, monetized only through optional cosmetics and battle passes.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/blt2477dcaf4ebd440c/blt45586c965db08717/6823abc24dee72d806fff5e2/OpenGraph.jpg",
+            url: "https://overwatch.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2016",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-battlenet-hearthstone",
+            name: "Hearthstone",
+            description: "Blizzard's digital collectible card game — free to play, with optional card packs to speed up collecting.",
+            image: "https://d39zum0jwvcigt.cloudfront.net/_next/static/images/default-475d770302527dbab7708dca2af05afd.jpg",
+            url: "https://hearthstone.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2014",
+            tags: ["Card Game"]
+        },
+        {
+            id: "curated-battlenet-diablo-immortal",
+            name: "Diablo Immortal",
+            description: "A full Diablo action-RPG built for free play — the complete campaign and core gameplay loop cost nothing, separate from the paid Diablo 4.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/blt47deaa9e2be4b752/6a1f4beaeb54a6907d694fb8/DI_Warlock_OG-Image@2x_enUS.jpg",
+            url: "https://diabloimmortal.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2022",
+            tags: ["RPG"]
+        },
+
+        // EA / EA App (Origin) — Apex Legends is EA's flagship permanently
+        // free PC title. EA's other officially-listed free-to-play games
+        // (FC Mobile, Star Wars: Galaxy of Heroes) are mobile-only, so
+        // they're left off a PC launcher's list.
+        {
+            id: "curated-ea-apex-legends",
+            name: "Apex Legends",
+            description: "EA's free-to-play battle royale — pick a legend and fight to be the last squad standing.",
+            image: "https://media.contentapi.ea.com/content/dam/eacom/images/2019/02/apex-hero-medium-eacom-free-games-7x2-xl.jpg.adapt.crop3x5.320w.jpg",
+            url: "https://www.ea.com/games/apex-legends",
+            source: "EA",
+            releaseDate: "2019",
+            tags: ["Battle Royale"]
+        },
+
+        // Riot Games — every one of Riot's PC releases is permanently free
+        // to play; there's no paid tier for any of them.
+        {
+            id: "curated-riot-league-of-legends",
+            name: "League of Legends",
+            description: "Riot's flagship 5v5 MOBA — free to play, with every champion earnable through normal play.",
+            image: "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news/565197caf987af4e4da307df6e2b235a28714736-837x469.jpg?accountingTag=LoL&w=1200&h=630&fm=webp&fit=crop&crop=center",
+            url: "https://www.leagueoflegends.com/en-us/",
+            source: "Riot Games",
+            releaseDate: "2009",
+            tags: ["MOBA"]
+        },
+        {
+            id: "curated-riot-valorant",
+            name: "VALORANT",
+            description: "Riot's free-to-play tactical hero shooter.",
+            image: "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/7b60e8bb6c1828831931dad87633604c2264fa26-3440x1020.jpg?accountingTag=VAL&auto=format&fit=fill&q=80&h=440",
+            url: "https://playvalorant.com/en-us/",
+            source: "Riot Games",
+            releaseDate: "2020",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-riot-tft",
+            name: "Teamfight Tactics",
+            description: "Riot's free-to-play auto-battler, set in the League of Legends universe.",
+            image: "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/d63adacd93e313c1e61bbeb2eb37d8c4ca85848d-1920x1080.jpg?accountingTag=TFT&w=1200&h=630&fm=webp&fit=crop&crop=center",
+            url: "https://teamfighttactics.leagueoflegends.com/en-us/",
+            source: "Riot Games",
+            releaseDate: "2019",
+            tags: ["Strategy"]
+        },
+
+        // Ubisoft Connect — pulled straight from Ubisoft's own live
+        // "Free to Play" page (ubisoft.com/en-us/games/free); titles,
+        // links and cover images all verified directly against it.
+        {
+            id: "curated-ubisoft-brawlhalla",
+            name: "Brawlhalla",
+            description: "Ubisoft's free-to-play platform fighter, cross-play across every platform.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/5UmjmHnuHsCtRZMCNyWg0k/d90be8ba795837385ccd8784e9f51e3d/bwl_keyart-gamecard__2_.jpg?imwidth=360",
+            url: "https://register.ubisoft.com/brawlhalla-free",
+            source: "Ubisoft Connect",
+            releaseDate: "2017",
+            tags: ["Fighting"]
+        },
+        {
+            id: "curated-ubisoft-roller-champions",
+            name: "Roller Champions",
+            description: "Ubisoft's free-to-play team sport — skate, pass, and score in a full-contact rollerskating arena.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/7eA295Gbsyn8ydRdJmRCM/f9952315a8fa57d52d3942d212c7f4fa/Boxart_341x450.jpg?imwidth=360",
+            url: "https://rollerchampions.com/download",
+            source: "Ubisoft Connect",
+            releaseDate: "2023",
+            tags: ["Sports"]
+        },
+        {
+            id: "curated-ubisoft-trackmania",
+            name: "Trackmania",
+            description: "Ubisoft's free-to-play arcade racer — Starter Access is free forever.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/1Uc4fQDNodTnBRDqQi2n1r/aea1351df0a91e52325aacb528d4cc1f/tm-boxshot.jpg?imwidth=360",
+            url: "https://register.ubisoft.com/trackmania",
+            source: "Ubisoft Connect",
+            releaseDate: "2020",
+            tags: ["Racing"]
+        },
+        {
+            id: "curated-ubisoft-rabbids-coding",
+            name: "Rabbids Coding",
+            description: "Ubisoft's free game that teaches real programming logic using the Rabbids.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/7I7Q8banzwVxEwMDPfIQHH/4d139e3bde5a3fc0c2076a13c13c5e96/Product_Page_Packshot_464x608_EN.jpg?imwidth=360",
+            url: "https://register.ubisoft.com/rabbids-coding",
+            source: "Ubisoft Connect",
+            releaseDate: "2019",
+            tags: ["Educational"]
+        },
+        {
+            id: "curated-ubisoft-division-resurgence",
+            name: "The Division Resurgence",
+            description: "Ubisoft's free-to-play entry in The Division universe — solo or co-op in a shared open world.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/5yJHcf0MD74zeLthxoSEdN/ff8d96081bac8fda1196beb50e495ece/TDM_KEYART.jpg",
+            url: "https://register.ubisoft.com/the-division-resurgence",
+            source: "Ubisoft Connect",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-ubisoft-battlecore-arena",
+            name: "BattleCore Arena",
+            description: "Ubisoft's free-to-play hero shooter.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/1bsdTEbSIrToINLUPiU0TD/7f8a26a4ce3e62d629f6c08439a02444/BCA_Packshot.jpg?imwidth=360",
+            url: "https://battlecorearena.com/",
+            source: "Ubisoft Connect",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-ubisoft-rocksmith-plus",
+            name: "Rocksmith+",
+            description: "Ubisoft's free-to-try guitar and bass learning app.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/1k4oo2ekPcs0VLFkUxCHZP/a443aef524eb668032bb3076c0cc7f33/rsplus-game_info-boxart-keyart-02-348x434.jpg?imwidth=360",
+            url: "https://rocksmith.com/free_uco",
+            source: "Ubisoft Connect",
+            releaseDate: "2023",
+            tags: ["Music"]
+        },
+        {
+            id: "curated-ubisoft-growtopia",
+            name: "Growtopia",
+            description: "Ubisoft's free-to-play sandbox MMO — build, farm, and trade in a fully player-created world.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/6bvLvl9L19tj4bN0fEpx7o/23644f262dc50a3739b8a48f7f86a248/growtopia.jpg?imwidth=360",
+            url: "https://register.ubisoft.com/Growtopia-free",
+            source: "Ubisoft Connect",
+            releaseDate: "2013",
+            tags: ["Sandbox"]
+        },
+        {
+            id: "curated-ubisoft-r6-siege",
+            name: "Rainbow Six Siege",
+            description: "Ubisoft's tactical shooter — the base game is now available with permanent Free Access.",
+            image: "https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/1WpJrasPLQBD7v8YTBPO3Y/a755a438093342339d74f909bde9e828/R6_KEYART_960x540__1_.jpg",
+            url: "https://rainbow6.com/freeaccess",
+            source: "Ubisoft Connect",
+            releaseDate: "2015",
+            tags: ["Shooter"]
+        },
+
+        // Epic Games Store's own permanently-free titles — verified live
+        // against their individual store pages (Sept 2026), each showing
+        // "Base Game / Free". These never appear via fetchEpicFreeGames()
+        // above, because that only reads Epic's freeGamesPromotions feed
+        // (the rotating weekly giveaways) — a title that's ALWAYS free
+        // isn't a "promotion" and never shows up in that feed at all.
+        // Tagged source "Epic Games" so they fold into the same platform
+        // row as the weekly freebies rather than getting their own.
+        {
+            id: "curated-epic-fortnite",
+            name: "Fortnite",
+            description: "Epic's own battle royale (plus Zero Build, Festival, LEGO Fortnite, and more) — the base game is permanently free.",
+            image: "https://cdn1.epicgames.com/offer/fn/FNBR_42-00_C7S4_Hacking_Logo_EGS_Launcher_Blade_2560x1440_2560x1440-2a1fdbde46f54d0d88b8662808fd592f",
+            url: "https://store.epicgames.com/en-US/p/fortnite",
+            source: "Epic Games",
+            releaseDate: "2017",
+            tags: ["Battle Royale"]
+        },
+        {
+            id: "curated-epic-rocket-league",
+            name: "Rocket League",
+            description: "Psyonix's car-soccer hybrid, published by Epic — the base game is permanently free.",
+            image: "https://cdn1.epicgames.com/offer/9773aa1aa54f4f7b80e44bef04986cea/EGS_RocketLeague_PsyonixLLC_S1_2560x1440-1a37e26b20fb4f3ebd825e64bc7914eb",
+            url: "https://store.epicgames.com/en-US/p/rocket-league",
+            source: "Epic Games",
+            releaseDate: "2015",
+            tags: ["Sports"]
+        },
+        {
+            id: "curated-epic-fall-guys",
+            name: "Fall Guys",
+            description: "Mediatonic's massively-multiplayer party royale, published by Epic — the base game is permanently free.",
+            image: "https://cdn1.epicgames.com/offer/50118b7f954e450f8823df1614b24e80/FGSS04_KeyArt_OfferImageLandscape_2560x1440_2560x1440-89c8edd4ffe307f5d760f286a28c3404",
+            url: "https://store.epicgames.com/en-US/p/fall-guys",
+            source: "Epic Games",
+            releaseDate: "2020",
+            tags: ["Party"]
+        },
+
+        // Wargaming.net Game Center — Wargaming's own launcher, separate
+        // from Steam, for its three permanently free-to-play military
+        // MMOs. Verified live against each game's own homepage (Sept 2026).
+        {
+            id: "curated-wargaming-world-of-tanks",
+            name: "World of Tanks",
+            description: "Wargaming's free-to-play tank MMO — command armor from both World War eras in massive online battles.",
+            image: "https://worldoftanks.com/static/6.16.0_bbf399/common/img/wot_artboard.png",
+            url: "https://worldoftanks.com/en/",
+            source: "Wargaming.net",
+            releaseDate: "2010",
+            tags: ["MMO"]
+        },
+        {
+            id: "curated-wargaming-world-of-warships",
+            name: "World of Warships",
+            description: "Wargaming's free-to-play naval MMO — command historic warships in massive online battles.",
+            image: "https://worldofwarships.com/dcont/fb/image/d3f0840e-8587-11ef-9aab-005056902a5f.jpg",
+            url: "https://worldofwarships.com/en/",
+            source: "Wargaming.net",
+            releaseDate: "2015",
+            tags: ["MMO"]
+        },
+        {
+            id: "curated-wargaming-world-of-warplanes",
+            name: "World of Warplanes",
+            description: "Wargaming's free-to-play aerial combat MMO.",
+            image: "https://worldofwarplanes.com/static/1.22.0/common/img/world-of-warplanes_social.jpg",
+            url: "https://worldofwarplanes.com/en/",
+            source: "Wargaming.net",
+            releaseDate: "2013",
+            tags: ["MMO"]
+        },
+
+        // Gaijin.net — Gaijin Entertainment's own launcher for its
+        // permanently free-to-play combined-arms MMO.
+        {
+            id: "curated-gaijin-war-thunder",
+            name: "War Thunder",
+            description: "Gaijin's free-to-play combined-arms MMO — planes, tanks, and ships across historical battlegrounds.",
+            image: "https://warthunder.com/i/opengraph-wt.jpg",
+            url: "https://warthunder.com/en/",
+            source: "Gaijin.net",
+            releaseDate: "2012",
+            tags: ["MMO"]
+        },
+
+        // Grinding Gear Games — Path of Exile is free-to-play with no
+        // paid tier for the core game (monetized via cosmetics/stash
+        // space only), available via its own standalone client.
+        {
+            id: "curated-ggg-path-of-exile",
+            name: "Path of Exile",
+            description: "Grinding Gear Games' free-to-play action-RPG — the full game and all content updates are free, monetized only through cosmetics.",
+            image: "https://web.poecdn.com/protected/image/favicon/ogimage.png?key=DDHQnVxwj0AxeMbsPiRoEQ",
+            url: "https://www.pathofexile.com/",
+            source: "Grinding Gear Games",
+            releaseDate: "2013",
+            tags: ["RPG"]
+        }
+    ].map((entry) => ({
+        ...entry,
+        popularity: CURATED_ALWAYS_FREE_POPULARITY,
+        // These titles are permanently free, not a rotating promo — they
+        // never "age out" of being free the way a limited-time Epic/Steam
+        // giveaway does, so treating them as newly-discovered content for
+        // their first 7 days (the way every other source's games are) is
+        // misleading and, worse, buries them in the Newly Added row
+        // instead of the dedicated platform row they should always have.
+        // renderFreeGames checks this to route them straight to their own
+        // platform section from the very first refresh onward.
+        alwaysFree: true
+    }));
+}
+
+// Wrapped in an async function only so it fits the same
+// Promise.allSettled pattern as every other source below — the data
+// itself is static, so this can never actually fail.
+async function fetchCuratedAlwaysFreeGames() {
+    try {
+        return getCuratedAlwaysFreeGames();
+    } catch (err) {
+        console.error("[free-games] Curated always-free list failed to build:", err.message || err);
+        return [];
+    }
+}
+
+function normalizeGameName(name) {
+    return (name || "")
+        .toLowerCase()
+        .replace(/[®™©]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+}
+
+// Platforms that ONLY ever appear via the curated list — there is no live
+// feed (Steam/Epic/GOG/GamerPower/itch.io) that could ever legitimately
+// carry League of Legends, Overwatch, War Thunder, World of Tanks, or Path
+// of Exile, since none of them are distributed through any of those
+// stores. A live tracker like GamerPower occasionally lists an unrelated
+// promo for one of these games (a starter pack, in-game currency, a beta
+// key) under the same or a very similar title, which used to trip the
+// name-based dedup below and make the ENTIRE platform disappear even
+// though the "duplicate" wasn't really the same listing at all. Curated
+// entries on these platforms skip the dedup check entirely and always
+// show. (Epic Games, EA, and Ubisoft Connect are deliberately left out —
+// Apex Legends and Rainbow Six Siege really are also legitimately
+// findable live on Steam, so those DO need the dedup check.)
+const CURATED_ONLY_PLATFORMS = new Set([
+    "Battle.net", "Riot Games", "Wargaming.net", "Gaijin.net", "Grinding Gear Games"
+]);
+
+function dedupeCuratedAgainstLive(curatedGames, liveGames) {
+    const liveGameNames = new Set(liveGames.map((g) => normalizeGameName(g.name)));
+    return curatedGames.filter((g) =>
+        CURATED_ONLY_PLATFORMS.has(g.source) || !liveGameNames.has(normalizeGameName(g.name))
+    );
+}
+
+// The curated list (getCuratedAlwaysFreeGames) is hand-edited code, not a
+// live fetch — so unlike Steam/Epic/GOG/etc., it never needs a real
+// network round-trip to be "fresh". Baking it in only during a full
+// runFreeGamesRefresh means any code change to it (a new cover image, a
+// newly added platform, a corrected link) sits invisible in the already-
+// cached data for up to 24h until the user manually hits Refresh. This
+// re-stamps whatever's in cache with the current curated list on every
+// get-free-games call — cheap and synchronous — so curated data is always
+// current even when the rest of the cache is still within its window.
+function mergeFreshCuratedGames(cachedGames) {
+    const curatedGames = getCuratedAlwaysFreeGames();
+    const seenCache = readFreeGamesSeenCache();
+    // Whatever's already in cache with a non-curated id is a live listing
+    // (Steam, Epic, GOG, GamerPower, itch.io) — leave it alone. Re-run the
+    // same live-vs-curated dedup runFreeGamesRefresh uses, so a curated
+    // entry doesn't get re-added as a duplicate of a live one that's
+    // already sitting in cache representing the same game.
+    const liveGames = (cachedGames || []).filter((g) => !String(g.id).startsWith("curated-"));
+    const curatedGamesDeduped = dedupeCuratedAgainstLive(curatedGames, liveGames);
+    const freshCurated = curatedGamesDeduped.map((g) => ({
+        ...g,
+        firstSeenAt: seenCache[g.id] || Date.now()
+    }));
+    return [...liveGames, ...freshCurated];
+}
+
 async function runFreeGamesRefresh(forceFullCheck) {
     // allSettled instead of all — one store's fetch failing outright must
     // never take the others down with it.
     const results = await Promise.allSettled([
         fetchEpicFreeGames(),
         fetchSteamFreeGames(forceFullCheck),
-        fetchGogFreeGames()
+        fetchGogFreeGames(),
+        fetchGamerPowerFreeGames(),
+        fetchItchFreeGames(),
+        fetchItchVrFreeGames(),
+        fetchCuratedAlwaysFreeGames()
     ]);
 
     results.forEach((r, i) => {
         if (r.status === "rejected") {
-            const storeName = ["Epic", "Steam", "GOG"][i];
+            const storeName = ["Epic", "Steam", "GOG", "GamerPower", "itch.io", "itch.io VR", "Curated"][i];
             console.error(`[free-games] ${storeName} fetch rejected entirely:`, r.reason);
         }
     });
 
-    const [epicGames, steamGames, gogGames] = results.map((r) =>
+    const [epicGames, steamGames, gogGames, gamerPowerGames, itchGamesRaw, itchVrGames, curatedGames] = results.map((r) =>
         r.status === "fulfilled" ? r.value : []
     );
 
-    const allFree = [...epicGames, ...steamGames, ...gogGames];
+    // itch.io's VR tag listing (fetchItchVrFreeGames) is a separate page
+    // from its general new-and-popular listing (fetchItchFreeGames) — the
+    // same game can appear on both, so this merges them by id instead of
+    // just concatenating: anything already found by the general listing
+    // keeps its place but picks up the "native" VR tag, and only genuinely
+    // new titles (VR games popular enough to be missed by "new and
+    // popular" — mostly older/niche ones) get appended.
+    const itchIds = new Set(itchGamesRaw.map((g) => g.id));
+    const itchVrById = new Map(itchVrGames.map((g) => [g.id, g.vr]));
+    itchGamesRaw.forEach((g) => {
+        if (itchVrById.has(g.id)) g.vr = itchVrById.get(g.id);
+    });
+    const itchGames = [...itchGamesRaw, ...itchVrGames.filter((g) => !itchIds.has(g.id))];
+
+    // The curated always-free list (see getCuratedAlwaysFreeGames) is a
+    // manually-maintained fallback for platforms with no live "what's free
+    // right now" API — but several of those same titles ARE also
+    // discoverable live (e.g. Apex Legends and Rainbow Six Siege both also
+    // list on Steam). Without this check they'd show up twice, once per
+    // source. A live source's own listing is always preferred (it has a
+    // real, currently-verified image and up-to-date data), so any curated
+    // entry whose name matches something a live source already found gets
+    // dropped here rather than shown as a duplicate card.
+    const liveGames = [...epicGames, ...steamGames, ...gogGames, ...gamerPowerGames, ...itchGames];
+    const curatedGamesDeduped = dedupeCuratedAgainstLive(curatedGames, liveGames);
+    const dedupedCount = curatedGames.length - curatedGamesDeduped.length;
+    if (dedupedCount > 0) {
+        console.log(`[free-games] Skipped ${dedupedCount} curated entr${dedupedCount === 1 ? "y" : "ies"} already found live by another source.`);
+    }
+
+    const allFree = [...liveGames, ...curatedGamesDeduped];
 
     // All three stores returning zero results at once basically never
     // happens legitimately — it means the fetches failed (network down,
@@ -2177,7 +3057,7 @@ ipcMain.handle("get-free-games", async () => {
     const lastRefreshedAt = readFreeGamesLastRefresh();
 
     if (cached.length > 0 && (Date.now() - lastRefreshedAt) < FREEGAMES_FULL_REFRESH_MIN_AGE_MS) {
-        return cached;
+        return mergeFreshCuratedGames(cached);
     }
 
     return performFreeGamesRefresh();
@@ -2192,7 +3072,7 @@ ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh(t
 // Instant retrieval of the last successfully fetched Free Games list —
 // same "show something immediately, refresh quietly after" pattern as
 // the book sections, so this section isn't empty on launch either.
-ipcMain.handle("get-cached-free-games", async () => loadDataCache("cache-free-games.json") || []);
+ipcMain.handle("get-cached-free-games", async () => mergeFreshCuratedGames(loadDataCache("cache-free-games.json") || []));
 
 // --- Movies currently in theaters (TMDB — free public movie database) ---
 
@@ -6533,6 +7413,7 @@ ipcMain.handle("quit-and-install-update", async () => {
 });
 
 app.whenReady().then(async () => {
+    registerFreeGamesCoverCacheProtocol();
     await createWindow();
     startDropzoneWatcher();
 

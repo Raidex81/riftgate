@@ -627,25 +627,32 @@
 
     <div id="freeGamesContainer" class="secondary-section">
         <div class="section-info">
-            <p class="section-subtitle">Free games from Epic Games and Steam, updated live.</p>
+            <p class="section-subtitle">Free games from Steam, Epic Games, GOG, itch.io, and more — updated live.</p>
             <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
             <p class="section-blurb">
-                Here you can browse games that are currently free to keep or free to play, pulled live from Epic Games and Steam. Newly spotted games get their own row for a week before joining the general categorized list below — use the search bar or category filter to narrow things down.
+                Here you can browse games that are currently free to keep or free to play, pulled live from Steam, Epic Games, GOG, itch.io, and giveaway aggregators like GamerPower. Newly spotted games get their own spotlight and row for a week before joining their platform's row below — use search, or filter by platform, genre, and sort order to narrow things down.
             </p>
         </div>
+        <div id="freeGamesSpotlight" class="free-games-spotlight"></div>
+        <div id="freeGamesPlatformTabs" class="free-games-tabs"></div>
         <div class="free-games-controls">
             <input type="text" id="freeGamesSearchInput" placeholder="Search free games...">
-            <select id="freeGamesPlatformSelect">
+            <select id="freeGamesPlatformSelect" style="display:none;" aria-hidden="true">
                 <option value="all">All Platforms</option>
-                <option value="Steam">Steam</option>
-                <option value="Epic Games">Epic Games</option>
-                <option value="GOG">GOG</option>
             </select>
             <select id="freeGamesCategorySelect">
                 <option value="all">All Genres</option>
             </select>
+            <select id="freeGamesSortSelect">
+                <option value="newest">Sort: Newest First</option>
+                <option value="az">Sort: Name (A-Z)</option>
+                <option value="za">Sort: Name (Z-A)</option>
+                <option value="platform">Sort: Platform</option>
+            </select>
             <button id="freeGamesRefreshBtn" title="Get an up-to-date list now, instead of waiting for the next automatic refresh">🔄 Refresh</button>
+            <button id="freeGamesClearBtn" type="button" class="free-games-clear-btn" style="display:none;">✕ Clear Filters</button>
         </div>
+        <div id="freeGamesResultCount" class="free-games-result-count"></div>
         <div id="freeGamesNewRow" class="free-games-new-zone"></div>
         <div id="freeGamesBrowseHeading" class="free-games-browse-heading" style="display:none;">📀 Browse All Free Games</div>
         <div id="freeGamesRestRow"></div>
@@ -1481,6 +1488,9 @@
                 <button id="scanResultsGamesOnlyBtn" type="button">🎮 Games Only</button>
                 <button id="scanResultsAppsOnlyBtn" type="button">🖥️ Apps Only</button>
                 <button id="scanResultsBothBtn" type="button">Select Both</button>
+                <span class="scan-results-actions-divider"></span>
+                <button id="scanResultsSelectAllBtn" type="button">☑️ Select All</button>
+                <button id="scanResultsUnselectAllBtn" type="button">☐ Unselect All</button>
             </div>
             <div id="scanResultsList" class="scan-tile-grid"></div>
             <div class="modal-actions">
@@ -1498,6 +1508,9 @@
                 <button id="removeResultsGamesOnlyBtn" type="button">🎮 Games Only</button>
                 <button id="removeResultsAppsOnlyBtn" type="button">🖥️ Apps Only</button>
                 <button id="removeResultsBothBtn" type="button">Select Both</button>
+                <span class="scan-results-actions-divider"></span>
+                <button id="removeResultsSelectAllBtn" type="button">☑️ Select All</button>
+                <button id="removeResultsUnselectAllBtn" type="button">☐ Unselect All</button>
             </div>
             <div id="removeResultsList" class="scan-tile-grid"></div>
             <div class="modal-actions">

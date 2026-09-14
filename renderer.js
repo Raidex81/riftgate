@@ -1935,6 +1935,23 @@ scanResultsGamesOnlyBtn.addEventListener("click", () => applyScanResultsTypeSele
 scanResultsAppsOnlyBtn.addEventListener("click", () => applyScanResultsTypeSelection("app"));
 scanResultsBothBtn.addEventListener("click", () => applyScanResultsTypeSelection("both"));
 
+// Select/Unselect All acts on whatever's currently visible (i.e. whatever
+// the Games Only/Apps Only/Both filter above last left on screen) rather
+// than the full unfiltered set — so "Games Only" then "Unselect All" only
+// clears the games, without silently touching hidden app tiles too.
+const scanResultsSelectAllBtn = document.getElementById("scanResultsSelectAllBtn");
+const scanResultsUnselectAllBtn = document.getElementById("scanResultsUnselectAllBtn");
+
+function setAllVisibleScanTilesSelected(selected) {
+    scanResultsList.querySelectorAll(".scan-tile").forEach((tile) => {
+        if (tile.style.display === "none") return;
+        setScanTileSelected(tile, selected);
+    });
+}
+
+scanResultsSelectAllBtn.addEventListener("click", () => setAllVisibleScanTilesSelected(true));
+scanResultsUnselectAllBtn.addEventListener("click", () => setAllVisibleScanTilesSelected(false));
+
 // Shared by the sidebar's "Scan for Apps & Games" button and the empty-
 // library screen's "Scan for Installed Games" shortcut — same scan, same
 // results modal, just a different trigger element (for its own disabled/
@@ -2166,6 +2183,21 @@ function applyRemoveResultsTypeSelection(mode) {
 removeResultsGamesOnlyBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("game"));
 removeResultsAppsOnlyBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("app"));
 removeResultsBothBtn.addEventListener("click", () => applyRemoveResultsTypeSelection("both"));
+
+// Same "acts on whatever's currently visible" behavior as the scan modal's
+// Select/Unselect All above.
+const removeResultsSelectAllBtn = document.getElementById("removeResultsSelectAllBtn");
+const removeResultsUnselectAllBtn = document.getElementById("removeResultsUnselectAllBtn");
+
+function setAllVisibleRemoveTilesSelected(selected) {
+    removeResultsList.querySelectorAll(".scan-tile").forEach((tile) => {
+        if (tile.style.display === "none") return;
+        setRemoveTileSelected(tile, selected);
+    });
+}
+
+removeResultsSelectAllBtn.addEventListener("click", () => setAllVisibleRemoveTilesSelected(true));
+removeResultsUnselectAllBtn.addEventListener("click", () => setAllVisibleRemoveTilesSelected(false));
 
 removeAppsBtn.addEventListener("click", () => {
     if (allGames.length === 0) {
@@ -2496,6 +2528,44 @@ window.riftgate.on("maximize-changed", (isMaximized) => {
     winMaxBtn.textContent = isMaximized ? "❐" : "▢";
 });
 
+// Reveal/hide the custom titlebar with a JS-managed grace period instead of
+// pure CSS :hover. Plain :hover was flipping pointer-events back to "none"
+// the instant the mouse moved even slightly off the bar, hiding it too
+// eagerly — a couple seconds' grace after the pointer leaves keeps it
+// reachable without needing pixel-perfect hovering. The window itself is
+// moved by the OS via "-webkit-app-region: drag" on the bar (see
+// style.css) — once the drag region is positioned clear of the dead strip
+// right at the window's outer edge (Windows' own non-client resize
+// hit-testing claims that regardless of CSS), native dragging just works,
+// including across monitors, so there's no need to hand-track the cursor
+// here.
+const titlebarHoverZone = document.querySelector(".titlebar-hover-zone");
+const customTitlebar = document.querySelector(".custom-titlebar");
+let titlebarHideTimer = null;
+
+function showTitlebar() {
+    if (titlebarHideTimer) {
+        clearTimeout(titlebarHideTimer);
+        titlebarHideTimer = null;
+    }
+    customTitlebar.classList.add("visible");
+}
+
+function scheduleHideTitlebar() {
+    if (titlebarHideTimer) clearTimeout(titlebarHideTimer);
+    titlebarHideTimer = setTimeout(() => {
+        titlebarHideTimer = null;
+        customTitlebar.classList.remove("visible");
+    }, 2000);
+}
+
+if (titlebarHoverZone && customTitlebar) {
+    titlebarHoverZone.addEventListener("mouseenter", showTitlebar);
+    titlebarHoverZone.addEventListener("mouseleave", scheduleHideTitlebar);
+    customTitlebar.addEventListener("mouseenter", showTitlebar);
+    customTitlebar.addEventListener("mouseleave", scheduleHideTitlebar);
+}
+
 // Fullscreen is live window state, not a saved preference — talk to the
 // main process directly rather than going through settings.json.
 toggleFullscreen.addEventListener("change", () => {
@@ -2756,6 +2826,12 @@ function sortGames(games) {
 
     return sorted;
 }
+
+// The Installed library used to grow whichever category section was
+// scrolled to the center of the viewport (to Upcoming Games' bigger 300px
+// card size), shrinking it back once it scrolled back out — removed per
+// Alfredo: every category section now just stays at its normal size all
+// the time, full stop, no size change on scroll/focus at all.
 
 function renderLibrary() {
 
@@ -4323,27 +4399,103 @@ function attachSeeMore(grid, rowsVisible = 2, expandedRowsCap = null) {
     });
 }
 
+// The date shown on a free-game card is the date RIFTGATE ITSELF first saw
+// that game listed as free on that platform (game.firstSeenAt, tracked in
+// main.js) — not the game's original release date. That's deliberate: the
+// user wants "the actual [date] when it was released free by that specific
+// platform", which for a promotion (as opposed to a game's real launch
+// date) only Riftgate's own observation can answer.
+function formatFreeSinceDate(timestampMs) {
+    if (!timestampMs) return null;
+    try {
+        return new Date(timestampMs).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+        });
+    } catch (err) {
+        return null;
+    }
+}
+
+// Free Games covers used to point straight at their original CDN
+// (Steam/GamerPower/etc.) every single time a card was built, re-downloading
+// the exact same box art on every visit and every app launch — this routes
+// them through main.js's on-disk cache instead (see
+// registerFreeGamesCoverCacheProtocol), which fetches a given URL once and
+// serves it from disk from then on. A URL that isn't remote http(s) already
+// (the local "covers/default.jpg" placeholder, or a covercache:// URL that
+// went through this already) is returned untouched.
+function freeGameCoverCacheSrc(url) {
+    if (url && /^https?:\/\//i.test(url)) {
+        return `covercache://cover?u=${encodeURIComponent(url)}`;
+    }
+    return url;
+}
+
 function buildFreeGameCard(game, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
-    // game.name comes from Steam/Epic/GOG's own listing data — treated as
-    // untrusted third-party content, so it goes through textContent below.
+    const freeSinceLabel = formatFreeSinceDate(game.firstSeenAt);
+    // game.name/game.source come from third-party listing data (Steam,
+    // Epic, GOG, GamerPower, itch.io) — treated as untrusted, so they're
+    // set via textContent below rather than interpolated into innerHTML.
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(game.image) || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
+            <span class="freeGameBadge free-games-pill"></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
+            <p class="game-desc free-game-platform"></p>
+            ${game.releaseDate ? `<p class="game-playtime">📅 Released ${game.releaseDate}</p>` : ""}
+            ${freeSinceLabel ? `<p class="game-playtime">🆓 Free since ${freeSinceLabel}</p>` : ""}
             <div class="card-footer">
-                <button class="launchBtn getGameBtn">${uiIcon("link")} Get It Free (${game.source})</button>
+                <button class="launchBtn getGameBtn">${uiIcon("link")} <span class="getGameBtnLabel"></span></button>
             </div>
         </div>
     `;
 
+    // Free Games cards need every row to line up at the same height (a
+    // carousel/grid of mismatched-height cards from wildly different cover
+    // shapes — tall portrait posters next to wide banners — looks broken),
+    // but leaving height intrinsic (as the rest of the app does) produced
+    // visibly uneven rows. This used to be object-fit:contain with a
+    // separate darkened backdrop layer filling in the gap around covers
+    // that didn't match this box's shape — after that backdrop (through two
+    // different implementations) kept failing to reliably paint in some
+    // cases, Alfredo opted for a simpler, structurally guaranteed fix:
+    // .cover-wrap img.cover-img is now object-fit:cover (see style.css), so
+    // every cover just crops to fill the box completely and there's no gap
+    // left for anything to fail to fill. No backdrop element needed here at
+    // all any more.
+    //
+    // Steam entries point .image at the portrait "library capsule" (see
+    // fetchSteamFreeGames in main.js); not every Steam appid has that asset
+    // though, so a failed load falls back to game.fallbackImage (the old
+    // landscape header.jpg) and finally the generic placeholder.
+    const freeGameCoverImgEl = card.querySelector(".cover-img");
+
+    freeGameCoverImgEl.addEventListener("error", function onFreeGameCoverError() {
+        const fallbackSrc = freeGameCoverCacheSrc(game.fallbackImage);
+        if (fallbackSrc && freeGameCoverImgEl.src !== fallbackSrc) {
+            freeGameCoverImgEl.src = fallbackSrc;
+        } else if (!freeGameCoverImgEl.src.endsWith("covers/default.jpg")) {
+            freeGameCoverImgEl.removeEventListener("error", onFreeGameCoverError);
+            freeGameCoverImgEl.src = "covers/default.jpg";
+        }
+    });
+
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
+    card.querySelector(".freeGameBadge").textContent = game.source;
+    // Same platform Alfredo already sees in the corner badge, repeated as
+    // plain text in the info block — matching how Upcoming Games shows its
+    // platform line there instead of only as a cover overlay.
+    card.querySelector(".free-game-platform").textContent = `🕹️ ${game.source}`;
+    card.querySelector(".getGameBtnLabel").textContent = `Get It Free (${game.source})`;
 
     const getGameBtn = card.querySelector(".getGameBtn");
 
@@ -4354,7 +4506,6 @@ function buildFreeGameCard(game, navList) {
 
     // Same click-to-open description window every other section uses,
     // instead of the old hover-only tooltip on this button.
-    const freeGameCoverImgEl = card.querySelector(".cover-img");
     freeGameCoverImgEl.style.cursor = "pointer";
     freeGameCoverImgEl.addEventListener("click", () => openGameDetailModal(game, "freegame", navList));
 
@@ -4395,9 +4546,20 @@ let freeGamesCache = [];
 const freeGamesSearchInput = document.getElementById("freeGamesSearchInput");
 const freeGamesPlatformSelect = document.getElementById("freeGamesPlatformSelect");
 const freeGamesCategorySelect = document.getElementById("freeGamesCategorySelect");
+const freeGamesSortSelect = document.getElementById("freeGamesSortSelect");
 const freeGamesRefreshBtn = document.getElementById("freeGamesRefreshBtn");
+const freeGamesClearBtn = document.getElementById("freeGamesClearBtn");
 
 freeGamesSearchInput.addEventListener("input", renderFreeGames);
+
+freeGamesClearBtn.addEventListener("click", () => {
+    freeGamesSearchInput.value = "";
+    freeGamesPlatformSelect.value = "all";
+    freeGamesCategorySelect.value = "all";
+    freeGamesSortSelect.value = "newest";
+    updateFreeGamesGenreOptions();
+    renderFreeGames();
+});
 
 freeGamesPlatformSelect.addEventListener("change", () => {
     updateFreeGamesGenreOptions();
@@ -4405,6 +4567,7 @@ freeGamesPlatformSelect.addEventListener("change", () => {
 });
 
 freeGamesCategorySelect.addEventListener("change", renderFreeGames);
+freeGamesSortSelect.addEventListener("change", renderFreeGames);
 
 freeGamesRefreshBtn.addEventListener("click", async () => {
     freeGamesRefreshBtn.disabled = true;
@@ -4414,6 +4577,7 @@ freeGamesRefreshBtn.addEventListener("click", async () => {
         const fresh = await window.riftgate.invoke("force-refresh-free-games");
         if (fresh && fresh.length > 0) {
             freeGamesCache = fresh;
+            updateFreeGamesPlatformOptions();
             updateFreeGamesGenreOptions();
             renderFreeGames();
         }
@@ -4423,14 +4587,93 @@ freeGamesRefreshBtn.addEventListener("click", async () => {
     }
 });
 
-// Platform display names, used only for the plain section heading text —
-// selection itself now happens through the platform dropdown, not a
-// clickable badge.
+// Platform display names/icons, used for section headings, the platform
+// filter dropdown, and the spotlight banner. A platform that isn't listed
+// here (a new one GamerPower starts covering, say) still works fine —
+// PLATFORM_LABELS falls back to the raw name uppercased, PLATFORM_ICONS to
+// a plain gift emoji.
 const PLATFORM_LABELS = {
     "Steam": "STEAM",
     "Epic Games": "EPIC GAMES",
-    "GOG": "GOG"
+    "GOG": "GOG",
+    "itch.io": "ITCH.IO",
+    "DRM-Free": "DRM-FREE",
+    "VR": "VR",
+    "Battle.net": "BATTLE.NET",
+    "EA": "EA",
+    "Riot Games": "RIOT GAMES",
+    "Ubisoft Connect": "UBISOFT CONNECT",
+    "Wargaming.net": "WARGAMING.NET",
+    "Gaijin.net": "GAIJIN.NET",
+    "Grinding Gear Games": "GRINDING GEAR GAMES"
 };
+
+const PLATFORM_ICONS = {
+    "Steam": "🎮",
+    "Epic Games": "⚡",
+    "GOG": "🕹️",
+    "itch.io": "🎨",
+    "DRM-Free": "💿",
+    "VR": "🥽",
+    "Battle.net": "❄️",
+    "EA": "🏈",
+    "Riot Games": "⚔️",
+    "Ubisoft Connect": "🐇",
+    "Wargaming.net": "🚀",
+    "Gaijin.net": "✈️",
+    "Grinding Gear Games": "💀"
+};
+
+// Platforms whose row is shown as a small "preview" (capped, no arrows,
+// with a "View all" button into the single-platform full-list view)
+// instead of a scrollable carousel — anything with more items than a
+// carousel can reasonably be scrolled through by hand.
+const FREE_GAMES_PREVIEW_CAP = 20;
+
+// The platform dropdown's own options depend on what's actually in the
+// cache right now — new sources (GamerPower/itch.io, or whatever
+// GamerPower starts covering next) appear automatically instead of being
+// hardcoded, and a platform with zero current free games never shows up
+// as a selectable-but-empty option.
+function updateFreeGamesPlatformOptions() {
+    const previousSelection = freeGamesPlatformSelect.value;
+
+    // "VR" is never a real platform value here — it's a virtual,
+    // cross-platform lens (see renderFreeGames) built from each game's own
+    // `vr` tag, pulling native/adapted VR titles out of EVERY platform at
+    // once rather than being one more single-source filter. Any stray
+    // GamerPower entry whose literal source string happens to be "VR" is
+    // folded into that same tag-based pool below instead of getting its
+    // own redundant option.
+    const platforms = new Set();
+    freeGamesCache.forEach((g) => { if (g.source && g.source !== "VR") platforms.add(g.source); });
+
+    freeGamesPlatformSelect.innerHTML = "";
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = "All Platforms";
+    freeGamesPlatformSelect.appendChild(allOption);
+
+    Array.from(platforms).sort().forEach((p) => {
+        const option = document.createElement("option");
+        option.value = p;
+        option.textContent = PLATFORM_LABELS[p] || p;
+        freeGamesPlatformSelect.appendChild(option);
+    });
+
+    // Only offered when there's actually at least one VR-tagged game
+    // anywhere in the cache — no point showing a lens onto an empty set.
+    if (freeGamesCache.some((g) => g.vr)) {
+        const vrOption = document.createElement("option");
+        vrOption.value = "VR";
+        vrOption.textContent = PLATFORM_LABELS.VR;
+        freeGamesPlatformSelect.appendChild(vrOption);
+    }
+
+    if (Array.from(freeGamesPlatformSelect.options).some((o) => o.value === previousSelection)) {
+        freeGamesPlatformSelect.value = previousSelection;
+    }
+}
 
 // The genre dropdown's options depend on which platform is currently
 // selected — e.g. picking "Steam" should only offer genres that actually
@@ -4441,7 +4684,9 @@ function updateFreeGamesGenreOptions() {
 
     const relevant = platformFilter === "all"
         ? freeGamesCache
-        : freeGamesCache.filter((g) => g.source === platformFilter);
+        : platformFilter === "VR"
+            ? freeGamesCache.filter((g) => g.vr)
+            : freeGamesCache.filter((g) => g.source === platformFilter);
 
     const genres = new Set();
     relevant.forEach((g) => genres.add((g.tags && g.tags[0]) || g.source));
@@ -4467,19 +4712,263 @@ function updateFreeGamesGenreOptions() {
     }
 }
 
+// Shared ordering for every list in this section except the spotlight
+// (always newest) and the Newly Added row (also always newest — that's
+// its whole point). "platform" only orders WITHIN a platform's own row by
+// name; which platforms get grouped, and in what order, is handled by the
+// caller.
+function sortFreeGames(list, sortBy) {
+    const arr = [...list];
+    switch (sortBy) {
+        case "az":
+            return arr.sort((a, b) => a.name.localeCompare(b.name));
+        case "za":
+            return arr.sort((a, b) => b.name.localeCompare(a.name));
+        case "platform":
+            return arr.sort((a, b) => a.name.localeCompare(b.name));
+        case "newest":
+        default:
+            return arr.sort((a, b) => {
+                const aHasImg = a.image ? 0 : 1;
+                const bHasImg = b.image ? 0 : 1;
+                if (aHasImg !== bHasImg) return aHasImg - bHasImg;
+                return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
+            });
+    }
+}
+
+// Every free game (across every platform) eligible to appear in the
+// spotlight — not removed, and has a cover to show.
+function getFreeGamesSpotlightCandidates() {
+    return freeGamesCache.filter((g) => !isItemRemoved("freegame", g.id) && g.image);
+}
+
+// Paints one specific game into the spotlight banner — pulled out of
+// renderFreeGamesSpotlight so the same exact markup/behavior can be reused
+// both for the initial pick and for the auto-rotation below, instead of
+// duplicating this block.
+function paintFreeGamesSpotlight(featured, candidates) {
+    const el = document.getElementById("freeGamesSpotlight");
+    if (!el) return;
+
+    const freeSinceLabel = formatFreeSinceDate(featured.firstSeenAt);
+
+    el.style.display = "";
+    // featured.name/source/description are third-party listing data —
+    // untrusted, so set via textContent below rather than interpolated here.
+    el.innerHTML = `
+        <div class="free-games-spotlight-cover">
+            <img src="${freeGameCoverCacheSrc(featured.image)}" alt="">
+        </div>
+        <div class="free-games-spotlight-info">
+            <span class="free-games-spotlight-eyebrow">${uiIcon("star", { filled: true })} Free Right Now</span>
+            <h2></h2>
+            <div class="free-games-spotlight-meta">
+                <span class="free-games-pill"></span>
+                ${freeSinceLabel ? `<span>📅 Free since ${freeSinceLabel}</span>` : ""}
+            </div>
+            <p class="free-games-spotlight-desc"></p>
+            <button type="button" class="free-games-spotlight-cta">${uiIcon("link")} Get It Free</button>
+        </div>
+    `;
+
+    el.querySelector("h2").textContent = featured.name;
+    el.querySelector(".free-games-pill").textContent = featured.source;
+    el.querySelector(".free-games-spotlight-desc").textContent =
+        featured.description || `Free right now on ${featured.source}.`;
+    el.querySelector(".free-games-spotlight-cover img").alt = featured.name;
+
+    el.querySelector(".free-games-spotlight-cta").addEventListener("click", () => {
+        window.riftgate.invoke("open-external", featured.url);
+    });
+    el.querySelector(".free-games-spotlight-cover").addEventListener("click", () => {
+        openGameDetailModal(featured, "freegame", candidates);
+    });
+    el.querySelector("h2").addEventListener("click", () => {
+        openGameDetailModal(featured, "freegame", candidates);
+    });
+}
+
+// Only ever set up once — renderFreeGames (and therefore
+// renderFreeGamesSpotlight) re-runs on every keystroke/filter change, and a
+// fresh setInterval on each of those would stack up multiple overlapping
+// timers instead of rotating once every 10s as intended.
+let freeGamesSpotlightRotationStarted = false;
+
+// One flagship game, always shown at the top of the section regardless of
+// the search/platform/genre/sort controls below it. Initially the single
+// most recently-added free game overall, so there's always something to
+// spot immediately without touching a filter — then, every 10 seconds,
+// automatically swaps in a random pick from the full cross-platform list,
+// so the banner keeps suggesting something new instead of sitting on the
+// same one game for as long as Free Games stays open. Hidden entirely if
+// there's nothing free right now, or nothing with a cover to show.
+function renderFreeGamesSpotlight() {
+    const el = document.getElementById("freeGamesSpotlight");
+    if (!el) return;
+
+    const candidates = getFreeGamesSpotlightCandidates();
+    if (candidates.length === 0) {
+        el.innerHTML = "";
+        el.style.display = "none";
+        return;
+    }
+
+    const featured = [...candidates].sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))[0];
+    paintFreeGamesSpotlight(featured, candidates);
+
+    if (!freeGamesSpotlightRotationStarted) {
+        freeGamesSpotlightRotationStarted = true;
+        setInterval(() => {
+            // Only the "All Platforms" view actually shows the spotlight
+            // (see renderFreeGames) — skip rotating into it while it's
+            // hidden behind a single-platform/VR view, so it doesn't pop
+            // back into view on its own.
+            if (freeGamesPlatformSelect.value !== "all") return;
+
+            const pool = getFreeGamesSpotlightCandidates();
+            if (pool.length === 0) return;
+            const randomPick = pool[Math.floor(Math.random() * pool.length)];
+            paintFreeGamesSpotlight(randomPick, pool);
+        }, 10000);
+    }
+}
+
+// Builds one arrow-scrolled carousel row (same theatre-block/hscroll-row
+// pattern as the New tab's Upcoming Games/New Series rows) and appends it
+// to `container`. Used for both the Newly Added row and each platform's
+// row below it.
+function buildFreeGamesCarouselSection(container, headingText, items) {
+    const section = document.createElement("div");
+    section.className = "theatre-block free-games-platform-block";
+
+    const header = document.createElement("div");
+    header.className = "theatre-block-header";
+    const heading = document.createElement("h2");
+    heading.textContent = headingText;
+    header.appendChild(heading);
+    section.appendChild(header);
+
+    const row = document.createElement("div");
+    row.className = "hscroll-row";
+
+    const leftArrow = document.createElement("button");
+    leftArrow.type = "button";
+    leftArrow.className = "carousel-arrow carousel-arrow-left";
+    leftArrow.setAttribute("aria-label", "Scroll left");
+    leftArrow.textContent = "‹";
+
+    const track = document.createElement("div");
+    track.className = "carousel-track free-games-track";
+
+    const rightArrow = document.createElement("button");
+    rightArrow.type = "button";
+    rightArrow.className = "carousel-arrow carousel-arrow-right";
+    rightArrow.setAttribute("aria-label", "Scroll right");
+    rightArrow.textContent = "›";
+
+    leftArrow.addEventListener("click", () => track.scrollBy({ left: -700, behavior: "smooth" }));
+    rightArrow.addEventListener("click", () => track.scrollBy({ left: 700, behavior: "smooth" }));
+
+    items.forEach((g) => track.appendChild(buildFreeGameCard(g, items)));
+
+    row.appendChild(leftArrow);
+    row.appendChild(track);
+    row.appendChild(rightArrow);
+    section.appendChild(row);
+    container.appendChild(section);
+}
+
+// For platforms with more games than a carousel can reasonably be scrolled
+// through by hand (see FREE_GAMES_PREVIEW_CAP): a plain wrapping grid
+// showing just the first N, plus a button that jumps straight into the
+// single-platform full-list view (see renderFreeGames) for the rest —
+// no left/right arrows here at all.
+function buildFreeGamesPreviewSection(container, headingText, items, platformName) {
+    const section = document.createElement("div");
+    section.className = "theatre-block free-games-platform-block";
+
+    const header = document.createElement("div");
+    header.className = "theatre-block-header";
+    const heading = document.createElement("h2");
+    heading.textContent = headingText;
+    header.appendChild(heading);
+    section.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "games-grid browse-grid";
+    items.slice(0, FREE_GAMES_PREVIEW_CAP).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
+    section.appendChild(grid);
+
+    const viewAllBtn = document.createElement("button");
+    viewAllBtn.type = "button";
+    viewAllBtn.className = "free-games-view-all-btn";
+    viewAllBtn.textContent = `View all ${items.length} →`;
+    viewAllBtn.addEventListener("click", () => {
+        freeGamesPlatformSelect.value = platformName;
+        updateFreeGamesGenreOptions();
+        renderFreeGames();
+    });
+    section.appendChild(viewAllBtn);
+
+    container.appendChild(section);
+}
+
+// One-click platform buttons — the primary way to jump straight to a
+// single platform's full list (or back to the all-platforms overview)
+// without touching the underlying <select>, which stays in the DOM purely
+// as the shared state store that renderFreeGames/updateFreeGamesGenreOptions
+// already read/write.
+function renderFreeGamesPlatformTabs() {
+    const container = document.getElementById("freeGamesPlatformTabs");
+    if (!container) return;
+
+    const currentValue = freeGamesPlatformSelect.value;
+    container.innerHTML = "";
+
+    Array.from(freeGamesPlatformSelect.options).forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "free-games-tab";
+        if (opt.value === currentValue) btn.classList.add("active");
+        btn.textContent = opt.value === "all"
+            ? "🎮 All Platforms"
+            : `${PLATFORM_ICONS[opt.value] || "🎁"} ${opt.textContent}`;
+        btn.addEventListener("click", () => {
+            if (freeGamesPlatformSelect.value === opt.value) return;
+            freeGamesPlatformSelect.value = opt.value;
+            updateFreeGamesGenreOptions();
+            renderFreeGames();
+        });
+        container.appendChild(btn);
+    });
+}
+
 function renderFreeGames() {
     const newRow = document.getElementById("freeGamesNewRow");
     const restRow = document.getElementById("freeGamesRestRow");
     const browseHeading = document.getElementById("freeGamesBrowseHeading");
+    const spotlightEl = document.getElementById("freeGamesSpotlight");
+    const resultCountEl = document.getElementById("freeGamesResultCount");
 
     const searchTerm = freeGamesSearchInput.value.trim().toLowerCase();
     const platformFilter = freeGamesPlatformSelect.value;
     const categoryFilter = freeGamesCategorySelect.value;
+    const sortBy = freeGamesSortSelect.value;
+
+    renderFreeGamesPlatformTabs();
 
     const filtered = freeGamesCache.filter((g) => {
         if (isItemRemoved("freegame", g.id)) return false;
         if (searchTerm && !g.name.toLowerCase().includes(searchTerm)) return false;
-        if (platformFilter !== "all" && g.source !== platformFilter) return false;
+        // "VR" is a virtual cross-platform lens (see updateFreeGamesPlatformOptions),
+        // not a real source — it matches any game tagged native/adapted VR
+        // from ANY platform, instead of one specific source string.
+        if (platformFilter === "VR") {
+            if (!g.vr) return false;
+        } else if (platformFilter !== "all" && g.source !== platformFilter) {
+            return false;
+        }
         if (categoryFilter !== "all") {
             const cat = (g.tags && g.tags[0]) || g.source;
             if (cat !== categoryFilter) return false;
@@ -4487,9 +4976,93 @@ function renderFreeGames() {
         return true;
     });
 
+    // A quick, always-visible sense of how many games match right now, and
+    // a one-click way back to the unfiltered view once any filter narrows
+    // things down — makes it obvious the list IS filtered rather than just
+    // short, and gives a fast way out of a dead-end search.
+    const hasActiveFilter = searchTerm !== "" || platformFilter !== "all" || categoryFilter !== "all";
+    if (resultCountEl) {
+        resultCountEl.textContent = `${filtered.length.toLocaleString()} free game${filtered.length === 1 ? "" : "s"}${hasActiveFilter ? " found" : " available"}`;
+    }
+    if (freeGamesClearBtn) {
+        freeGamesClearBtn.style.display = hasActiveFilter ? "" : "none";
+    }
+
     newRow.innerHTML = "";
     restRow.innerHTML = "";
     browseHeading.style.display = "none";
+
+    // Single-platform mode (a tab/dropdown value other than "all"): one
+    // plain, wrapping, unpaginated list of every matching game for that
+    // platform — search/genre/sort still apply, but there's no arrows, no
+    // preview cap, and no split into "newly added" vs. the rest, since the
+    // whole point here is "let me see everything from this one platform".
+    // The spotlight (always cross-platform) is hidden in this mode.
+    if (platformFilter !== "all") {
+        if (spotlightEl) spotlightEl.style.display = "none";
+
+        if (filtered.length === 0) {
+            restRow.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;">No free games match your search or filter.</p>`;
+            return;
+        }
+
+        const sorted = sortFreeGames(filtered, sortBy);
+
+        // The VR lens splits into native (built for VR, headset required)
+        // vs. adapted (an ordinary flatscreen game that also supports VR)
+        // instead of one flat list — a player hunting for VR-only titles
+        // and a player just curious whether their favorite flatscreen game
+        // happens to support a headset are looking for very different
+        // things, and lumping them together would bury both.
+        if (platformFilter === "VR") {
+            const native = sorted.filter((g) => g.vr === "native");
+            const adapted = sorted.filter((g) => g.vr === "adapted");
+
+            const buildVrGroup = (heading, items) => {
+                if (items.length === 0) return;
+                const section = document.createElement("div");
+                section.className = "theatre-block free-games-platform-block";
+                const header = document.createElement("div");
+                header.className = "theatre-block-header";
+                const h2 = document.createElement("h2");
+                h2.textContent = `${heading} (${items.length})`;
+                header.appendChild(h2);
+                section.appendChild(header);
+                const grid = document.createElement("div");
+                grid.className = "games-grid browse-grid";
+                items.forEach((g) => grid.appendChild(buildFreeGameCard(g, sorted)));
+                section.appendChild(grid);
+                restRow.appendChild(section);
+            };
+
+            buildVrGroup("🕶️ Native VR", native);
+            buildVrGroup("🖥️ Adapted to VR", adapted);
+            return;
+        }
+
+        const label = PLATFORM_LABELS[platformFilter] || platformFilter.toUpperCase();
+        const icon = PLATFORM_ICONS[platformFilter] || "🎁";
+
+        const section = document.createElement("div");
+        section.className = "theatre-block free-games-platform-block";
+        const header = document.createElement("div");
+        header.className = "theatre-block-header";
+        const heading = document.createElement("h2");
+        heading.textContent = `${icon} ${label} — All Free Games (${sorted.length})`;
+        header.appendChild(heading);
+        section.appendChild(header);
+
+        const grid = document.createElement("div");
+        grid.className = "games-grid browse-grid";
+        sorted.forEach((g) => grid.appendChild(buildFreeGameCard(g, sorted)));
+        section.appendChild(grid);
+
+        restRow.appendChild(section);
+        return;
+    }
+
+    // All-platforms overview mode.
+    renderFreeGamesSpotlight();
 
     if (filtered.length === 0) {
         restRow.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;">No free games match your search or filter.</p>`;
@@ -4497,79 +5070,82 @@ function renderFreeGames() {
     }
 
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const newlyAdded = sortNoCoverLast(filtered.filter((g) => (g.firstSeenAt || 0) > oneWeekAgo), "image");
-    const rest = sortNoCoverLast(filtered.filter((g) => (g.firstSeenAt || 0) <= oneWeekAgo), "image");
+    // Newly Added always reads newest-first regardless of the sort
+    // control — that ordering IS what makes it "newly added". The sort
+    // control instead governs the platform rows below. Permanently-free
+    // curated titles (g.alwaysFree — League of Legends, Apex Legends, and
+    // the like) never go through Newly Added at all: they're not a
+    // rotating promo that's genuinely new this week, they're a permanent
+    // fixture, so they belong straight in their own platform row below,
+    // just like Steam/Epic/GOG/etc.
+    //
+    // isCuratedPlatform() is a belt-and-suspenders fallback for g.alwaysFree:
+    // a game object already sitting in cache-free-games.json from before
+    // this flag existed (or from any future refresh where it's dropped for
+    // some other reason) would otherwise get stuck showing up only in
+    // Newly Added — with its platform tab/dropdown option still present
+    // (that's rebuilt straight from g.source every render) but no row of
+    // its own in the All Platforms overview below. Matching on source name
+    // for the platforms that are ONLY ever curated (never a live feed) is
+    // stale-cache-proof, so those rows appear immediately without waiting
+    // on a fresh Refresh. Epic Games/Steam are deliberately excluded here
+    // since curated entries on those platforms (Fortnite, Rocket League...)
+    // share a source name with genuinely-live promos that SHOULD be able
+    // to go through Newly Added.
+    const CURATED_ONLY_PLATFORMS = new Set([
+        "Battle.net", "EA", "Riot Games", "Ubisoft Connect",
+        "Wargaming.net", "Gaijin.net", "Grinding Gear Games"
+    ]);
+    const isCuratedPlatform = (g) => g.alwaysFree || CURATED_ONLY_PLATFORMS.has(g.source);
+    const newlyAdded = sortFreeGames(filtered.filter((g) => !isCuratedPlatform(g) && (g.firstSeenAt || 0) > oneWeekAgo), "newest");
+    const rest = sortFreeGames(filtered.filter((g) => isCuratedPlatform(g) || (g.firstSeenAt || 0) <= oneWeekAgo), sortBy);
 
     // Only needed when BOTH zones have something to show — otherwise
     // there's only one list on screen and no ambiguity to clear up.
     browseHeading.style.display = (newlyAdded.length > 0 && rest.length > 0) ? "" : "none";
 
     if (newlyAdded.length > 0) {
-        // Split by platform here too, same as the main list below — a
-        // single mixed grid would look like everything shares one
-        // collapsing bar instead of each platform having its own.
-        const newlyAddedByPlatform = {};
-        newlyAdded.forEach((g) => {
-            if (!newlyAddedByPlatform[g.source]) newlyAddedByPlatform[g.source] = [];
-            newlyAddedByPlatform[g.source].push(g);
-        });
-
-        const newlyAddedPlatformNames = Object.keys(newlyAddedByPlatform).sort(
-            (a, b) => newlyAddedByPlatform[a].length - newlyAddedByPlatform[b].length
-        );
-
-        newlyAddedPlatformNames.forEach((platformName) => {
-            const items = newlyAddedByPlatform[platformName];
-            const label = PLATFORM_LABELS[platformName] || platformName.toUpperCase();
-
-            const section = document.createElement("div");
-            section.className = "category-section";
-            const heading = document.createElement("h2");
-            heading.textContent = `🆕 ${label} — Newly Added (${items.length})`;
-            section.appendChild(heading);
-            const grid = document.createElement("div");
-            grid.className = "games-grid browse-grid";
-            items.forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
-            section.appendChild(grid);
-            newRow.appendChild(section);
-            attachSeeMore(grid, 2, 4);
-        });
+        // One single row mixing every platform together, most recently
+        // added first — each card carries its own platform badge (see
+        // buildFreeGameCard) so platforms are still told apart without
+        // needing a separate section per store the way the rows below do.
+        buildFreeGamesCarouselSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
     }
 
-    // The list is always divided by platform, with a plain heading naming
-    // it above each group — this is a separate, independent grouping from
-    // the two filter dropdowns above (platform and genre), which just
-    // narrow which games appear in each group rather than replacing this
-    // separation with a flat list.
+    // Below that, the list is always divided by platform, each as its own
+    // row — a separate, independent grouping from the platform and genre
+    // dropdowns above, which just narrow which games appear in each row
+    // rather than replacing this separation with a flat list. Platforms
+    // with more than FREE_GAMES_PREVIEW_CAP games (Steam, typically) get a
+    // capped preview + "View all" button instead of a scrollable carousel —
+    // scrolling through hundreds of games with arrows isn't practical.
     const byPlatform = {};
     rest.forEach((g) => {
         if (!byPlatform[g.source]) byPlatform[g.source] = [];
         byPlatform[g.source].push(g);
     });
 
-    // Platforms with fewer games are shown first — quick to scan, and the
-    // biggest list (usually Steam) ends up last.
-    const platformNames = Object.keys(byPlatform).sort(
-        (a, b) => byPlatform[a].length - byPlatform[b].length
-    );
+    let platformNames = Object.keys(byPlatform);
+    if (sortBy === "platform") {
+        // Sort-by-platform orders the rows themselves alphabetically too,
+        // not just the games within each one.
+        platformNames.sort((a, b) => a.localeCompare(b));
+    } else {
+        // Otherwise, platforms with fewer games are shown first — quick to
+        // scan, with the biggest list (usually Steam) ending up last.
+        platformNames.sort((a, b) => byPlatform[a].length - byPlatform[b].length);
+    }
 
     platformNames.forEach((platformName) => {
         const items = byPlatform[platformName];
         const label = PLATFORM_LABELS[platformName] || platformName.toUpperCase();
-
-        const section = document.createElement("div");
-        section.className = "category-section";
-
-        const heading = document.createElement("h2");
-        heading.textContent = `${label} (${items.length})`;
-        section.appendChild(heading);
-
-        const grid = document.createElement("div");
-        grid.className = "games-grid browse-grid";
-        items.forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
-        section.appendChild(grid);
-        restRow.appendChild(section);
-        attachSeeMore(grid, 2, 4);
+        const icon = PLATFORM_ICONS[platformName] || "🎁";
+        const headingText = `${icon} ${label} (${items.length})`;
+        if (items.length > FREE_GAMES_PREVIEW_CAP) {
+            buildFreeGamesPreviewSection(restRow, headingText, items, platformName);
+        } else {
+            buildFreeGamesCarouselSection(restRow, headingText, items);
+        }
     });
 }
 
@@ -5636,10 +6212,11 @@ async function loadFreeGames(silent) {
         const cached = await window.riftgate.invoke("get-cached-free-games");
         if (cached && cached.length > 0) {
             freeGamesCache = cached;
+            updateFreeGamesPlatformOptions();
             updateFreeGamesGenreOptions();
             renderFreeGames();
         } else {
-            newRow.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading free games (checking Steam, Epic, and GOG, this can take a moment)...</p>`;
+            newRow.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading free games (checking Steam, Epic, GOG, itch.io, and more — this can take a moment)...</p>`;
         }
     }
 
@@ -5656,10 +6233,11 @@ async function loadFreeGames(silent) {
     }
 
     // A background refresh shouldn't reset whatever the user currently has
-    // selected — updateFreeGamesGenreOptions already preserves the genre
-    // choice if it still exists, and the platform dropdown isn't rebuilt
-    // at all (its options are fixed), so it's untouched by a refresh.
+    // selected — both updateFreeGamesPlatformOptions and
+    // updateFreeGamesGenreOptions preserve the current selection if it's
+    // still a valid option after the rebuild.
     freeGamesCache = fresh;
+    updateFreeGamesPlatformOptions();
     updateFreeGamesGenreOptions();
     renderFreeGames();
 }
@@ -6422,7 +7000,7 @@ async function openGameDetailModal(item, kind = "game", navList = null) {
     gameDetailNextArrow.style.visibility =
         navList && gameDetailCurrentIndex >= 0 && gameDetailCurrentIndex < navList.length - 1 ? "visible" : "hidden";
 
-    gameDetailCoverImg.src = item.image || item.poster || item.cover || "covers/default.jpg";
+    gameDetailCoverImg.src = freeGameCoverCacheSrc(item.image || item.poster || item.cover) || "covers/default.jpg";
     gameDetailCoverImg.alt = item.name || item.title || "";
     gameDetailTitle.textContent = item.name || item.title || "";
     gameDetailRelease.textContent = item.releaseDate
