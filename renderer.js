@@ -1197,6 +1197,14 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.3.10": [
+        "Fixed: every itch.io game in Free Games was showing \"NO COVER\" — a scraper bug was splitting each game's listing in half right between its cover image and its title, so every title came through with no image at all",
+        "New: Free Games platform rows can now be reordered by dragging them, same as the New tab's sections — your order is remembered",
+        "Changed: a Free Games cover that's wider than tall now widens its card to show the whole image instead of cropping it or leaving black bars, while staying the same row height as the portrait covers next to it",
+        "Changed: Free Games cards now match the Installed library's card size",
+        "Changed: the Free Games \"🔄 Refresh\" button, when you're viewing a single platform's full list, now only re-checks that one platform instead of re-fetching every platform",
+        "New: added several free Battle.net games that were missing from the list — Heroes of the Storm, StarCraft II, the original StarCraft (including Brood War), and Call of Duty: Warzone"
+    ],
     "1.3.9": [
         "Fixed: updates now install silently in the background — clicking \"Update Now\" used to pop up the full Windows installer wizard and could show a \"Riftgate cannot be closed\" error instead of just updating and relaunching on its own"
     ],
