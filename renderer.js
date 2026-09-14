@@ -1197,13 +1197,14 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
-    "1.3.10": [
+    "1.3.11": [
         "Fixed: every itch.io game in Free Games was showing \"NO COVER\" — a scraper bug was splitting each game's listing in half right between its cover image and its title, so every title came through with no image at all",
         "New: Free Games platform rows can now be reordered by dragging them, same as the New tab's sections — your order is remembered",
         "Changed: a Free Games cover that's wider than tall now widens its card to show the whole image instead of cropping it or leaving black bars, while staying the same row height as the portrait covers next to it",
         "Changed: Free Games cards now match the Installed library's card size",
         "Changed: the Free Games \"🔄 Refresh\" button, when you're viewing a single platform's full list, now only re-checks that one platform instead of re-fetching every platform",
-        "New: added several free Battle.net games that were missing from the list — Heroes of the Storm, StarCraft II, the original StarCraft (including Brood War), and Call of Duty: Warzone"
+        "New: added several free Battle.net games that were missing from the list — Heroes of the Storm, StarCraft II, the original StarCraft (including Brood War), and Call of Duty: Warzone",
+        "Fixed: the Free Games spotlight banner could show a blank black box instead of a cover for older/obscure Steam titles — it now falls back to another cover source, same as every other Free Games card already did"
     ],
     "1.3.9": [
         "Fixed: updates now install silently in the background — clicking \"Update Now\" used to pop up the full Windows installer wizard and could show a \"Riftgate cannot be closed\" error instead of just updating and relaunching on its own"
@@ -4896,7 +4897,26 @@ function paintFreeGamesSpotlight(featured, candidates) {
     el.querySelector(".free-games-pill").textContent = featured.source;
     el.querySelector(".free-games-spotlight-desc").textContent =
         featured.description || `Free right now on ${featured.source}.`;
-    el.querySelector(".free-games-spotlight-cover img").alt = featured.name;
+
+    const spotlightCoverImgEl = el.querySelector(".free-games-spotlight-cover img");
+    spotlightCoverImgEl.alt = featured.name;
+
+    // Same fallback chain buildFreeGameCard's grid cards use, just missing
+    // here until now — Steam entries point .image at the portrait "library
+    // capsule" art (see fetchSteamFreeGames in main.js), which not every
+    // appid has (older/obscure titles especially). Without an error
+    // handler, a 404 on that image just left the spotlight showing a
+    // blank/broken box instead of ever trying game.fallbackImage (the old
+    // landscape header.jpg) or the generic placeholder.
+    spotlightCoverImgEl.addEventListener("error", function onSpotlightCoverError() {
+        const fallbackSrc = freeGameCoverCacheSrc(featured.fallbackImage);
+        if (fallbackSrc && spotlightCoverImgEl.src !== fallbackSrc) {
+            spotlightCoverImgEl.src = fallbackSrc;
+        } else if (!spotlightCoverImgEl.src.endsWith("covers/default.jpg")) {
+            spotlightCoverImgEl.removeEventListener("error", onSpotlightCoverError);
+            spotlightCoverImgEl.src = "covers/default.jpg";
+        }
+    });
 
     el.querySelector(".free-games-spotlight-cta").addEventListener("click", () => {
         window.riftgate.invoke("open-external", featured.url);
