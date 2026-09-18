@@ -100,6 +100,7 @@ const INVOKABLE_CHANNELS = new Set([
     "get-shared-file-preview-url",
     "get-shared-files",
     "get-shared-links",
+    "get-show-meta",
     "get-show-trailer",
     "get-suggestions",
     "get-top-downloaded-ebooks",

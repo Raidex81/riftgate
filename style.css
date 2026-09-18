@@ -2873,6 +2873,65 @@ body.is-fullscreen #mainContent{
     flex-wrap:wrap;
 }
 
+/* --- Theatre enrichment: type / rating / next-episode badges -------------
+   Shared by My Shows (.cover-wrap, already position:relative), Recently
+   Released (.recent-episode-poster, added below) and In Theaters
+   (.cover-wrap) cards. Populated lazily by applyShowMeta() in renderer.js;
+   hidden by default until real data comes back so a slow/failed TVMaze
+   lookup never leaves an empty badge floating over the poster. */
+.recent-episode-poster{
+    position:relative;
+}
+
+.media-type-badge{
+    position:absolute;
+    top:6px;
+    left:6px;
+    padding:2px 7px;
+    border-radius:5px;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    color:#fff;
+    background:rgba(124,58,237,.92);
+    z-index:2;
+    pointer-events:none;
+}
+
+.media-type-badge.type-talk-show{
+    background:rgba(217,70,37,.92);
+}
+
+.media-type-badge.type-documentary{
+    background:rgba(37,99,150,.92);
+}
+
+.media-type-badge.type-reality{
+    background:rgba(37,150,90,.92);
+}
+
+.media-rating-badge{
+    position:absolute;
+    top:6px;
+    right:6px;
+    padding:2px 7px;
+    border-radius:5px;
+    font-size:9px;
+    font-weight:700;
+    color:#1a1305;
+    background:rgba(255,200,40,.92);
+    z-index:2;
+    pointer-events:none;
+}
+
+.media-next-episode{
+    font-size:11px;
+    margin:0 0 4px;
+    color:#49e6b4 !important;
+    font-weight:700;
+}
+
 /* Theatre's "Now Playing" grid (#moviesGrid) packs three action controls
    into one row — Tickets, the YouTube trailer link, and Mark as Watched —
    which doesn't fit the standard 170-230px card width without the last
@@ -2901,7 +2960,11 @@ body.is-fullscreen #mainContent{
 
 .removeShowBtn{
     position:absolute;
-    top:10px;
+    /* Sits below the always-visible .media-rating-badge (top:6px, flush
+       right like Recently Released's) instead of sharing its corner —
+       removeShowBtn only appears on hover anyway, so it drops in under the
+       badge rather than covering it. */
+    top:32px;
     right:10px;
     width:26px;
     height:26px;

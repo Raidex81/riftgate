@@ -1624,6 +1624,37 @@ ipcMain.handle("get-latest-episodes", async () => {
     return latest;
 });
 
+// Lightweight per-show metadata (genre type, community rating, next
+// scheduled episode) that powers the type/rating badges and "Next: ..."
+// countdown on Recently Released and My Shows cards. Fetched lazily, one
+// show at a time, the first time a given card is rendered (see
+// applyShowMeta in renderer.js) rather than prefetched for the whole
+// watchlist up front — keeps opening Theatre fast regardless of how many
+// shows are tracked.
+ipcMain.handle("get-show-meta", async (event, showId) => {
+    try {
+        const detail = await httpsGetJsonPlain(
+            `https://api.tvmaze.com/shows/${showId}?embed=nextepisode`
+        );
+        const next = detail._embedded && detail._embedded.nextepisode;
+
+        return {
+            type: detail.type || null,
+            rating: (detail.rating && typeof detail.rating.average === "number") ? detail.rating.average : null,
+            nextEpisode: next ? {
+                season: next.season,
+                number: next.number,
+                name: next.name,
+                airdate: next.airdate,
+                airstamp: next.airstamp
+            } : null
+        };
+    } catch (err) {
+        console.error(`[tv] show meta fetch failed for show ${showId}:`, err.message || err);
+        return null;
+    }
+});
+
 // Reads the embedded FileDescription from an .exe's Windows version info
 // (e.g. chrome.exe's real description is "Google Chrome", not "Chrome") —
 // this is what fixes wrong covers/descriptions/trailers caused by using
@@ -1918,6 +1949,20 @@ async function fetchSteamFreeGamesBulkSearch() {
     return results;
 }
 
+// Turns a SteamSpy tag-entry's raw positive/negative review counts into a
+// percent-positive figure — Steam's own review convention (e.g. "94%
+// Positive"), rather than inventing a star scale for something that isn't
+// scored that way. Requires a modest sample so a title with 2 reviews can't
+// show a meaningless "100%"; returns null (badge just stays hidden) below
+// that floor or when SteamSpy has no review data at all for this entry.
+function computeSteamSpyRating(item) {
+    const positive = Number(item && item.positive) || 0;
+    const negative = Number(item && item.negative) || 0;
+    const total = positive + negative;
+    if (total < 10) return null;
+    return Math.round((positive / total) * 100);
+}
+
 // SteamSpy aggregates public Steam catalog data specifically for bulk
 // tag-based queries like this — unlike Steam's own storesearch (which is a
 // search-box autocomplete API, not a catalog browser, and only ever
@@ -2073,7 +2118,12 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 source: "Steam",
                 tags: [genreMap[String(item.appid)] || "Other"],
                 vr: null,
-                releaseDate: null
+                releaseDate: null,
+                // Steam's live search (this first-run-only path) doesn't
+                // return review counts the way the normal SteamSpy tag path
+                // does — unknown until a later refresh re-fetches this game
+                // through that path.
+                rating: null
             }));
         }
 
@@ -2222,7 +2272,15 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 // learned the last time it WAS checked, instead of
                 // resetting to "unknown" every run.
                 vr: getSteamVr(vrCache[String(item.appid)]),
-                releaseDate: getSteamReleaseDate(vrCache[String(item.appid)])
+                releaseDate: getSteamReleaseDate(vrCache[String(item.appid)]),
+                // SteamSpy's tag response already carries each game's
+                // positive/negative review counts — no extra request needed.
+                // Only Steam has this data of the free-game sources Riftgate
+                // pulls from (Epic/GOG/GamerPower/itch.io/the curated
+                // platforms don't expose per-title review data at all), so
+                // this stays null for everything else and the badge just
+                // doesn't render there — see computeSteamSpyRating.
+                rating: computeSteamSpyRating(item)
             }));
     } catch (err) {
         console.error("[free-games] SteamSpy fetch failed:", err.message || err);
@@ -3348,6 +3406,7 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
                 poster,
                 releaseDate: m.release_date,
                 popularity: m.popularity || 0,
+                rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
                 isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));
@@ -3442,6 +3501,7 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
                 poster,
                 releaseDate: m.release_date,
                 popularity: m.popularity || 0,
+                rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
                 isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
             };
         }));

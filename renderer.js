@@ -4550,6 +4550,7 @@ function buildFreeGameCard(game, navList) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(game.image) || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
             <span class="freeGameBadge free-games-pill"></span>
+            <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
@@ -4605,6 +4606,16 @@ function buildFreeGameCard(game, navList) {
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
     card.querySelector(".freeGameBadge").textContent = game.source;
+    // Rating is only populated for Steam-sourced entries (SteamSpy's
+    // percent-positive figure, computed in main.js) — Epic/GOG/GamerPower/
+    // itch.io listings don't have an equivalent review dataset, so the
+    // badge just stays hidden for those rather than showing a fake value.
+    if (typeof game.rating === "number") {
+        const ratingBadge = card.querySelector(".media-rating-badge");
+        ratingBadge.textContent = `👍 ${game.rating}%`;
+        ratingBadge.title = "Steam review rating via SteamSpy";
+        ratingBadge.hidden = false;
+    }
     // Same platform Alfredo already sees in the corner badge, repeated as
     // plain text in the info block — matching how Upcoming Games shows its
     // platform line there instead of only as a cover overlay.
@@ -6550,6 +6561,69 @@ showSearchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") searchShows();
 });
 
+// Maps TVMaze's `type` field to a short badge label + CSS modifier class
+// (the modifier picks the badge's accent color; "" keeps the default
+// purple used for standard scripted/animated series).
+const SHOW_TYPE_BADGES = {
+    "Scripted": ["SERIES", ""],
+    "Animation": ["ANIME", ""],
+    "Talk Show": ["TALK SHOW", "type-talk-show"],
+    "Variety": ["VARIETY", "type-talk-show"],
+    "Panel Show": ["PANEL SHOW", "type-talk-show"],
+    "Documentary": ["DOCS", "type-documentary"],
+    "News": ["NEWS", "type-documentary"],
+    "Reality": ["REALITY", "type-reality"],
+    "Game Show": ["GAME SHOW", "type-reality"]
+};
+
+// Turns a TVMaze nextepisode object into a short "Next: S2E12 · in 4d"
+// string, or null if there's nothing scheduled yet.
+function formatNextEpisode(nextEpisode) {
+    if (!nextEpisode || !nextEpisode.airstamp) return null;
+    const airMs = new Date(nextEpisode.airstamp).getTime();
+    if (Number.isNaN(airMs)) return null;
+
+    const days = Math.ceil((airMs - Date.now()) / 86400000);
+    const when = days <= 0 ? "today" : days === 1 ? "in 1d" : days < 14 ? `in ${days}d` : `in ${Math.round(days / 7)}w`;
+    const epLabel = (nextEpisode.season != null && nextEpisode.number != null)
+        ? `S${nextEpisode.season}E${nextEpisode.number}`
+        : "next ep";
+
+    return `Next: ${epLabel} · ${when}`;
+}
+
+// Lazily fetches (and caches on `cacheHolder._meta`, so a re-render of the
+// same card doesn't refetch) a show's type/rating/next-episode data, then
+// fills in whichever badge elements the caller passed. Mirrors the existing
+// fetchShowTrailerOnce/fetchTrailerOnce lazy-fetch-once pattern used
+// elsewhere in this file for trailers.
+async function applyShowMeta(showId, cacheHolder, els) {
+    if (!cacheHolder._metaPromise) {
+        cacheHolder._metaPromise = window.riftgate.invoke("get-show-meta", showId);
+    }
+    const meta = await cacheHolder._metaPromise;
+    if (!meta) return;
+
+    if (els.typeBadge && meta.type) {
+        const [label, cls] = SHOW_TYPE_BADGES[meta.type] || [meta.type.toUpperCase(), ""];
+        els.typeBadge.textContent = label;
+        els.typeBadge.className = `media-type-badge ${cls}`;
+        els.typeBadge.hidden = false;
+    }
+    if (els.ratingBadge && typeof meta.rating === "number") {
+        els.ratingBadge.textContent = `★ ${meta.rating.toFixed(1)}`;
+        els.ratingBadge.title = "Rating via TVMaze";
+        els.ratingBadge.hidden = false;
+    }
+    if (els.nextEpisodeEl) {
+        const text = formatNextEpisode(meta.nextEpisode);
+        if (text) {
+            els.nextEpisodeEl.textContent = text;
+            els.nextEpisodeEl.hidden = false;
+        }
+    }
+}
+
 function buildShowCard(show, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
@@ -6560,11 +6634,14 @@ function buildShowCard(show, navList) {
         <button class="removeShowBtn" title="Stop tracking">✕</button>
         <div class="cover-wrap">
             <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+            <span class="media-type-badge" hidden></span>
+            <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
+            <p class="media-next-episode" hidden></p>
             <p class="game-desc"></p>
         </div>
     `;
@@ -6572,6 +6649,12 @@ function buildShowCard(show, navList) {
     card.querySelector(".cover-img").alt = show.name;
     card.querySelector(".game-info h3").textContent = show.name;
     card.querySelector(".game-desc").textContent = show.description || "Loading description...";
+
+    applyShowMeta(show.id, show, {
+        typeBadge: card.querySelector(".media-type-badge"),
+        ratingBadge: card.querySelector(".media-rating-badge"),
+        nextEpisodeEl: card.querySelector(".media-next-episode")
+    });
 
     card.querySelector(".removeShowBtn").addEventListener("click", async () => {
         await window.riftgate.invoke("remove-from-watchlist", show.id);
@@ -6675,11 +6758,16 @@ function renderRecentEpisodes() {
         // ep.showName/episodeName come from TVMaze's own show/episode data —
         // untrusted third-party content, so both go through textContent.
         card.innerHTML = `
-            <img src="${ep.showImage || "covers/default.jpg"}" alt="">
+            <div class="recent-episode-poster">
+                <img src="${ep.showImage || "covers/default.jpg"}" alt="">
+                <span class="media-type-badge" hidden></span>
+                <span class="media-rating-badge" hidden></span>
+            </div>
             <div class="recent-episode-info">
                 <h4></h4>
                 <p class="episode-number"></p>
                 <p class="episode-airdate">📅 Released ${ep.airdate || "unknown date"}</p>
+                <p class="media-next-episode" hidden></p>
                 <div class="recent-episode-actions">
                     <button class="whereToWatchBtn">📺 Where to Watch</button>
                     <button class="markSeenBtn"></button>
@@ -6691,6 +6779,12 @@ function renderRecentEpisodes() {
         card.querySelector("h4").textContent = ep.showName;
         card.querySelector(".episode-number").textContent =
             `S${ep.season}E${ep.number}` + (ep.episodeName ? ` — ${ep.episodeName}` : "");
+
+        applyShowMeta(ep.showId, ep, {
+            typeBadge: card.querySelector(".media-type-badge"),
+            ratingBadge: card.querySelector(".media-rating-badge"),
+            nextEpisodeEl: card.querySelector(".media-next-episode")
+        });
 
         card.querySelector(".whereToWatchBtn").addEventListener("click", () => {
             const query = encodeURIComponent(ep.showName);
@@ -6926,12 +7020,13 @@ function buildMovieCard(movie, showReleaseDate, navList) {
     card.innerHTML = `
         <div class="cover-wrap">
             <img class="cover-img" src="${movie.poster || "covers/default.jpg"}" alt="">
+            <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
-            ${showReleaseDate && movie.releaseDate ? `<p class="game-playtime">📅 Releases ${movie.releaseDate}</p>` : ""}
+            ${movie.releaseDate ? `<p class="game-playtime">📅 ${showReleaseDate ? "Releases" : "Released"} ${movie.releaseDate}</p>` : ""}
             <p class="game-desc"></p>
             <div class="movie-card-actions">
                 <button class="launchBtn ticketsBtn">🎟️ Find Tickets & Showtimes</button>
@@ -6943,6 +7038,13 @@ function buildMovieCard(movie, showReleaseDate, navList) {
     card.querySelector(".cover-img").alt = movie.title;
     card.querySelector(".game-info h3").textContent = movie.title;
     card.querySelector(".game-desc").textContent = movie.description || "No description available.";
+
+    if (typeof movie.rating === "number") {
+        const ratingBadge = card.querySelector(".media-rating-badge");
+        ratingBadge.textContent = `★ ${movie.rating.toFixed(1)}`;
+        ratingBadge.title = "Rating via TMDB";
+        ratingBadge.hidden = false;
+    }
 
     let movieTrailerId;
 
