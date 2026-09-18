@@ -9251,6 +9251,9 @@ async function checkForMissingGames() {
 
 const communityAppsGrid = document.getElementById("communityAppsGrid");
 const communityAppsEmptyState = document.getElementById("communityAppsEmptyState");
+const communityAppsNoResults = document.getElementById("communityAppsNoResults");
+const communityAppsSearchInput = document.getElementById("communityAppsSearchInput");
+const communityAppsSortSelect = document.getElementById("communityAppsSortSelect");
 const addCommunityAppBtn = document.getElementById("addCommunityAppBtn");
 
 let communityAppsCache = [];
@@ -9261,46 +9264,168 @@ async function loadCommunityApps() {
     renderCommunityApps();
 }
 
+// Client-side mirror of main.js's extractGithubRepoPath — used only to
+// decide whether a card can show a GitHub avatar / clickable author link.
+// Never fetches anything itself (fetchGithubRepoDescription stays
+// main-process-only, for the admin add/edit auto-fill flow).
+function extractGithubOwnerClientSide(rawUrl) {
+    try {
+        const parsed = new URL(rawUrl);
+        if (!/(^|\.)github\.com$/i.test(parsed.hostname)) return null;
+        const parts = parsed.pathname.split("/").filter(Boolean);
+        if (parts.length < 1) return null;
+        return parts[0];
+    } catch (err) {
+        return null;
+    }
+}
+
+// Deterministic fallback tile color for apps without a GitHub avatar, so
+// the same app always gets the same color instead of a new random one on
+// every render.
+function communityAppMonogramColor(seed) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 55%, 42%)`;
+}
+
+function isCommunityAppNew(app) {
+    if (!app.created_at) return false;
+    const created = new Date(app.created_at).getTime();
+    if (Number.isNaN(created)) return false;
+    return (Date.now() - created) < (14 * 24 * 60 * 60 * 1000);
+}
+
 function renderCommunityApps() {
     communityAppsGrid.innerHTML = "";
 
     if (communityAppsCache.length === 0) {
         communityAppsEmptyState.style.display = "";
+        communityAppsNoResults.style.display = "none";
         return;
     }
     communityAppsEmptyState.style.display = "none";
 
-    communityAppsCache.forEach((app) => communityAppsGrid.appendChild(buildCommunityAppCard(app)));
+    const query = communityAppsSearchInput.value.trim().toLowerCase();
+    let apps = communityAppsCache.filter((app) => {
+        if (!query) return true;
+        return [app.name, app.author, app.description, app.added_by]
+            .some((field) => field && field.toLowerCase().includes(query));
+    });
+
+    const sortBy = communityAppsSortSelect.value;
+    apps = apps.slice().sort((a, b) => {
+        if (sortBy === "visits") return (b.visit_count || 0) - (a.visit_count || 0);
+        if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+        if (sortBy === "author") return (a.author || a.added_by || "").localeCompare(b.author || b.added_by || "");
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0); // newest first
+    });
+
+    if (apps.length === 0) {
+        communityAppsNoResults.style.display = "";
+        return;
+    }
+    communityAppsNoResults.style.display = "none";
+
+    apps.forEach((app) => communityAppsGrid.appendChild(buildCommunityAppCard(app)));
 }
 
-// app.name/description/added_by all come from admin-entered data (or,
-// for description, an auto-fetched GitHub repo description) — still
+communityAppsSearchInput.addEventListener("input", renderCommunityApps);
+communityAppsSortSelect.addEventListener("change", renderCommunityApps);
+
+// app.name/description/author/added_by all come from admin-entered data
+// (or, for description, an auto-fetched GitHub repo description) — still
 // untrusted enough (a repo's own description is written by whoever owns
 // that repo, not this app's admins) to go through textContent rather
 // than innerHTML.
 function buildCommunityAppCard(app) {
     const card = document.createElement("div");
-    card.className = "app-recommend-card";
+    card.className = "community-app-card";
+
+    const githubOwner = extractGithubOwnerClientSide(app.url);
+
+    const header = document.createElement("div");
+    header.className = "community-app-card-header";
+
+    const icon = document.createElement("div");
+    icon.className = "community-app-icon";
+    const applyMonogram = () => {
+        icon.textContent = (app.name || "?").trim().charAt(0).toUpperCase() || "?";
+        icon.style.background = communityAppMonogramColor(app.name || String(app.id || ""));
+    };
+    if (githubOwner) {
+        const img = document.createElement("img");
+        img.src = `https://github.com/${githubOwner}.png?size=80`;
+        img.alt = "";
+        img.loading = "lazy";
+        // A broken or blocked avatar load falls back to the monogram tile
+        // rather than leaving a broken-image icon on the card.
+        img.addEventListener("error", () => {
+            icon.innerHTML = "";
+            applyMonogram();
+        }, { once: true });
+        icon.appendChild(img);
+    } else {
+        applyMonogram();
+    }
+    header.appendChild(icon);
+
+    const titleBlock = document.createElement("div");
+    titleBlock.className = "community-app-title-block";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "community-app-title-row";
 
     const title = document.createElement("h3");
     title.textContent = app.name;
-    card.appendChild(title);
+    titleRow.appendChild(title);
 
-    if (app.author) {
-        const authorLine = document.createElement("p");
-        authorLine.className = "app-recommend-tag";
-        authorLine.textContent = `Created by ${app.author}`;
-        card.appendChild(authorLine);
+    if (isCommunityAppNew(app)) {
+        const newBadge = document.createElement("span");
+        newBadge.className = "community-app-new-badge";
+        newBadge.textContent = "NEW";
+        titleRow.appendChild(newBadge);
     }
+    titleBlock.appendChild(titleRow);
 
-    const addedByLine = document.createElement("p");
-    addedByLine.className = "app-recommend-tag";
-    addedByLine.textContent = `Added by ${app.added_by}`;
-    card.appendChild(addedByLine);
+    const authorLine = document.createElement("p");
+    authorLine.className = "community-app-author";
+    if (githubOwner) {
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `by ${app.author || githubOwner}`;
+        link.title = "Open GitHub profile";
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            window.riftgate.invoke("open-external", `https://github.com/${githubOwner}`);
+        });
+        authorLine.appendChild(link);
+    } else if (app.author) {
+        authorLine.textContent = `by ${app.author}`;
+    } else {
+        authorLine.textContent = `Added by ${app.added_by}`;
+    }
+    titleBlock.appendChild(authorLine);
+
+    header.appendChild(titleBlock);
+    card.appendChild(header);
 
     const desc = document.createElement("p");
+    desc.className = "community-app-desc";
     desc.textContent = app.description || "No description yet.";
     card.appendChild(desc);
+
+    const meta = document.createElement("div");
+    meta.className = "community-app-meta";
+    const visitCount = typeof app.visit_count === "number" ? app.visit_count : 0;
+    const visitLabel = (n) => `👁️ ${n} visit${n === 1 ? "" : "s"}`;
+    const visitSpan = document.createElement("span");
+    visitSpan.textContent = visitLabel(visitCount);
+    meta.appendChild(visitSpan);
+    card.appendChild(meta);
 
     const actions = document.createElement("div");
     actions.className = "app-card-actions";
@@ -9310,7 +9435,24 @@ function buildCommunityAppCard(app) {
     visitBtn.style.flex = "none";
     visitBtn.style.padding = "8px 14px";
     visitBtn.textContent = "🔗 Visit";
-    visitBtn.addEventListener("click", () => window.riftgate.invoke("open-external", app.url));
+    visitBtn.addEventListener("click", () => {
+        window.riftgate.invoke("open-external", app.url);
+
+        // Optimistic bump so the count feels immediate; reconciled against
+        // the RPC's real return value (or just kept as-is on failure —
+        // losing one click's count on a network hiccup isn't worth
+        // bothering the user about).
+        const optimisticCount = (app.visit_count || 0) + 1;
+        app.visit_count = optimisticCount;
+        visitSpan.textContent = visitLabel(optimisticCount);
+
+        window.riftgate.invoke("increment-community-app-visit", app.id).then((result) => {
+            if (result && result.success && typeof result.visitCount === "number") {
+                app.visit_count = result.visitCount;
+                visitSpan.textContent = visitLabel(result.visitCount);
+            }
+        }).catch(() => {});
+    });
     actions.appendChild(visitBtn);
 
     if (isAdminMode) {
