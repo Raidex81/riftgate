@@ -369,8 +369,14 @@
             <div class="sidebar-section">
                 <h3 id="hdgLibrary">Library</h3>
                 <button id="refreshMetadataBtn" class="sidebar-btn">🔄 <span id="lblRefreshMetadata">Refresh All Metadata</span></button>
-                <button id="scanInstalledBtn" class="sidebar-btn" title="Scan your computer for installed apps and games not yet in Riftgate">🔍 <span id="lblScanInstalled">Scan for Apps &amp; Games</span></button>
-                <button id="removeAppsBtn" class="sidebar-btn" title="Remove apps and games from your Riftgate library in bulk">🗑️ <span id="lblRemoveApps">Remove Apps &amp; Games</span></button>
+                <!-- "Scan for Apps & Games" and "Remove Apps & Games" moved to the
+                     Installed section's own topbar (#installedTopbar) — they act
+                     specifically on your installed library, so they now live right
+                     next to Add/Search/Sort instead of in this always-visible
+                     sidebar, which is where you'd look for them. See
+                     #installedTopbar .actions in this file, and the matching
+                     .library-action-btn rules in style.css. -->
+                <p class="sidebar-hint">Looking for "Scan for Apps &amp; Games" or "Remove Apps &amp; Games"? They've moved to the top of the Installed section.</p>
 
                 <div class="sidebar-stats">
                     <div id="statCounts">🎮 0 · 🖥️ 0 · 📦 0 · 🥽 0</div>
@@ -610,6 +616,13 @@
                 id="searchInput"
                 placeholder="Search games..."
             >
+
+            <!-- Moved here from the sidebar — both act specifically on the
+                 installed library, so they belong with the section's other
+                 library-management controls (Add/Search/Sort) rather than
+                 in the always-visible sidebar. -->
+            <button id="scanInstalledBtn" class="library-action-btn" title="Scan your computer for installed apps and games not yet in Riftgate">🔍 <span id="lblScanInstalled">Scan for Apps &amp; Games</span></button>
+            <button id="removeAppsBtn" class="library-action-btn library-action-btn--danger" title="Remove apps and games from your Riftgate library in bulk">🗑️ <span id="lblRemoveApps">Remove Apps &amp; Games</span></button>
 
             <button id="addBtn">+</button>
         </div>
