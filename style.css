@@ -4718,6 +4718,38 @@ body.startup-locked{
     color:#fbbf24;
 }
 
+/* Small color-coded countdown bar under a file/link's meta row — fill
+   width and color are recomputed every 30s by the ticker in renderer.js
+   (vaultExpiryTickers) so it visibly drains without a manual refresh. */
+.vault-expiry-bar-track{
+    width:100%;
+    max-width:220px;
+    height:4px;
+    border-radius:999px;
+    background:var(--bg-tertiary);
+    overflow:hidden;
+    margin:6px 0 0;
+}
+
+.vault-expiry-bar-fill{
+    height:100%;
+    border-radius:999px;
+    transition:width 1s linear, background-color .4s;
+    background:#22c55e;
+}
+
+.vault-expiry-bar-fill.level-ok{
+    background:#22c55e;
+}
+
+.vault-expiry-bar-fill.level-warning{
+    background:#fbbf24;
+}
+
+.vault-expiry-bar-fill.level-critical{
+    background:#f87171;
+}
+
 .shared-file-desc{
     font-size:12px;
     color:var(--text-secondary);
@@ -5043,6 +5075,8 @@ body.startup-locked{
    link is a GitHub repo, else a generated monogram), a "NEW" badge for
    recent submissions, a clickable author credit, and a visit count. */
 
+#vaultFilesSortSelect,
+#vaultLinksSortSelect,
 #communityAppsSortSelect{
     padding:10px;
     border:none;
