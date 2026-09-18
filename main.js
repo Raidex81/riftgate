@@ -3553,6 +3553,7 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
                 description: s.overview,
                 image,
                 firstAirDate: s.first_air_date,
+                rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
                 isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
             };
         }));
