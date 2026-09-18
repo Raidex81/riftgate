@@ -7591,6 +7591,7 @@ function renderNewShows() {
         card.innerHTML = `
             <div class="cover-wrap">
                 <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+                <span class="media-rating-badge" hidden></span>
                 <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
                 <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
             </div>
@@ -7607,6 +7608,16 @@ function renderNewShows() {
         card.querySelector(".cover-img").alt = show.name;
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
+
+        // New Series comes from TMDB's /discover/tv (unlike My Shows/Recently
+        // Released, which use TVMaze via applyShowMeta) — same rating source
+        // as Upcoming/Now Playing movies, so it gets the same TMDB attribution.
+        if (typeof show.rating === "number") {
+            const newShowRatingBadge = card.querySelector(".media-rating-badge");
+            newShowRatingBadge.textContent = `★ ${show.rating.toFixed(1)}`;
+            newShowRatingBadge.title = "Rating via TMDB";
+            newShowRatingBadge.hidden = false;
+        }
 
         const newShowDescEl = card.querySelector(".game-desc");
         newShowDescEl.style.cursor = "pointer";
