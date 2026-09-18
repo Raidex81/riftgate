@@ -7235,6 +7235,35 @@ ipcMain.handle("force-clean-shared-links", async (event, { adminUsername, adminP
     return { success: true, cleaned: Array.isArray(result.result) ? result.result.length : 0 };
 });
 
+// Public counters, not gated behind the Vault password check every other
+// handler above uses — same reasoning as increment-community-app-visit in
+// the Applications section: the RPC only ever adds 1 to one row's numeric
+// counter, and the id it targets is never exposed to anyone who hasn't
+// already been through get-shared-files/get-shared-links (which ARE
+// password-gated), so leaving this one open to any client can't leak or
+// alter the file/link itself — worst case is a slightly inflated count.
+ipcMain.handle("increment-shared-file-download", async (event, fileId) => {
+    try {
+        const result = await supabaseRequest("rpc/increment_shared_file_download", "POST", { p_file_id: fileId });
+        if (result.statusCode !== 200) return { success: false };
+        return { success: true, downloadCount: typeof result.body === "number" ? result.body : null };
+    } catch (err) {
+        console.error("[share] download-count increment failed:", err.message || err);
+        return { success: false };
+    }
+});
+
+ipcMain.handle("increment-shared-link-open", async (event, linkId) => {
+    try {
+        const result = await supabaseRequest("rpc/increment_shared_link_open", "POST", { p_link_id: linkId });
+        if (result.statusCode !== 200) return { success: false };
+        return { success: true, openCount: typeof result.body === "number" ? result.body : null };
+    } catch (err) {
+        console.error("[share] open-count increment failed:", err.message || err);
+        return { success: false };
+    }
+});
+
 ipcMain.handle("add-to-share-allowlist", async (event, { adminUsername, adminPassword, targetUsername }) => {
     const result = await callAdminRpc("add_to_share_allowlist", {
         p_admin_username: adminUsername,
