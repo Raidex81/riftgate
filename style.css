@@ -4422,6 +4422,17 @@ body.startup-locked{
 
 .carousel-track .game-card{
     flex:0 0 auto;
+    /* .game-card's own width:100% img rule only resolves correctly inside
+       something that constrains the card's width in the first place — the
+       wrapping .games-grid does that via grid-template-columns, but a flex
+       carousel like this one never did, so cards with no more specific
+       width (Recently Opened, Favorites, Most Popular/Most Sold Books,
+       the game detail page's Related row) grew to their cover image's
+       native resolution instead of a thumbnail size. Matches the Installed
+       library's card width (see .games-grid) for consistency; a track that
+       wants a different size (.free-games-track, .upcoming-games-track,
+       .new-shows-track) already overrides this with its own rule below. */
+    width:230px;
 }
 
 .carousel-arrow{
