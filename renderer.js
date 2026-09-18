@@ -1197,6 +1197,16 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.4.0": [
+        "New: Applications rebuilt — each app now shows a GitHub avatar (or a generated icon if it isn't hosted on GitHub), a \"NEW\" badge for recent additions, a clickable link to the creator's GitHub profile, and a visit counter, plus a search box and a sort dropdown (Newest / Most Visited / Name / Author)",
+        "New: The Vault rebuilt — files and links now show a file-type icon (PDF, archive, video, audio, code, and more, not just a generic document icon), a color-coded countdown bar that visibly drains as the expiry approaches, and a download/open counter, plus a search box and sort dropdown for both files and links"
+    ],
+    "1.3.12": [
+        "New: Theatre now shows type badges, ratings (via TVMaze/TMDB/SteamSpy, with a source tooltip), and a next-episode countdown for shows you're tracking",
+        "New: New Series cards now show a rating badge (via TMDB), matching Theatre, My Shows, and Free Games",
+        "Changed: the \"Scan for Apps & Games\" and \"Remove Apps & Games\" buttons moved from the sidebar into the Installed section's topbar, next to Sort/Search/Add",
+        "Fixed: Reading Room's Recently Opened, Favorites, and Most Popular/Most Sold Books carousels were rendering cards at their native image size instead of the standard card width"
+    ],
     "1.3.11": [
         "Fixed: every itch.io game in Free Games was showing \"NO COVER\" — a scraper bug was splitting each game's listing in half right between its cover image and its title, so every title came through with no image at all",
         "New: Free Games platform rows can now be reordered by dragging them, same as the New tab's sections — your order is remembered",
