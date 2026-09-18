@@ -914,12 +914,19 @@
         <div class="category-section" style="padding:0 16px;">
             <h2>🧩 Applications</h2>
             <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;max-width:700px;">
-                A short list of apps worth knowing about — recommended by admins, with a link out to each one (GitHub or otherwise).
+                Tools and apps built by the community — people like you — plus a few admin picks worth knowing about. Every one links straight out to where you can grab it.
             </p>
         </div>
 
-        <div class="topbar" style="padding:0 16px;">
+        <div class="topbar" id="communityAppsTopbar" style="padding:0 16px;">
             <div class="actions">
+                <input type="text" id="communityAppsSearchInput" placeholder="Search apps...">
+                <select id="communityAppsSortSelect">
+                    <option value="newest">Sort: Newest First</option>
+                    <option value="visits">Sort: Most Visited</option>
+                    <option value="name">Sort: Name (A-Z)</option>
+                    <option value="author">Sort: Author (A-Z)</option>
+                </select>
                 <button id="addCommunityAppBtn" class="launchBtn" style="flex:none;padding:8px 16px;display:none;">➕ Add App</button>
             </div>
         </div>
@@ -928,7 +935,11 @@
             <p style="color:var(--text-muted);font-size:13px;">No apps listed yet.</p>
         </div>
 
-        <div id="communityAppsGrid" class="app-recommend-grid"></div>
+        <div id="communityAppsNoResults" class="category-section" style="padding:0 16px;display:none;">
+            <p style="color:var(--text-muted);font-size:13px;">No apps match your search.</p>
+        </div>
+
+        <div id="communityAppsGrid" class="community-apps-grid"></div>
 
         <div class="category-section" style="padding:0 16px;margin-top:28px;">
             <h2 style="border-top:2px solid var(--border-color);padding-top:20px;">Made something worth adding?</h2>
