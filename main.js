@@ -7486,6 +7486,22 @@ ipcMain.handle("delete-community-app", async (event, { adminUsername, adminPassw
     return { success: result.success && !!result.result, error: result.error };
 });
 
+// Public counter, not admin-gated — anyone browsing Applications can bump
+// this just by clicking Visit, same as request-share-access above is a
+// public RPC call with no admin credentials. The RPC itself (see
+// community-apps-visits.sql) only ever adds exactly 1 to exactly one row,
+// so there's no arbitrary-write risk in leaving this open to every client.
+ipcMain.handle("increment-community-app-visit", async (event, appId) => {
+    try {
+        const result = await supabaseRequest("rpc/increment_community_app_visit", "POST", { p_app_id: appId });
+        if (result.statusCode !== 200) return { success: false };
+        return { success: true, visitCount: typeof result.body === "number" ? result.body : null };
+    } catch (err) {
+        console.error("[apps] visit increment failed:", err.message || err);
+        return { success: false };
+    }
+});
+
 ipcMain.handle("open-data-folder", async () => {
     shell.openPath(app.getPath("userData"));
     return true;
