@@ -9613,6 +9613,96 @@ function isImageFile(filename) {
     return IMAGE_EXTENSIONS.has(ext);
 }
 
+// Extension -> icon for everything that isn't an image (images get their
+// own 🖼️ + hover-preview treatment above). Falls back to a plain document
+// icon for anything unrecognized rather than guessing.
+const FILE_TYPE_ICONS = [
+    [["zip", "rar", "7z", "tar", "gz", "bz2", "xz"], "🗜️"],
+    [["pdf"], "📕"],
+    [["doc", "docx", "odt", "rtf", "txt", "md"], "📝"],
+    [["xls", "xlsx", "ods", "csv", "tsv"], "📊"],
+    [["ppt", "pptx", "odp", "key"], "📽️"],
+    [["mp4", "mov", "avi", "mkv", "webm", "wmv", "flv", "m4v"], "🎬"],
+    [["mp3", "wav", "flac", "ogg", "m4a", "aac", "wma"], "🎵"],
+    [["js", "ts", "jsx", "tsx", "py", "java", "c", "cpp", "cs", "html", "css", "json", "xml", "sh", "php", "rb", "go", "rs", "yml", "yaml"], "💻"],
+    [["exe", "msi", "apk", "dmg", "app", "deb", "rpm"], "📦"]
+];
+
+function fileTypeIcon(filename) {
+    const ext = filename.split(".").pop().toLowerCase();
+    for (const [exts, icon] of FILE_TYPE_ICONS) {
+        if (exts.includes(ext)) return icon;
+    }
+    return "📄";
+}
+
+// --- Vault expiry progress bars ------------------------------------------
+//
+// The exact original upload duration isn't reliably available on every
+// returned row (get_shared_files/get_shared_links may or may not include
+// created_at), so the bar's fill is approximated against the longest
+// possible window for that item type instead — 24h for files (the longest
+// upload-expiry option) and 90 days for links (the stated link lifetime).
+// It's a relative visual cue, not a precise per-item countdown; the plain
+// "Expires in..." text next to it stays the source of truth.
+const VAULT_FILE_EXPIRY_MAX_MS = 24 * 60 * 60 * 1000;
+const VAULT_LINK_EXPIRY_MAX_MS = 90 * 24 * 60 * 60 * 1000;
+
+function expiryBarInfo(expiresAt, maxWindowMs) {
+    const remainingMs = new Date(expiresAt).getTime() - Date.now();
+    if (remainingMs <= 0) return { percent: 0, level: "critical" };
+    const percent = Math.max(2, Math.min(100, (remainingMs / maxWindowMs) * 100));
+    let level = "ok";
+    if (remainingMs < maxWindowMs * 0.08) level = "critical";
+    else if (remainingMs < maxWindowMs * 0.25) level = "warning";
+    return { percent, level };
+}
+
+function buildExpiryBar(expiresAt, maxWindowMs) {
+    const track = document.createElement("div");
+    track.className = "vault-expiry-bar-track";
+    const fill = document.createElement("div");
+    fill.className = "vault-expiry-bar-fill";
+    track.appendChild(fill);
+
+    const apply = () => {
+        const { percent, level } = expiryBarInfo(expiresAt, maxWindowMs);
+        fill.style.width = `${percent}%`;
+        fill.className = `vault-expiry-bar-fill level-${level}`;
+    };
+    apply();
+
+    return { track, apply };
+}
+
+// Lightweight ticker so "Expires in Xm" text and the bars above visibly
+// count down while The Vault is open, without re-fetching or re-rendering
+// the whole list every 30s (which would kill hover states, scroll
+// position, etc.). Each render function resets this array and repopulates
+// it with the live items it just built.
+let vaultExpiryTickers = [];
+
+// "files" and "links" render independently (searching files shouldn't
+// touch the links ticker list and vice versa) — each ticker is tagged
+// with its group so a render pass can clear and rebuild just its own
+// entries via clearVaultExpiryTickers.
+function registerVaultExpiryTicker(group, textEl, expiresAt, formatFn, barApply) {
+    vaultExpiryTickers.push({ group, textEl, expiresAt, formatFn, barApply });
+}
+
+function clearVaultExpiryTickers(group) {
+    vaultExpiryTickers = vaultExpiryTickers.filter((t) => t.group !== group);
+}
+
+setInterval(() => {
+    vaultExpiryTickers.forEach(({ textEl, expiresAt, formatFn, barApply }) => {
+        const expiry = formatFn(expiresAt);
+        textEl.textContent = expiry.text;
+        textEl.className = expiry.soon ? "expiring-soon" : "";
+        if (barApply) barApply();
+    });
+}, 30000);
+
 const vaultImagePreview = document.getElementById("vaultImagePreview");
 const vaultImagePreviewImg = document.getElementById("vaultImagePreviewImg");
 let vaultPreviewUrlCache = {};
@@ -9667,7 +9757,7 @@ function buildSharedFileItem(file) {
 
     const icon = document.createElement("div");
     icon.className = "shared-file-icon";
-    icon.textContent = "📄";
+    icon.textContent = fileTypeIcon(file.filename);
 
     if (isImageFile(file.filename)) {
         icon.textContent = "🖼️";
@@ -9694,11 +9784,19 @@ function buildSharedFileItem(file) {
     const sizeSpan = document.createElement("span");
     sizeSpan.textContent = `💾 ${formatSharedFileSize(file.file_size)}`;
     meta.appendChild(sizeSpan);
+    const downloadCount = typeof file.download_count === "number" ? file.download_count : 0;
+    const downloadCountSpan = document.createElement("span");
+    downloadCountSpan.textContent = `⬇️ ${downloadCount} download${downloadCount === 1 ? "" : "s"}`;
+    meta.appendChild(downloadCountSpan);
     const expirySpan = document.createElement("span");
     expirySpan.textContent = expiry.text;
     if (expiry.soon) expirySpan.className = "expiring-soon";
     meta.appendChild(expirySpan);
     info.appendChild(meta);
+
+    const { track: expiryBarTrack, apply: expiryBarApply } = buildExpiryBar(file.expires_at, VAULT_FILE_EXPIRY_MAX_MS);
+    info.appendChild(expiryBarTrack);
+    registerVaultExpiryTicker("files", expirySpan, file.expires_at, timeUntilExpiry, expiryBarApply);
 
     if (file.description) {
         const desc = document.createElement("p");
@@ -9721,6 +9819,17 @@ function buildSharedFileItem(file) {
         downloadBtn.disabled = false;
         if (!result.canceled && !result.success) {
             showCustomAlert(result.error || "Download failed.");
+        }
+        if (result.success) {
+            // Only counts completed downloads, not a save-dialog cancel —
+            // optimistic bump, reconciled against the RPC's real value.
+            const newCount = downloadCount + 1;
+            downloadCountSpan.textContent = `⬇️ ${newCount} download${newCount === 1 ? "" : "s"}`;
+            window.riftgate.invoke("increment-shared-file-download", file.id).then((countResult) => {
+                if (countResult && countResult.success && typeof countResult.downloadCount === "number") {
+                    downloadCountSpan.textContent = `⬇️ ${countResult.downloadCount} download${countResult.downloadCount === 1 ? "" : "s"}`;
+                }
+            }).catch(() => {});
         }
     });
     actions.appendChild(downloadBtn);
@@ -9753,14 +9862,28 @@ function buildSharedFileItem(file) {
     return item;
 }
 
+let vaultFilesCache = [];
+
+function sortVaultFiles(files, sortBy) {
+    if (sortBy === "expiring") return files.slice().sort((a, b) => new Date(a.expires_at) - new Date(b.expires_at));
+    if (sortBy === "largest") return files.slice().sort((a, b) => (b.file_size || 0) - (a.file_size || 0));
+    if (sortBy === "name") return files.slice().sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
+    if (sortBy === "downloads") return files.slice().sort((a, b) => (b.download_count || 0) - (a.download_count || 0));
+    return files; // "newest" — get-shared-files already returns newest-first
+}
+
 async function renderSharedFiles() {
     const listEl = document.getElementById("sharedFilesList");
     const emptyEl = document.getElementById("sharedFilesEmptyState");
+    const noResultsEl = document.getElementById("vaultFilesNoResults");
 
     const result = await window.riftgate.invoke("get-shared-files", { username: settings.username, password: vaultPasswordCache });
+    vaultFilesCache = result.success ? result.files : [];
 
-    if (!result.success || result.files.length === 0) {
+    if (!result.success || vaultFilesCache.length === 0) {
+        clearVaultExpiryTickers("files");
         listEl.innerHTML = "";
+        noResultsEl.style.display = "none";
         emptyEl.style.display = "";
         emptyEl.querySelector("p").textContent = result.success
             ? "Nothing's been shared yet — be the first."
@@ -9769,9 +9892,34 @@ async function renderSharedFiles() {
     }
 
     emptyEl.style.display = "none";
-    listEl.innerHTML = "";
-    result.files.forEach((file) => listEl.appendChild(buildSharedFileItem(file)));
+    filterAndRenderVaultFiles();
 }
+
+function filterAndRenderVaultFiles() {
+    const listEl = document.getElementById("sharedFilesList");
+    const noResultsEl = document.getElementById("vaultFilesNoResults");
+    const query = document.getElementById("vaultFilesSearchInput").value.trim().toLowerCase();
+
+    let files = vaultFilesCache.filter((file) => {
+        if (!query) return true;
+        return [file.filename, file.description, file.uploader_username]
+            .some((field) => field && field.toLowerCase().includes(query));
+    });
+    files = sortVaultFiles(files, document.getElementById("vaultFilesSortSelect").value);
+
+    clearVaultExpiryTickers("files");
+    listEl.innerHTML = "";
+
+    if (files.length === 0) {
+        noResultsEl.style.display = "";
+        return;
+    }
+    noResultsEl.style.display = "none";
+    files.forEach((file) => listEl.appendChild(buildSharedFileItem(file)));
+}
+
+document.getElementById("vaultFilesSearchInput").addEventListener("input", filterAndRenderVaultFiles);
+document.getElementById("vaultFilesSortSelect").addEventListener("change", filterAndRenderVaultFiles);
 
 function daysUntilLinkExpiry(expiresAt) {
     const ms = new Date(expiresAt).getTime() - Date.now();
@@ -9806,11 +9954,19 @@ function buildSharedLinkItem(link) {
     const posterSpan = document.createElement("span");
     posterSpan.textContent = `👤 ${link.poster_username}`;
     meta.appendChild(posterSpan);
+    const openCount = typeof link.open_count === "number" ? link.open_count : 0;
+    const openCountSpan = document.createElement("span");
+    openCountSpan.textContent = `🌐 ${openCount} open${openCount === 1 ? "" : "s"}`;
+    meta.appendChild(openCountSpan);
     const expirySpan = document.createElement("span");
     expirySpan.textContent = expiry.text;
     if (expiry.soon) expirySpan.className = "expiring-soon";
     meta.appendChild(expirySpan);
     info.appendChild(meta);
+
+    const { track: expiryBarTrack, apply: expiryBarApply } = buildExpiryBar(link.expires_at, VAULT_LINK_EXPIRY_MAX_MS);
+    info.appendChild(expiryBarTrack);
+    registerVaultExpiryTicker("links", expirySpan, link.expires_at, daysUntilLinkExpiry, expiryBarApply);
 
     item.appendChild(info);
 
@@ -9822,6 +9978,14 @@ function buildSharedLinkItem(link) {
     openBtn.textContent = "🌐 Open Link";
     openBtn.addEventListener("click", () => {
         window.riftgate.invoke("open-external", link.url);
+
+        const newCount = openCount + 1;
+        openCountSpan.textContent = `🌐 ${newCount} open${newCount === 1 ? "" : "s"}`;
+        window.riftgate.invoke("increment-shared-link-open", link.id).then((countResult) => {
+            if (countResult && countResult.success && typeof countResult.openCount === "number") {
+                openCountSpan.textContent = `🌐 ${countResult.openCount} open${countResult.openCount === 1 ? "" : "s"}`;
+            }
+        }).catch(() => {});
     });
     actions.appendChild(openBtn);
 
@@ -9852,14 +10016,27 @@ function buildSharedLinkItem(link) {
     return item;
 }
 
+let vaultLinksCache = [];
+
+function sortVaultLinks(links, sortBy) {
+    if (sortBy === "expiring") return links.slice().sort((a, b) => new Date(a.expires_at) - new Date(b.expires_at));
+    if (sortBy === "name") return links.slice().sort((a, b) => (a.description || "").localeCompare(b.description || ""));
+    if (sortBy === "opens") return links.slice().sort((a, b) => (b.open_count || 0) - (a.open_count || 0));
+    return links; // "newest" — get-shared-links already returns newest-first
+}
+
 async function renderSharedLinks() {
     const listEl = document.getElementById("sharedLinksList");
     const emptyEl = document.getElementById("sharedLinksEmptyState");
+    const noResultsEl = document.getElementById("vaultLinksNoResults");
 
     const result = await window.riftgate.invoke("get-shared-links", { username: settings.username, password: vaultPasswordCache });
+    vaultLinksCache = result.success ? result.links : [];
 
-    if (!result.success || result.links.length === 0) {
+    if (!result.success || vaultLinksCache.length === 0) {
+        clearVaultExpiryTickers("links");
         listEl.innerHTML = "";
+        noResultsEl.style.display = "none";
         emptyEl.style.display = "";
         emptyEl.querySelector("p").textContent = result.success
             ? "No links posted yet."
@@ -9868,9 +10045,34 @@ async function renderSharedLinks() {
     }
 
     emptyEl.style.display = "none";
-    listEl.innerHTML = "";
-    result.links.forEach((link) => listEl.appendChild(buildSharedLinkItem(link)));
+    filterAndRenderVaultLinks();
 }
+
+function filterAndRenderVaultLinks() {
+    const listEl = document.getElementById("sharedLinksList");
+    const noResultsEl = document.getElementById("vaultLinksNoResults");
+    const query = document.getElementById("vaultLinksSearchInput").value.trim().toLowerCase();
+
+    let links = vaultLinksCache.filter((link) => {
+        if (!query) return true;
+        return [link.description, link.poster_username, link.url]
+            .some((field) => field && field.toLowerCase().includes(query));
+    });
+    links = sortVaultLinks(links, document.getElementById("vaultLinksSortSelect").value);
+
+    clearVaultExpiryTickers("links");
+    listEl.innerHTML = "";
+
+    if (links.length === 0) {
+        noResultsEl.style.display = "";
+        return;
+    }
+    noResultsEl.style.display = "none";
+    links.forEach((link) => listEl.appendChild(buildSharedLinkItem(link)));
+}
+
+document.getElementById("vaultLinksSearchInput").addEventListener("input", filterAndRenderVaultLinks);
+document.getElementById("vaultLinksSortSelect").addEventListener("change", filterAndRenderVaultLinks);
 
 document.getElementById("openWetransferBtn").addEventListener("click", () => {
     window.riftgate.invoke("open-external", "https://wetransfer.com");
