@@ -3446,6 +3446,45 @@ body.is-fullscreen #mainContent{
     color:var(--text-primary);
 }
 
+/* Installed section's topbar actions — "Scan for Apps & Games" and
+   "Remove Apps & Games", moved here from the sidebar (see index.html).
+   Same shape/sizing as .free-games-controls button so every section's
+   library-management buttons read as one family; --danger just tints
+   the destructive one so it doesn't look identical to Scan/Add. */
+.library-action-btn{
+    flex:none;
+    padding:10px 14px;
+    border-radius:8px;
+    border:none;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:13px;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.library-action-btn:hover{
+    background:var(--accent-1);
+    color:#fff;
+}
+
+.library-action-btn:disabled{
+    opacity:0.6;
+    cursor:default;
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+}
+
+.library-action-btn--danger{
+    border:1px solid rgba(230,80,80,0.4);
+    color:#ff8a8a;
+}
+
+.library-action-btn--danger:hover{
+    background:#c62828;
+    color:#fff;
+}
+
 /* A quick, always-visible sense of how many games currently match —
    confirms the list IS filtered (rather than just short) once any filter
    narrows it down. */
@@ -4877,6 +4916,7 @@ body.startup-locked{
 .show-result-chip button,
 .theater-actions button,
 .free-games-controls button,
+.library-action-btn,
 .suggestion-admin-actions button,
 .app-card-actions button,
 .shared-file-actions button,
@@ -4896,6 +4936,7 @@ body.startup-locked{
 .show-result-chip button:hover,
 .theater-actions button:hover,
 .free-games-controls button:not(:disabled):hover,
+.library-action-btn:not(:disabled):hover,
 .suggestion-admin-actions button:hover,
 .app-card-actions button:hover,
 .shared-file-actions button:hover,
@@ -4913,6 +4954,7 @@ body.startup-locked{
 .show-search-row button:active,
 .theater-actions button:active,
 .free-games-controls button:not(:disabled):active,
+.library-action-btn:not(:disabled):active,
 .suggestion-admin-actions button:active,
 .app-card-actions button:active,
 .shared-file-actions button:active,
@@ -4923,6 +4965,7 @@ body.startup-locked{
 }
 
 .free-games-controls button:disabled,
+.library-action-btn:disabled,
 .header-actions button:disabled{
     box-shadow:none;
     transform:none;
