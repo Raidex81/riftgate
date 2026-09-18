@@ -1003,7 +1003,15 @@
 
         <div id="sharedFolderContent" style="display:none;">
             <div class="topbar" style="padding:0 16px;">
-                <div class="actions">
+                <div class="actions" style="flex-wrap:wrap;">
+                    <input type="text" id="vaultFilesSearchInput" placeholder="Search files...">
+                    <select id="vaultFilesSortSelect">
+                        <option value="newest">Sort: Newest First</option>
+                        <option value="expiring">Sort: Expiring Soonest</option>
+                        <option value="largest">Sort: Largest First</option>
+                        <option value="name">Sort: Name (A-Z)</option>
+                        <option value="downloads">Sort: Most Downloaded</option>
+                    </select>
                     <button id="uploadSharedFileBtn" class="launchBtn" style="flex:none;padding:8px 16px;">📤 Share a File</button>
                     <button id="openWetransferBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🌐 Open WeTransfer</button>
                     <button id="openSendgbBtn" class="launchBtn" style="flex:none;padding:8px 16px;">🌐 Open SendGB</button>
@@ -1016,6 +1024,10 @@
                 <p style="color:var(--text-muted);font-size:13px;">Nothing's been shared yet — be the first.</p>
             </div>
 
+            <div class="category-section" id="vaultFilesNoResults" style="padding:0 16px;display:none;">
+                <p style="color:var(--text-muted);font-size:13px;">No files match your search.</p>
+            </div>
+
             <div id="sharedFilesList" class="shared-files-list"></div>
 
             <div class="category-section" style="padding:0 16px;margin-top:28px;">
@@ -1024,13 +1036,24 @@
             </div>
 
             <div class="topbar" style="padding:0 16px;">
-                <div class="actions">
+                <div class="actions" style="flex-wrap:wrap;">
+                    <input type="text" id="vaultLinksSearchInput" placeholder="Search links...">
+                    <select id="vaultLinksSortSelect">
+                        <option value="newest">Sort: Newest First</option>
+                        <option value="expiring">Sort: Expiring Soonest</option>
+                        <option value="name">Sort: Description (A-Z)</option>
+                        <option value="opens">Sort: Most Opened</option>
+                    </select>
                     <button id="postShareLinkBtn" class="launchBtn" style="flex:none;padding:8px 16px;">➕ Post a Link</button>
                 </div>
             </div>
 
             <div class="category-section" id="sharedLinksEmptyState" style="padding:0 16px;display:none;">
                 <p style="color:var(--text-muted);font-size:13px;">No links posted yet.</p>
+            </div>
+
+            <div class="category-section" id="vaultLinksNoResults" style="padding:0 16px;display:none;">
+                <p style="color:var(--text-muted);font-size:13px;">No links match your search.</p>
             </div>
 
             <div id="sharedLinksList" class="shared-files-list"></div>
