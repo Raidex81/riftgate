@@ -111,6 +111,8 @@ const INVOKABLE_CHANNELS = new Set([
     "get-watchlist",
     "import-backup-data",
     "increment-community-app-visit",
+    "increment-shared-file-download",
+    "increment-shared-link-open",
     "launch-app",
     "launch-ebook",
     "load-games",
