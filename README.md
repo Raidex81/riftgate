@@ -2,13 +2,9 @@
 
 **Your games. Your apps. Your media. One gateway.**
 
-A unified desktop launcher for Windows — organize your installed games
-and apps, catch what's free right now on Steam and Epic, track the
-movies and shows you care about, keep your book library close, and let
-Riftgate surprise you when you can't decide. All in one place, all in a
-UI that just got a serious redesign.
-
-**[🌐 See it in action →](https://raidex81.github.io/riftgate/)**
+A unified desktop launcher — organize your installed games and apps,
+discover what's free right now on Steam and Epic, and keep track of the
+movies and shows you care about, all in one place.
 
 ---
 
@@ -32,56 +28,37 @@ the `.exe` file.
 
 ## What's inside
 
-**📀 Installed Library** — every game, app, and VR title you run, in
-one shelf. Drag and drop a shortcut or `.exe` straight onto the page to
-add it, drag any card to reorder your library, and let Riftgate
-auto-fetch cover art, descriptions, and hover trailers for you. Apps get
-their own clean, icon-first card style instead of being squeezed into a
-game box-art frame.
+**📀 Installed Library** — organize every game, app, and VR title you
+run, with drag-and-drop reordering, auto-fetched cover art and
+descriptions, and hover trailers.
 
-**🎁 Free Games** — a live, auto-updating feed of what's free to keep
-or free to play right now on Steam and Epic Games, split out by
-platform so a good deal never gets buried.
+**🎁 Free Games** — a live, auto-updating list of what's free to keep
+or free to play right now on Steam, Epic Games, GOG, itch.io, and
+giveaway aggregators like GamerPower.
 
-**🎬 Theatre** — track TV series for new episodes (with the air date
-front and center), browse movies currently playing near you, and
-preview anything with a full-screen trailer before you commit.
+**🎬 Theatre** — track TV series for new episodes (with ratings and a
+next-episode countdown), browse movies currently playing near you, and
+jump into a full-screen trailer preview.
 
-**📚 Reading Room** — four tabs in one place: buy current best sellers
-and new releases, discover free public-domain books, keep your own
-personal EPUB/PDF library (drag-and-drop, even while Riftgate is
-closed), and browse recommended eBook reader apps.
+**📚 Reading Room** — your own eBook library (EPUB/PDF), plus Discover
+Online and Buy Books tabs for free and mainstream titles, with
+dedicated Manga and Comics browsing.
 
-**🧩 Applications** — a short, curated list of genuinely useful apps
-recommended by admins, with a link straight out to each one. Know
-something worth adding? Suggest it from right inside the app.
+**🧩 Applications** — tools and apps built by the community, each with
+a creator credit and a link straight to where to grab it — browse by
+search or sort by newest, most visited, name, or author.
 
-**🆕 New** — one feed for what's newly released or coming soon, across
-movies, series, and games, with hover trailers built right in.
+**🔮 The Vault** — a private, invite-only space to share files and
+links with people you trust, with automatic expiration so nothing
+lingers.
 
-**🎲 Surprise Me** — can't decide? Spin it. It already knows what
-section you're in — games, movies, free games, or books — and the
-result comes with real context: genre, whether you've played it before
-and when, release info, all of it.
+**🆕 New** — see what's newly released or coming soon across movies,
+series, and games, all in one feed.
 
-**🔒 The Vault** — a private, sign-in-gated space of your own inside
-the app, for quick and temporary file sharing.
+**🎲 Surprise Me** — can't decide? Spin the wheel.
 
-Nine color themes, light/dark mode, adjustable grid density, a
-first-run tour that walks you through the app, and fully automatic
-updates — install once, and every update after that installs itself.
-
----
-
-## What's new
-
-Riftgate just went through a full design pass: a dramatically more
-compact header, quick-action buttons that no longer float over your
-library, a real empty-state for a library that's just getting started,
-a consistent icon system, responsive card sizing so long titles stop
-getting cut off, and a richer Surprise Me. See the
-[full changelog](https://github.com/Raidex81/Riftgate/releases) for
-every release.
+Nine color themes, light/dark mode, adjustable grid density, and a
+fully custom interface — automatic updates included.
 
 ---
 
