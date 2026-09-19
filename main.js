@@ -7038,14 +7038,36 @@ app.whenReady().then(async () => {
     // relayed to the renderer over IPC, so the page has nothing to reach
     // out to on its own.
     const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self'; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-        callback({
-            responseHeaders: {
-                ...details.responseHeaders,
-                "Content-Security-Policy": [CSP]
+    // BUG FIXED: this originally had no URL filter, so it rewrote the
+    // Content-Security-Policy header on EVERY response in the whole
+    // session — including the YouTube trailer iframe's own page and
+    // everything it loads. YouTube's actual video data streams from a
+    // completely different origin (*.googlevideo.com), so Riftgate's
+    // media-src/connect-src 'self' was silently blocking YOUTUBE'S OWN
+    // player from fetching video — hence trailers loading as a black,
+    // frozen frame instead of playing. The filter below (host-only —
+    // match patterns can't restrict by port) plus the exact-port check
+    // inside the listener make sure this CSP only ever applies to
+    // Riftgate's own page, never to anything else the app happens to
+    // load (YouTube embeds now, potentially other third-party iframes
+    // later).
+    session.defaultSession.webRequest.onHeadersReceived(
+        { urls: ["http://127.0.0.1/*"] },
+        (details, callback) => {
+            const isOwnPage = localServerPort !== null
+                && details.url.startsWith(`http://127.0.0.1:${localServerPort}/`);
+            if (!isOwnPage) {
+                callback({});
+                return;
             }
-        });
-    });
+            callback({
+                responseHeaders: {
+                    ...details.responseHeaders,
+                    "Content-Security-Policy": [CSP]
+                }
+            });
+        }
+    );
 
     registerFreeGamesCoverCacheProtocol();
     await createWindow();
