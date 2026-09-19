@@ -540,15 +540,6 @@
             <source src="/assets/riftgate-banner-video.mp4" type="video/mp4">
         </video>
     </header>
-    <script>
-        // Respect prefers-reduced-motion: a looping video isn't something
-        // CSS can pause on its own, so do it directly.
-        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            const heroVideo = document.querySelector(".hero-banner-video");
-            if (heroVideo) heroVideo.pause();
-        }
-    </script>
-
     <div class="fact-ticker">
         <div class="fact-ticker-track" id="factTickerTrack"></div>
     </div>

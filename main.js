@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage, protocol } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage, protocol, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { execFile } = require("child_process");
 const fs = require("fs");
@@ -7735,6 +7735,30 @@ ipcMain.handle("quit-and-install-update", async () => {
 });
 
 app.whenReady().then(async () => {
+    // Content-Security-Policy, applied at the network layer (not a <meta>
+    // tag) so it can't be bypassed by anything that gets injected into the
+    // page. script-src/style-src stay locked to 'self' (style-src also
+    // allows 'unsafe-inline' since the UI uses plenty of inline style=""
+    // attributes) — no remote script can ever run in this window. img-src
+    // allows any https: host plus the covercache: scheme and data: URIs,
+    // since cover art/avatars are pulled from dozens of unpredictable CDNs
+    // (Steam, TMDB, GitHub, Epic, itch.io, per-game vendor sites, etc.) and
+    // there's no fixed list to allowlist. frame-src is scoped to YouTube
+    // only, for trailer embeds. connect-src is 'self' because the renderer
+    // never calls fetch()/XHR itself — every external API call happens in
+    // this process (main.js, over Node's https module) and results are
+    // relayed to the renderer over IPC, so the page has nothing to reach
+    // out to on its own.
+    const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self'; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                "Content-Security-Policy": [CSP]
+            }
+        });
+    });
+
     registerFreeGamesCoverCacheProtocol();
     await createWindow();
     startDropzoneWatcher();
