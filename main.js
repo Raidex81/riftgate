@@ -23,6 +23,7 @@ const {
     runWithConcurrencyLimit,
     fetchWithRetry
 } = require("./services/http");
+const tvmaze = require("./services/tvmaze");
 
 // Registering a custom scheme's privileges must happen before the app is
 // "ready" — Electron ignores registerSchemesAsPrivileged calls made any
@@ -1424,9 +1425,7 @@ ipcMain.handle("resolve-shortcut", async (event, filePath) => {
 
 ipcMain.handle("search-tv-shows", async (event, query) => {
     try {
-        const results = await httpsGetJsonPlain(
-            `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`
-        );
+        const results = await tvmaze.searchShows(query);
 
         return results.slice(0, 10).map((r) => ({
             id: r.show.id,
@@ -1499,9 +1498,7 @@ ipcMain.handle("get-latest-episodes", async () => {
 
     for (const show of list) {
         try {
-            const episodes = await httpsGetJsonPlain(
-                `https://api.tvmaze.com/shows/${show.id}/episodes`
-            );
+            const episodes = await tvmaze.getShowEpisodes(show.id);
 
             const aired = episodes.filter(
                 (ep) => ep.airstamp && new Date(ep.airstamp).getTime() <= Date.now()
@@ -1541,9 +1538,7 @@ ipcMain.handle("get-latest-episodes", async () => {
 // shows are tracked.
 ipcMain.handle("get-show-meta", async (event, showId) => {
     try {
-        const detail = await httpsGetJsonPlain(
-            `https://api.tvmaze.com/shows/${showId}?embed=nextepisode`
-        );
+        const detail = await tvmaze.getShowWithNextEpisode(showId);
         const next = detail._embedded && detail._embedded.nextepisode;
 
         return {
