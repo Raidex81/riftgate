@@ -42,26 +42,30 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round (v1.4.0):
+Quick pass on what actually changed this round (v1.4.1):
 
-- **Before testing:** run `community-apps-visits.sql` and
-  `vault-download-counter.sql` (both in `Claude outputs\`) in the
-  Supabase SQL editor if you haven't already — without them the new
-  visit/download counters below will just silently stay at 0.
-- **Applications** — open the section. Confirm the search box filters
-  cards and the sort dropdown (Newest / Most Visited / Name / Author)
-  reorders them. Cards should show a GitHub avatar (or a generated
-  colored icon for non-GitHub apps), a "NEW" badge on anything added
-  in the last 14 days, and a clickable author link for GitHub-hosted
-  apps. Click Visit and confirm the visit count ticks up.
-- **The Vault** — log in and open the section. Confirm the search box
-  and sort dropdown work for both Files and Links. Each item should
-  show a file-type icon (not just a generic document icon) and a
-  color-coded countdown bar next to its "Expires in..." text. Download
-  a file / open a link and confirm its count ticks up.
+- **Trailers** — open Theatre (or New Series) and play a trailer.
+  Confirm the video actually plays with sound, not a black/frozen
+  frame — this was broken this round (a too-broad Content-Security-
+  Policy was blocking YouTube's own player from loading video data)
+  and is the one user-visible fix in this release.
+- **Everything else, generally** — this release also bumped Electron
+  31→44 and added a Content-Security-Policy plus IPC sender validation
+  app-wide, none of which should change how anything *looks* or
+  *behaves*, but both touch literally every feature. Worth a broader
+  click-through pass, not just the trailer: Installed Library, Free
+  Games, Reading Room, Applications, The Vault (upload/download/
+  preview/delete, for both Files and Links), and the update-check
+  flow. If something's subtly broken, check DevTools (Ctrl+Shift+I)
+  console for a "Refused to ... because it violates the following
+  Content Security Policy" or "[ipc] blocked ..." message — either one
+  points straight at the cause.
+- **The Vault specifically** — also got a real fix this round
+  (downloading/previewing a file now re-checks your password, where
+  before it didn't check at all). Confirm both still work end to end.
 - **🔔 Notifications (changelog)** — click the bell icon and confirm
-  v1.4.0 and v1.3.12 both show real patch notes instead of the list
-  stopping at v1.3.11.
+  v1.4.1 shows real patch notes instead of the list stopping at
+  v1.4.0.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
