@@ -24,6 +24,7 @@ const {
     fetchWithRetry
 } = require("./services/http");
 const tvmaze = require("./services/tvmaze");
+const github = require("./services/github");
 
 // Registering a custom scheme's privileges must happen before the app is
 // "ready" — Electron ignores registerSchemesAsPrivileged calls made any
@@ -7137,37 +7138,6 @@ ipcMain.handle("get-community-apps", async () => {
     }
 });
 
-// GitHub exposes a repo's own short description with no auth needed for
-// public repos — used to fill in a description automatically when an
-// admin adds a github.com link, so they don't have to type one unless
-// they want to. Any other host, a private/missing repo, or a repo with
-// no description set just comes back null, and the admin types one in
-// themselves (see add-community-app below).
-function extractGithubRepoPath(rawUrl) {
-    try {
-        const parsed = new URL(rawUrl);
-        if (!/(^|\.)github\.com$/i.test(parsed.hostname)) return null;
-        const parts = parsed.pathname.split("/").filter(Boolean);
-        if (parts.length < 2) return null;
-        return `${parts[0]}/${parts[1]}`;
-    } catch (err) {
-        return null;
-    }
-}
-
-async function fetchGithubRepoDescription(rawUrl) {
-    const repoPath = extractGithubRepoPath(rawUrl);
-    if (!repoPath) return null;
-
-    try {
-        const data = await fetchWithRetry(`https://api.github.com/repos/${repoPath}`, 8000, 1);
-        return (data && typeof data.description === "string" && data.description.trim()) || null;
-    } catch (err) {
-        console.error("[apps] GitHub description fetch failed:", err.message || err);
-        return null;
-    }
-}
-
 ipcMain.handle("add-community-app", async (event, { adminUsername, adminPassword, name, url, author, description }) => {
     const trimmedName = (name || "").trim();
     const trimmedUrl = (url || "").trim();
@@ -7184,7 +7154,7 @@ ipcMain.handle("add-community-app", async (event, { adminUsername, adminPassword
 
     // The repo owner IS the author for a GitHub link — no extra request
     // needed, it's already right there in the URL.
-    const repoPath = extractGithubRepoPath(trimmedUrl);
+    const repoPath = github.extractRepoPath(trimmedUrl);
     let finalAuthor = (author || "").trim() || null;
     if (!finalAuthor && repoPath) {
         finalAuthor = repoPath.split("/")[0];
@@ -7192,7 +7162,7 @@ ipcMain.handle("add-community-app", async (event, { adminUsername, adminPassword
 
     let finalDescription = (description || "").trim() || null;
     if (!finalDescription) {
-        finalDescription = await fetchGithubRepoDescription(trimmedUrl);
+        finalDescription = await github.fetchRepoDescription(trimmedUrl);
     }
 
     const result = await callAdminRpc("add_community_app", {
