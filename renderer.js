@@ -1206,6 +1206,10 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.4.1": [
+        "Fixed: trailers (YouTube previews) were showing a black frame instead of playing",
+        "Changed: upgraded Riftgate's underlying framework (Electron) to the current supported version, plus a round of under-the-hood security hardening"
+    ],
     "1.4.0": [
         "New: Applications rebuilt — each app now shows a GitHub avatar (or a generated icon if it isn't hosted on GitHub), a \"NEW\" badge for recent additions, a clickable link to the creator's GitHub profile, and a visit counter, plus a search box and a sort dropdown (Newest / Most Visited / Name / Author)",
         "New: The Vault rebuilt — files and links now show a file-type icon (PDF, archive, video, audio, code, and more, not just a generic document icon), a color-coded countdown bar that visibly drains as the expiry approaches, and a download/open counter, plus a search box and sort dropdown for both files and links"
