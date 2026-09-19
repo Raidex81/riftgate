@@ -36,6 +36,7 @@
       "!Claude outputs{,/**/*}",
       "!.gitignore",
       "!README.md",
+      "!ARCHITECTURE.md",
       "!build-installer.bat"
     ],
     "asarUnpack": [

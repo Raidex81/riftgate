@@ -67,4 +67,13 @@ fully custom interface — automatic updates included.
 This is a personal project — all rights reserved. It isn't currently
 open for external contributions, but feel free to look around.
 
-Built with [Electron](https://www.electronjs.org/).
+Built with [Electron](https://www.electronjs.org/), backed by
+[Supabase](https://supabase.com/) for shared/cloud data (accounts, The
+Vault, Applications, community suggestions). Third-party media APIs
+(TMDB, RAWG, SteamGridDB, YouTube) are proxied server-side, so no vendor
+keys ship inside the app.
+
+For a deeper technical look — the Electron process model, IPC and
+security hardening, the Vault's auth model, what's stored locally vs. in
+the cloud, external data sources, and the build/release pipeline — see
+**[ARCHITECTURE.md](ARCHITECTURE.md)**.
