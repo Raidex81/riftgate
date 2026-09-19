@@ -42,20 +42,26 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round:
+Quick pass on what actually changed this round (v1.4.0):
 
-- **Free Games** — open the section. If you've opened it before, it
-  should show instantly with no long wait. Click the new "🔄 Refresh"
-  button and confirm it fetches a fresh list (button briefly shows
-  "Refreshing...").
-- **New → Upcoming Movies** — confirm the new country dropdown shows up
-  next to the heading, and changing it reloads the list for that
-  country.
-- **Any game/movie/show card** — hover over it: no trailer should
-  auto-play anymore. Click "Watch larger" (movies also have a ▶
-  button) and confirm the trailer plays in the popup player instead.
-- **Settings → Display** — confirm the old "Hover trailers" toggle is
-  gone.
+- **Before testing:** run `community-apps-visits.sql` and
+  `vault-download-counter.sql` (both in `Claude outputs\`) in the
+  Supabase SQL editor if you haven't already — without them the new
+  visit/download counters below will just silently stay at 0.
+- **Applications** — open the section. Confirm the search box filters
+  cards and the sort dropdown (Newest / Most Visited / Name / Author)
+  reorders them. Cards should show a GitHub avatar (or a generated
+  colored icon for non-GitHub apps), a "NEW" badge on anything added
+  in the last 14 days, and a clickable author link for GitHub-hosted
+  apps. Click Visit and confirm the visit count ticks up.
+- **The Vault** — log in and open the section. Confirm the search box
+  and sort dropdown work for both Files and Links. Each item should
+  show a file-type icon (not just a generic document icon) and a
+  color-coded countdown bar next to its "Expires in..." text. Download
+  a file / open a link and confirm its count ticks up.
+- **🔔 Notifications (changelog)** — click the bell icon and confirm
+  v1.4.0 and v1.3.12 both show real patch notes instead of the list
+  stopping at v1.3.11.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
