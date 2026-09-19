@@ -20,6 +20,66 @@ protocol.registerSchemesAsPrivileged([
     { scheme: "covercache", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }
 ]);
 
+// The local http://127.0.0.1:<port> server (see startLocalServer()) is the
+// ONLY page this app ever loads, and its port is randomized per launch —
+// set once createWindow() knows it. Every ipcMain handler below is wrapped
+// to reject any call whose sender frame isn't that exact origin, so even a
+// hypothetical XSS or a stray window/frame can't reach into main-process
+// IPC just because it shares a process with the real window.
+let localServerPort = null;
+
+function isTrustedIpcSender(event) {
+    try {
+        const senderURL = new URL(
+            event.senderFrame ? event.senderFrame.url : event.sender.getURL()
+        );
+        return (
+            senderURL.protocol === "http:" &&
+            senderURL.hostname === "127.0.0.1" &&
+            localServerPort !== null &&
+            senderURL.port === String(localServerPort)
+        );
+    } catch (err) {
+        return false;
+    }
+}
+
+const _ipcMainHandle = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, listener) => {
+    _ipcMainHandle(channel, (event, ...args) => {
+        if (!isTrustedIpcSender(event)) {
+            const from = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
+            console.warn(`[ipc] blocked "${channel}" from untrusted sender: ${from}`);
+            throw new Error("Untrusted IPC sender");
+        }
+        return listener(event, ...args);
+    });
+};
+
+const _ipcMainOn = ipcMain.on.bind(ipcMain);
+ipcMain.on = (channel, listener) => {
+    _ipcMainOn(channel, (event, ...args) => {
+        if (!isTrustedIpcSender(event)) {
+            const from = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
+            console.warn(`[ipc] blocked "${channel}" from untrusted sender: ${from}`);
+            return;
+        }
+        return listener(event, ...args);
+    });
+};
+
+const _ipcMainOnce = ipcMain.once.bind(ipcMain);
+ipcMain.once = (channel, listener) => {
+    _ipcMainOnce(channel, (event, ...args) => {
+        if (!isTrustedIpcSender(event)) {
+            const from = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
+            console.warn(`[ipc] blocked "${channel}" from untrusted sender: ${from}`);
+            return;
+        }
+        return listener(event, ...args);
+    });
+};
+
 // GAMES_FILE, COVERS_FOLDER and SETTINGS_FILE point into the user's writable
 // AppData folder, not the app's own install directory (which is read-only
 // once installed via the Windows installer). Assigned in initUserData().
@@ -1189,6 +1249,7 @@ async function createWindow() {
     }
 
     const port = await startLocalServer();
+    localServerPort = port;
 
     win = new BrowserWindow({
         width: 1400,
