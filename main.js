@@ -7069,6 +7069,25 @@ app.whenReady().then(async () => {
         }
     );
 
+    // Electron's default for both of these is ALLOW — a permission
+    // request or check that nothing here handles is granted automatically.
+    // Since Riftgate loads real third-party content (the YouTube trailer
+    // iframe today, potentially other embedded pages later), that default
+    // is worth overriding explicitly rather than relying on: nothing on
+    // Riftgate's own feature list needs camera, microphone, geolocation,
+    // notifications, MIDI, clipboard access, screen/window capture, or raw
+    // USB/HID/serial device access, so all of those are denied outright.
+    // "fullscreen" is the one exception — the YouTube player's own
+    // fullscreen button depends on it, and it doesn't expose anything
+    // sensitive.
+    const ALLOWED_PERMISSIONS = new Set(["fullscreen"]);
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        callback(ALLOWED_PERMISSIONS.has(permission));
+    });
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+        return ALLOWED_PERMISSIONS.has(permission);
+    });
+
     registerFreeGamesCoverCacheProtocol();
     await createWindow();
     startDropzoneWatcher();
