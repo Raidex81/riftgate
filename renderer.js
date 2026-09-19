@@ -9756,7 +9756,7 @@ async function showVaultImagePreview(file, anchorEl) {
     let url = vaultPreviewUrlCache[file.storage_path];
 
     if (!url) {
-        const result = await window.riftgate.invoke("get-shared-file-preview-url", file.storage_path);
+        const result = await window.riftgate.invoke("get-shared-file-preview-url", { username: settings.username, password: vaultPasswordCache, storagePath: file.storage_path });
         if (!result.success) return;
         url = result.url;
         vaultPreviewUrlCache[file.storage_path] = url;
@@ -9834,7 +9834,7 @@ function buildSharedFileItem(file) {
     downloadBtn.textContent = "⬇️ Download";
     downloadBtn.addEventListener("click", async () => {
         downloadBtn.disabled = true;
-        const result = await window.riftgate.invoke("download-shared-file", { storagePath: file.storage_path, filename: file.filename });
+        const result = await window.riftgate.invoke("download-shared-file", { username: settings.username, password: vaultPasswordCache, storagePath: file.storage_path, filename: file.filename });
         downloadBtn.disabled = false;
         if (!result.canceled && !result.success) {
             showCustomAlert(result.error || "Download failed.");

@@ -7137,11 +7137,33 @@ ipcMain.handle("upload-shared-file", async (event, { username, password, descrip
     }
 });
 
+// Every other Vault handler (get-shared-files, delete-shared-file, etc.)
+// re-checks the Vault password against the database on every call — these
+// two didn't: they took a bare storagePath and handed back a real signed
+// download URL with no credential check at all, relying only on the
+// caller already having gone through the password-gated get-shared-files
+// call to learn a storagePath in the first place. That's not a check,
+// it's an assumption — anything able to reach this IPC channel (e.g. a
+// future XSS, or just a guessed/leaked storage path) could pull a file
+// straight out of the Vault with no password at all. This re-verifies the
+// password by re-running get_shared_files (the same RPC the file list
+// itself uses to authenticate) and confirming the requested storagePath
+// is actually in that authorized user's own result set before signing
+// anything.
+async function isAuthorizedForSharedFile(username, password, storagePath) {
+    const result = await callAdminRpc("get_shared_files", { p_username: username, p_password: password || null });
+    if (!result.success || !Array.isArray(result.result)) return false;
+    return result.result.some((file) => file.storage_path === storagePath);
+}
+
 // Just the signed URL, no save dialog — used for hover-preview of image
 // files, as opposed to download-shared-file which is the full
 // "pick where to save it" flow.
-ipcMain.handle("get-shared-file-preview-url", async (event, storagePath) => {
+ipcMain.handle("get-shared-file-preview-url", async (event, { username, password, storagePath }) => {
     try {
+        if (!(await isAuthorizedForSharedFile(username, password, storagePath))) {
+            return { success: false, error: "Not authorized for that file." };
+        }
         const { url, error } = await supabaseStorageSignedUrl(storagePath, 3600);
         return url ? { success: true, url } : { success: false, error };
     } catch (err) {
@@ -7149,7 +7171,11 @@ ipcMain.handle("get-shared-file-preview-url", async (event, storagePath) => {
     }
 });
 
-ipcMain.handle("download-shared-file", async (event, { storagePath, filename }) => {
+ipcMain.handle("download-shared-file", async (event, { username, password, storagePath, filename }) => {
+    if (!(await isAuthorizedForSharedFile(username, password, storagePath))) {
+        return { success: false, error: "Not authorized for that file." };
+    }
+
     const saveResult = await dialog.showSaveDialog(win, {
         title: "Save shared file",
         defaultPath: filename
