@@ -42,30 +42,29 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round (v1.4.1):
+Quick pass on what actually changed this round (v1.4.2):
 
-- **Trailers** — open Theatre (or New Series) and play a trailer.
-  Confirm the video actually plays with sound, not a black/frozen
-  frame — this was broken this round (a too-broad Content-Security-
-  Policy was blocking YouTube's own player from loading video data)
-  and is the one user-visible fix in this release.
-- **Everything else, generally** — this release also bumped Electron
-  31→44 and added a Content-Security-Policy plus IPC sender validation
-  app-wide, none of which should change how anything *looks* or
-  *behaves*, but both touch literally every feature. Worth a broader
-  click-through pass, not just the trailer: Installed Library, Free
-  Games, Reading Room, Applications, The Vault (upload/download/
-  preview/delete, for both Files and Links), and the update-check
-  flow. If something's subtly broken, check DevTools (Ctrl+Shift+I)
-  console for a "Refused to ... because it violates the following
-  Content Security Policy" or "[ipc] blocked ..." message — either one
-  points straight at the cause.
-- **The Vault specifically** — also got a real fix this round
-  (downloading/previewing a file now re-checks your password, where
-  before it didn't check at all). Confirm both still work end to end.
+- **Trailers — fullscreen button** — open Theatre (or New Series),
+  play a trailer, and click the YouTube player's own fullscreen
+  button. Confirm it still works. This release added a default-deny
+  permission handler for the whole app (camera, microphone,
+  geolocation, notifications, MIDI, clipboard, and screen/device
+  capture are now blocked unless a feature explicitly needs them) —
+  fullscreen is the one deliberate exception, kept specifically so
+  this button doesn't break. If it stops working, that's the first
+  place to look.
+- **Everything else, generally** — the permission handler is scoped
+  to permission *requests* (things like camera/mic/geolocation), not
+  to normal app behavior, so nothing else should look or act
+  differently. Still worth a quick click through Installed Library,
+  Free Games, Reading Room, Applications, and The Vault, since it
+  does apply session-wide rather than to one feature.
+- **This release is otherwise docs-only** — a new ARCHITECTURE.md and
+  README screenshots on GitHub. Nothing to test there; it doesn't
+  ship inside the app itself.
 - **🔔 Notifications (changelog)** — click the bell icon and confirm
-  v1.4.1 shows real patch notes instead of the list stopping at
-  v1.4.0.
+  v1.4.2 shows real patch notes instead of the list stopping at
+  v1.4.1.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
