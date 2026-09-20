@@ -37,6 +37,7 @@
       "!.gitignore",
       "!README.md",
       "!ARCHITECTURE.md",
+      "!screenshots{,/**/*}",
       "!build-installer.bat"
     ],
     "asarUnpack": [

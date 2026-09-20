@@ -6,6 +6,8 @@ A unified desktop launcher — organize your installed games and apps,
 discover what's free right now on Steam and Epic, and keep track of the
 movies and shows you care about, all in one place.
 
+![Riftgate — New tab, showing upcoming games and new series](screenshots/new.png)
+
 ---
 
 ## Download
@@ -32,30 +34,44 @@ the `.exe` file.
 run, with drag-and-drop reordering, auto-fetched cover art and
 descriptions, and hover trailers.
 
+![Installed Library](screenshots/installed-library.png)
+
 **🎁 Free Games** — a live, auto-updating list of what's free to keep
 or free to play right now on Steam, Epic Games, GOG, itch.io, and
 giveaway aggregators like GamerPower.
+
+![Free Games](screenshots/free-games.png)
 
 **🎬 Theatre** — track TV series for new episodes (with ratings and a
 next-episode countdown), browse movies currently playing near you, and
 jump into a full-screen trailer preview.
 
+![Theatre](screenshots/theatre.png)
+
 **📚 Reading Room** — your own eBook library (EPUB/PDF), plus Discover
 Online and Buy Books tabs for free and mainstream titles, with
 dedicated Manga and Comics browsing.
+
+![Reading Room](screenshots/reading-room.png)
 
 **🧩 Applications** — tools and apps built by the community, each with
 a creator credit and a link straight to where to grab it — browse by
 search or sort by newest, most visited, name, or author.
 
+![Applications](screenshots/applications.png)
+
 **🔮 The Vault** — a private, invite-only space to share files and
 links with people you trust, with automatic expiration so nothing
 lingers.
+
+![The Vault](screenshots/vault.png)
 
 **🆕 New** — see what's newly released or coming soon across movies,
 series, and games, all in one feed.
 
 **🎲 Surprise Me** — can't decide? Spin the wheel.
+
+![Surprise Me](screenshots/surprise-me.png)
 
 Nine color themes, light/dark mode, adjustable grid density, and a
 fully custom interface — automatic updates included.
