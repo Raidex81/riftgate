@@ -117,27 +117,21 @@ nav a:hover { color: var(--text); }
   order: 2;
 }
 
-.hero-gem { width: 320px; height: 320px; overflow: visible; }
-
-.facet {
-  transform-origin: center;
-  opacity: 0;
-  animation: assemble 1.2s cubic-bezier(.2,.9,.3,1) forwards;
+.hero-gem {
+  width: 320px;
+  height: 320px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(168, 85, 247, .45));
+  animation: gem-in 1s cubic-bezier(.2,.9,.3,1) forwards;
 }
-.f1 { fill: #c084fc; animation-delay: .05s; }
-.f2 { fill: #a855f7; animation-delay: .15s; }
-.f3 { fill: #ec4899; animation-delay: .25s; }
-.f4 { fill: #7c3aed; animation-delay: .35s; }
-.f5 { fill: #6d28d9; animation-delay: .45s; }
-.f6 { fill: #d946ef; animation-delay: .55s; }
 
-@keyframes assemble {
-  from { opacity: 0; transform: scale(.4) rotate(-25deg); }
+@keyframes gem-in {
+  from { opacity: 0; transform: scale(.85) rotate(-8deg); }
   to   { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .facet { animation: none; opacity: 1; }
+  .hero-gem { animation: none; opacity: 1; }
 }
 
 .hero-content { order: 1; }
