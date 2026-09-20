@@ -1206,6 +1206,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.4.2": [
+        "Changed: camera, microphone, location, and other sensitive browser permissions are now blocked by default app-wide, closing a gap where anything embedded in Riftgate could have silently been granted them"
+    ],
     "1.4.1": [
         "Fixed: trailers (YouTube previews) were showing a black frame instead of playing",
         "Changed: upgraded Riftgate's underlying framework (Electron) to the current supported version, plus a round of under-the-hood security hardening"
