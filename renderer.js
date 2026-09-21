@@ -6787,6 +6787,13 @@ function buildShowCard(show, navList) {
     card.querySelector(".removeShowBtn").addEventListener("click", async () => {
         await window.riftgate.invoke("remove-from-watchlist", show.id);
         loadMyShows();
+        // Keep the Recently Released row in sync: drop this show's entry
+        // immediately for instant feedback, then refetch in the background
+        // (same refresh loadRecentEpisodes already does after an add) so
+        // the row stays fully consistent with the current watchlist.
+        recentEpisodesCache = recentEpisodesCache.filter((ep) => ep.showId !== show.id);
+        renderRecentEpisodes();
+        loadRecentEpisodes();
     });
 
     card.querySelector(".soundToggle").addEventListener("click", (event) => {
