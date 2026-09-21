@@ -1153,6 +1153,34 @@ function initUserData() {
         console.error("[trailer] Store trailer cache migration failed:", err.message || err);
     }
 
+    // Second one-time cleanup: the YouTube-search relevance check used to
+    // accept a substring match ("black" inside "blackwood"), which could
+    // lock in a wrong trailer for a title sharing a word-fragment with an
+    // unrelated video (reported case: "The Black Within" resolved to a
+    // trailer for a different game, "Blackwood"). Now that the check
+    // requires a real whole-word match (see resultLooksRelevant), purge
+    // Store's cache again so anything cached under the old, looser check
+    // gets a chance to re-resolve correctly.
+    try {
+        const trailerCache = JSON.parse(fs.readFileSync(TRAILER_CACHE_FILE, "utf8"));
+        if (!trailerCache.__storeTrailerCacheMigrated2) {
+            let purged = 0;
+            for (const key of Object.keys(trailerCache)) {
+                if (key.startsWith("steam-") || key.startsWith("cheapshark-")) {
+                    delete trailerCache[key];
+                    purged++;
+                }
+            }
+            trailerCache.__storeTrailerCacheMigrated2 = true;
+            fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(trailerCache, null, 2));
+            if (purged > 0) {
+                console.log(`[trailer] One-time cleanup: cleared ${purged} previously-cached Store trailer(s) so they re-resolve under the stricter whole-word relevance check.`);
+            }
+        }
+    } catch (err) {
+        console.error("[trailer] Store trailer cache migration (2) failed:", err.message || err);
+    }
+
     if (!fs.existsSync(OVERRIDES_FILE)) {
         fs.writeFileSync(OVERRIDES_FILE, "{}");
     }
@@ -4716,9 +4744,19 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
             const words = significantWords(name);
             // A name with nothing meaningful left after stripping
             // stopwords (very short/generic titles) can't be checked
-            // this way — don't block on it rather than reject everything.
+            // this way -- don't block on it rather than reject everything.
             if (words.length === 0) return true;
-            return words.some((w) => titleLower.includes(w));
+            // \b...\b, not a plain substring check -- "black" has to
+            // match as its own word, never as a fragment buried inside a
+            // longer one. A real observed miss: "The Black Within"'s
+            // search came back with "Blackwood - Official Game Overview
+            // Trailer" (a completely different game) and the old
+            // titleLower.includes("black") happily accepted it, since
+            // "black" IS a substring of "blackwood". significantWords()
+            // already strips each word down to plain [a-z0-9] before this
+            // runs, so no regex-escaping is needed to build the pattern
+            // from it.
+            return words.some((w) => new RegExp(`\\b${w}\\b`).test(titleLower));
         });
     }
 

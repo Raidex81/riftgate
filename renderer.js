@@ -9631,6 +9631,21 @@ function renderStoreDeals() {
     }
     emptyState.style.display = "none";
 
+    // Newly Added is a fixed spotlight, not a filtered view -- it always
+    // reflects the full catalog, ranked by popularity (a real Steam
+    // review-count signal, not recency), and ignores whatever the search
+    // box or platform filter is currently set to. Most Popular/Recommended
+    // below are deliberately different: those DO respect the current
+    // filters, same as the main grid.
+    const now = Date.now();
+    const newlyAdded = storeDealsCache
+        .filter((d) => (d.firstSeenAt || 0) > now - STORE_NEW_WINDOW_MS)
+        .sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1))
+        .slice(0, STORE_SPOTLIGHT_CAP);
+    if (newlyAdded.length > 0) {
+        buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
+    }
+
     const query = document.getElementById("storeSearchInput").value.trim().toLowerCase();
     const platformFilter = document.getElementById("storePlatformSelect").value;
 
@@ -9670,19 +9685,14 @@ function renderStoreDeals() {
         .join(" · ");
     resultCount.textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}${breakdown ? ` (${breakdown})` : ""}`;
 
-    // Spotlight rows only make sense on the unfiltered "browse everything"
-    // view (search still narrows them, same as the grid below, but a
-    // platform filter already IS a much more specific view than any of
-    // these three, so they'd just be redundant/confusing alongside it) --
-    // same reasoning Free Games uses to hide its own spotlight in
-    // single-platform mode.
+    // Most Popular/Recommended only make sense on the unfiltered "browse
+    // everything" view (search still narrows them, same as the grid
+    // below, but a platform filter already IS a much more specific view
+    // than either of these, so they'd just be redundant/confusing
+    // alongside it) -- same reasoning Free Games uses to hide its own
+    // spotlight in single-platform mode. Newly Added above is exempt from
+    // this and always shows regardless.
     if (platformFilter === "all") {
-        const now = Date.now();
-        const newlyAdded = deals
-            .filter((d) => (d.firstSeenAt || 0) > now - STORE_NEW_WINDOW_MS)
-            .sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))
-            .slice(0, STORE_SPOTLIGHT_CAP);
-
         const mostPopular = deals
             .filter((d) => d.popularity != null)
             .sort((a, b) => b.popularity - a.popularity)
@@ -9698,12 +9708,11 @@ function renderStoreDeals() {
             .sort((a, b) => b.popularity - a.popularity)
             .slice(0, STORE_SPOTLIGHT_CAP);
 
-        if (newlyAdded.length > 0) buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
         if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular);
         if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended);
-
-        if (newRow.children.length > 0) browseHeading.style.display = "";
     }
+
+    if (newRow.children.length > 0) browseHeading.style.display = "";
 
     deals.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
 }
