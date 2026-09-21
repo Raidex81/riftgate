@@ -4235,7 +4235,6 @@ const SECTION_LABELS = {
 let freeGamesLoaded = false;
 let moviesLoaded = false;
 let communityAppsLoaded = false;
-let storeLoaded = false;
 let currentSection = "installed";
 
 // Floating icon sets for the ambient background layer — generic gaming
@@ -4445,8 +4444,14 @@ function performSectionSwitch(section) {
         loadFreeGames();
     }
 
-    if (section === "store" && !storeLoaded) {
-        storeLoaded = true;
+    // Unlike Free Games/Community Apps/Reading Room, this doesn't gate on
+    // storeLoaded -- get-store-deals (see main.js) already has its own 6h
+    // "only actually re-fetch from CheapShark/Steam once it's due, return
+    // cache instantly otherwise" throttle, so it's cheap to call every
+    // time this section is opened rather than only the first time, and
+    // that's what makes Store pick up new deals without needing the
+    // Refresh button pressed by hand.
+    if (section === "store") {
         loadStoreDeals();
     }
 
