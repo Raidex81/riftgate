@@ -2733,6 +2733,23 @@ body.is-fullscreen #mainContent{
     background:var(--accent-gradient);
 }
 
+/* Streaming Providers: each row's heading is the provider's own name,
+   with its logo (from TMDB's provider list, when it has one) as a small
+   icon in front -- most provider logos are flat-color glyphs designed
+   for a light backing, so a white chip behind them reads correctly
+   against this app's dark theme instead of blending into it or clipping
+   oddly. */
+.streaming-provider-heading-logo{
+    width:20px;
+    height:20px;
+    border-radius:5px;
+    object-fit:contain;
+    vertical-align:middle;
+    margin-right:8px;
+    background:#fff;
+    padding:2px;
+}
+
 /* Whatever trailing control sits after the heading (a select, a filter
    input) is pushed flush to the row's right edge with its own left
    auto-margin, instead of justify-content:space-between — space-between

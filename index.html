@@ -1294,20 +1294,22 @@
             <div id="moviesGrid" class="games-grid browse-grid"></div>
         </div>
 
-        <!-- Two independent pieces here: a trending row per streaming
-             provider (dropdown populated live from TMDB's own provider
-             list -- see get-watch-providers in main.js, no hardcoded IDs),
-             and a free-text search that looks up ANY title's provider
-             availability, not limited to whichever provider is selected
-             above. -->
-        <div class="theatre-block" data-block="streaming-providers">
-            <div class="theatre-block-header">
-                <h2>📡 Streaming Providers</h2>
-                <select id="streamingProviderSelect"></select>
-            </div>
-            <div id="streamingProviderGrid" class="games-grid browse-grid"></div>
+        <!-- One trending row PER streaming provider (Netflix, Max, Disney
+             Plus, etc -- each its own heading, not lumped under a single
+             "Streaming Providers" block), built dynamically in renderer.js
+             from TMDB's own provider list (see get-watch-providers in
+             main.js -- no hardcoded IDs, and a provider that doesn't
+             actually serve this region just doesn't get a row). Plus a
+             free-text search below all of them that looks up ANY title's
+             provider availability, not limited to whichever providers got
+             a row above. -->
+        <div id="streamingProviderRows"></div>
 
-            <p class="subsection-hint">Looking for something specific? Search any title below to see everywhere it streams — including providers not listed above.</p>
+        <div class="theatre-block" data-block="streaming-search">
+            <div class="theatre-block-header">
+                <h2>🔍 Find Where to Watch</h2>
+            </div>
+            <p class="subsection-hint">Search any title to see everywhere it streams — including providers that don't have a row above.</p>
             <div class="show-search-row">
                 <input type="text" id="watchProviderSearchInput" placeholder="Search any movie or show...">
                 <button id="watchProviderSearchBtn">Search</button>

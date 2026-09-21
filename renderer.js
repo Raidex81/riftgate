@@ -7327,13 +7327,28 @@ async function loadMovies() {
 
 // --- Streaming Providers (Theatre) ---------------------------------------
 //
-// Two independent pieces, per the user's ask: a trending row for one
-// selected provider (dropdown populated live from TMDB's own provider
-// list, no hardcoded IDs -- see get-watch-providers in main.js), and a
-// free-text search that looks up ANY title's provider availability, not
-// limited to whichever provider happens to be selected above.
-let streamingProviderCache = [];
-const streamingProviderSelect = document.getElementById("streamingProviderSelect");
+// One trending row PER streaming provider -- Netflix, Max, Disney Plus,
+// etc each get their own heading and their own carousel, rather than one
+// generic "Streaming Providers" block behind a dropdown. Rows are built
+// dynamically (not hand-written in index.html) from TMDB's own provider
+// list -- see get-watch-providers in main.js, no hardcoded IDs -- so a
+// name below that TMDB doesn't actually report for the current region
+// just never gets a row instead of showing an empty one. Separately, a
+// free-text search below all of them looks up ANY title's provider
+// availability, not limited to whichever providers got a row.
+//
+// Mirrors PRIORITY_PROVIDER_NAMES in main.js -- kept as its own list
+// here (not shared -- renderer.js and main.js are separate processes,
+// only reachable through IPC) since this is also the exact set + order
+// of rows to build, not just a sort tiebreaker.
+const STREAMING_PROVIDER_ROW_NAMES = [
+    "Netflix", "Amazon Prime Video", "Disney Plus", "Max", "Hulu",
+    "Apple TV Plus", "Paramount Plus", "Peacock", "Crunchyroll"
+];
+
+function slugifyProviderName(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
+}
 
 function buildStreamingProviderCard(item) {
     const card = document.createElement("div");
@@ -7408,35 +7423,37 @@ function buildStreamingProviderCard(item) {
     return card;
 }
 
-function renderStreamingProviderGrid() {
-    const grid = document.getElementById("streamingProviderGrid");
+const streamingProviderRowCaches = new Map(); // provider name -> items[]
+
+function renderStreamingProviderRow(providerName, gridId) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    const items = streamingProviderRowCaches.get(providerName) || [];
     const visible = (canSeeMatureContent()
-        ? streamingProviderCache
-        : streamingProviderCache.filter((it) => !isItemMature(it.mediaType === "movie" ? "movie" : "show", it.id, it.isMature))
+        ? items
+        : items.filter((it) => !isItemMature(it.mediaType === "movie" ? "movie" : "show", it.id, it.isMature))
     ).filter((it) => !isItemRemoved(it.mediaType === "movie" ? "movie" : "show", it.id));
 
     if (visible.length === 0) {
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Nothing found for this provider right now.</p>`;
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Nothing found on ${providerName} right now.</p>`;
         return;
     }
 
     grid.innerHTML = "";
     sortNoCoverLast(visible, "image").forEach((item) => grid.appendChild(buildStreamingProviderCard(item)));
+    fitOneHscrollTrackById(gridId);
 }
 
-async function loadStreamingProviderTrending() {
-    const grid = document.getElementById("streamingProviderGrid");
-    const providerName = streamingProviderSelect.value;
-    if (!providerName) return;
-
-    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+async function loadStreamingProviderRow(providerName, gridId) {
+    const grid = document.getElementById(gridId);
+    if (grid) grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
     const items = await window.riftgate.invoke("get-trending-by-provider", {
         providerName,
         countryCode: movieCountrySelect.value
     });
-    streamingProviderCache = items || [];
-    renderStreamingProviderGrid();
+    streamingProviderRowCaches.set(providerName, items || []);
+    renderStreamingProviderRow(providerName, gridId);
 }
 
 let streamingProvidersLoaded = false;
@@ -7444,26 +7461,80 @@ async function loadStreamingProviders() {
     if (streamingProvidersLoaded) return;
     streamingProvidersLoaded = true;
 
-    const providers = await window.riftgate.invoke("get-watch-providers", movieCountrySelect.value);
-    streamingProviderSelect.innerHTML = "";
+    const rowsContainer = document.getElementById("streamingProviderRows");
+    if (!rowsContainer) return;
 
-    if (!providers || providers.length === 0) {
-        document.getElementById("streamingProviderGrid").innerHTML =
-            `<p style="color:var(--text-muted);font-size:13px;">No streaming providers found for this region.</p>`;
+    const providers = await window.riftgate.invoke("get-watch-providers", movieCountrySelect.value);
+    const availableByName = new Map((providers || []).map((p) => [p.name, p]));
+
+    // STREAMING_PROVIDER_ROW_NAMES is the candidate pool -- a name in it
+    // that TMDB doesn't actually report for this region just doesn't get
+    // a row, rather than showing an empty one.
+    const rowProviders = STREAMING_PROVIDER_ROW_NAMES
+        .map((name) => availableByName.get(name))
+        .filter(Boolean);
+
+    if (rowProviders.length === 0) {
+        rowsContainer.innerHTML = `<p style="color:var(--text-muted);font-size:13px;padding:0 4px;">No streaming providers found for this region.</p>`;
         return;
     }
 
-    providers.forEach((p) => {
-        const opt = document.createElement("option");
-        opt.value = p.name;
-        opt.textContent = p.name;
-        streamingProviderSelect.appendChild(opt);
+    rowsContainer.innerHTML = "";
+    rowProviders.forEach((provider) => {
+        const slug = slugifyProviderName(provider.name);
+        const gridId = `streamingProviderGrid-${slug}`;
+        const leftArrowId = `streamingProviderLeftArrow-${slug}`;
+        const rightArrowId = `streamingProviderRightArrow-${slug}`;
+
+        const block = document.createElement("div");
+        block.className = "theatre-block";
+        block.dataset.block = `streaming-provider-${slug}`;
+        block.innerHTML = `
+            <div class="theatre-block-header">
+                <h2></h2>
+            </div>
+            <div class="hscroll-row">
+                <button class="carousel-arrow carousel-arrow-left" id="${leftArrowId}" aria-label="Scroll left">‹</button>
+                <div id="${gridId}" class="carousel-track new-shows-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="${rightArrowId}" aria-label="Scroll right">›</button>
+            </div>
+        `;
+
+        // provider.name/logo come from TMDB's own data -- untrusted, so
+        // the name goes through a text node and the logo is only ever
+        // assigned as a real <img>.src, never interpolated into markup.
+        const heading = block.querySelector(".theatre-block-header h2");
+        if (provider.logo) {
+            const logoImg = document.createElement("img");
+            logoImg.src = provider.logo;
+            logoImg.alt = "";
+            logoImg.className = "streaming-provider-heading-logo";
+            heading.appendChild(logoImg);
+        }
+        heading.appendChild(document.createTextNode(provider.name));
+
+        rowsContainer.appendChild(block);
+
+        document.getElementById(leftArrowId).addEventListener("click", () => {
+            document.getElementById(gridId).scrollBy({ left: -600, behavior: "smooth" });
+        });
+        document.getElementById(rightArrowId).addEventListener("click", () => {
+            document.getElementById(gridId).scrollBy({ left: 600, behavior: "smooth" });
+        });
+
+        // These rows are built dynamically (unlike the New tab's, which
+        // are static markup in index.html), so they can't be listed in
+        // HSCROLL_TRACK_CONFIG's initializer up front -- registered here
+        // instead so the same app-wide carousel-fit mechanism (see
+        // fitHscrollTrack and the Resize/MutationObserver pair further
+        // down) still covers them.
+        HSCROLL_TRACK_CONFIG.set(gridId, { minCardWidth: 210, gap: 14 });
+        hscrollResizeObserver.observe(document.getElementById(gridId));
+        hscrollMutationObserver.observe(document.getElementById(gridId), { childList: true });
+
+        loadStreamingProviderRow(provider.name, gridId);
     });
-
-    loadStreamingProviderTrending();
 }
-
-streamingProviderSelect.addEventListener("change", loadStreamingProviderTrending);
 
 const watchProviderSearchInput = document.getElementById("watchProviderSearchInput");
 const watchProviderSearchBtn = document.getElementById("watchProviderSearchBtn");
