@@ -705,12 +705,18 @@
                 A live feed of currently-discounted games from Steam and dozens of other stores (GOG, Epic, Humble, Fanatical, and more). Every card links straight out to that store's own page to complete the purchase — Riftgate is only ever a discovery layer here, never a storefront of its own.
             </p>
         </div>
+        <!-- One quick-link button per store currently showing deals, populated
+             by updateStorePlatformLinks() in renderer.js -- opens that store's
+             own homepage in the default browser. This replaced the old
+             "filter by platform" dropdown: with dozens of possible stores
+             once CheapShark/Loaded are in the mix, a one-click shortcut to
+             browse a store directly reads better than a select box full of
+             names nobody can compare at a glance. -->
+        <div id="storePlatformLinks" class="storePlatformLinks"></div>
+        <div id="storeResultCount" class="free-games-result-count"></div>
         <div class="topbar" id="storeTopbar" style="padding:0 16px;">
             <div class="actions">
                 <input type="text" id="storeSearchInput" placeholder="Search deals...">
-                <select id="storePlatformSelect">
-                    <option value="all">All Platforms</option>
-                </select>
                 <select id="storeSortSelect">
                     <option value="discount">Sort: Biggest Discount</option>
                     <option value="popularity">Sort: Most Popular</option>
@@ -721,7 +727,6 @@
                 <button id="storeRefreshBtn" title="Get an up-to-date list now, instead of waiting for the next automatic refresh">🔄 Refresh</button>
             </div>
         </div>
-        <div id="storeResultCount" class="free-games-result-count"></div>
         <div id="storeEmptyState" class="category-section" style="padding:0 16px;display:none;">
             <p style="color:var(--text-muted);font-size:13px;">No deals found right now — check back later.</p>
         </div>

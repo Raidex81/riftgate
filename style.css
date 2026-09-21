@@ -3553,6 +3553,53 @@ body.is-fullscreen #mainContent{
     text-align:center;
 }
 
+/* Store reuses .free-games-result-count for its own breakdown line, but
+   sits it ABOVE the topbar (search/sort/refresh) instead of tucked
+   underneath it the way Free Games does -- the -8px pull-up above was
+   tuned to sit close under a topbar it no longer follows here, so it's
+   given normal spacing instead of inheriting that negative margin. */
+#storeResultCount{
+    margin:4px auto 16px;
+}
+
+/* One quick-link button per store currently showing deals (see
+   updateStorePlatformLinks in renderer.js) -- sits in its own row between
+   the section's description and its topbar/filters, with real breathing
+   room (gap + margin below) rather than crammed against either neighbor,
+   since this can end up holding anywhere from two or three buttons up to
+   a dozen as more stores show up in a given refresh. */
+.storePlatformLinks{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    max-width:760px;
+    margin:0 auto 20px;
+    padding:0 16px;
+}
+
+.storePlatformLinkBtn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 14px;
+    border-radius:10px;
+    border:1.5px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.18s;
+}
+
+.storePlatformLinkBtn:hover{
+    border-color:var(--accent-1);
+    color:#fff;
+    background:var(--accent-gradient);
+}
+
 /* Platform tab buttons — the primary one-click way to jump straight to a
    single platform's full list (or back to the all-platforms overview)
    without opening the (visually hidden) platform <select> that still

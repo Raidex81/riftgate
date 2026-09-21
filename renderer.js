@@ -9424,7 +9424,7 @@ async function loadStoreDeals(silent) {
         const cached = await window.riftgate.invoke("get-cached-store-deals");
         if (cached && cached.length > 0) {
             storeDealsCache = cached;
-            updateStorePlatformOptions();
+            updateStorePlatformLinks();
             renderStoreDeals();
         }
     }
@@ -9432,38 +9432,60 @@ async function loadStoreDeals(silent) {
     const deals = await window.riftgate.invoke("get-store-deals");
     storeDealsCache = deals || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
-    updateStorePlatformOptions();
+    updateStorePlatformLinks();
     renderStoreDeals();
 }
 
-// Mirrors updateFreeGamesPlatformOptions -- the platform list is no
-// longer a small known set now that CheapShark deals are mixed in
-// (dozens of possible store names), so it's rebuilt from whatever
-// source values are actually present in the cache each time, instead of
-// index.html hardcoding a handful of options that go stale.
-function updateStorePlatformOptions() {
-    const select = document.getElementById("storePlatformSelect");
-    const previousSelection = select.value;
+// Store's own homepage per source name -- used only to build the
+// quick-link buttons below, never for anything deal-related. Deliberately
+// only the stores confirmed to actually show up in a live refresh (see
+// the breakdown line) plus a few more CheapShark is known to track --
+// exact store-name strings matter here (they have to match deal.source
+// verbatim), so a store not listed here just doesn't get a button rather
+// than risk a wrong/guessed URL. Safe to extend as new stores turn up.
+const STORE_HOMEPAGE_URLS = {
+    "Steam": "https://store.steampowered.com",
+    "GOG": "https://www.gog.com",
+    "Epic Games Store": "https://store.epicgames.com",
+    "Humble Store": "https://www.humblebundle.com/store",
+    "Fanatical": "https://www.fanatical.com",
+    "GreenManGaming": "https://www.greenmangaming.com",
+    "Gamesplanet": "https://us.gamesplanet.com",
+    "IndieGala": "https://www.indiegala.com",
+    "WinGameStore": "https://www.wingamestore.com",
+    "GameBillet": "https://www.gamebillet.com",
+    "Loaded (CDKeys)": "https://www.loaded.com",
+    "2Game": "https://www.2game.com",
+    "Voidu": "https://www.voidu.com",
+    "GamersGate": "https://www.gamersgate.com"
+};
+
+// Replaces the old "filter by platform" dropdown -- with dozens of
+// possible stores once CheapShark/Loaded are mixed in, a row of one-click
+// "go look at that store yourself" buttons is more useful than a select
+// box, and it's rebuilt the same way the old dropdown was: from whatever
+// source values actually show up in the cache each refresh, not a
+// hardcoded list that goes stale.
+function updateStorePlatformLinks() {
+    const container = document.getElementById("storePlatformLinks");
+    container.innerHTML = "";
 
     const platforms = new Set();
     storeDealsCache.forEach((deal) => { if (deal.source) platforms.add(deal.source); });
 
-    select.innerHTML = "";
-    const allOption = document.createElement("option");
-    allOption.value = "all";
-    allOption.textContent = "All Platforms";
-    select.appendChild(allOption);
+    Array.from(platforms).sort().forEach((source) => {
+        const url = STORE_HOMEPAGE_URLS[source];
+        if (!url) return; // no known homepage for this one -- see the map's comment above
 
-    Array.from(platforms).sort().forEach((p) => {
-        const option = document.createElement("option");
-        option.value = p;
-        option.textContent = p;
-        select.appendChild(option);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "storePlatformLinkBtn";
+        btn.innerHTML = `${uiIcon("link")} <span></span>`;
+        btn.querySelector("span").textContent = source;
+        btn.title = `Open ${source} in your browser`;
+        btn.addEventListener("click", () => window.riftgate.invoke("open-external", url));
+        container.appendChild(btn);
     });
-
-    if (Array.from(select.options).some((o) => o.value === previousSelection)) {
-        select.value = previousSelection;
-    }
 }
 
 function formatStorePrice(amount, currency) {
@@ -9488,10 +9510,8 @@ function renderStoreDeals() {
     emptyState.style.display = "none";
 
     const query = document.getElementById("storeSearchInput").value.trim().toLowerCase();
-    const platform = document.getElementById("storePlatformSelect").value;
 
     let deals = storeDealsCache.filter((deal) => {
-        if (platform !== "all" && deal.source !== platform) return false;
         if (query && !(deal.name || "").toLowerCase().includes(query)) return false;
         return true;
     });
@@ -9638,7 +9658,6 @@ function buildStoreDealCard(deal) {
 }
 
 document.getElementById("storeSearchInput").addEventListener("input", renderStoreDeals);
-document.getElementById("storePlatformSelect").addEventListener("change", renderStoreDeals);
 document.getElementById("storeSortSelect").addEventListener("change", renderStoreDeals);
 document.getElementById("storeRefreshBtn").addEventListener("click", async () => {
     const btn = document.getElementById("storeRefreshBtn");
@@ -9646,7 +9665,7 @@ document.getElementById("storeRefreshBtn").addEventListener("click", async () =>
     btn.textContent = "🔄 Refreshing...";
     storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
-    updateStorePlatformOptions();
+    updateStorePlatformLinks();
     renderStoreDeals();
     btn.disabled = false;
     btn.textContent = "🔄 Refresh";
