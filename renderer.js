@@ -9496,15 +9496,27 @@ function renderStoreDeals() {
     deals.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
 }
 
-// deal.name/source come from third-party storefront data (Steam, GOG) —
-// treated as untrusted, same as Free Games cards, so set via textContent
-// rather than innerHTML.
+// deal.name/source come from third-party storefront data (Steam,
+// CheapShark) — treated as untrusted, same as Free Games cards, so set
+// via textContent rather than innerHTML.
+//
+// deal.image points at a portrait "library capsule" cover whenever a
+// Steam appid is known (direct Steam deals, or a CheapShark deal that
+// maps to one — see fetchSteamDeals/fetchCheapSharkDeals in main.js);
+// not every appid actually has that asset, and plenty of CheapShark-only
+// deals have no Steam equivalent at all, so this reuses Free Games'
+// exact cover-fallback chain: a failed load falls back to
+// deal.fallbackImage (the store's own landscape thumbnail/capsule), then
+// finally the generic placeholder, and applyFreeGameWideCoverIfNeeded
+// widens the card instead of badly cropping it whenever the image that
+// actually ends up loading turns out to be landscape — same sizing and
+// border treatment every other grid in the app already uses for this.
 function buildStoreDealCard(deal) {
     const card = document.createElement("div");
     card.className = "game-card";
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${deal.image || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(deal.image) || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
             <span class="storeDiscountBadge free-games-pill"></span>
         </div>
         <div class="game-info">
@@ -9519,10 +9531,16 @@ function buildStoreDealCard(deal) {
 
     const coverImgEl = card.querySelector(".cover-img");
     coverImgEl.addEventListener("error", function onStoreCoverError() {
-        if (!coverImgEl.src.endsWith("covers/default.jpg")) {
+        const fallbackSrc = freeGameCoverCacheSrc(deal.fallbackImage);
+        if (fallbackSrc && coverImgEl.src !== fallbackSrc) {
+            coverImgEl.src = fallbackSrc;
+        } else if (!coverImgEl.src.endsWith("covers/default.jpg")) {
             coverImgEl.removeEventListener("error", onStoreCoverError);
             coverImgEl.src = "covers/default.jpg";
         }
+    });
+    coverImgEl.addEventListener("load", () => {
+        applyFreeGameWideCoverIfNeeded(card, coverImgEl);
     });
     coverImgEl.alt = deal.name;
 

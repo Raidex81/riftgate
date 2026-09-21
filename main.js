@@ -3117,7 +3117,15 @@ async function fetchSteamDeals() {
             .map((it) => ({
                 id: `steam-${it.id}`,
                 name: it.name,
-                image: it.large_capsule_image || it.header_image || it.small_capsule_image || null,
+                // The portrait "library capsule" (2:3, same shape/CDN
+                // pattern already used for Free Games' Steam covers --
+                // see fetchSteamFreeGames above) reads much better in a
+                // uniform grid than the landscape capsule this used to
+                // point at. Not every appid has that asset though, so the
+                // old landscape image rides along as fallbackImage (used
+                // by renderer.js if the portrait one 404s).
+                image: `https://cdn.akamai.steamstatic.com/steam/apps/${it.id}/library_600x900.jpg`,
+                fallbackImage: it.large_capsule_image || it.header_image || it.small_capsule_image || null,
                 url: `https://store.steampowered.com/app/${it.id}`,
                 source: "Steam",
                 discountPercent: it.discount_percent,
@@ -3131,14 +3139,13 @@ async function fetchSteamDeals() {
     }
 }
 
-// GOG's catalog API, same one Free Games already uses (see
-// fetchGogFreeGames above) — discounted=eq:true instead of the free-only
-// price=between:0,0 filter. The exact field name GOG uses for a
-// discount PERCENTAGE hasn't been confirmed against a live response
-// (same caveat as fetchGogFreeGames's price field), so it's computed
-// from base/final whenever a dedicated field isn't present, rather than
-// risk silently dropping every genuine GOG discount over a guessed field
-// name.
+// CheapShark's own deal listing -- see the module comment above for why
+// this replaced calling GOG/Epic directly. Each deal that CheapShark can
+// tie to a Steam release includes steamAppID; when present that's used
+// to point image at the same reliable portrait "library capsule" Steam
+// deals use above (see fetchSteamDeals) instead of CheapShark's own
+// thumb, which is a small landscape crop that looks inconsistent in a
+// portrait grid. thumb still rides along as fallbackImage either way.
 async function fetchCheapSharkDeals() {
     try {
         const [storesRaw, dealsRaw] = await Promise.all([
@@ -3165,10 +3172,15 @@ async function fetchCheapSharkDeals() {
                 const discountPercent = Math.round(parseFloat(d.savings));
                 if (!discountPercent || discountPercent <= 0) return null;
 
+                const steamAppId = d.steamAppID && /^\d+$/.test(String(d.steamAppID)) ? d.steamAppID : null;
+
                 return {
                     id: `cheapshark-${d.dealID}`,
                     name: d.title,
-                    image: d.thumb || null,
+                    image: steamAppId
+                        ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`
+                        : (d.thumb || null),
+                    fallbackImage: steamAppId ? (d.thumb || null) : null,
                     url: `https://www.cheapshark.com/redirect?dealID=${d.dealID}`,
                     source: storeName,
                     discountPercent,

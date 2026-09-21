@@ -595,6 +595,27 @@ body.density-compact .categoryPicker{
     font-weight:700;
 }
 
+/* Same fixed 2:3 portrait box Free Games uses (#freeGamesContainer
+   .cover-wrap above) and for the same reason -- deal covers come from a
+   mix of sources (a Steam-derived portrait "library capsule" when one's
+   available, a landscape store thumbnail when it isn't; see
+   buildStoreDealCard in renderer.js), and letting height stay fully
+   intrinsic would put a tall poster right next to a short landscape
+   thumbnail in the same row. A cover that turns out landscape still gets
+   handled properly, not cropped -- see the shared .free-game-wide-cover
+   rules below this, which already apply to any .game-card. */
+#storeContainer .cover-wrap{
+    aspect-ratio:2/3;
+    height:auto;
+}
+
+#storeContainer .cover-wrap img.cover-img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+
 .soundToggle{
     position:absolute;
     bottom:8px;
