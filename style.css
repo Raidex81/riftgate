@@ -559,6 +559,42 @@ body.density-compact .categoryPicker{
     white-space:nowrap;
 }
 
+/* Store deal cards' discount-percent badge — same overlay position/
+   sizing as .freeGameBadge above, just colored to read as a deal rather
+   than a platform label. */
+.storeDiscountBadge{
+    position:absolute;
+    top:8px;
+    left:8px;
+    z-index:3;
+    font-size:11px;
+    font-weight:700;
+    padding:4px 8px;
+    pointer-events:none;
+    background:rgba(220,38,38,.9);
+    border-color:#dc2626;
+    color:#fff;
+}
+
+.store-price-row{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin:2px 0 0;
+    font-size:13px;
+}
+
+.store-price-original{
+    color:var(--text-muted);
+    text-decoration:line-through;
+    font-size:12px;
+}
+
+.store-price-final{
+    color:var(--text-primary);
+    font-weight:700;
+}
+
 .soundToggle{
     position:absolute;
     bottom:8px;

@@ -4175,6 +4175,7 @@ let buyFreeBooksLoadInProgress = false;
 const SECTION_LABELS = {
     installed: "📀 Installed",
     "free-games": "🎁 Free Games",
+    store: "🛒 Store",
     theatre: "🎬 Theatre",
     "reading-room": "📖 Reading Room",
     new: "🆕 New",
@@ -4187,6 +4188,7 @@ const SECTION_LABELS = {
 let freeGamesLoaded = false;
 let moviesLoaded = false;
 let communityAppsLoaded = false;
+let storeLoaded = false;
 let currentSection = "installed";
 
 // Floating icon sets for the ambient background layer — generic gaming
@@ -4256,6 +4258,7 @@ function resetReadingRoomSearchBars() {
 function resetAllSectionSearchBars() {
     clearSearchBar(searchInput);
     clearSearchBar(freeGamesSearchInput);
+    clearSearchBar(document.getElementById("storeSearchInput"));
     clearSearchBar(moviesFilterInput);
     clearSearchBar(myShowsFilterInput);
     clearSearchBar(recentEpisodesFilterInput);
@@ -4313,7 +4316,7 @@ function performSectionSwitch(section) {
     // section (it's a mixed feed of upcoming/new items, not a personal
     // library or a browsable list to spin against), and The Vault isn't
     // a browsable list of things to launch/read/watch at all.
-    surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications") ? "none" : "";
+    surpriseBtn.style.display = (section === "new" || section === "shared-folder" || section === "applications" || section === "store") ? "none" : "";
 
     sidebarNavButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.section === section);
@@ -4374,6 +4377,7 @@ function performSectionSwitch(section) {
     }
 
     freeGamesContainer.classList.toggle("active", section === "free-games");
+    document.getElementById("storeContainer").classList.toggle("active", section === "store");
     sharedFolderContainer.classList.toggle("active", section === "shared-folder");
     theatreContainer.classList.toggle("active", section === "theatre");
     document.getElementById("newContainer").classList.toggle("active", section === "new");
@@ -4392,6 +4396,11 @@ function performSectionSwitch(section) {
     if (section === "free-games" && !freeGamesLoaded) {
         freeGamesLoaded = true;
         loadFreeGames();
+    }
+
+    if (section === "store" && !storeLoaded) {
+        storeLoaded = true;
+        loadStoreDeals();
     }
 
     if (section === "reading-room" && !readingRoomLoaded) {
@@ -9369,6 +9378,153 @@ function renderCommunityApps() {
 
 communityAppsSearchInput.addEventListener("input", renderCommunityApps);
 communityAppsSortSelect.addEventListener("change", renderCommunityApps);
+
+// --- Store: currently-discounted games (Steam + GOG deals fetched in
+// main.js — see fetchSteamDeals/fetchGogDeals). Deliberately closer in
+// spirit to Applications (a plain searchable/sortable grid) than to Free
+// Games' fuller spotlight/tabs machinery — a deal doesn't have a "just
+// discovered" moment worth a dedicated zone the way a newly-free game
+// does, and v1 is meant to stay simple.
+
+let storeDealsCache = [];
+
+async function loadStoreDeals(silent) {
+    // Same "show what's cached instantly, then refresh quietly" pattern
+    // as Free Games/community apps — only relevant on the very first
+    // load, since a background refresh already has real data on screen.
+    if (!silent && storeDealsCache.length === 0) {
+        const cached = await window.riftgate.invoke("get-cached-store-deals");
+        if (cached && cached.length > 0) {
+            storeDealsCache = cached;
+            renderStoreDeals();
+        }
+    }
+
+    const deals = await window.riftgate.invoke("get-store-deals");
+    storeDealsCache = deals || [];
+    renderStoreDeals();
+}
+
+function formatStorePrice(amount, currency) {
+    if (typeof amount !== "number") return null;
+    const symbol = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+    return `${symbol}${amount.toFixed(2)}`;
+}
+
+function renderStoreDeals() {
+    const grid = document.getElementById("storeGrid");
+    const emptyState = document.getElementById("storeEmptyState");
+    const noResults = document.getElementById("storeNoResults");
+    const resultCount = document.getElementById("storeResultCount");
+    grid.innerHTML = "";
+
+    if (storeDealsCache.length === 0) {
+        emptyState.style.display = "";
+        noResults.style.display = "none";
+        resultCount.textContent = "";
+        return;
+    }
+    emptyState.style.display = "none";
+
+    const query = document.getElementById("storeSearchInput").value.trim().toLowerCase();
+    const platform = document.getElementById("storePlatformSelect").value;
+
+    let deals = storeDealsCache.filter((deal) => {
+        if (platform !== "all" && deal.source !== platform) return false;
+        if (query && !(deal.name || "").toLowerCase().includes(query)) return false;
+        return true;
+    });
+
+    const sortBy = document.getElementById("storeSortSelect").value;
+    deals = deals.slice().sort((a, b) => {
+        if (sortBy === "price-low") return (a.finalPrice ?? Infinity) - (b.finalPrice ?? Infinity);
+        if (sortBy === "price-high") return (b.finalPrice ?? -Infinity) - (a.finalPrice ?? -Infinity);
+        if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+        return (b.discountPercent || 0) - (a.discountPercent || 0); // biggest discount first
+    });
+
+    if (deals.length === 0) {
+        noResults.style.display = "";
+        resultCount.textContent = "";
+        return;
+    }
+    noResults.style.display = "none";
+    resultCount.textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}`;
+
+    deals.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
+}
+
+// deal.name/source come from third-party storefront data (Steam, GOG) —
+// treated as untrusted, same as Free Games cards, so set via textContent
+// rather than innerHTML.
+function buildStoreDealCard(deal) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+    card.innerHTML = `
+        <div class="cover-wrap">
+            <img class="cover-img" src="${deal.image || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
+            <span class="storeDiscountBadge free-games-pill"></span>
+        </div>
+        <div class="game-info">
+            <h3></h3>
+            <p class="game-desc free-game-platform"></p>
+            <p class="store-price-row"></p>
+            <div class="card-footer">
+                <button class="launchBtn getGameBtn">${uiIcon("link")} <span class="getGameBtnLabel"></span></button>
+            </div>
+        </div>
+    `;
+
+    const coverImgEl = card.querySelector(".cover-img");
+    coverImgEl.addEventListener("error", function onStoreCoverError() {
+        if (!coverImgEl.src.endsWith("covers/default.jpg")) {
+            coverImgEl.removeEventListener("error", onStoreCoverError);
+            coverImgEl.src = "covers/default.jpg";
+        }
+    });
+    coverImgEl.alt = deal.name;
+
+    card.querySelector(".game-info h3").textContent = deal.name;
+    card.querySelector(".storeDiscountBadge").textContent = `-${deal.discountPercent}%`;
+    card.querySelector(".free-game-platform").textContent = `🕹️ ${deal.source}`;
+
+    const priceRow = card.querySelector(".store-price-row");
+    const finalLabel = formatStorePrice(deal.finalPrice, deal.currency);
+    const originalLabel = formatStorePrice(deal.originalPrice, deal.currency);
+    if (originalLabel && originalLabel !== finalLabel) {
+        const originalEl = document.createElement("span");
+        originalEl.className = "store-price-original";
+        originalEl.textContent = originalLabel;
+        priceRow.appendChild(originalEl);
+    }
+    if (finalLabel) {
+        const finalEl = document.createElement("span");
+        finalEl.className = "store-price-final";
+        finalEl.textContent = finalLabel;
+        priceRow.appendChild(finalEl);
+    }
+
+    card.querySelector(".getGameBtnLabel").textContent = `View on ${deal.source}`;
+    card.querySelector(".getGameBtn").addEventListener("click", (event) => {
+        event.stopPropagation();
+        window.riftgate.invoke("open-external", deal.url);
+    });
+
+    return card;
+}
+
+document.getElementById("storeSearchInput").addEventListener("input", renderStoreDeals);
+document.getElementById("storePlatformSelect").addEventListener("change", renderStoreDeals);
+document.getElementById("storeSortSelect").addEventListener("change", renderStoreDeals);
+document.getElementById("storeRefreshBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("storeRefreshBtn");
+    btn.disabled = true;
+    btn.textContent = "🔄 Refreshing...";
+    storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
+    renderStoreDeals();
+    btn.disabled = false;
+    btn.textContent = "🔄 Refresh";
+});
 
 // app.name/description/author/added_by all come from admin-entered data
 // (or, for description, an auto-fetched GitHub repo description) — still

@@ -121,6 +121,7 @@ let SESSION_FILE;
 let EBOOKS_FILE;
 let EBOOKS_DROPZONE_FOLDER;
 let FREEGAMES_COVER_CACHE_FOLDER;
+let STORE_DEALS_LAST_REFRESH_FILE;
 
 // --- Generic on-disk cache for online data (Free Games, Discover Online,
 // Buy Books) — so the app can show the last successful result instantly
@@ -1068,6 +1069,7 @@ function initUserData() {
     FREEGAMES_VERIFIED_FILE = path.join(userDataDir, "freegames-verified.json");
     FREEGAMES_VR_FILE = path.join(userDataDir, "freegames-vr.json");
     FREEGAMES_LAST_REFRESH_FILE = path.join(userDataDir, "freegames-last-refresh.json");
+    STORE_DEALS_LAST_REFRESH_FILE = path.join(userDataDir, "store-deals-last-refresh.json");
     FREEGAMES_BULK_SEARCH_DONE_FILE = path.join(userDataDir, "freegames-bulk-search-done.json");
     TRAILER_CACHE_FILE = path.join(userDataDir, "trailer-cache.json");
     SESSION_FILE = path.join(userDataDir, "session.dat");
@@ -3085,6 +3087,162 @@ ipcMain.handle("force-refresh-free-games-platform", async (event, platform) => {
 // same "show something immediately, refresh quietly after" pattern as
 // the book sections, so this section isn't empty on launch either.
 ipcMain.handle("get-cached-free-games", async () => mergeFreshCuratedGames(loadDataCache("cache-free-games.json") || []));
+
+// --- Store: currently-discounted games worth buying, not just free ones.
+//
+// Deliberately much simpler than the Free Games machinery above — a
+// price/discount either holds right now or it doesn't, so there's no
+// need for Free Games' per-game "still available" trust window or
+// verification passes. Every refresh just asks each storefront what's
+// on sale right now and replaces the cached list outright.
+//
+// v1 covers Steam and GOG, both of which expose a stable, documented-
+// enough public endpoint for "what's discounted right now". Epic
+// doesn't — the freeGamesPromotions endpoint above only covers fully
+// free promotions, not general discounts, and Epic has no equivalent
+// static endpoint for those (only an internal GraphQL API whose query
+// shape isn't stable enough to build against sight-unseen). Epic can be
+// added once that's been confirmed against a live response.
+
+// Steam's official featuredcategories endpoint — cc=us/l=english pins
+// the response to USD/English regardless of this machine's own locale,
+// matching how Free Games' Steam fetch already treats pricing/region.
+async function fetchSteamDeals() {
+    try {
+        const data = await httpsGetJsonPlain("https://store.steampowered.com/api/featuredcategories?cc=us&l=english", 10000);
+        const items = (data.specials && data.specials.items) || [];
+
+        return items
+            .filter((it) => it && typeof it.discount_percent === "number" && it.discount_percent > 0)
+            .map((it) => ({
+                id: `steam-${it.id}`,
+                name: it.name,
+                image: it.large_capsule_image || it.header_image || it.small_capsule_image || null,
+                url: `https://store.steampowered.com/app/${it.id}`,
+                source: "Steam",
+                discountPercent: it.discount_percent,
+                finalPrice: typeof it.final_price === "number" ? it.final_price / 100 : null,
+                originalPrice: typeof it.original_price === "number" ? it.original_price / 100 : null,
+                currency: it.currency || "USD"
+            }));
+    } catch (err) {
+        console.error("[store] Steam deals fetch failed:", err.message || err);
+        return [];
+    }
+}
+
+// GOG's catalog API, same one Free Games already uses (see
+// fetchGogFreeGames above) — discounted=eq:true instead of the free-only
+// price=between:0,0 filter. The exact field name GOG uses for a
+// discount PERCENTAGE hasn't been confirmed against a live response
+// (same caveat as fetchGogFreeGames's price field), so it's computed
+// from base/final whenever a dedicated field isn't present, rather than
+// risk silently dropping every genuine GOG discount over a guessed field
+// name.
+async function fetchGogDeals() {
+    try {
+        const data = await httpsGetJsonPlain(
+            "https://catalog.gog.com/v1/catalog?limit=48&order=desc:trending&productType=in:game&discounted=eq:true&countryCode=US&locale=en-US&currencyCode=USD",
+            10000
+        );
+        const products = data.products || [];
+
+        return products
+            .map((p) => {
+                const price = p.price || {};
+                const finalAmount = price.final && parseFloat(price.final.amount);
+                const baseAmount = price.base && parseFloat(price.base.amount);
+
+                let discountPercent = typeof price.discount === "number" ? price.discount : null;
+                if (discountPercent === null && baseAmount > 0 && typeof finalAmount === "number") {
+                    discountPercent = Math.round((1 - finalAmount / baseAmount) * 100);
+                }
+                if (!discountPercent || discountPercent <= 0) return null;
+
+                return {
+                    id: `gog-${p.id}`,
+                    name: p.title,
+                    image: p.coverHorizontal || p.coverVertical || null,
+                    url: p.slug ? `https://www.gog.com/en/game/${p.slug}` : "https://www.gog.com",
+                    source: "GOG",
+                    discountPercent,
+                    finalPrice: typeof finalAmount === "number" ? finalAmount : null,
+                    originalPrice: typeof baseAmount === "number" ? baseAmount : null,
+                    currency: "USD"
+                };
+            })
+            .filter(Boolean);
+    } catch (err) {
+        console.error("[store] GOG deals fetch failed:", err.message || err);
+        return [];
+    }
+}
+
+// Prices/discounts move faster than the free-games list (which only
+// needs to catch a game newly going free or newly stopping), so this is
+// a much shorter gate — 6 hours rather than 24.
+const STORE_DEALS_REFRESH_MIN_AGE_MS = 6 * 60 * 60 * 1000;
+
+function readStoreDealsLastRefresh() {
+    try {
+        const data = JSON.parse(fs.readFileSync(STORE_DEALS_LAST_REFRESH_FILE, "utf8"));
+        return data.lastRefreshedAt || 0;
+    } catch (err) {
+        return 0;
+    }
+}
+
+function saveStoreDealsLastRefresh(timestamp) {
+    try {
+        fs.writeFileSync(STORE_DEALS_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp }));
+    } catch (err) {
+        console.error("[store] failed to save last-refresh timestamp:", err.message || err);
+    }
+}
+
+// Same in-flight-promise dedupe as performFreeGamesRefresh above, so a
+// renderer refresh landing at the same instant as the startup auto-check
+// doesn't double up on requests to Steam/GOG.
+let storeDealsRefreshPromise = null;
+
+async function performStoreDealsRefresh() {
+    if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
+
+    storeDealsRefreshPromise = (async () => {
+        const [steamDeals, gogDeals] = await Promise.all([fetchSteamDeals(), fetchGogDeals()]);
+        const deals = [...steamDeals, ...gogDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+
+        saveDataCache("cache-store-deals.json", deals);
+        saveStoreDealsLastRefresh(Date.now());
+        console.log(`[store] refreshed: ${steamDeals.length} Steam, ${gogDeals.length} GOG deal(s).`);
+        return deals;
+    })().finally(() => {
+        storeDealsRefreshPromise = null;
+    });
+
+    return storeDealsRefreshPromise;
+}
+
+// Same "cached instantly, real refresh only once it's actually due"
+// pattern as get-free-games above.
+ipcMain.handle("get-store-deals", async () => {
+    const cached = loadDataCache("cache-store-deals.json") || [];
+    const lastRefreshedAt = readStoreDealsLastRefresh();
+
+    if (cached.length > 0 && (Date.now() - lastRefreshedAt) < STORE_DEALS_REFRESH_MIN_AGE_MS) {
+        return cached;
+    }
+    return performStoreDealsRefresh();
+});
+
+// Backs the manual Refresh button — always does a real fetch regardless
+// of the 6h gate.
+ipcMain.handle("force-refresh-store-deals", async () => performStoreDealsRefresh());
+
+// Instant retrieval of the last successfully fetched list, for showing
+// something immediately on section open while a real refresh (if due)
+// runs quietly in the background — same pattern as get-cached-free-games.
+ipcMain.handle("get-cached-store-deals", async () => loadDataCache("cache-store-deals.json") || []);
 
 // --- Movies currently in theaters (TMDB — free public movie database) ---
 

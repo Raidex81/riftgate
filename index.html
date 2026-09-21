@@ -41,6 +41,15 @@
   </g>
 </symbol>
 
+<symbol id="icon-store" viewBox="0 0 24 24">
+  <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 9 L4.5 3.5 H19.5 L21 9 Z"/>
+    <path d="M4 9 V19.5 H20 V9"/>
+    <path d="M9 19.5 V14.5 H15 V19.5"/>
+    <path d="M3 9 C3 10.8 4.6 11.5 6 11.5 C7.4 11.5 8 10.5 9 10.5 C10 10.5 10.6 11.5 12 11.5 C13.4 11.5 14 10.5 15 10.5 C16 10.5 16.6 11.5 18 11.5 C19.4 11.5 21 10.8 21 9"/>
+  </g>
+</symbol>
+
 <symbol id="icon-theatre" viewBox="0 0 24 24">
   <g fill="none" stroke="url(#nav-icon-gradient)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8.5"/>
@@ -383,6 +392,7 @@
                 <button class="sidebarNavBtn" data-section="new"><svg class="nav-icon"><use href="#icon-new"></use></svg> New</button>
                 <button class="sidebarNavBtn" data-section="installed"><svg class="nav-icon"><use href="#icon-installed"></use></svg> Installed</button>
                 <button class="sidebarNavBtn" data-section="free-games"><svg class="nav-icon"><use href="#icon-freegames"></use></svg> Free Games</button>
+                <button class="sidebarNavBtn" data-section="store"><svg class="nav-icon"><use href="#icon-store"></use></svg> Store</button>
                 <button class="sidebarNavBtn" data-section="theatre"><svg class="nav-icon"><use href="#icon-theatre"></use></svg> Theatre</button>
                 <button class="sidebarNavBtn" data-section="reading-room"><svg class="nav-icon"><use href="#icon-readingroom"></use></svg> Reading Room</button>
                 <button class="sidebarNavBtn" data-section="applications"><svg class="nav-icon"><use href="#icon-applications"></use></svg> Applications</button>
@@ -581,6 +591,7 @@
         <button class="sectionOption" data-section="new"><svg class="nav-icon"><use href="#icon-new"></use></svg> New</button>
         <button class="sectionOption" data-section="installed"><svg class="nav-icon"><use href="#icon-installed"></use></svg> Installed</button>
         <button class="sectionOption" data-section="free-games"><svg class="nav-icon"><use href="#icon-freegames"></use></svg> Free Games</button>
+        <button class="sectionOption" data-section="store"><svg class="nav-icon"><use href="#icon-store"></use></svg> Store</button>
         <button class="sectionOption" data-section="theatre"><svg class="nav-icon"><use href="#icon-theatre"></use></svg> Theatre</button>
         <button class="sectionOption" data-section="reading-room"><svg class="nav-icon"><use href="#icon-readingroom"></use></svg> Reading Room</button>
         <button class="sectionOption" data-section="shared-folder"><svg class="nav-icon"><use href="#icon-vault"></use></svg> The Vault</button>
@@ -684,6 +695,41 @@
         <div id="freeGamesNewRow" class="free-games-new-zone"></div>
         <div id="freeGamesBrowseHeading" class="free-games-browse-heading" style="display:none;">📀 Browse All Free Games</div>
         <div id="freeGamesRestRow"></div>
+    </div>
+
+    <div id="storeContainer" class="secondary-section">
+        <div class="section-info">
+            <p class="section-subtitle">Games on sale right now on Steam and GOG — Riftgate sends you to the real store to buy, it never handles payment itself.</p>
+            <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
+            <p class="section-blurb">
+                A live feed of currently-discounted games from Steam and GOG (Epic support is planned). Every card links straight out to that store's own page to complete the purchase — Riftgate is only ever a discovery layer here, never a storefront of its own.
+            </p>
+        </div>
+        <div class="topbar" id="storeTopbar" style="padding:0 16px;">
+            <div class="actions">
+                <input type="text" id="storeSearchInput" placeholder="Search deals...">
+                <select id="storePlatformSelect">
+                    <option value="all">All Platforms</option>
+                    <option value="Steam">Steam</option>
+                    <option value="GOG">GOG</option>
+                </select>
+                <select id="storeSortSelect">
+                    <option value="discount">Sort: Biggest Discount</option>
+                    <option value="price-low">Sort: Price (Low to High)</option>
+                    <option value="price-high">Sort: Price (High to Low)</option>
+                    <option value="name">Sort: Name (A-Z)</option>
+                </select>
+                <button id="storeRefreshBtn" title="Get an up-to-date list now, instead of waiting for the next automatic refresh">🔄 Refresh</button>
+            </div>
+        </div>
+        <div id="storeResultCount" class="free-games-result-count"></div>
+        <div id="storeEmptyState" class="category-section" style="padding:0 16px;display:none;">
+            <p style="color:var(--text-muted);font-size:13px;">No deals found right now — check back later.</p>
+        </div>
+        <div id="storeNoResults" class="category-section" style="padding:0 16px;display:none;">
+            <p style="color:var(--text-muted);font-size:13px;">No deals match your search/filters.</p>
+        </div>
+        <div id="storeGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
     </div>
 
     <div class="reading-room-tabs">
