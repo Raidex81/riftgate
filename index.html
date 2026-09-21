@@ -567,8 +567,19 @@
              the one that actually renders) with an H.264/MP4 fallback.
              Also shrank it from ~2.6MB down to ~300-470KB either way.
              Muted+autoplay+loop+playsinline is what lets it autoplay at
-             all in Chromium without a user gesture. -->
-        <video class="hero-banner-video" autoplay loop muted playsinline aria-label="Riftgate — All your worlds. One gateway.">
+             all in Chromium without a user gesture.
+
+             poster is frame 0 of this exact video (extracted, not a
+             different/older banner asset), so there's zero visible jump
+             or color mismatch during the gap between the element painting
+             and the video actually being decoded and ready to play --
+             before this, that gap showed the flat .hero-banner background
+             color instead, which visibly clashed with the video depending
+             on monitor brightness. The .hero-banner-video CSS filter
+             (brightness/contrast/saturate) applies to the poster the same
+             way it applies to live frames, so it stays visually identical
+             the instant playback takes over. -->
+        <video class="hero-banner-video" autoplay loop muted playsinline poster="/assets/riftgate-banner-poster.jpg" aria-label="Riftgate — All your worlds. One gateway.">
             <source src="/assets/riftgate-banner-video.webm" type="video/webm">
             <source src="/assets/riftgate-banner-video.mp4" type="video/mp4">
         </video>

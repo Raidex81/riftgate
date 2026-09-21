@@ -102,7 +102,16 @@ body{
     display:flex;
     align-items:center;
     justify-content:center;
-    background:var(--bg-primary);
+    /* Matches the video's own filtered edge tones (sampled directly from
+       the asset: brightness(.72) contrast(1.45) saturate(1.3) crushes the
+       video's edges to near-black with a faint blue-purple cast) rather
+       than the page's flatter, noticeably lighter --bg-primary. The
+       poster attribute on .hero-banner-video now covers the load-in gap,
+       but this still matters any time the video box is visible without a
+       frame painted over it yet (a slow decode, a dropped source) --
+       belt and suspenders for the same "background must fit the banner
+       color" complaint, on top of the poster fix. */
+    background:radial-gradient(ellipse at 15% 15%, #170035, transparent 60%), #010002;
     border-bottom:1px solid var(--border-color);
     transition:background .3s ease, border-color .3s ease;
 }
