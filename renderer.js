@@ -6933,15 +6933,13 @@ function renderRecentEpisodes() {
 
         card.querySelector(".whereToWatchBtn").addEventListener("click", () => {
             const query = encodeURIComponent(ep.showName);
-            // A country-prefixed search URL (e.g. "/pt/search?q=...") 404s
-            // on JustWatch for most locales — that route only appears to be
-            // reliably served for a handful of markets, confirmed against
-            // the "pt" locale returning a bare 404. The un-prefixed
-            // "/search?q=..." endpoint is JustWatch's own geo-aware search
-            // entry point, so it resolves to the right region from the
-            // user's real location without us guessing which country-
-            // prefixed route actually exists for them.
-            window.riftgate.invoke("open-external", `https://www.justwatch.com/search?q=${query}`);
+            // JustWatch has no working un-prefixed "/search" route — every
+            // real URL is locale-prefixed (e.g. "/us/", "/gb/", "/pt/").
+            // Reuse the user's own Theatre region setting (movieCountrySelect,
+            // an uppercase ISO country code like "US"/"PT") lowercased to
+            // build that prefix, defaulting to "us" if unset.
+            const locale = (movieCountrySelect.value || "US").toLowerCase();
+            window.riftgate.invoke("open-external", `https://www.justwatch.com/${locale}/search?q=${query}`);
         });
 
         // Keyed by show+season+number so a newly aired episode (a
