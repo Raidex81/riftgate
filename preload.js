@@ -82,6 +82,7 @@ const INVOKABLE_CHANNELS = new Set([
     "get-mature-overrides",
     "get-movie-trailer",
     "get-removed-items",
+    "get-new-anime",
     "get-new-tv-shows",
     "get-now-playing-movies",
     "get-openlibrary-description",
