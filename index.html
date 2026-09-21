@@ -1283,6 +1283,27 @@
             <div id="moviesGrid" class="games-grid browse-grid"></div>
         </div>
 
+        <!-- Two independent pieces here: a trending row per streaming
+             provider (dropdown populated live from TMDB's own provider
+             list -- see get-watch-providers in main.js, no hardcoded IDs),
+             and a free-text search that looks up ANY title's provider
+             availability, not limited to whichever provider is selected
+             above. -->
+        <div class="theatre-block" data-block="streaming-providers">
+            <div class="theatre-block-header">
+                <h2>📡 Streaming Providers</h2>
+                <select id="streamingProviderSelect"></select>
+            </div>
+            <div id="streamingProviderGrid" class="games-grid browse-grid"></div>
+
+            <p class="subsection-hint">Looking for something specific? Search any title below to see everywhere it streams — including providers not listed above.</p>
+            <div class="show-search-row">
+                <input type="text" id="watchProviderSearchInput" placeholder="Search any movie or show...">
+                <button id="watchProviderSearchBtn">Search</button>
+            </div>
+            <div id="watchProviderSearchResults" class="watch-provider-search-results"></div>
+        </div>
+
     </div>
 
     <div id="newContainer" class="secondary-section">

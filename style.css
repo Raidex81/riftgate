@@ -2817,6 +2817,75 @@ body.is-fullscreen #mainContent{
     cursor:pointer;
 }
 
+.subsection-hint{
+    color:var(--text-muted);
+    font-size:12px;
+    margin:18px 0 10px;
+}
+
+.watch-provider-search-results{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.watch-provider-result{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    background:var(--bg-secondary);
+    border:1px solid var(--border-color);
+    border-radius:10px;
+    padding:10px 12px;
+}
+
+.watch-provider-result-poster{
+    width:46px;
+    height:66px;
+    object-fit:cover;
+    border-radius:6px;
+    flex-shrink:0;
+    background:var(--bg-tertiary);
+}
+
+.watch-provider-result-info{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+}
+
+.watch-provider-result-info h4{
+    margin:0;
+    font-size:13px;
+    color:var(--text-primary);
+}
+
+.watch-provider-badges{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.watch-provider-badge{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    background:var(--bg-tertiary);
+    border:1px solid var(--border-color);
+    border-radius:14px;
+    padding:3px 10px 3px 3px;
+    font-size:11px;
+    color:var(--text-secondary);
+}
+
+.watch-provider-badge img{
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    object-fit:cover;
+}
+
 .recent-episodes-row{
     display:flex;
     gap:14px;

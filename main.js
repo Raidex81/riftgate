@@ -3793,6 +3793,213 @@ ipcMain.handle("get-show-trailer", async (event, showName) => {
     }
 });
 
+// --- Streaming Providers (Theatre) ---------------------------------------
+//
+// TMDB doesn't publish a stable, hand-maintainable list of provider IDs
+// (they get added/renumbered over time), so provider IDs are resolved
+// live from TMDB's own /watch/providers list and matched by name instead
+// of hardcoded. Cached per media type + region for a day since the
+// provider catalog itself barely changes.
+const watchProvidersListCache = new Map(); // key: `${mediaType}:${countryCode}` -> { list, fetchedAt }
+const WATCH_PROVIDERS_CACHE_MS = 24 * 60 * 60 * 1000;
+
+const PRIORITY_PROVIDER_NAMES = [
+    "Netflix", "Amazon Prime Video", "Disney Plus", "Max", "Hulu",
+    "Apple TV Plus", "Paramount Plus", "Peacock", "Crunchyroll"
+];
+
+async function getWatchProvidersList(mediaType, countryCode) {
+    const cacheKey = `${mediaType}:${countryCode}`;
+    const cached = watchProvidersListCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < WATCH_PROVIDERS_CACHE_MS) {
+        return cached.list;
+    }
+    const data = await mediaProxyGetJsonPlain("tmdb", `/watch/providers/${mediaType}`, {
+        language: "en-US",
+        watch_region: countryCode
+    });
+    const list = (data.results || []).map((p) => ({
+        id: p.provider_id,
+        name: p.provider_name,
+        logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null
+    }));
+    watchProvidersListCache.set(cacheKey, { list, fetchedAt: Date.now() });
+    return list;
+}
+
+// Combined movie+TV provider list for the dropdown -- most big names
+// (Netflix, Max, etc) carry both, but this also covers TV-only or
+// movie-only services, deduped by name.
+ipcMain.handle("get-watch-providers", async (event, countryCode) => {
+    try {
+        const [movieList, tvList] = await Promise.all([
+            getWatchProvidersList("movie", countryCode),
+            getWatchProvidersList("tv", countryCode)
+        ]);
+        const byName = new Map();
+        [...movieList, ...tvList].forEach((p) => {
+            if (!byName.has(p.name)) byName.set(p.name, p);
+        });
+        const combined = Array.from(byName.values());
+        combined.sort((a, b) => {
+            const aPriority = PRIORITY_PROVIDER_NAMES.indexOf(a.name);
+            const bPriority = PRIORITY_PROVIDER_NAMES.indexOf(b.name);
+            if (aPriority === -1 && bPriority === -1) return a.name.localeCompare(b.name);
+            if (aPriority === -1) return 1;
+            if (bPriority === -1) return -1;
+            return aPriority - bPriority;
+        });
+        return combined;
+    } catch (err) {
+        console.error("[theatre] watch providers list fetch failed:", err.message || err);
+        return [];
+    }
+});
+
+async function mapProviderMovie(m, tmdbLanguage) {
+    let image = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null;
+    if (!image) image = await fetchFallbackPoster("movie", m.id, tmdbLanguage);
+    return {
+        id: m.id,
+        mediaType: "movie",
+        name: m.title,
+        description: m.overview,
+        image,
+        releaseDate: m.release_date,
+        popularity: m.popularity || 0,
+        rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
+        isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
+    };
+}
+
+async function mapProviderShow(s, tmdbLanguage) {
+    let image = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : null;
+    if (!image) image = await fetchFallbackPoster("tv", s.id, tmdbLanguage);
+    return {
+        id: s.id,
+        mediaType: "tv",
+        name: s.name,
+        description: s.overview,
+        image,
+        releaseDate: s.first_air_date,
+        popularity: s.popularity || 0,
+        rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
+        isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
+    };
+}
+
+// Trending row for one specific provider -- "flatrate" (subscription
+// streaming) only, not rent/buy, since that's what "what's on Netflix
+// right now" actually means.
+ipcMain.handle("get-trending-by-provider", async (event, { providerName, countryCode } = {}) => {
+    try {
+        const [movieList, tvList] = await Promise.all([
+            getWatchProvidersList("movie", countryCode),
+            getWatchProvidersList("tv", countryCode)
+        ]);
+        const movieProvider = movieList.find((p) => p.name === providerName);
+        const tvProvider = tvList.find((p) => p.name === providerName);
+        if (!movieProvider && !tvProvider) return [];
+
+        const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+
+        const [movieData, tvData] = await Promise.all([
+            movieProvider
+                ? mediaProxyGetJsonPlain("tmdb", "/discover/movie", {
+                    sort_by: "popularity.desc",
+                    watch_region: countryCode,
+                    with_watch_providers: String(movieProvider.id),
+                    with_watch_monetization_types: "flatrate",
+                    language: "en-US",
+                    page: "1"
+                })
+                : Promise.resolve({ results: [] }),
+            tvProvider
+                ? mediaProxyGetJsonPlain("tmdb", "/discover/tv", {
+                    sort_by: "popularity.desc",
+                    watch_region: countryCode,
+                    with_watch_providers: String(tvProvider.id),
+                    with_watch_monetization_types: "flatrate",
+                    language: "en-US",
+                    page: "1"
+                })
+                : Promise.resolve({ results: [] })
+        ]);
+
+        const mapped = await Promise.all([
+            ...(movieData.results || []).slice(0, 20).map((m) => mapProviderMovie(m, tmdbLanguage)),
+            ...(tvData.results || []).slice(0, 20).map((s) => mapProviderShow(s, tmdbLanguage))
+        ]);
+        mapped.sort((a, b) => b.popularity - a.popularity);
+        return mapped.slice(0, 24);
+    } catch (err) {
+        console.error("[theatre] trending-by-provider fetch failed:", err.message || err);
+        return [];
+    }
+});
+
+// Searches ANY title (not just what's trending on a provider in the
+// dropdown above) and reports every provider it's actually streaming on
+// in this region -- this is what satisfies "the search should find any
+// [provider] even if not displayed inside Riftgate". TMDB's /search/multi
+// covers movies + TV in one call; each hit's own /watch/providers is then
+// checked individually.
+ipcMain.handle("search-watch-providers", async (event, { query, countryCode } = {}) => {
+    try {
+        const trimmed = String(query || "").trim();
+        if (!trimmed) return [];
+
+        const searchData = await mediaProxyGetJsonPlain("tmdb", "/search/multi", {
+            query: trimmed,
+            language: "en-US",
+            page: "1"
+        });
+
+        const candidates = (searchData.results || [])
+            .filter((r) => r.media_type === "movie" || r.media_type === "tv")
+            .slice(0, 10);
+
+        const results = await Promise.all(candidates.map(async (r) => {
+            try {
+                const providersData = await mediaProxyGetJsonPlain(
+                    "tmdb",
+                    `/${r.media_type}/${r.id}/watch/providers`,
+                    {}
+                );
+                const regionData = (providersData.results || {})[countryCode] || {};
+                const flatrate = regionData.flatrate || [];
+                if (flatrate.length === 0) return null;
+
+                const title = r.media_type === "movie" ? r.title : r.name;
+                const releaseDate = r.media_type === "movie" ? r.release_date : r.first_air_date;
+                const poster = r.poster_path ? `https://image.tmdb.org/t/p/w200${r.poster_path}` : null;
+
+                return {
+                    id: r.id,
+                    mediaType: r.media_type,
+                    name: title,
+                    image: poster,
+                    releaseDate,
+                    isMature: !!r.adult || textContainsMatureKeyword(title) || textContainsMatureKeyword(r.overview),
+                    providers: flatrate
+                        .map((p) => ({
+                            name: p.provider_name,
+                            logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null
+                        }))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                };
+            } catch (err) {
+                return null;
+            }
+        }));
+
+        return results.filter(Boolean);
+    } catch (err) {
+        console.error("[theatre] search-watch-providers failed:", err.message || err);
+        return [];
+    }
+});
+
 // --- "NEW" section: upcoming movies, new TV shows, upcoming games ---------
 
 ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {

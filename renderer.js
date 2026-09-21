@@ -4473,6 +4473,7 @@ function performSectionSwitch(section) {
             moviesLoaded = true;
             loadMovies();
         }
+        loadStreamingProviders();
     }
 
     if (section === "new") {
@@ -7054,6 +7055,11 @@ movieCountrySelect.addEventListener("change", () => {
     populateCitySelect(movieCountrySelect.value, null);
     saveSetting("movieCity", movieCitySelect.value);
     loadMovies();
+    // Provider availability is region-specific (Netflix's catalog in the
+    // US isn't the same as in Portugal), so a country change needs a full
+    // re-fetch of the provider list itself, not just the trending row.
+    streamingProvidersLoaded = false;
+    loadStreamingProviders();
 });
 
 movieCitySelect.addEventListener("change", () => {
@@ -7288,6 +7294,207 @@ async function loadMovies() {
 
     renderMovies();
 }
+
+// --- Streaming Providers (Theatre) ---------------------------------------
+//
+// Two independent pieces, per the user's ask: a trending row for one
+// selected provider (dropdown populated live from TMDB's own provider
+// list, no hardcoded IDs -- see get-watch-providers in main.js), and a
+// free-text search that looks up ANY title's provider availability, not
+// limited to whichever provider happens to be selected above.
+let streamingProviderCache = [];
+const streamingProviderSelect = document.getElementById("streamingProviderSelect");
+
+function buildStreamingProviderCard(item) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+    const typeIcon = item.mediaType === "movie" ? "🎬" : "📺";
+    const dateLabel = item.mediaType === "movie"
+        ? `Released ${item.releaseDate || "unknown"}`
+        : `First aired ${item.releaseDate || "unknown"}`;
+    // item.name/description come from TMDB's own listing data -- untrusted
+    // third-party content, so both go through textContent below.
+    card.innerHTML = `
+        <div class="cover-wrap">
+            <img class="cover-img" src="${item.image || "covers/default.jpg"}" alt="">
+            <span class="media-rating-badge" hidden></span>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
+        </div>
+        <div class="game-info">
+            <h3></h3>
+            <p class="game-playtime">${typeIcon} ${dateLabel}</p>
+            <p class="game-desc"></p>
+        </div>
+    `;
+
+    card.querySelector(".cover-img").alt = item.name;
+    card.querySelector(".game-info h3").textContent = item.name;
+    card.querySelector(".game-desc").textContent = item.description || "No description available.";
+
+    if (typeof item.rating === "number") {
+        const badge = card.querySelector(".media-rating-badge");
+        badge.textContent = `★ ${item.rating.toFixed(1)}`;
+        badge.title = "Rating via TMDB";
+        badge.hidden = false;
+    }
+
+    let providerCardTrailerId;
+    async function fetchProviderCardTrailerOnce() {
+        if (providerCardTrailerId === undefined || providerCardTrailerId === null) {
+            providerCardTrailerId = item.mediaType === "movie"
+                ? await window.riftgate.invoke("get-movie-trailer", item.id)
+                : await window.riftgate.invoke("get-tv-show-trailer", item.id);
+        }
+        return providerCardTrailerId;
+    }
+
+    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const trailerId = await fetchProviderCardTrailerOnce();
+        if (trailerId) {
+            openTheaterMode(trailerId);
+        } else {
+            showCustomAlert("No trailer could be found for this title.");
+        }
+    });
+
+    card.querySelector(".soundToggle").addEventListener("click", (event) => {
+        event.stopPropagation();
+        soundEnabled = !soundEnabled;
+        updateAllSoundToggles();
+        applySoundToAllFrames();
+    });
+
+    const providerCardCoverImgEl = card.querySelector(".cover-img");
+    providerCardCoverImgEl.style.cursor = "pointer";
+    providerCardCoverImgEl.addEventListener("click", async () => {
+        const trailerId = await fetchProviderCardTrailerOnce();
+        if (trailerId) openTheaterMode(trailerId);
+    });
+
+    attachAdminRemoveButton(card, item.mediaType === "movie" ? "movie" : "show", item.id, item.name);
+
+    return card;
+}
+
+function renderStreamingProviderGrid() {
+    const grid = document.getElementById("streamingProviderGrid");
+    const visible = (canSeeMatureContent()
+        ? streamingProviderCache
+        : streamingProviderCache.filter((it) => !isItemMature(it.mediaType === "movie" ? "movie" : "show", it.id, it.isMature))
+    ).filter((it) => !isItemRemoved(it.mediaType === "movie" ? "movie" : "show", it.id));
+
+    if (visible.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Nothing found for this provider right now.</p>`;
+        return;
+    }
+
+    grid.innerHTML = "";
+    sortNoCoverLast(visible, "image").forEach((item) => grid.appendChild(buildStreamingProviderCard(item)));
+}
+
+async function loadStreamingProviderTrending() {
+    const grid = document.getElementById("streamingProviderGrid");
+    const providerName = streamingProviderSelect.value;
+    if (!providerName) return;
+
+    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+
+    const items = await window.riftgate.invoke("get-trending-by-provider", {
+        providerName,
+        countryCode: movieCountrySelect.value
+    });
+    streamingProviderCache = items || [];
+    renderStreamingProviderGrid();
+}
+
+let streamingProvidersLoaded = false;
+async function loadStreamingProviders() {
+    if (streamingProvidersLoaded) return;
+    streamingProvidersLoaded = true;
+
+    const providers = await window.riftgate.invoke("get-watch-providers", movieCountrySelect.value);
+    streamingProviderSelect.innerHTML = "";
+
+    if (!providers || providers.length === 0) {
+        document.getElementById("streamingProviderGrid").innerHTML =
+            `<p style="color:var(--text-muted);font-size:13px;">No streaming providers found for this region.</p>`;
+        return;
+    }
+
+    providers.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.name;
+        opt.textContent = p.name;
+        streamingProviderSelect.appendChild(opt);
+    });
+
+    loadStreamingProviderTrending();
+}
+
+streamingProviderSelect.addEventListener("change", loadStreamingProviderTrending);
+
+const watchProviderSearchInput = document.getElementById("watchProviderSearchInput");
+const watchProviderSearchBtn = document.getElementById("watchProviderSearchBtn");
+const watchProviderSearchResults = document.getElementById("watchProviderSearchResults");
+
+async function runWatchProviderSearch() {
+    const query = watchProviderSearchInput.value.trim();
+    if (!query) return;
+
+    watchProviderSearchResults.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Searching...</p>`;
+
+    const results = await window.riftgate.invoke("search-watch-providers", {
+        query,
+        countryCode: movieCountrySelect.value
+    });
+
+    const visible = canSeeMatureContent()
+        ? (results || [])
+        : (results || []).filter((r) => !r.isMature);
+
+    if (visible.length === 0) {
+        watchProviderSearchResults.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No streaming availability found for "${query}" in your region.</p>`;
+        return;
+    }
+
+    watchProviderSearchResults.innerHTML = "";
+    visible.forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "watch-provider-result";
+        row.innerHTML = `
+            <img class="watch-provider-result-poster" src="${r.image || "covers/default.jpg"}" alt="">
+            <div class="watch-provider-result-info">
+                <h4></h4>
+                <div class="watch-provider-badges"></div>
+            </div>
+        `;
+        // r.name comes from TMDB search data -- untrusted, textContent only.
+        row.querySelector("h4").textContent = `${r.mediaType === "movie" ? "🎬" : "📺"} ${r.name}`;
+        const badges = row.querySelector(".watch-provider-badges");
+        r.providers.forEach((p) => {
+            const badge = document.createElement("span");
+            badge.className = "watch-provider-badge";
+            if (p.logo) {
+                const img = document.createElement("img");
+                img.src = p.logo;
+                img.alt = "";
+                badge.appendChild(img);
+            }
+            const label = document.createElement("span");
+            label.textContent = p.name;
+            badge.appendChild(label);
+            badges.appendChild(badge);
+        });
+        watchProviderSearchResults.appendChild(row);
+    });
+}
+
+watchProviderSearchBtn.addEventListener("click", runWatchProviderSearch);
+watchProviderSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") runWatchProviderSearch();
+});
 
 // --- "NEW" section: upcoming movies, new series, upcoming games -----------
 
