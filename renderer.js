@@ -6894,6 +6894,28 @@ async function loadMyShows() {
 let recentEpisodesCache = [];
 const recentEpisodesFilterInput = document.getElementById("recentEpisodesFilterInput");
 
+// JustWatch has no working un-prefixed "/search" route -- every real URL
+// is locale-prefixed (e.g. "/us/search", "/pt/busca"), and JustWatch only
+// translates that route's own word for the handful of markets it has a
+// full translation for -- everywhere else (including any locale not
+// listed below, confirmed with "/nl/search") falls back to the English
+// "search" segment. GB is also a locale-slug quirk: JustWatch's own UK
+// URLs use "uk", not "gb".
+const JUSTWATCH_LOCALE_SLUGS = { GB: "uk" };
+const JUSTWATCH_SEARCH_PATHS = {
+    PT: "busca", BR: "busca",
+    ES: "buscar",
+    FR: "recherche",
+    DE: "Suche",
+    IT: "cerca"
+};
+function buildJustWatchSearchUrl(encodedQuery) {
+    const countryCode = (movieCountrySelect.value || "US").toUpperCase();
+    const locale = (JUSTWATCH_LOCALE_SLUGS[countryCode] || countryCode).toLowerCase();
+    const searchPath = JUSTWATCH_SEARCH_PATHS[countryCode] || "search";
+    return `https://www.justwatch.com/${locale}/${searchPath}?q=${encodedQuery}`;
+}
+
 function renderRecentEpisodes() {
     const filterTerm = recentEpisodesFilterInput.value.trim().toLowerCase();
     const filtered = recentEpisodesCache.filter((ep) => ep.showName.toLowerCase().includes(filterTerm));
@@ -6936,13 +6958,7 @@ function renderRecentEpisodes() {
 
         card.querySelector(".whereToWatchBtn").addEventListener("click", () => {
             const query = encodeURIComponent(ep.showName);
-            // JustWatch has no working un-prefixed "/search" route — every
-            // real URL is locale-prefixed (e.g. "/us/", "/gb/", "/pt/").
-            // Reuse the user's own Theatre region setting (movieCountrySelect,
-            // an uppercase ISO country code like "US"/"PT") lowercased to
-            // build that prefix, defaulting to "us" if unset.
-            const locale = (movieCountrySelect.value || "US").toLowerCase();
-            window.riftgate.invoke("open-external", `https://www.justwatch.com/${locale}/search?q=${query}`);
+            window.riftgate.invoke("open-external", buildJustWatchSearchUrl(query));
         });
 
         // Keyed by show+season+number so a newly aired episode (a
