@@ -3171,6 +3171,22 @@ async function fetchSteamDeals() {
 async function fetchLoadedDeals() {
     try {
         const page = await httpsGetTextPlain("https://www.loaded.com/cdkeys-deals", 12000);
+        console.log(`[store] Loaded fetch: HTTP ${page.statusCode}, ${page.body.length} bytes.`);
+
+        // TEMP debug dump -- this environment couldn't get loaded.com's
+        // real HTML to build the scraper against (only an AI-summarized
+        // rendering, which strips tag/class names -- see the comment
+        // above this function), so the scraper below was a best-effort
+        // guess and came back empty on first try. This saves exactly
+        // what was actually fetched into the project folder so it can be
+        // inspected directly and the scraper fixed against the real
+        // markup. Safe to remove once that's done.
+        try {
+            fs.writeFileSync(path.join(__dirname, "debug-loaded-deals.html"), page.body);
+        } catch (dumpErr) {
+            console.error("[store] failed to write Loaded debug dump:", dumpErr.message || dumpErr);
+        }
+
         if (page.statusCode !== 200) {
             throw new Error(`HTTP ${page.statusCode}`);
         }
