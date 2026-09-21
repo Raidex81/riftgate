@@ -699,24 +699,26 @@
 
     <div id="storeContainer" class="secondary-section">
         <div class="section-info">
-            <p class="section-subtitle">Games on sale right now on Steam, GOG, and Epic Games — Riftgate sends you to the real store to buy, it never handles payment itself.</p>
+            <p class="section-subtitle">Games on sale right now on Steam, GOG, Epic, and dozens of other stores — Riftgate sends you to the real store to buy, it never handles payment itself.</p>
             <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
             <p class="section-blurb">
                 A live feed of currently-discounted games from Steam and dozens of other stores (GOG, Epic, Humble, Fanatical, and more). Every card links straight out to that store's own page to complete the purchase — Riftgate is only ever a discovery layer here, never a storefront of its own.
             </p>
         </div>
-        <!-- One quick-link button per store currently showing deals, populated
-             by updateStorePlatformLinks() in renderer.js -- opens that store's
-             own homepage in the default browser. This replaced the old
-             "filter by platform" dropdown: with dozens of possible stores
-             once CheapShark/Loaded are in the mix, a one-click shortcut to
-             browse a store directly reads better than a select box full of
-             names nobody can compare at a glance. -->
+        <!-- Quick-link buttons for third-party KEY RESELLERS only (CDKeys/
+             Loaded, Fanatical, GameBillet, and the like) — populated by
+             updateStorePlatformLinks() in renderer.js. A primary/official
+             storefront (Steam, GOG, Epic, Humble...) belongs in the
+             storePlatformSelect filter below instead, not here — see that
+             function for the exact split. -->
         <div id="storePlatformLinks" class="storePlatformLinks"></div>
         <div id="storeResultCount" class="free-games-result-count"></div>
         <div class="topbar" id="storeTopbar" style="padding:0 16px;">
             <div class="actions">
                 <input type="text" id="storeSearchInput" placeholder="Search deals...">
+                <select id="storePlatformSelect">
+                    <option value="all">All Platforms</option>
+                </select>
                 <select id="storeSortSelect">
                     <option value="discount">Sort: Biggest Discount</option>
                     <option value="popularity">Sort: Most Popular</option>
@@ -733,6 +735,13 @@
         <div id="storeNoResults" class="category-section" style="padding:0 16px;display:none;">
             <p style="color:var(--text-muted);font-size:13px;">No deals match your search/filters.</p>
         </div>
+        <!-- Curated preview rows shown above the full list, all using the
+             same wrapping/auto-fill .games-grid layout as everything else
+             in the app (never a fixed-width carousel row) so cards always
+             resize to fit the window instead of getting clipped at the
+             edge and needing an arrow click to see the rest of one. -->
+        <div id="storeNewRow" class="free-games-new-zone" style="padding:0 16px;"></div>
+        <div id="storeBrowseHeading" class="free-games-browse-heading" style="display:none;">🔍 Browse All Deals</div>
         <div id="storeGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
     </div>
 

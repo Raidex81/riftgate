@@ -123,6 +123,7 @@ let EBOOKS_FILE;
 let EBOOKS_DROPZONE_FOLDER;
 let FREEGAMES_COVER_CACHE_FOLDER;
 let STORE_DEALS_LAST_REFRESH_FILE;
+let STORE_SEEN_FILE;
 
 // --- Generic on-disk cache for online data (Free Games, Discover Online,
 // Buy Books) — so the app can show the last successful result instantly
@@ -1071,6 +1072,7 @@ function initUserData() {
     FREEGAMES_VR_FILE = path.join(userDataDir, "freegames-vr.json");
     FREEGAMES_LAST_REFRESH_FILE = path.join(userDataDir, "freegames-last-refresh.json");
     STORE_DEALS_LAST_REFRESH_FILE = path.join(userDataDir, "store-deals-last-refresh.json");
+    STORE_SEEN_FILE = path.join(userDataDir, "store-deals-seen.json");
     FREEGAMES_BULK_SEARCH_DONE_FILE = path.join(userDataDir, "freegames-bulk-search-done.json");
     TRAILER_CACHE_FILE = path.join(userDataDir, "trailer-cache.json");
     SESSION_FILE = path.join(userDataDir, "session.dat");
@@ -1161,6 +1163,10 @@ function initUserData() {
 
     if (!fs.existsSync(FREEGAMES_SEEN_FILE)) {
         fs.writeFileSync(FREEGAMES_SEEN_FILE, "{}");
+    }
+
+    if (!fs.existsSync(STORE_SEEN_FILE)) {
+        fs.writeFileSync(STORE_SEEN_FILE, "{}");
     }
 
     if (!fs.existsSync(FREEGAMES_UNAVAILABLE_FILE)) {
@@ -3522,6 +3528,29 @@ function readStoreDealsSourceCounts() {
     }
 }
 
+function readStoreSeenCache() {
+    try {
+        return JSON.parse(fs.readFileSync(STORE_SEEN_FILE, "utf8"));
+    } catch (err) {
+        return {};
+    }
+}
+
+// A deal's own id (cheapshark-<dealID>) churns every time its price or
+// discount changes even slightly -- useless as a "have we seen this
+// before" key, since the same game would look "new" again on every
+// refresh. gameId (CheapShark's cross-store game identifier, see
+// fetchCheapSharkDeals) is stable across those changes, so it's preferred;
+// a direct Steam deal has no gameId but its steamAppId never changes
+// either. Only as a last resort (no gameId or steamAppId at all) does
+// this fall back to the normalized name, which is the least stable of
+// the three but still far better than the raw deal id.
+function storeSeenKey(deal) {
+    if (deal.gameId) return `game-${deal.gameId}`;
+    if (deal.steamAppId) return `steam-${deal.steamAppId}`;
+    return `name-${normalizeGameName(deal.name)}`;
+}
+
 // Same in-flight-promise dedupe as performFreeGamesRefresh above, so a
 // renderer refresh landing at the same instant as the startup auto-check
 // doesn't double up on requests to Steam/CheapShark.
@@ -3544,6 +3573,26 @@ async function performStoreDealsRefresh() {
         for (const deal of deals) {
             sourceCounts[deal.source] = (sourceCounts[deal.source] || 0) + 1;
         }
+
+        // Tracks when Riftgate first saw each deal (by its stable
+        // storeSeenKey, not its churny id) so the Store UI can show a
+        // "Newly Added" row, the same way Free Games already does for
+        // itself -- see runFreeGamesRefresh's own firstSeenAt tracking.
+        // A deal no longer present this refresh has either expired or
+        // dropped in discount below the threshold; its entry is pruned so
+        // this file doesn't grow forever with stale, never-shown-again keys.
+        const seenCache = readStoreSeenCache();
+        const now = Date.now();
+        const currentKeys = new Set();
+        deals.forEach((deal) => {
+            const key = storeSeenKey(deal);
+            currentKeys.add(key);
+            if (!seenCache[key]) seenCache[key] = now;
+            deal.firstSeenAt = seenCache[key];
+        });
+        const prunedSeenCache = {};
+        currentKeys.forEach((key) => { prunedSeenCache[key] = seenCache[key]; });
+        fs.writeFileSync(STORE_SEEN_FILE, JSON.stringify(prunedSeenCache, null, 2));
 
         saveDataCache("cache-store-deals.json", deals);
         saveStoreDealsLastRefresh(Date.now(), sourceCounts);

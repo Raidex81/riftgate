@@ -9466,6 +9466,7 @@ async function loadStoreDeals(silent) {
         if (cached && cached.length > 0) {
             storeDealsCache = cached;
             updateStorePlatformLinks();
+            updateStorePlatformSelect();
             renderStoreDeals();
         }
     }
@@ -9474,16 +9475,18 @@ async function loadStoreDeals(silent) {
     storeDealsCache = deals || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     updateStorePlatformLinks();
+    updateStorePlatformSelect();
     renderStoreDeals();
 }
 
-// Store's own homepage per source name -- used only to build the
-// quick-link buttons below, never for anything deal-related. Deliberately
-// only the stores confirmed to actually show up in a live refresh (see
-// the breakdown line) plus a few more CheapShark is known to track --
-// exact store-name strings matter here (they have to match deal.source
-// verbatim), so a store not listed here just doesn't get a button rather
-// than risk a wrong/guessed URL. Safe to extend as new stores turn up.
+// Store's own homepage per source name -- used both for the reseller
+// quick-link buttons and (indirectly) the platform filter below.
+// Deliberately only the stores confirmed to actually show up in a live
+// refresh (see the breakdown line) plus a few more CheapShark is known to
+// track -- exact store-name strings matter here (they have to match
+// deal.source verbatim), so a store not listed here just doesn't get a
+// button rather than risk a wrong/guessed URL. Safe to extend as new
+// stores turn up.
 const STORE_HOMEPAGE_URLS = {
     "Steam": "https://store.steampowered.com",
     "GOG": "https://www.gog.com",
@@ -9501,12 +9504,18 @@ const STORE_HOMEPAGE_URLS = {
     "GamersGate": "https://www.gamersgate.com"
 };
 
-// Replaces the old "filter by platform" dropdown -- with dozens of
-// possible stores once CheapShark/Loaded are mixed in, a row of one-click
-// "go look at that store yourself" buttons is more useful than a select
-// box, and it's rebuilt the same way the old dropdown was: from whatever
-// source values actually show up in the cache each refresh, not a
-// hardcoded list that goes stale.
+// Third-party KEY RESELLERS -- sites that sell game keys sourced
+// elsewhere rather than being the game's own primary storefront. These
+// get the quick-link buttons (Alfredo: "buttons for resellers only...
+// like CDKEYS site or Loaded"). A primary storefront (Steam, GOG, Epic,
+// Humble, and anything else CheapShark surfaces that isn't in this set)
+// goes in the storePlatformSelect filter dropdown instead, same as
+// before the buttons existed.
+const RESELLER_STORE_NAMES = new Set([
+    "Loaded (CDKeys)", "Fanatical", "GreenManGaming", "Gamesplanet",
+    "IndieGala", "WinGameStore", "GameBillet", "2Game", "Voidu", "GamersGate"
+]);
+
 function updateStorePlatformLinks() {
     const container = document.getElementById("storePlatformLinks");
     container.innerHTML = "";
@@ -9514,7 +9523,7 @@ function updateStorePlatformLinks() {
     const platforms = new Set();
     storeDealsCache.forEach((deal) => { if (deal.source) platforms.add(deal.source); });
 
-    Array.from(platforms).sort().forEach((source) => {
+    Array.from(platforms).filter((source) => RESELLER_STORE_NAMES.has(source)).sort().forEach((source) => {
         const url = STORE_HOMEPAGE_URLS[source];
         if (!url) return; // no known homepage for this one -- see the map's comment above
 
@@ -9529,18 +9538,85 @@ function updateStorePlatformLinks() {
     });
 }
 
+// Everything that ISN'T a key reseller (Steam, GOG, Epic, Humble, and any
+// other primary storefront CheapShark turns up) goes here instead, same
+// as the original filter dropdown before it was replaced by the button
+// row above -- rebuilt from whatever source values actually show up in
+// the cache each refresh, not a hardcoded list that goes stale. Keeps the
+// previously-selected value where it's still a valid option.
+function updateStorePlatformSelect() {
+    const select = document.getElementById("storePlatformSelect");
+    const previousValue = select.value;
+
+    const platforms = new Set();
+    storeDealsCache.forEach((deal) => { if (deal.source) platforms.add(deal.source); });
+
+    select.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "all";
+    allOpt.textContent = "All Platforms";
+    select.appendChild(allOpt);
+
+    Array.from(platforms).filter((source) => !RESELLER_STORE_NAMES.has(source)).sort().forEach((source) => {
+        const opt = document.createElement("option");
+        opt.value = source;
+        opt.textContent = source;
+        select.appendChild(opt);
+    });
+
+    if (Array.from(select.options).some((opt) => opt.value === previousValue)) {
+        select.value = previousValue;
+    }
+}
+
 function formatStorePrice(amount, currency) {
     if (typeof amount !== "number") return null;
     const symbol = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
     return `${symbol}${amount.toFixed(2)}`;
 }
 
+// Builds one curated preview row (Newly Added / Most Popular /
+// Recommended) the same way as every other themed grid in the app: a
+// heading followed by a wrapping, auto-fill .games-grid — never a
+// fixed-width carousel row, so cards always reflow to fit the window
+// instead of getting clipped at the edge and needing an arrow click to
+// see the rest of one.
+function buildStoreSpotlightSection(container, headingText, items) {
+    if (items.length === 0) return;
+
+    const section = document.createElement("div");
+    section.className = "theatre-block free-games-platform-block";
+    const header = document.createElement("div");
+    header.className = "theatre-block-header";
+    const h2 = document.createElement("h2");
+    h2.textContent = headingText;
+    header.appendChild(h2);
+    section.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "games-grid browse-grid";
+    items.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
+    section.appendChild(grid);
+
+    container.appendChild(section);
+}
+
+// How many days a deal counts as "newly added", and how many cards each
+// spotlight row previews -- these are curated highlights, not full lists,
+// so both are capped well below what the full Browse All grid can hold.
+const STORE_NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+const STORE_SPOTLIGHT_CAP = 12;
+
 function renderStoreDeals() {
     const grid = document.getElementById("storeGrid");
+    const newRow = document.getElementById("storeNewRow");
+    const browseHeading = document.getElementById("storeBrowseHeading");
     const emptyState = document.getElementById("storeEmptyState");
     const noResults = document.getElementById("storeNoResults");
     const resultCount = document.getElementById("storeResultCount");
     grid.innerHTML = "";
+    newRow.innerHTML = "";
+    browseHeading.style.display = "none";
 
     if (storeDealsCache.length === 0) {
         emptyState.style.display = "";
@@ -9551,9 +9627,11 @@ function renderStoreDeals() {
     emptyState.style.display = "none";
 
     const query = document.getElementById("storeSearchInput").value.trim().toLowerCase();
+    const platformFilter = document.getElementById("storePlatformSelect").value;
 
     let deals = storeDealsCache.filter((deal) => {
         if (query && !(deal.name || "").toLowerCase().includes(query)) return false;
+        if (platformFilter !== "all" && deal.source !== platformFilter) return false;
         return true;
     });
 
@@ -9586,6 +9664,41 @@ function renderStoreDeals() {
         .map(([platform, count]) => `${platform}: ${count}`)
         .join(" · ");
     resultCount.textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}${breakdown ? ` (${breakdown})` : ""}`;
+
+    // Spotlight rows only make sense on the unfiltered "browse everything"
+    // view (search still narrows them, same as the grid below, but a
+    // platform filter already IS a much more specific view than any of
+    // these three, so they'd just be redundant/confusing alongside it) --
+    // same reasoning Free Games uses to hide its own spotlight in
+    // single-platform mode.
+    if (platformFilter === "all") {
+        const now = Date.now();
+        const newlyAdded = deals
+            .filter((d) => (d.firstSeenAt || 0) > now - STORE_NEW_WINDOW_MS)
+            .sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))
+            .slice(0, STORE_SPOTLIGHT_CAP);
+
+        const mostPopular = deals
+            .filter((d) => d.popularity != null)
+            .sort((a, b) => b.popularity - a.popularity)
+            .slice(0, STORE_SPOTLIGHT_CAP);
+
+        // "Recommended" here means well-reviewed games (a real Steam
+        // popularity signal, not a guess) that also happen to be a
+        // genuinely good deal right now (at least 40% off) -- a
+        // deliberately different cut than Most Popular above, which
+        // ignores discount size entirely.
+        const recommended = deals
+            .filter((d) => d.popularity != null && (d.discountPercent || 0) >= 40)
+            .sort((a, b) => b.popularity - a.popularity)
+            .slice(0, STORE_SPOTLIGHT_CAP);
+
+        if (newlyAdded.length > 0) buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
+        if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular);
+        if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended);
+
+        if (newRow.children.length > 0) browseHeading.style.display = "";
+    }
 
     deals.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
 }
@@ -9699,6 +9812,7 @@ function buildStoreDealCard(deal) {
 }
 
 document.getElementById("storeSearchInput").addEventListener("input", renderStoreDeals);
+document.getElementById("storePlatformSelect").addEventListener("change", renderStoreDeals);
 document.getElementById("storeSortSelect").addEventListener("change", renderStoreDeals);
 document.getElementById("storeRefreshBtn").addEventListener("click", async () => {
     const btn = document.getElementById("storeRefreshBtn");
@@ -9707,6 +9821,7 @@ document.getElementById("storeRefreshBtn").addEventListener("click", async () =>
     storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     updateStorePlatformLinks();
+    updateStorePlatformSelect();
     renderStoreDeals();
     btn.disabled = false;
     btn.textContent = "🔄 Refresh";
