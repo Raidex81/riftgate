@@ -9551,6 +9551,8 @@ function buildStoreDealCard(deal) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(deal.image) || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
             <span class="storeDiscountBadge free-games-pill"></span>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch trailer">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -9601,6 +9603,35 @@ function buildStoreDealCard(deal) {
     card.querySelector(".getGameBtn").addEventListener("click", (event) => {
         event.stopPropagation();
         window.riftgate.invoke("open-external", deal.url);
+    });
+
+    // Same sound-toggle/trailer-enlarge pattern as Free Games' cards
+    // (buildFreeGameCard above) -- soundToggle just flips the one shared
+    // soundEnabled flag every trailer player in the app reads from, and
+    // the trailer itself is looked up lazily (only once the button's
+    // actually clicked) and cached by deal.id so re-opening the same
+    // deal's trailer later doesn't spend another YouTube lookup.
+    card.querySelector(".soundToggle").addEventListener("click", (event) => {
+        event.stopPropagation();
+        soundEnabled = !soundEnabled;
+        updateAllSoundToggles();
+        applySoundToAllFrames();
+    });
+
+    let storeDealTrailerId;
+
+    async function fetchStoreDealTrailerOnce() {
+        if (storeDealTrailerId === undefined || storeDealTrailerId === null) {
+            storeDealTrailerId = await window.riftgate.invoke("fetch-trailer", deal.name, "game", null, deal.id);
+        }
+        return storeDealTrailerId;
+    }
+
+    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const id = await fetchStoreDealTrailerOnce();
+        if (id) openTheaterMode(id);
+        else showCustomAlert("No trailer could be found for this title.");
     });
 
     return card;
