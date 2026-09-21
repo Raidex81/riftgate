@@ -2839,17 +2839,18 @@ async function runFreeGamesRefresh(forceFullCheck) {
         fetchGamerPowerFreeGames(),
         fetchItchFreeGames(),
         fetchItchVrFreeGames(),
-        fetchCuratedAlwaysFreeGames()
+        fetchCuratedAlwaysFreeGames(),
+        fetchCheapSharkFreeGames()
     ]);
 
     results.forEach((r, i) => {
         if (r.status === "rejected") {
-            const storeName = ["Epic", "Steam", "GOG", "GamerPower", "itch.io", "itch.io VR", "Curated"][i];
+            const storeName = ["Epic", "Steam", "GOG", "GamerPower", "itch.io", "itch.io VR", "Curated", "CheapShark"][i];
             console.error(`[free-games] ${storeName} fetch rejected entirely:`, r.reason);
         }
     });
 
-    const [epicGames, steamGames, gogGames, gamerPowerGames, itchGamesRaw, itchVrGames, curatedGames] = results.map((r) =>
+    const [epicGames, steamGames, gogGames, gamerPowerGames, itchGamesRaw, itchVrGames, curatedGames, cheapSharkFreeGamesRaw] = results.map((r) =>
         r.status === "fulfilled" ? r.value : []
     );
 
@@ -2876,7 +2877,21 @@ async function runFreeGamesRefresh(forceFullCheck) {
     // real, currently-verified image and up-to-date data), so any curated
     // entry whose name matches something a live source already found gets
     // dropped here rather than shown as a duplicate card.
-    const liveGames = [...epicGames, ...steamGames, ...gogGames, ...gamerPowerGames, ...itchGames];
+    // Same name-based dedup the curated list gets below, applied first:
+    // a 100%-off CheapShark listing that's really the same game one of
+    // the dedicated live sources (most often Epic's own official feed)
+    // already found is dropped here, before curatedGames even gets a
+    // chance to compare against it -- otherwise the same giveaway could
+    // theoretically show up under two different `source` labels.
+    const dedicatedLiveGames = [...epicGames, ...steamGames, ...gogGames, ...gamerPowerGames, ...itchGames];
+    const dedicatedLiveNames = new Set(dedicatedLiveGames.map((g) => normalizeGameName(g.name)));
+    const cheapSharkFreeGames = cheapSharkFreeGamesRaw.filter((g) => !dedicatedLiveNames.has(normalizeGameName(g.name)));
+    const cheapSharkDupCount = cheapSharkFreeGamesRaw.length - cheapSharkFreeGames.length;
+    if (cheapSharkDupCount > 0) {
+        console.log(`[free-games] Skipped ${cheapSharkDupCount} CheapShark 100%-off entr${cheapSharkDupCount === 1 ? "y" : "ies"} already found by a dedicated source.`);
+    }
+
+    const liveGames = [...dedicatedLiveGames, ...cheapSharkFreeGames];
     const curatedGamesDeduped = dedupeCuratedAgainstLive(curatedGames, liveGames);
     const dedupedCount = curatedGames.length - curatedGamesDeduped.length;
     if (dedupedCount > 0) {
@@ -2973,11 +2988,20 @@ async function runFreeGamesRefreshForPlatform(platform) {
             const [itchVr, gamerPower] = await Promise.all([fetchItchVrFreeGames(), fetchGamerPowerFreeGames()]);
             freshLive = [...itchVr, ...gamerPower.filter((g) => g.vr)];
         } else if (platform === "Steam") {
-            freshLive = await fetchSteamFreeGames(true);
+            const [steam, cheapSharkFree] = await Promise.all([fetchSteamFreeGames(true), fetchCheapSharkFreeGames()]);
+            freshLive = [...steam, ...cheapSharkFree.filter((g) => g.source === "Steam")];
         } else if (platform === "Epic Games") {
-            freshLive = await fetchEpicFreeGames();
+            // CheapShark's general deals feed catches indie-run 100%-off
+            // promos on the Epic store that Epic's own dedicated
+            // freeGamesPromotions endpoint (fetchEpicFreeGames) never
+            // covers -- it only reports Epic's own official "this week's
+            // free game" slot. Without this, a scoped refresh here would
+            // silently be narrower than a full all-platforms refresh.
+            const [epic, cheapSharkFree] = await Promise.all([fetchEpicFreeGames(), fetchCheapSharkFreeGames()]);
+            freshLive = [...epic, ...cheapSharkFree.filter((g) => g.source === "Epic Games")];
         } else if (platform === "GOG") {
-            freshLive = await fetchGogFreeGames();
+            const [gog, cheapSharkFree] = await Promise.all([fetchGogFreeGames(), fetchCheapSharkFreeGames()]);
+            freshLive = [...gog, ...cheapSharkFree.filter((g) => g.source === "GOG")];
         } else if (platform === "itch.io") {
             const [general, vr] = await Promise.all([fetchItchFreeGames(), fetchItchVrFreeGames()]);
             const generalIds = new Set(general.map((g) => g.id));
@@ -2987,8 +3011,20 @@ async function runFreeGamesRefreshForPlatform(platform) {
             });
             freshLive = [...general, ...vr.filter((g) => !generalIds.has(g.id))];
         } else {
-            const gamerPower = await fetchGamerPowerFreeGames();
-            freshLive = gamerPower.filter((g) => g.source === platform);
+            // Covers both GamerPower-tracked platforms (Battle.net, Riot,
+            // etc.) AND any CheapShark-only store (Fanatical, GameBillet,
+            // WinGameStore, GreenManGaming, Gamesplanet, IndieGala, Loaded)
+            // -- without the CheapShark half here, a scoped refresh for one
+            // of those platforms would find nothing and wipe its entries
+            // from cache instead of leaving them alone (see `untouched`
+            // above: this platform's existing entries are already excluded
+            // from it, so an empty freshLive here would delete them, not
+            // just fail to update them).
+            const [gamerPower, cheapSharkFree] = await Promise.all([fetchGamerPowerFreeGames(), fetchCheapSharkFreeGames()]);
+            freshLive = [
+                ...gamerPower.filter((g) => g.source === platform),
+                ...cheapSharkFree.filter((g) => g.source === platform)
+            ];
         }
     } catch (err) {
         console.error(`[free-games] Scoped refresh for "${platform}" failed:`, err.message || err);
@@ -3113,7 +3149,11 @@ async function fetchSteamDeals() {
         const items = (data.specials && data.specials.items) || [];
 
         return items
-            .filter((it) => it && typeof it.discount_percent === "number" && it.discount_percent > 0)
+            // Steam's specials feed is discounted-but-still-paid games, not
+            // giveaways -- a 100%-off item belongs in Free Games instead
+            // (see fetchCheapSharkFreeGames), same reasoning as the
+            // identical exclusion in fetchCheapSharkDeals below.
+            .filter((it) => it && typeof it.discount_percent === "number" && it.discount_percent > 0 && it.discount_percent < 100)
             .map((it) => ({
                 id: `steam-${it.id}`,
                 name: it.name,
@@ -3168,6 +3208,55 @@ async function fetchSteamDeals() {
 // false-positive on some unrelated snippet that happens to contain all
 // of those nearby. If this comes back empty or wrong, that's the first
 // thing to check against the page's real HTML.
+// The Free Games half of the split described above fetchCheapSharkDeals --
+// only the entries CheapShark reports as 100% off, mapped into Free
+// Games' own game shape (id/name/description/image/url/source/tags/vr)
+// instead of Store's deal shape. Deduped against every other live source
+// by normalized name in runFreeGamesRefresh below, same as the curated
+// list is deduped against live sources -- a promo CheapShark surfaces
+// that Epic's own dedicated feed (or Steam's, or GOG's) ALSO already
+// found shouldn't show up as two separate cards for the same game.
+async function fetchCheapSharkFreeGames() {
+    try {
+        const { storeNames, deals } = await fetchCheapSharkRawDeals();
+
+        return deals
+            .map((d) => {
+                const discountPercent = Math.round(parseFloat(d.savings));
+                if (discountPercent < 100) return null;
+
+                const storeNameRaw = storeNames[d.storeID] || `Store ${d.storeID}`;
+                // CheapShark calls Epic's storefront "Epic Games Store";
+                // fetchEpicFreeGames above uses "Epic Games" as its own
+                // source string. Normalized to match so the name-based
+                // dedup step actually recognizes the same game found by
+                // both sources as one game, not two differently-sourced
+                // ones.
+                const source = storeNameRaw === "Epic Games Store" ? "Epic Games" : storeNameRaw;
+
+                const steamAppId = d.steamAppID && /^\d+$/.test(String(d.steamAppID)) ? d.steamAppID : null;
+
+                return {
+                    id: `cheapshark-free-${d.dealID}`,
+                    name: d.title,
+                    description: null,
+                    image: steamAppId
+                        ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`
+                        : (d.thumb || null),
+                    fallbackImage: steamAppId ? (d.thumb || null) : null,
+                    url: `https://www.cheapshark.com/redirect?dealID=${d.dealID}`,
+                    source,
+                    tags: [],
+                    vr: null
+                };
+            })
+            .filter(Boolean);
+    } catch (err) {
+        console.error("[free-games] CheapShark fetch failed:", err.message || err);
+        return [];
+    }
+}
+
 async function fetchLoadedDeals() {
     try {
         const page = await httpsGetTextPlain("https://www.loaded.com/cdkeys-deals", 12000);
@@ -3258,19 +3347,35 @@ async function fetchLoadedDeals() {
     }
 }
 
+// Shared by fetchCheapSharkDeals (Store, below) and fetchCheapSharkFreeGames
+// (Free Games, further below) -- same underlying feed, split into "real
+// discounts" and "100% off, i.e. actually free" by the two callers, each
+// doing its own independent fetch on its own section's refresh schedule.
+async function fetchCheapSharkRawDeals() {
+    const [storesRaw, dealsRaw] = await Promise.all([
+        httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/stores", 10000),
+        httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/deals?pageSize=60&sortBy=Savings&onSale=true", 10000)
+    ]);
+
+    const storeNames = {};
+    (Array.isArray(storesRaw) ? storesRaw : []).forEach((s) => {
+        if (s && s.storeID) storeNames[s.storeID] = s.storeName;
+    });
+
+    return { storeNames, deals: Array.isArray(dealsRaw) ? dealsRaw : [] };
+}
+
+// A 100%-off CheapShark listing is a free game, not a discount -- Free
+// Games is where that belongs (fetchCheapSharkFreeGames below), not here,
+// so the exact same giveaway doesn't end up shown twice, once per
+// section. This surfaced real gaps in Free Games' own coverage: Epic's
+// dedicated freeGamesPromotions endpoint (fetchEpicFreeGames above) only
+// covers Epic's own official "this week's free game" slot, not every
+// indie dev running their own temporary 100%-off promo through the Epic
+// store -- CheapShark's general deals feed catches those too.
 async function fetchCheapSharkDeals() {
     try {
-        const [storesRaw, dealsRaw] = await Promise.all([
-            httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/stores", 10000),
-            httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/deals?pageSize=60&sortBy=Savings&onSale=true", 10000)
-        ]);
-
-        const storeNames = {};
-        (Array.isArray(storesRaw) ? storesRaw : []).forEach((s) => {
-            if (s && s.storeID) storeNames[s.storeID] = s.storeName;
-        });
-
-        const deals = Array.isArray(dealsRaw) ? dealsRaw : [];
+        const { storeNames, deals } = await fetchCheapSharkRawDeals();
 
         return deals
             .map((d) => {
@@ -3282,7 +3387,7 @@ async function fetchCheapSharkDeals() {
                 const finalPrice = parseFloat(d.salePrice);
                 const originalPrice = parseFloat(d.normalPrice);
                 const discountPercent = Math.round(parseFloat(d.savings));
-                if (!discountPercent || discountPercent <= 0) return null;
+                if (!discountPercent || discountPercent <= 0 || discountPercent >= 100) return null;
 
                 const steamAppId = d.steamAppID && /^\d+$/.test(String(d.steamAppID)) ? d.steamAppID : null;
 
