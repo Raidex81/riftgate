@@ -42,29 +42,38 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round (v1.4.2):
+Quick pass on what actually changed this round (v1.5.0):
 
-- **Trailers — fullscreen button** — open Theatre (or New Series),
-  play a trailer, and click the YouTube player's own fullscreen
-  button. Confirm it still works. This release added a default-deny
-  permission handler for the whole app (camera, microphone,
-  geolocation, notifications, MIDI, clipboard, and screen/device
-  capture are now blocked unless a feature explicitly needs them) —
-  fullscreen is the one deliberate exception, kept specifically so
-  this button doesn't break. If it stops working, that's the first
-  place to look.
-- **Everything else, generally** — the permission handler is scoped
-  to permission *requests* (things like camera/mic/geolocation), not
-  to normal app behavior, so nothing else should look or act
-  differently. Still worth a quick click through Installed Library,
-  Free Games, Reading Room, Applications, and The Vault, since it
-  does apply session-wide rather than to one feature.
-- **This release is otherwise docs-only** — a new ARCHITECTURE.md and
-  README screenshots on GitHub. Nothing to test there; it doesn't
-  ship inside the app itself.
+- **Store (new section)** — open the new Store tab. Confirm deals load,
+  the platform filter and store quick-link buttons work, sorting (incl.
+  "Most Popular") works, and cards show a review-score badge, a working
+  trailer (enlarge) button, and a sound toggle. Click a card's buy link
+  and confirm it opens the actual storefront listing.
+- **Sign-up — email verification** — create a new account and confirm
+  the optional email verification step appears and completes correctly.
+  Existing accounts should be unaffected.
+- **Theatre — Streaming Providers** — open Theatre and confirm the
+  Streaming Providers block now shows a separate row per service
+  (Netflix, Prime Video, Disney+, Max, Hulu, Apple TV+, Paramount+,
+  Peacock, Crunchyroll) instead of one dropdown-driven row. Click a
+  card's "Watch on <Provider>" button and confirm it opens that title on
+  the provider's own site. The "🔍 Find Where to Watch" search below the
+  rows should still work for titles outside those providers.
+- **Theatre — My Shows / Recently Released sync** — track a show, wait
+  for (or fake) it to appear in Recently Released, then remove it from
+  My Shows. Confirm its card disappears from Recently Released too
+  instead of lingering.
+- **New tab — New Anime row** — confirm a "New Anime" row appears
+  alongside New Series, and that it can be dragged to reorder among the
+  other New tab sections — including dragging the *first* section onto
+  its immediate neighbor, which used to silently fail to swap.
+- **New tab & other carousels — card sizing** — scroll through New tab
+  rows (and Reading Room's carousels) and confirm cards are all the same
+  size and none are visibly cut off at the right edge.
+- **Hero banner** — open the app and confirm the banner's background no
+  longer visibly mismatches the video playing inside it.
 - **🔔 Notifications (changelog)** — click the bell icon and confirm
-  v1.4.2 shows real patch notes instead of the list stopping at
-  v1.4.1.
+  v1.5.0 shows real patch notes instead of the list stopping at v1.4.2.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
