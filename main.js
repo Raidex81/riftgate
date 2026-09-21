@@ -3149,6 +3149,99 @@ async function fetchSteamDeals() {
 // deals use above (see fetchSteamDeals) instead of CheapShark's own
 // thumb, which is a small landscape crop that looks inconsistent in a
 // portrait grid. thumb still rides along as fallbackImage either way.
+// Loaded (formerly CDKeys) isn't one of CheapShark's tracked stores (no
+// "Loaded"/"CDKeys" entry ever showed up in a live refresh's per-store
+// breakdown -- confirmed against the running app, not guessed), and it
+// has no public API of its own -- it's a Magento 2 storefront (Hyva
+// theme), so this scrapes its own deals page instead.
+//
+// IMPORTANT caveat, in keeping with this file's other scraped/unverified
+// sources: this was written without ever seeing loaded.com's actual raw
+// HTML -- only an AI-summarized/markdown rendering of it, which strips
+// exact tag/class names. Rather than match a specific class name (which
+// could easily be wrong and match nothing, the same failure GOG's first
+// attempt hit), this looks for the things that rendering DID confirm
+// exist verbatim on the page: a product-page link on this domain, an
+// <img> with a real alt attribute (the product name), a "$X.XX" price,
+// and an "NN% Off" badge, all close together. That's more forgiving of
+// markup details it can't see, at the cost of being more likely to
+// false-positive on some unrelated snippet that happens to contain all
+// of those nearby. If this comes back empty or wrong, that's the first
+// thing to check against the page's real HTML.
+async function fetchLoadedDeals() {
+    try {
+        const page = await httpsGetTextPlain("https://www.loaded.com/cdkeys-deals", 12000);
+        if (page.statusCode !== 200) {
+            throw new Error(`HTTP ${page.statusCode}`);
+        }
+
+        // One chunk per product link on the domain (excluding the deals
+        // page itself linking to itself in nav/breadcrumbs) -- everything
+        // about that one product (its image, price, discount badge)
+        // reliably follows its own opening <a href> in a normal product
+        // tile, so splitting right before each such anchor keeps each
+        // product's own data together in one chunk instead of spread
+        // across chunk boundaries.
+        const chunks = page.body.split(/(?=<a[^>]+href="https:\/\/www\.loaded\.com\/(?!cdkeys-deals"|affiliate-program)[a-z0-9-]+"[^>]*>)/i);
+
+        const deals = [];
+        const seenIds = new Set();
+
+        for (const chunk of chunks) {
+            const hrefMatch = chunk.match(/^<a[^>]+href="(https:\/\/www\.loaded\.com\/[a-z0-9-]+)"/i);
+            if (!hrefMatch) continue;
+
+            // Looked for in whatever order they appear -- src-then-alt and
+            // alt-then-src both turn up across different Magento themes.
+            const imgMatch = chunk.match(/<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"/i)
+                || chunk.match(/<img[^>]+alt="([^"]*)"[^>]*src="([^"]+)"/i);
+            if (!imgMatch) continue;
+            const isFirstGroupUrl = /^https?:\/\//i.test(imgMatch[1]);
+            const image = isFirstGroupUrl ? imgMatch[1] : imgMatch[2];
+            const name = (isFirstGroupUrl ? imgMatch[2] : imgMatch[1]).trim();
+            if (!name || !/^https?:\/\//i.test(image)) continue;
+
+            const discountMatch = chunk.match(/(\d{1,3})\s*%\s*Off/i);
+            const priceMatch = chunk.match(/\$([\d,]+\.\d{2})/);
+            if (!discountMatch || !priceMatch) continue;
+
+            const discountPercent = parseInt(discountMatch[1], 10);
+            const finalPrice = parseFloat(priceMatch[1].replace(/,/g, ""));
+            if (!discountPercent || discountPercent <= 0 || discountPercent >= 100 || isNaN(finalPrice)) continue;
+
+            const url = hrefMatch[1];
+            const id = `loaded-${url.replace(/^https?:\/\//, "").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+            if (seenIds.has(id)) continue; // a tile can legitimately contain more than one link to itself
+            seenIds.add(id);
+
+            // The listing page only shows the sale price and a discount
+            // badge, not a separate struck-through original price to
+            // parse -- derived algebraically instead, same as GOG's
+            // base/final fallback above does when a field's missing.
+            const originalPrice = Math.round((finalPrice / (1 - discountPercent / 100)) * 100) / 100;
+
+            deals.push({
+                id,
+                name,
+                image,
+                fallbackImage: null,
+                url,
+                source: "Loaded (CDKeys)",
+                discountPercent,
+                finalPrice,
+                originalPrice,
+                currency: "USD",
+                popularity: null
+            });
+        }
+
+        return deals;
+    } catch (err) {
+        console.error("[store] Loaded (CDKeys) deals fetch failed:", err.message || err);
+        return [];
+    }
+}
+
 async function fetchCheapSharkDeals() {
     try {
         const [storesRaw, dealsRaw] = await Promise.all([
@@ -3254,8 +3347,8 @@ async function performStoreDealsRefresh() {
     if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
 
     storeDealsRefreshPromise = (async () => {
-        const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals()]);
-        const deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        const [steamDeals, cheapSharkDeals, loadedDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals(), fetchLoadedDeals()]);
+        const deals = [...steamDeals, ...cheapSharkDeals, ...loadedDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
         // Tallied from whichever source names actually turned up this
         // refresh, rather than a fixed list -- CheapShark can surface
