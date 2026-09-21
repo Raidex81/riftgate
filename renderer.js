@@ -228,10 +228,10 @@ let CATEGORY_ORDER = ["game", "vr", "app", "other"];
 // it rendered as the very first tab instead of after Free Games.)
 let SECTION_ORDER = ["new", "installed", "free-games", "store", "theatre", "reading-room", "shared-folder", "applications"];
 
-// The "New" tab's three blocks (Upcoming Games/Movies, New Series) —
+// The "New" tab's blocks (Upcoming Games/Movies, New Series, New Anime) —
 // reorderable the same way the sidebar tabs are, just stacked vertically
 // instead of laid out in a row.
-let NEW_BLOCK_ORDER = ["upcoming-games", "upcoming-movies", "new-series"];
+let NEW_BLOCK_ORDER = ["upcoming-games", "upcoming-movies", "new-series", "new-anime"];
 
 // Free Games' platform rows (Steam, Epic, GOG, ...), reorderable the same
 // drag-a-heading way as the New tab's blocks above. Unlike NEW_BLOCK_ORDER
@@ -3996,8 +3996,21 @@ function wireNewBlockDragReorder() {
 
             const newOrder = [...NEW_BLOCK_ORDER];
             newOrder.splice(fromIndex, 1);
-            let insertIndex = newOrder.indexOf(block.dataset.block);
-            if (insertAfter) insertIndex += 1;
+            let insertIndex = newOrder.indexOf(block.dataset.block) + (insertAfter ? 1 : 0);
+
+            // Dragging a block onto the half of its IMMEDIATE neighbor
+            // closest to where it already sits (e.g. the 1st block onto
+            // the top half of the 2nd, which is already right after it)
+            // computes right back to the same position -- a silent no-op
+            // that reads as "the drag just didn't work" rather than
+            // "there was nothing to change" (this is exactly what made
+            // the very first block impossible to move onto its neighbor).
+            // Since the two are adjacent, the opposite half is always an
+            // unambiguous real swap, so that's used instead.
+            if (insertIndex === fromIndex) {
+                insertIndex = insertAfter ? insertIndex - 1 : insertIndex + 1;
+            }
+
             newOrder.splice(insertIndex, 0, draggedNewBlockKey);
 
             NEW_BLOCK_ORDER = newOrder;
@@ -4069,8 +4082,17 @@ function wireSectionDragReorder(buttons) {
 
             const newOrder = [...SECTION_ORDER];
             newOrder.splice(fromIndex, 1);
-            let insertIndex = newOrder.indexOf(btn.dataset.section);
-            if (insertAfter) insertIndex += 1;
+            let insertIndex = newOrder.indexOf(btn.dataset.section) + (insertAfter ? 1 : 0);
+
+            // Same no-op guard as the New tab's block reorder above --
+            // dropping a tab on the half of its immediate neighbor
+            // nearest its current spot otherwise computes right back to
+            // the same position instead of the real swap the other half
+            // of that same neighbor would give.
+            if (insertIndex === fromIndex) {
+                insertIndex = insertAfter ? insertIndex - 1 : insertIndex + 1;
+            }
+
             newOrder.splice(insertIndex, 0, draggedSectionKey);
 
             SECTION_ORDER = newOrder;
@@ -5493,8 +5515,16 @@ function wireFreeGamesPlatformDragReorder() {
 
             const newOrder = [...order];
             newOrder.splice(fromIndex, 1);
-            let insertIndex = newOrder.indexOf(block.dataset.platform);
-            if (insertAfter) insertIndex += 1;
+            let insertIndex = newOrder.indexOf(block.dataset.platform) + (insertAfter ? 1 : 0);
+
+            // Same no-op guard as the New tab's block reorder -- dropping
+            // a row on the half of its immediate neighbor nearest its
+            // current spot otherwise computes right back to the same
+            // position instead of the real swap the other half gives.
+            if (insertIndex === fromIndex) {
+                insertIndex = insertAfter ? insertIndex - 1 : insertIndex + 1;
+            }
+
             newOrder.splice(insertIndex, 0, draggedFreeGamesPlatform);
 
             FREE_GAMES_PLATFORM_ORDER = newOrder;
@@ -7894,20 +7924,77 @@ function fitHscrollTrack(trackEl, minCardWidth, gap) {
     });
 }
 
-// Baseline card width (matches each row's own CSS -- see .upcoming-games-track/
-// .hscroll-grid-2row/.new-shows-track in style.css) and gap, used as the
-// minimum a card can shrink to before dropping to fewer columns instead.
+// Every horizontal arrow-scroll carousel app-wide, not just the New tab
+// -- the New tab's own rows got fitHscrollTrack first, but Reading
+// Room's Most Popular/Best Seller, Favorites, Recently Opened, and the
+// game detail modal's Related row all share the exact same
+// .carousel-wrap/.carousel-track + fixed pixel card width setup, so they
+// had the exact same "sliced-off card at the edge" problem, just never
+// wired up. minCardWidth/gap per row match each one's own CSS -- see
+// .upcoming-games-track/.hscroll-grid-2row/.new-shows-track/
+// .carousel-track .game-card in style.css -- used as the size to fit as
+// many of as will comfortably go, not a hard floor.
+const HSCROLL_TRACK_CONFIG = new Map([
+    ["upcomingGamesGrid", { minCardWidth: 300, gap: 14 }],
+    ["upcomingMoviesGrid", { minCardWidth: 210, gap: 18 }],
+    ["newShowsGrid", { minCardWidth: 210, gap: 14 }],
+    ["newAnimeGrid", { minCardWidth: 210, gap: 14 }],
+    ["mostPopularBooksGrid", { minCardWidth: 230, gap: 14 }],
+    ["mostSoldBooksGrid", { minCardWidth: 230, gap: 14 }],
+    ["favoritesRow", { minCardWidth: 230, gap: 14 }],
+    ["recentlyOpenedRow", { minCardWidth: 230, gap: 14 }],
+    ["gameDetailRelatedRow", { minCardWidth: 230, gap: 14 }]
+]);
+
+function fitOneHscrollTrackById(id) {
+    const config = HSCROLL_TRACK_CONFIG.get(id);
+    if (!config) return;
+    fitHscrollTrack(document.getElementById(id), config.minCardWidth, config.gap);
+}
+
 function refitNewTabRows() {
-    fitHscrollTrack(document.getElementById("upcomingGamesGrid"), 300, 14);
-    fitHscrollTrack(document.getElementById("upcomingMoviesGrid"), 210, 18);
-    fitHscrollTrack(document.getElementById("newShowsGrid"), 210, 14);
-    fitHscrollTrack(document.getElementById("newAnimeGrid"), 210, 14);
+    ["upcomingGamesGrid", "upcomingMoviesGrid", "newShowsGrid", "newAnimeGrid"].forEach(fitOneHscrollTrackById);
 }
 
 let refitNewTabRowsTimer = null;
 window.addEventListener("resize", () => {
     clearTimeout(refitNewTabRowsTimer);
     refitNewTabRowsTimer = setTimeout(refitNewTabRows, 150);
+});
+
+// Two independent triggers cover every way a row's cards can go stale:
+// a SIZE change (window resize -- also handled above, but this catches
+// every track including the ones outside the New tab; a hidden section's
+// display:none -> block toggle when the user switches to it; sidebar
+// collapse; zoom) via ResizeObserver, and a CONTENT change (a row's
+// cards rebuilt in place -- a fresh data load, a filter/search, a mature-
+// content toggle re-render) via MutationObserver watching each track's
+// own childList. Neither fires for the other's trigger, so both run --
+// together they mean no render function anywhere has to remember to call
+// fitHscrollTrack itself for this to keep working, including a row added
+// later that's just listed in HSCROLL_TRACK_CONFIG above.
+const hscrollResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+        const config = HSCROLL_TRACK_CONFIG.get(entry.target.id);
+        if (config) fitHscrollTrack(entry.target, config.minCardWidth, config.gap);
+    }
+});
+
+const hscrollMutationObserver = new MutationObserver((mutations) => {
+    const seenIds = new Set();
+    for (const mutation of mutations) {
+        const id = mutation.target.id;
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        fitOneHscrollTrackById(id);
+    }
+});
+
+HSCROLL_TRACK_CONFIG.forEach((config, id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    hscrollResizeObserver.observe(el);
+    hscrollMutationObserver.observe(el, { childList: true });
 });
 
 function renderUpcomingMovies() {

@@ -4685,10 +4685,43 @@ body.startup-locked{
 }
 
 
-/* New Series — single row, same card size it already had under the old
-   fold/unfold grid (170-230px range), just not resized here either. */
+/* New Series / New Anime — single row, same card size they already had
+   under the old fold/unfold grid (170-230px range), just not resized here
+   either. Unlike the generic .cover-wrap default (intrinsic height,
+   whatever shape the poster happens to be), these two rows mix posters
+   from TMDB's own poster_path with a SteamGridDB-style fallback pulled in
+   by fetchFallbackPoster when TMDB has none for a title -- the fallback
+   isn't guaranteed to be the same ~2:3 portrait shape, so intrinsic
+   height let one card come out noticeably taller/shorter than its
+   neighbors in the same row. Same fixed 2:3 box + object-fit:cover
+   already used for Store/Free Games covers, for the same reason. */
 .new-shows-track .game-card{
     width:210px;
+}
+
+/* .carousel-track's own align-items:flex-start (default, shared by every
+   other carousel row) lets each card sit at its own natural height --
+   fine when every card's content is the same height anyway, but New
+   Series/Anime descriptions run 1-3 lines depending on the title, so
+   cards ended up visibly different heights with the "Add to..." button
+   landing at a different vertical position on each one. Stretching this
+   one row's cards to match the tallest, combined with .game-info's
+   existing flex:1 + .card-footer's margin-top:auto (already used by
+   every card type), pins every button to the same bottom edge. */
+.new-shows-track{
+    align-items:stretch;
+}
+
+.new-shows-track .cover-wrap{
+    aspect-ratio:2/3;
+    height:auto;
+}
+
+.new-shows-track .cover-wrap img.cover-img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
 }
 
 
