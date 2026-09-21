@@ -1330,6 +1330,24 @@
             </div>
         </div>
 
+        <!-- Deliberately named "New Anime" rather than "New Releases
+             Anime" -- too close to Recently Released (Theatre's episode
+             tracker) to tell apart at a glance. TMDB has no dedicated
+             anime flag, so this uses the standard proxy every app built
+             on TMDB uses: TV genre 16 (Animation) + origin country Japan
+             -- see get-new-anime in main.js. -->
+        <div class="theatre-block" data-block="new-anime">
+            <div class="theatre-block-header">
+                <h2>🎌 New Anime</h2>
+                <input type="text" id="newAnimeFilterInput" class="subsection-filter" placeholder="Filter by title...">
+            </div>
+            <div class="hscroll-row">
+                <button class="carousel-arrow carousel-arrow-left" id="newAnimeLeftArrow" aria-label="Scroll left">‹</button>
+                <div id="newAnimeGrid" class="carousel-track new-shows-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="newAnimeRightArrow" aria-label="Scroll right">›</button>
+            </div>
+        </div>
+
     </div>
 
     <div id="introScreen" class="intro-screen">

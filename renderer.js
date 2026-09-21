@@ -7316,6 +7316,12 @@ document.getElementById("newShowsLeftArrow").addEventListener("click", () => {
 document.getElementById("newShowsRightArrow").addEventListener("click", () => {
     document.getElementById("newShowsGrid").scrollBy({ left: 600, behavior: "smooth" });
 });
+document.getElementById("newAnimeLeftArrow").addEventListener("click", () => {
+    document.getElementById("newAnimeGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("newAnimeRightArrow").addEventListener("click", () => {
+    document.getElementById("newAnimeGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
 
 // --- Shared big cover-and-description detail window ---------------------
 //
@@ -7688,6 +7694,7 @@ function refitNewTabRows() {
     fitHscrollTrack(document.getElementById("upcomingGamesGrid"), 300, 14);
     fitHscrollTrack(document.getElementById("upcomingMoviesGrid"), 210, 18);
     fitHscrollTrack(document.getElementById("newShowsGrid"), 210, 14);
+    fitHscrollTrack(document.getElementById("newAnimeGrid"), 210, 14);
 }
 
 let refitNewTabRowsTimer = null;
@@ -7864,6 +7871,147 @@ async function loadNewShows() {
     renderNewShows();
 }
 
+// --- "New Releases Anime" row -------------------------------------------
+//
+// Same TMDB /discover/tv feed as New Series, but filtered to Animation +
+// Japan-origin (TMDB has no native "anime" flag) -- see the get-new-anime
+// handler in main.js. Rendering mirrors renderNewShows()/loadNewShows()
+// exactly; "Add to My Shows" resolves the TVMaze match the same way, since
+// anime titles are trackable TV shows too.
+let newAnimeCache = [];
+const newAnimeFilterInput = document.getElementById("newAnimeFilterInput");
+
+function renderNewAnime() {
+    const grid = document.getElementById("newAnimeGrid");
+    const filterTerm = newAnimeFilterInput.value.trim().toLowerCase();
+    const visible = (canSeeMatureContent()
+        ? newAnimeCache
+        : newAnimeCache.filter((s) => !isItemMature("show", s.id, s.isMature))
+    ).filter((s) => !isItemRemoved("show", s.id));
+    const filtered = filterTerm
+        ? visible.filter((s) => s.name.toLowerCase().includes(filterTerm))
+        : visible;
+
+    if (filtered.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${visible.length === 0 ? "No results — a TMDB API key may be needed in main.js." : "No new anime match your filter."}</p>`;
+        return;
+    }
+
+    grid.innerHTML = "";
+
+    const sortedNewAnime = sortNoCoverLast(filtered, "image");
+    sortedNewAnime.forEach((show) => {
+        const card = document.createElement("div");
+        card.className = "game-card";
+        // show.name/description come from TMDB's own listing data --
+        // untrusted third-party content, so both go through textContent.
+        card.innerHTML = `
+            <div class="cover-wrap">
+                <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+                <span class="media-rating-badge" hidden></span>
+                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
+            </div>
+            <div class="game-info">
+                <h3></h3>
+                <p class="game-playtime">📅 First aired ${show.firstAirDate || "unknown"}</p>
+                <p class="game-desc"></p>
+                <div class="card-footer">
+                    <button class="launchBtn addToShowsBtn">➕ Add to My Shows</button>
+                </div>
+            </div>
+        `;
+
+        card.querySelector(".cover-img").alt = show.name;
+        card.querySelector(".game-info h3").textContent = show.name;
+        card.querySelector(".game-desc").textContent = show.description || "No description available.";
+
+        // Same TMDB /discover/tv rating source as New Series/Upcoming/Now
+        // Playing, so it gets the same TMDB attribution.
+        if (typeof show.rating === "number") {
+            const newAnimeRatingBadge = card.querySelector(".media-rating-badge");
+            newAnimeRatingBadge.textContent = `★ ${show.rating.toFixed(1)}`;
+            newAnimeRatingBadge.title = "Rating via TMDB";
+            newAnimeRatingBadge.hidden = false;
+        }
+
+        const newAnimeDescEl = card.querySelector(".game-desc");
+        newAnimeDescEl.style.cursor = "pointer";
+        newAnimeDescEl.addEventListener("click", () => {
+            openGameDetailModal(show, "show", sortedNewAnime);
+        });
+
+        const newAnimeCoverImgEl = card.querySelector(".cover-img");
+        newAnimeCoverImgEl.style.cursor = "pointer";
+        newAnimeCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", sortedNewAnime));
+
+        let newAnimeTrailerId;
+
+        async function fetchNewAnimeTrailerOnce() {
+            if (newAnimeTrailerId === undefined || newAnimeTrailerId === null) {
+                newAnimeTrailerId = await window.riftgate.invoke("get-tv-show-trailer", show.id);
+            }
+            return newAnimeTrailerId;
+        }
+
+        card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+            event.stopPropagation();
+            const trailerId = await fetchNewAnimeTrailerOnce();
+            if (trailerId) {
+                openTheaterMode(trailerId);
+            } else {
+                showCustomAlert("No trailer could be found for this title.");
+            }
+        });
+
+        card.querySelector(".soundToggle").addEventListener("click", (event) => {
+            event.stopPropagation();
+            soundEnabled = !soundEnabled;
+            updateAllSoundToggles();
+            applySoundToAllFrames();
+        });
+
+        // My Shows tracking runs on TVMaze IDs, but this feed comes from
+        // TMDB -- resolve the matching TVMaze entry by name before adding.
+        card.querySelector(".addToShowsBtn").addEventListener("click", async (event) => {
+            const results = await window.riftgate.invoke("search-tv-shows", show.name);
+
+            if (!results || results.length === 0) {
+                showCustomAlert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
+                return;
+            }
+
+            await window.riftgate.invoke("add-to-watchlist", results[0]);
+            event.target.textContent = "✅ Added";
+            event.target.disabled = true;
+            loadRecentEpisodes();
+        });
+
+        attachAdminRemoveButton(card, "show", show.id, show.name);
+
+        grid.appendChild(card);
+    });
+
+    fitHscrollTrack(grid, 210, 14);
+}
+
+newAnimeFilterInput.addEventListener("input", renderNewAnime);
+
+async function loadNewAnime() {
+    const grid = document.getElementById("newAnimeGrid");
+    grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
+
+    const shows = await window.riftgate.invoke("get-new-anime", settings.movieCountry || "US");
+    newAnimeCache = shows || [];
+
+    if (newAnimeCache.length === 0) {
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results — a TMDB API key may be needed in main.js.</p>`;
+        return;
+    }
+
+    renderNewAnime();
+}
+
 async function preloadUpcomingGameDetails(games) {
     for (const game of games) {
         if (game.__detailsCache) continue;
@@ -7969,6 +8117,7 @@ async function loadNewSection() {
     loadUpcomingGames();
     loadUpcomingMovies();
     loadNewShows();
+    loadNewAnime();
 }
 
 // Shows/hides the 3D diamond-assembly overlay already present in the HTML

@@ -3443,6 +3443,20 @@ async function fetchCheapSharkDeals() {
     try {
         const { storeNames, deals } = await fetchCheapSharkRawDeals();
 
+        // TEMPORARY DEBUG INSTRUMENTATION -- checking exactly which
+        // review/rating fields CheapShark's raw deal objects actually
+        // carry (steamRatingPercent/Text, metacriticScore, etc.) before
+        // building a "ranking" display against them. Safe to remove once
+        // confirmed.
+        try {
+            fs.writeFileSync(
+                path.join(__dirname, "debug-cheapshark-deal-fields.json"),
+                JSON.stringify(deals.slice(0, 5), null, 2)
+            );
+        } catch (debugErr) {
+            console.error("[store] debug field dump failed:", debugErr.message || debugErr);
+        }
+
         const mapped = deals
             .map((d) => {
                 const storeName = storeNames[d.storeID] || `Store ${d.storeID}`;
@@ -3871,6 +3885,51 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
         return mapped;
     } catch (err) {
         console.error("[new] new TV shows fetch failed:", err.message || err);
+        return [];
+    }
+});
+
+// TMDB has no dedicated "this is anime" flag -- Animation (genre 16) +
+// origin country Japan is the standard proxy every app built on TMDB
+// uses for this, since virtually everything that combination returns
+// genuinely is anime, and it needs no extra API beyond what
+// get-new-tv-shows above already uses. Same 90-day "actually new" window
+// and popularity ordering as that handler, just scoped further.
+ipcMain.handle("get-new-anime", async (event, countryCode) => {
+    try {
+        const today = new Date();
+        const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const data = await mediaProxyGetJsonPlain("tmdb", "/discover/tv", {
+            sort_by: "popularity.desc",
+            "first_air_date.gte": ninetyDaysAgo.toISOString().slice(0, 10),
+            "air_date.lte": today.toISOString().slice(0, 10),
+            "vote_count.gte": "5",
+            with_genres: "16",
+            with_origin_country: "JP",
+            language: "en-US",
+            page: "1"
+        });
+
+        const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+        const mapped = await Promise.all((data.results || []).map(async (s) => {
+            let image = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : null;
+            if (!image) {
+                image = await fetchFallbackPoster("tv", s.id, tmdbLanguage);
+            }
+            return {
+                id: s.id,
+                name: s.name,
+                description: s.overview,
+                image,
+                firstAirDate: s.first_air_date,
+                rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
+                isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
+            };
+        }));
+
+        return mapped;
+    } catch (err) {
+        console.error("[new] new anime fetch failed:", err.message || err);
         return [];
     }
 });
