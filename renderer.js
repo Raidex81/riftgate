@@ -9397,6 +9397,7 @@ async function loadStoreDeals(silent) {
         const cached = await window.riftgate.invoke("get-cached-store-deals");
         if (cached && cached.length > 0) {
             storeDealsCache = cached;
+            updateStorePlatformOptions();
             renderStoreDeals();
         }
     }
@@ -9404,7 +9405,38 @@ async function loadStoreDeals(silent) {
     const deals = await window.riftgate.invoke("get-store-deals");
     storeDealsCache = deals || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
+    updateStorePlatformOptions();
     renderStoreDeals();
+}
+
+// Mirrors updateFreeGamesPlatformOptions -- the platform list is no
+// longer a small known set now that CheapShark deals are mixed in
+// (dozens of possible store names), so it's rebuilt from whatever
+// source values are actually present in the cache each time, instead of
+// index.html hardcoding a handful of options that go stale.
+function updateStorePlatformOptions() {
+    const select = document.getElementById("storePlatformSelect");
+    const previousSelection = select.value;
+
+    const platforms = new Set();
+    storeDealsCache.forEach((deal) => { if (deal.source) platforms.add(deal.source); });
+
+    select.innerHTML = "";
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = "All Platforms";
+    select.appendChild(allOption);
+
+    Array.from(platforms).sort().forEach((p) => {
+        const option = document.createElement("option");
+        option.value = p;
+        option.textContent = p;
+        select.appendChild(option);
+    });
+
+    if (Array.from(select.options).some((o) => o.value === previousSelection)) {
+        select.value = previousSelection;
+    }
 }
 
 function formatStorePrice(amount, currency) {

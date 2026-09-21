@@ -3097,13 +3097,12 @@ ipcMain.handle("get-cached-free-games", async () => mergeFreshCuratedGames(loadD
 // verification passes. Every refresh just asks each storefront what's
 // on sale right now and replaces the cached list outright.
 //
-// v1 covers Steam and GOG, both of which expose a stable, documented-
-// enough public endpoint for "what's discounted right now". Epic
-// doesn't — the freeGamesPromotions endpoint above only covers fully
-// free promotions, not general discounts, and Epic has no equivalent
-// static endpoint for those (only an internal GraphQL API whose query
-// shape isn't stable enough to build against sight-unseen). Epic can be
-// added once that's been confirmed against a live response.
+// Steam is fetched directly (a stable, documented public endpoint).
+// Everything else goes through CheapShark, a free deals-aggregator that
+// covers GOG, Epic, Humble, Fanatical, GreenManGaming, and ~30 more
+// stores in one call -- see fetchCheapSharkDeals below for why (two
+// earlier attempts at calling GOG's and Epic's own APIs directly came
+// back empty in practice, despite matching documented/observed shapes).
 
 // Steam's official featuredcategories endpoint — cc=us/l=english pins
 // the response to USD/English regardless of this machine's own locale,
@@ -3140,147 +3139,47 @@ async function fetchSteamDeals() {
 // from base/final whenever a dedicated field isn't present, rather than
 // risk silently dropping every genuine GOG discount over a guessed field
 // name.
-async function fetchGogDeals() {
+async function fetchCheapSharkDeals() {
     try {
-        const data = await httpsGetJsonPlain(
-            "https://catalog.gog.com/v1/catalog?limit=48&order=desc:discount&productType=in:game,pack&discounted=eq:true&countryCode=US&locale=en-US&currencyCode=USD",
-            10000
-        );
-        const products = data.products || [];
+        const [storesRaw, dealsRaw] = await Promise.all([
+            httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/stores", 10000),
+            httpsGetJsonPlain("https://www.cheapshark.com/api/1.0/deals?pageSize=60&sortBy=Savings&onSale=true", 10000)
+        ]);
 
-        return products
-            .map((p) => {
-                const price = p.price || {};
-                // Confirmed against a real, currently-working GOG catalog
-                // integration (a third-party project's own source, since
-                // this can't be tested live from here) — the price object
-                // nests amounts under finalMoney/baseMoney, not final/base
-                // as originally guessed, and discount is GOG's own
-                // advertised string label ("-95%"), not a plain number.
-                const finalAmount = price.finalMoney && parseFloat(price.finalMoney.amount);
-                const baseAmount = price.baseMoney && parseFloat(price.baseMoney.amount);
+        const storeNames = {};
+        (Array.isArray(storesRaw) ? storesRaw : []).forEach((s) => {
+            if (s && s.storeID) storeNames[s.storeID] = s.storeName;
+        });
 
-                let discountPercent = null;
-                if (typeof price.discount === "string") {
-                    const match = price.discount.match(/(\d+)/);
-                    if (match) discountPercent = parseInt(match[1], 10);
-                } else if (typeof price.discount === "number") {
-                    discountPercent = Math.abs(price.discount);
-                }
-                if (discountPercent === null && baseAmount > 0 && typeof finalAmount === "number") {
-                    discountPercent = Math.round((1 - finalAmount / baseAmount) * 100);
-                }
+        const deals = Array.isArray(dealsRaw) ? dealsRaw : [];
+
+        return deals
+            .map((d) => {
+                const storeName = storeNames[d.storeID] || `Store ${d.storeID}`;
+                // Steam is already covered directly (and more completely)
+                // by fetchSteamDeals above -- skip it here to avoid dupes.
+                if (storeName === "Steam") return null;
+
+                const finalPrice = parseFloat(d.salePrice);
+                const originalPrice = parseFloat(d.normalPrice);
+                const discountPercent = Math.round(parseFloat(d.savings));
                 if (!discountPercent || discountPercent <= 0) return null;
 
                 return {
-                    id: `gog-${p.id}`,
-                    name: p.title,
-                    image: p.coverHorizontal || p.coverVertical || null,
-                    url: p.slug ? `https://www.gog.com/en/game/${p.slug}` : "https://www.gog.com",
-                    source: "GOG",
+                    id: `cheapshark-${d.dealID}`,
+                    name: d.title,
+                    image: d.thumb || null,
+                    url: `https://www.cheapshark.com/redirect?dealID=${d.dealID}`,
+                    source: storeName,
                     discountPercent,
-                    finalPrice: typeof finalAmount === "number" ? finalAmount : null,
-                    originalPrice: typeof baseAmount === "number" ? baseAmount : null,
+                    finalPrice: isNaN(finalPrice) ? null : finalPrice,
+                    originalPrice: isNaN(originalPrice) ? null : originalPrice,
                     currency: "USD"
                 };
             })
             .filter(Boolean);
     } catch (err) {
-        console.error("[store] GOG deals fetch failed:", err.message || err);
-        return [];
-    }
-}
-
-// Epic doesn't publish a stable static "what's on sale" endpoint the way
-// it does for free games (freeGamesPromotions above) — this uses the
-// same underlying GraphQL Catalog.searchStore query that endpoint
-// actually wraps, called directly instead of through a fragile
-// persisted-query hash. The promotions/keyImages/discountSetting shape
-// below is confirmed live (it's the exact shape fetchEpicFreeGames above
-// already successfully parses every day); the price(...) field alongside
-// it is Epic's long-standing, widely-documented shape but hasn't been
-// exercised against a live response from here — if Epic deals come back
-// empty even though Steam/GOG are fine, this query shape is the first
-// thing to check.
-async function fetchEpicDeals() {
-    try {
-        const query = `query storeDeals($category: String, $count: Int, $country: String!, $locale: String) {
-            Catalog {
-                searchStore(category: $category, count: $count, country: $country, locale: $locale, sortBy: "relevance", sortDir: "DESC") {
-                    elements {
-                        title
-                        id
-                        productSlug
-                        urlSlug
-                        keyImages { type url }
-                        price(country: $country) {
-                            totalPrice { discountPrice originalPrice currencyCode }
-                        }
-                        promotions {
-                            promotionalOffers { promotionalOffers { startDate endDate discountSetting { discountPercentage } } }
-                        }
-                    }
-                }
-            }
-        }`;
-
-        const { statusCode, body } = await httpsPostJsonRaw(
-            "https://www.epicgames.com/graphql",
-            { query, variables: { category: "games/edition/base", count: 40, country: "US", locale: "en-US" } },
-            10000
-        );
-
-        if (statusCode < 200 || statusCode >= 300) {
-            console.error("[store] Epic deals request failed:", statusCode, body);
-            return [];
-        }
-
-        const parsed = JSON.parse(body);
-        const elements = (parsed.data && parsed.data.Catalog && parsed.data.Catalog.searchStore.elements) || [];
-        const now = Date.now();
-
-        function activeDiscountPercent(el) {
-            const windows = (el.promotions && el.promotions.promotionalOffers) || [];
-            for (const promoWindow of windows) {
-                for (const offer of promoWindow.promotionalOffers || []) {
-                    const start = new Date(offer.startDate).getTime();
-                    const end = new Date(offer.endDate).getTime();
-                    const pct = offer.discountSetting && offer.discountSetting.discountPercentage;
-                    // Excludes 100% (that's Free Games' territory, not
-                    // Store's — no point showing the same game in both).
-                    if (typeof pct === "number" && pct > 0 && pct < 100 && now >= start && now <= end) {
-                        return pct;
-                    }
-                }
-            }
-            return null;
-        }
-
-        return elements
-            .map((el) => {
-                const discountPercent = activeDiscountPercent(el);
-                if (discountPercent === null) return null;
-
-                const image = (el.keyImages || []).find(
-                    (img) => img.type === "OfferImageWide" || img.type === "Thumbnail"
-                );
-                const totalPrice = (el.price && el.price.totalPrice) || {};
-
-                return {
-                    id: `epic-${el.id}`,
-                    name: el.title,
-                    image: image ? image.url : null,
-                    url: `https://store.epicgames.com/en-US/p/${(el.productSlug || el.urlSlug || "").replace(/\/home$/, "")}`,
-                    source: "Epic Games",
-                    discountPercent,
-                    finalPrice: typeof totalPrice.discountPrice === "number" ? totalPrice.discountPrice / 100 : null,
-                    originalPrice: typeof totalPrice.originalPrice === "number" ? totalPrice.originalPrice / 100 : null,
-                    currency: totalPrice.currencyCode || "USD"
-                };
-            })
-            .filter(Boolean);
-    } catch (err) {
-        console.error("[store] Epic deals fetch failed:", err.message || err);
+        console.error("[store] CheapShark deals fetch failed:", err.message || err);
         return [];
     }
 }
@@ -3323,20 +3222,27 @@ function readStoreDealsSourceCounts() {
 
 // Same in-flight-promise dedupe as performFreeGamesRefresh above, so a
 // renderer refresh landing at the same instant as the startup auto-check
-// doesn't double up on requests to Steam/GOG/Epic.
+// doesn't double up on requests to Steam/CheapShark.
 let storeDealsRefreshPromise = null;
 
 async function performStoreDealsRefresh() {
     if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
 
     storeDealsRefreshPromise = (async () => {
-        const [steamDeals, gogDeals, epicDeals] = await Promise.all([fetchSteamDeals(), fetchGogDeals(), fetchEpicDeals()]);
-        const deals = [...steamDeals, ...gogDeals, ...epicDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals()]);
+        const deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
-        const sourceCounts = { Steam: steamDeals.length, GOG: gogDeals.length, "Epic Games": epicDeals.length };
+        // Tallied from whichever source names actually turned up this
+        // refresh, rather than a fixed list -- CheapShark can surface
+        // dozens of different stores, not a set known in advance.
+        const sourceCounts = {};
+        for (const deal of deals) {
+            sourceCounts[deal.source] = (sourceCounts[deal.source] || 0) + 1;
+        }
+
         saveDataCache("cache-store-deals.json", deals);
         saveStoreDealsLastRefresh(Date.now(), sourceCounts);
-        console.log(`[store] refreshed: ${steamDeals.length} Steam, ${gogDeals.length} GOG, ${epicDeals.length} Epic deal(s).`);
+        console.log(`[store] refreshed: ${deals.length} deal(s) across ${Object.keys(sourceCounts).length} store(s).`);
         return deals;
     })().finally(() => {
         storeDealsRefreshPromise = null;
