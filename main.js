@@ -6207,10 +6207,16 @@ ipcMain.handle("set-own-login-password", async (event, { username, newPassword }
 // request_email_verification is used server-side (by us, right here) to
 // email a link — it's never returned to the renderer.
 ipcMain.handle("request-email-verification", async (event, { username, password, email }) => {
+    // Lowercased/trimmed here so "Name@Gmail.com" and "name@gmail.com" are
+    // always treated as the same address — both for the "one email per
+    // account" uniqueness check, and because some mail providers (and
+    // Resend's own test-mode sender restriction) are case-sensitive about
+    // an exact match.
+    const normalizedEmail = email ? email.trim().toLowerCase() : null;
     const r = await callAdminRpc("request_email_verification", {
         input_username: username,
         input_password: password,
-        input_new_email: email || null
+        input_new_email: normalizedEmail
     });
     if (!r.success) return { success: false, error: r.error };
 
