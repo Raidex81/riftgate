@@ -7350,7 +7350,27 @@ function slugifyProviderName(name) {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
 }
 
-function buildStreamingProviderCard(item) {
+// Best-effort "go watch it" links -- each provider's own site's public
+// search page, filled in with the title. Not a guaranteed deep link
+// straight to this exact title's watch page (none of these expose a
+// stable public API for that), but it lands the user on the provider's
+// OWN real site with the search already run, same "close enough, gets
+// you there" spirit as the In Theaters ticketsBtn's constructed Google
+// search elsewhere in this file. Keyed by the exact same names as
+// STREAMING_PROVIDER_ROW_NAMES above.
+const STREAMING_PROVIDER_WATCH_URL_BUILDERS = {
+    "Netflix": (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}`,
+    "Amazon Prime Video": (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}&i=instant-video`,
+    "Disney Plus": (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}`,
+    "Max": (title) => `https://www.max.com/search?q=${encodeURIComponent(title)}`,
+    "Hulu": (title) => `https://www.hulu.com/search?q=${encodeURIComponent(title)}`,
+    "Apple TV Plus": (title) => `https://tv.apple.com/search?term=${encodeURIComponent(title)}`,
+    "Paramount Plus": (title) => `https://www.paramountplus.com/search/?query=${encodeURIComponent(title)}`,
+    "Peacock": (title) => `https://www.peacocktv.com/search?q=${encodeURIComponent(title)}`,
+    "Crunchyroll": (title) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(title)}`
+};
+
+function buildStreamingProviderCard(item, providerName) {
     const card = document.createElement("div");
     card.className = "game-card";
     const typeIcon = item.mediaType === "movie" ? "🎬" : "📺";
@@ -7370,12 +7390,16 @@ function buildStreamingProviderCard(item) {
             <h3></h3>
             <p class="game-playtime">${typeIcon} ${dateLabel}</p>
             <p class="game-desc"></p>
+            <div class="card-footer">
+                <button class="launchBtn watchOnProviderBtn">${uiIcon("link")} <span class="watchOnProviderBtnLabel"></span></button>
+            </div>
         </div>
     `;
 
     card.querySelector(".cover-img").alt = item.name;
     card.querySelector(".game-info h3").textContent = item.name;
     card.querySelector(".game-desc").textContent = item.description || "No description available.";
+    card.querySelector(".watchOnProviderBtnLabel").textContent = `Watch on ${providerName}`;
 
     if (typeof item.rating === "number") {
         const badge = card.querySelector(".media-rating-badge");
@@ -7411,6 +7435,17 @@ function buildStreamingProviderCard(item) {
         applySoundToAllFrames();
     });
 
+    card.querySelector(".watchOnProviderBtn").addEventListener("click", (event) => {
+        event.stopPropagation();
+        const urlBuilder = STREAMING_PROVIDER_WATCH_URL_BUILDERS[providerName];
+        const url = urlBuilder ? urlBuilder(item.name) : null;
+        if (url) {
+            window.riftgate.invoke("open-external", url);
+        } else {
+            showCustomAlert(`No link available for ${providerName}.`);
+        }
+    });
+
     const providerCardCoverImgEl = card.querySelector(".cover-img");
     providerCardCoverImgEl.style.cursor = "pointer";
     providerCardCoverImgEl.addEventListener("click", async () => {
@@ -7440,7 +7475,7 @@ function renderStreamingProviderRow(providerName, gridId) {
     }
 
     grid.innerHTML = "";
-    sortNoCoverLast(visible, "image").forEach((item) => grid.appendChild(buildStreamingProviderCard(item)));
+    sortNoCoverLast(visible, "image").forEach((item) => grid.appendChild(buildStreamingProviderCard(item, providerName)));
     fitOneHscrollTrackById(gridId);
 }
 
