@@ -1220,6 +1220,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.5.1": [
+        "Fixed: the \"Where to Watch\" button on Recently Released episode cards was opening a broken JustWatch link instead of a working search"
+    ],
     "1.5.0": [
         "New: a Store section — browse discounted PC games aggregated from Steam and other resellers, with review scores, trailers, platform filters, and quick links straight to the storefront to buy",
         "New: optional email verification for new accounts",
