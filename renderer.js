@@ -1152,6 +1152,12 @@ wheelSpinAgainBtn.addEventListener("click", () => {
 
 wheelQuitBtn.addEventListener("click", closeWheelModal);
 
+// Click the dimmed backdrop (not the wheel frame itself) to close and
+// return to the app -- same pattern theaterModal already uses below.
+wheelModal.addEventListener("click", (event) => {
+    if (event.target === wheelModal) closeWheelModal();
+});
+
 wheelPlayBtn.addEventListener("click", async () => {
     if (!wheelWinner) return;
 
@@ -4471,6 +4477,10 @@ function performSectionSwitch(section) {
 
     if (section === "new") {
         loadNewSection();
+        // Unconditional (unlike loadNewSection's own newSectionLoaded
+        // guard) -- the window may have been resized while a different
+        // tab was active, leaving these rows sized for a stale width.
+        refitNewTabRows();
     }
 }
 
@@ -7637,6 +7647,55 @@ function renderRelatedGames(rawGames) {
     });
 }
 
+// The New tab's three rows (Upcoming Games, Upcoming Movies, New Series)
+// are deliberately fixed-size horizontal carousels, not wrapping grids
+// (unlike Free Games/Store) -- but a fixed pixel card width means the
+// FIRST, unscrolled view almost never lines up with the window's actual
+// width, so the last card peeking in at the right edge is sliced off
+// instead of shown whole. CSS scroll-snap only fixes that once a scroll
+// has actually happened; it does nothing for the initial render. This
+// resizes a row's cards so a whole number of them exactly fills the
+// visible track, adapting to the current window/screen width instead of
+// a fixed pixel size -- called after each row is (re)built, and again on
+// window resize / when the New tab becomes active, since a resize while
+// on a different tab leaves a hidden (0-width) track that can't be
+// measured until it's visible again.
+function fitHscrollTrack(trackEl, minCardWidth, gap) {
+    if (!trackEl) return;
+    const containerWidth = trackEl.clientWidth;
+    if (containerWidth <= 0) return; // not visible right now -- nothing to measure
+
+    const count = Math.max(1, Math.floor((containerWidth + gap) / (minCardWidth + gap)));
+    const cardWidth = Math.floor((containerWidth - (count - 1) * gap) / count);
+
+    if (trackEl.classList.contains("hscroll-grid-2row")) {
+        // Upcoming Movies: a 2-row CSS grid, not a flex row -- the column
+        // track width is what needs to change, not each card individually.
+        trackEl.style.gridAutoColumns = `${cardWidth}px`;
+        return;
+    }
+
+    trackEl.querySelectorAll(":scope > .game-card").forEach((card) => {
+        card.style.width = `${cardWidth}px`;
+        card.style.flex = `0 0 ${cardWidth}px`;
+    });
+}
+
+// Baseline card width (matches each row's own CSS -- see .upcoming-games-track/
+// .hscroll-grid-2row/.new-shows-track in style.css) and gap, used as the
+// minimum a card can shrink to before dropping to fewer columns instead.
+function refitNewTabRows() {
+    fitHscrollTrack(document.getElementById("upcomingGamesGrid"), 300, 14);
+    fitHscrollTrack(document.getElementById("upcomingMoviesGrid"), 210, 18);
+    fitHscrollTrack(document.getElementById("newShowsGrid"), 210, 14);
+}
+
+let refitNewTabRowsTimer = null;
+window.addEventListener("resize", () => {
+    clearTimeout(refitNewTabRowsTimer);
+    refitNewTabRowsTimer = setTimeout(refitNewTabRows, 150);
+});
+
 function renderUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
     const visible = (canSeeMatureContent()
@@ -7652,6 +7711,7 @@ function renderUpcomingMovies() {
     grid.innerHTML = "";
     const sortedUpcomingMovies = sortNoCoverLast(visible, "poster");
     sortedUpcomingMovies.forEach((movie) => grid.appendChild(buildMovieCard(movie, true, sortedUpcomingMovies)));
+    fitHscrollTrack(grid, 210, 18);
 }
 
 async function loadUpcomingMovies() {
@@ -7783,6 +7843,8 @@ function renderNewShows() {
 
         grid.appendChild(card);
     });
+
+    fitHscrollTrack(grid, 210, 14);
 }
 
 newShowsFilterInput.addEventListener("input", renderNewShows);
@@ -7897,6 +7959,8 @@ async function loadUpcomingGames() {
 
         grid.appendChild(card);
     });
+
+    fitHscrollTrack(grid, 300, 14);
 }
 
 async function loadNewSection() {
