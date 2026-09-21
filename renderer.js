@@ -8108,6 +8108,7 @@ async function performLogout() {
     isAdminMode = false;
     isSuperAdmin = false;
     isLoggedIn = false;
+    document.getElementById("emailReminderBtn").style.display = "none";
 
     // Signed out = no account to check an age against, so this reverts to
     // the same safe default as never having logged in at all.
@@ -8217,6 +8218,13 @@ let adminPasswordCache = null;
 // verified admin login.
 let vaultPasswordCache = null;
 let vaultUnlockedThisSession = false;
+
+// Set by openVaultSetPasswordModal() right before the modal opens, and
+// consumed once by its submit handler right after a successful password
+// set — true only for a brand-new registration's first password (not a
+// reset), which is the one time the optional "add an email" prompt
+// should follow automatically.
+let isFreshRegistrationPasswordSetup = false;
 
 // --- Age gate / mature content -----------------------------------------
 // myDateOfBirth/showMatureContent are the account's own persisted values
@@ -10267,6 +10275,7 @@ async function completeLogin(password) {
     await fetchAccountProfile();
     loadMatureOverrides();
     loadRemovedItems();
+    await refreshEmailReminderVisibility();
 }
 
 async function attemptVaultLogin() {
@@ -10315,6 +10324,8 @@ function openVaultSetPasswordModal(reason) {
             : "Choose a password for your Riftgate account. You'll stay logged in on this device until you log out — only you will know it.";
     }
 
+    isFreshRegistrationPasswordSetup = (reason !== "reset");
+
     document.getElementById("vaultSetPasswordModal").classList.add("active");
 }
 
@@ -10344,8 +10355,117 @@ document.getElementById("vaultSetPasswordSubmitBtn").addEventListener("click", a
     }
 
     document.getElementById("vaultSetPasswordModal").classList.remove("active");
+    const wasFreshRegistration = isFreshRegistrationPasswordSetup;
+    isFreshRegistrationPasswordSetup = false;
     await completeLogin(newPass);
+
+    // Brand-new account, password just set for the first time — offer
+    // the optional email prompt once, right here. A reset doesn't get
+    // this (the account may already have an email on file).
+    if (wasFreshRegistration) {
+        openEmailVerifyModal("register");
+    }
 });
+
+// Email verification — optional. Doubles as the one-time prompt shown
+// right after a brand-new account sets its password (above), and the
+// dialog opened from the topbar reminder button for "add / resend /
+// change" afterward. This never changes how sign-in works — Riftgate
+// still signs in with a username + this same login password only; it
+// just lets an account optionally prove it owns an email address, in
+// case that's ever needed for account recovery.
+function openEmailVerifyModal(mode, prefillEmail, sentAt) {
+    document.getElementById("emailVerifyError").textContent = "";
+    document.getElementById("emailVerifyStatus").textContent = "";
+    document.getElementById("emailVerifyInput").value = prefillEmail || "";
+
+    const titleEl = document.getElementById("emailVerifyTitle");
+    const descEl = document.getElementById("emailVerifyDesc");
+    const submitBtn = document.getElementById("emailVerifySubmitBtn");
+    const skipBtn = document.getElementById("emailVerifySkipBtn");
+
+    if (mode === "resend") {
+        titleEl.textContent = "✉️ Verify Your Email";
+        descEl.textContent = "Confirm you own this email so it can help you recover your account later. Riftgate still only signs you in with your username.";
+        submitBtn.textContent = "Resend Verification Email";
+        skipBtn.textContent = "Close";
+        if (sentAt) {
+            const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(sentAt).getTime()) / 60000));
+            document.getElementById("emailVerifyStatus").textContent = minutesAgo < 1
+                ? "A verification email was just sent — check your inbox."
+                : `Last sent ${minutesAgo} minute${minutesAgo === 1 ? "" : "s"} ago.`;
+        }
+    } else {
+        titleEl.textContent = "✉️ Add an Email (Optional)";
+        descEl.textContent = "Add an email so you can prove this account is yours if you ever need account recovery. Riftgate still only signs you in with your username — this is never used to log in.";
+        submitBtn.textContent = "Send Verification Email";
+        skipBtn.textContent = "Skip";
+    }
+
+    document.getElementById("emailVerifyModal").classList.add("active");
+}
+
+function closeEmailVerifyModal() {
+    document.getElementById("emailVerifyModal").classList.remove("active");
+}
+
+document.getElementById("emailVerifySkipBtn").addEventListener("click", closeEmailVerifyModal);
+
+document.getElementById("emailVerifySubmitBtn").addEventListener("click", async () => {
+    const email = document.getElementById("emailVerifyInput").value.trim();
+    const errorEl = document.getElementById("emailVerifyError");
+    const submitBtn = document.getElementById("emailVerifySubmitBtn");
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errorEl.textContent = "Enter a valid email address.";
+        return;
+    }
+    if (!vaultPasswordCache) {
+        errorEl.textContent = "You need to be logged in to do this.";
+        return;
+    }
+
+    submitBtn.disabled = true;
+    errorEl.textContent = "";
+    const result = await window.riftgate.invoke("request-email-verification", {
+        username: settings.username,
+        password: vaultPasswordCache,
+        email
+    });
+    submitBtn.disabled = false;
+
+    if (!result.success) {
+        errorEl.textContent = result.error || "Couldn't send the verification email — try again.";
+        return;
+    }
+
+    closeEmailVerifyModal();
+    showCustomAlert(`Verification email sent to ${result.email} — click the link inside to confirm it's yours.`);
+    await refreshEmailReminderVisibility();
+});
+
+document.getElementById("emailReminderBtn").addEventListener("click", async () => {
+    if (!vaultPasswordCache) return;
+    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password: vaultPasswordCache });
+    if (status.success && status.email) {
+        openEmailVerifyModal("resend", status.email, status.sentAt);
+    } else {
+        openEmailVerifyModal("register");
+    }
+});
+
+// Shows the topbar reminder icon whenever the logged-in account has no
+// verified email on file yet — hidden the moment email_verified flips
+// to true server-side, or whenever nobody's logged in.
+async function refreshEmailReminderVisibility() {
+    const btn = document.getElementById("emailReminderBtn");
+    if (!isLoggedIn || !vaultPasswordCache) {
+        btn.style.display = "none";
+        return;
+    }
+    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password: vaultPasswordCache });
+    btn.style.display = (status.success && !status.verified) ? "" : "none";
+}
 
 // --- Shared Folder: upload flow ---
 

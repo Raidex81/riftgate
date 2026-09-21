@@ -255,6 +255,31 @@ async function mediaProxyGetJsonPlain(vendor, proxyPath, query) {
     return parsed;
 }
 
+// Posts to the "send-verification-email" Edge Function, which emails a
+// confirm-your-email link via Resend. This is only ever called right
+// after the request_email_verification RPC has already succeeded and
+// handed back a fresh token for an account the caller just proved (via
+// its own login password) they're authorized to act as — this
+// function's job is only "deliver this token by email", not
+// authorization.
+async function sendVerificationEmail(username, email, token) {
+    try {
+        const { statusCode, body } = await httpsPostJson(
+            `${SUPABASE_URL}/functions/v1/send-verification-email`,
+            { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            { username, email, token }
+        );
+        if (statusCode < 200 || statusCode >= 300) {
+            console.error("[email] send-verification-email failed:", statusCode, body);
+            return { success: false };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("[email] send-verification-email errored:", err.message || err);
+        return { success: false };
+    }
+}
+
 module.exports = {
     supabaseRequest,
     supabaseStorageUpload,
@@ -262,5 +287,6 @@ module.exports = {
     supabaseStorageDelete,
     callAdminRpc,
     mediaProxyGetJson,
-    mediaProxyGetJsonPlain
+    mediaProxyGetJsonPlain,
+    sendVerificationEmail
 };
