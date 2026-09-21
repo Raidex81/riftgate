@@ -4393,6 +4393,12 @@ function switchSection(section) {
 }
 
 function performSectionSwitch(section) {
+    // Sections are just shown/hidden within one shared page, not separate
+    // routes with their own scroll -- so without this, switching tabs
+    // kept whatever scroll position the window happened to be at (e.g.
+    // scrolled halfway down Theatre), leaving the newly-shown section
+    // opened mid-way down instead of at its top.
+    window.scrollTo(0, 0);
     resetAllSectionSearchBars();
     currentSection = section;
     sectionPill.title = "You're viewing: " + SECTION_LABELS[section];
