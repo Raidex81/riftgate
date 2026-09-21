@@ -21,6 +21,7 @@ const {
     httpsGetJson,
     httpsGetJsonPlain,
     httpsGetTextPlain,
+    httpsPostJsonRaw,
     runWithConcurrencyLimit,
     fetchWithRetry
 } = require("./services/http");
@@ -3142,7 +3143,7 @@ async function fetchSteamDeals() {
 async function fetchGogDeals() {
     try {
         const data = await httpsGetJsonPlain(
-            "https://catalog.gog.com/v1/catalog?limit=48&order=desc:trending&productType=in:game&discounted=eq:true&countryCode=US&locale=en-US&currencyCode=USD",
+            "https://catalog.gog.com/v1/catalog?limit=48&order=desc:discount&productType=in:game,pack&discounted=eq:true&countryCode=US&locale=en-US&currencyCode=USD",
             10000
         );
         const products = data.products || [];
@@ -3150,10 +3151,22 @@ async function fetchGogDeals() {
         return products
             .map((p) => {
                 const price = p.price || {};
-                const finalAmount = price.final && parseFloat(price.final.amount);
-                const baseAmount = price.base && parseFloat(price.base.amount);
+                // Confirmed against a real, currently-working GOG catalog
+                // integration (a third-party project's own source, since
+                // this can't be tested live from here) — the price object
+                // nests amounts under finalMoney/baseMoney, not final/base
+                // as originally guessed, and discount is GOG's own
+                // advertised string label ("-95%"), not a plain number.
+                const finalAmount = price.finalMoney && parseFloat(price.finalMoney.amount);
+                const baseAmount = price.baseMoney && parseFloat(price.baseMoney.amount);
 
-                let discountPercent = typeof price.discount === "number" ? price.discount : null;
+                let discountPercent = null;
+                if (typeof price.discount === "string") {
+                    const match = price.discount.match(/(\d+)/);
+                    if (match) discountPercent = parseInt(match[1], 10);
+                } else if (typeof price.discount === "number") {
+                    discountPercent = Math.abs(price.discount);
+                }
                 if (discountPercent === null && baseAmount > 0 && typeof finalAmount === "number") {
                     discountPercent = Math.round((1 - finalAmount / baseAmount) * 100);
                 }
@@ -3178,6 +3191,100 @@ async function fetchGogDeals() {
     }
 }
 
+// Epic doesn't publish a stable static "what's on sale" endpoint the way
+// it does for free games (freeGamesPromotions above) — this uses the
+// same underlying GraphQL Catalog.searchStore query that endpoint
+// actually wraps, called directly instead of through a fragile
+// persisted-query hash. The promotions/keyImages/discountSetting shape
+// below is confirmed live (it's the exact shape fetchEpicFreeGames above
+// already successfully parses every day); the price(...) field alongside
+// it is Epic's long-standing, widely-documented shape but hasn't been
+// exercised against a live response from here — if Epic deals come back
+// empty even though Steam/GOG are fine, this query shape is the first
+// thing to check.
+async function fetchEpicDeals() {
+    try {
+        const query = `query storeDeals($category: String, $count: Int, $country: String!, $locale: String) {
+            Catalog {
+                searchStore(category: $category, count: $count, country: $country, locale: $locale, sortBy: "relevance", sortDir: "DESC") {
+                    elements {
+                        title
+                        id
+                        productSlug
+                        urlSlug
+                        keyImages { type url }
+                        price(country: $country) {
+                            totalPrice { discountPrice originalPrice currencyCode }
+                        }
+                        promotions {
+                            promotionalOffers { promotionalOffers { startDate endDate discountSetting { discountPercentage } } }
+                        }
+                    }
+                }
+            }
+        }`;
+
+        const { statusCode, body } = await httpsPostJsonRaw(
+            "https://www.epicgames.com/graphql",
+            { query, variables: { category: "games/edition/base", count: 40, country: "US", locale: "en-US" } },
+            10000
+        );
+
+        if (statusCode < 200 || statusCode >= 300) {
+            console.error("[store] Epic deals request failed:", statusCode, body);
+            return [];
+        }
+
+        const parsed = JSON.parse(body);
+        const elements = (parsed.data && parsed.data.Catalog && parsed.data.Catalog.searchStore.elements) || [];
+        const now = Date.now();
+
+        function activeDiscountPercent(el) {
+            const windows = (el.promotions && el.promotions.promotionalOffers) || [];
+            for (const promoWindow of windows) {
+                for (const offer of promoWindow.promotionalOffers || []) {
+                    const start = new Date(offer.startDate).getTime();
+                    const end = new Date(offer.endDate).getTime();
+                    const pct = offer.discountSetting && offer.discountSetting.discountPercentage;
+                    // Excludes 100% (that's Free Games' territory, not
+                    // Store's — no point showing the same game in both).
+                    if (typeof pct === "number" && pct > 0 && pct < 100 && now >= start && now <= end) {
+                        return pct;
+                    }
+                }
+            }
+            return null;
+        }
+
+        return elements
+            .map((el) => {
+                const discountPercent = activeDiscountPercent(el);
+                if (discountPercent === null) return null;
+
+                const image = (el.keyImages || []).find(
+                    (img) => img.type === "OfferImageWide" || img.type === "Thumbnail"
+                );
+                const totalPrice = (el.price && el.price.totalPrice) || {};
+
+                return {
+                    id: `epic-${el.id}`,
+                    name: el.title,
+                    image: image ? image.url : null,
+                    url: `https://store.epicgames.com/en-US/p/${(el.productSlug || el.urlSlug || "").replace(/\/home$/, "")}`,
+                    source: "Epic Games",
+                    discountPercent,
+                    finalPrice: typeof totalPrice.discountPrice === "number" ? totalPrice.discountPrice / 100 : null,
+                    originalPrice: typeof totalPrice.originalPrice === "number" ? totalPrice.originalPrice / 100 : null,
+                    currency: totalPrice.currencyCode || "USD"
+                };
+            })
+            .filter(Boolean);
+    } catch (err) {
+        console.error("[store] Epic deals fetch failed:", err.message || err);
+        return [];
+    }
+}
+
 // Prices/discounts move faster than the free-games list (which only
 // needs to catch a game newly going free or newly stopping), so this is
 // a much shorter gate — 6 hours rather than 24.
@@ -3192,29 +3299,44 @@ function readStoreDealsLastRefresh() {
     }
 }
 
-function saveStoreDealsLastRefresh(timestamp) {
+// sourceCounts rides alongside the timestamp — per-platform result
+// counts from the last refresh, so a "why is one platform missing/empty"
+// question can be answered from inside the app itself (Store's result
+// count line shows it, see renderer.js), rather than needing console/log
+// access that isn't normally reachable once the app is packaged.
+function saveStoreDealsLastRefresh(timestamp, sourceCounts) {
     try {
-        fs.writeFileSync(STORE_DEALS_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp }));
+        fs.writeFileSync(STORE_DEALS_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp, sourceCounts: sourceCounts || {} }));
     } catch (err) {
         console.error("[store] failed to save last-refresh timestamp:", err.message || err);
     }
 }
 
+function readStoreDealsSourceCounts() {
+    try {
+        const data = JSON.parse(fs.readFileSync(STORE_DEALS_LAST_REFRESH_FILE, "utf8"));
+        return data.sourceCounts || {};
+    } catch (err) {
+        return {};
+    }
+}
+
 // Same in-flight-promise dedupe as performFreeGamesRefresh above, so a
 // renderer refresh landing at the same instant as the startup auto-check
-// doesn't double up on requests to Steam/GOG.
+// doesn't double up on requests to Steam/GOG/Epic.
 let storeDealsRefreshPromise = null;
 
 async function performStoreDealsRefresh() {
     if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
 
     storeDealsRefreshPromise = (async () => {
-        const [steamDeals, gogDeals] = await Promise.all([fetchSteamDeals(), fetchGogDeals()]);
-        const deals = [...steamDeals, ...gogDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        const [steamDeals, gogDeals, epicDeals] = await Promise.all([fetchSteamDeals(), fetchGogDeals(), fetchEpicDeals()]);
+        const deals = [...steamDeals, ...gogDeals, ...epicDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
+        const sourceCounts = { Steam: steamDeals.length, GOG: gogDeals.length, "Epic Games": epicDeals.length };
         saveDataCache("cache-store-deals.json", deals);
-        saveStoreDealsLastRefresh(Date.now());
-        console.log(`[store] refreshed: ${steamDeals.length} Steam, ${gogDeals.length} GOG deal(s).`);
+        saveStoreDealsLastRefresh(Date.now(), sourceCounts);
+        console.log(`[store] refreshed: ${steamDeals.length} Steam, ${gogDeals.length} GOG, ${epicDeals.length} Epic deal(s).`);
         return deals;
     })().finally(() => {
         storeDealsRefreshPromise = null;
@@ -3243,6 +3365,10 @@ ipcMain.handle("force-refresh-store-deals", async () => performStoreDealsRefresh
 // something immediately on section open while a real refresh (if due)
 // runs quietly in the background — same pattern as get-cached-free-games.
 ipcMain.handle("get-cached-store-deals", async () => loadDataCache("cache-store-deals.json") || []);
+
+// Backs the small per-platform count line in the Store section's UI —
+// see the comment on saveStoreDealsLastRefresh above for why this exists.
+ipcMain.handle("get-store-source-counts", async () => readStoreDealsSourceCounts());
 
 // --- Movies currently in theaters (TMDB — free public movie database) ---
 

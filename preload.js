@@ -106,6 +106,7 @@ const INVOKABLE_CHANNELS = new Set([
     "get-show-meta",
     "get-show-trailer",
     "get-store-deals",
+    "get-store-source-counts",
     "get-suggestions",
     "get-top-downloaded-ebooks",
     "get-tv-show-trailer",

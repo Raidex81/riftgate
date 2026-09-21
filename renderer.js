@@ -9387,6 +9387,7 @@ communityAppsSortSelect.addEventListener("change", renderCommunityApps);
 // does, and v1 is meant to stay simple.
 
 let storeDealsCache = [];
+let storeSourceCounts = {};
 
 async function loadStoreDeals(silent) {
     // Same "show what's cached instantly, then refresh quietly" pattern
@@ -9402,6 +9403,7 @@ async function loadStoreDeals(silent) {
 
     const deals = await window.riftgate.invoke("get-store-deals");
     storeDealsCache = deals || [];
+    storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     renderStoreDeals();
 }
 
@@ -9449,7 +9451,15 @@ function renderStoreDeals() {
         return;
     }
     noResults.style.display = "none";
-    resultCount.textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}`;
+    // A per-platform breakdown alongside the total — the app-facing
+    // equivalent of the [store] console log main.js writes on every
+    // refresh, since that log isn't reachable once the app is packaged.
+    // Makes it obvious at a glance if one storefront's fetch is coming
+    // back empty (a 0 next to its name) rather than just missing quietly.
+    const breakdown = Object.entries(storeSourceCounts)
+        .map(([platform, count]) => `${platform}: ${count}`)
+        .join(" · ");
+    resultCount.textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}${breakdown ? ` (${breakdown})` : ""}`;
 
     deals.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
 }
@@ -9521,6 +9531,7 @@ document.getElementById("storeRefreshBtn").addEventListener("click", async () =>
     btn.disabled = true;
     btn.textContent = "🔄 Refreshing...";
     storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
+    storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     renderStoreDeals();
     btn.disabled = false;
     btn.textContent = "🔄 Refresh";

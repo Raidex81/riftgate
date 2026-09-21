@@ -131,10 +131,43 @@ async function fetchWithRetry(url, timeoutMs, attempts = 3) {
     throw lastError;
 }
 
+// Generic JSON POST — resolves with { statusCode, body } (body as a raw
+// string) regardless of status code, deliberately unlike
+// httpsGetJsonPlain's throw-on-non-2xx: some callers (Epic's GraphQL
+// endpoint, in particular) return a 200 with a GraphQL-shaped error body
+// rather than an HTTP error status, so the caller needs to inspect the
+// body itself either way — leaving that decision to them instead of
+// guessing here.
+function httpsPostJsonRaw(url, bodyObj, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(bodyObj);
+        const req = https.request(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payload),
+                "User-Agent": "RiftgateApp/1.0"
+            }
+        }, (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => resolve({ statusCode: res.statusCode, body: data }));
+        });
+
+        req.on("error", reject);
+        if (timeoutMs) {
+            req.setTimeout(timeoutMs, () => req.destroy(new Error("Request timed out")));
+        }
+        req.write(payload);
+        req.end();
+    });
+}
+
 module.exports = {
     httpsGetJson,
     httpsGetJsonPlain,
     httpsGetTextPlain,
+    httpsPostJsonRaw,
     runWithConcurrencyLimit,
     fetchWithRetry
 };
