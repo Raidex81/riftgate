@@ -3131,7 +3131,10 @@ async function fetchSteamDeals() {
                 discountPercent: it.discount_percent,
                 finalPrice: typeof it.final_price === "number" ? it.final_price / 100 : null,
                 originalPrice: typeof it.original_price === "number" ? it.original_price / 100 : null,
-                currency: it.currency || "USD"
+                currency: it.currency || "USD",
+                // No review-count field on this endpoint to rank by --
+                // see the CheapShark popularity comment below.
+                popularity: null
             }));
     } catch (err) {
         console.error("[store] Steam deals fetch failed:", err.message || err);
@@ -3174,6 +3177,15 @@ async function fetchCheapSharkDeals() {
 
                 const steamAppId = d.steamAppID && /^\d+$/.test(String(d.steamAppID)) ? d.steamAppID : null;
 
+                // steamRatingCount -- how many Steam reviews the game has --
+                // is used as a popularity proxy (dealRating is a 0-10 "how
+                // good is THIS deal" score, not how popular the game is, so
+                // it isn't what "sort by popularity" should mean here).
+                // Only set when CheapShark actually resolved a Steam
+                // match; parseInt on undefined/"" correctly yields NaN,
+                // normalized to null below.
+                const popularity = parseInt(d.steamRatingCount, 10);
+
                 return {
                     id: `cheapshark-${d.dealID}`,
                     name: d.title,
@@ -3186,7 +3198,8 @@ async function fetchCheapSharkDeals() {
                     discountPercent,
                     finalPrice: isNaN(finalPrice) ? null : finalPrice,
                     originalPrice: isNaN(originalPrice) ? null : originalPrice,
-                    currency: "USD"
+                    currency: "USD",
+                    popularity: isNaN(popularity) ? null : popularity
                 };
             })
             .filter(Boolean);

@@ -9474,6 +9474,12 @@ function renderStoreDeals() {
         if (sortBy === "price-low") return (a.finalPrice ?? Infinity) - (b.finalPrice ?? Infinity);
         if (sortBy === "price-high") return (b.finalPrice ?? -Infinity) - (a.finalPrice ?? -Infinity);
         if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+        // deal.popularity is a Steam review count where CheapShark could
+        // resolve one (see fetchCheapSharkDeals in main.js) -- null for
+        // deals with nothing to rank by, which this sinks to the bottom
+        // via ?? -1 rather than treating an unranked deal as "0 reviews"
+        // tied with a genuinely under-reviewed one.
+        if (sortBy === "popularity") return (b.popularity ?? -1) - (a.popularity ?? -1);
         return (b.discountPercent || 0) - (a.discountPercent || 0); // biggest discount first
     });
 
