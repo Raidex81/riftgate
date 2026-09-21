@@ -3258,24 +3258,28 @@ async function fetchCheapSharkFreeGames() {
 }
 
 async function fetchLoadedDeals() {
+    // DISABLED -- confirmed dead end, not a guess. The debug dump this
+    // function briefly wrote to disk (see git history) turned out to be
+    // Cloudflare's own bot-challenge page ("Just a moment...", the same
+    // interstitial a browser solves silently before the real page loads)
+    // instead of any real deal data. That's a wall a plain server-side
+    // request can never get past on its own, no matter how the scraper
+    // below is tuned -- it would need a real browser (something like
+    // Puppeteer/Playwright driving an actual Chromium instance) to solve
+    // that challenge first, which is a much heavier dependency than
+    // anything else this app pulls in for a single deals source. Same
+    // fundamental failure mode as GOG's catalog API earlier, just
+    // confirmed with real evidence this time instead of inferred from
+    // empty results.
+    //
+    // The scraper logic below is left in place, unused, in case a future
+    // headless-browser-based fetch wants to reuse its extraction rules
+    // once something can actually get past the challenge page first.
+    return [];
+
+    // eslint-disable-next-line no-unreachable
     try {
         const page = await httpsGetTextPlain("https://www.loaded.com/cdkeys-deals", 12000);
-        console.log(`[store] Loaded fetch: HTTP ${page.statusCode}, ${page.body.length} bytes.`);
-
-        // TEMP debug dump -- this environment couldn't get loaded.com's
-        // real HTML to build the scraper against (only an AI-summarized
-        // rendering, which strips tag/class names -- see the comment
-        // above this function), so the scraper below was a best-effort
-        // guess and came back empty on first try. This saves exactly
-        // what was actually fetched into the project folder so it can be
-        // inspected directly and the scraper fixed against the real
-        // markup. Safe to remove once that's done.
-        try {
-            fs.writeFileSync(path.join(__dirname, "debug-loaded-deals.html"), page.body);
-        } catch (dumpErr) {
-            console.error("[store] failed to write Loaded debug dump:", dumpErr.message || dumpErr);
-        }
-
         if (page.statusCode !== 200) {
             throw new Error(`HTTP ${page.statusCode}`);
         }
@@ -3468,8 +3472,11 @@ async function performStoreDealsRefresh() {
     if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
 
     storeDealsRefreshPromise = (async () => {
-        const [steamDeals, cheapSharkDeals, loadedDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals(), fetchLoadedDeals()]);
-        const deals = [...steamDeals, ...cheapSharkDeals, ...loadedDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        // fetchLoadedDeals is disabled (Cloudflare blocks it outright --
+        // see its own comment) and deliberately left out of this list
+        // rather than called for a guaranteed-empty result every refresh.
+        const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals()]);
+        const deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
         // Tallied from whichever source names actually turned up this
         // refresh, rather than a fixed list -- CheapShark can surface
