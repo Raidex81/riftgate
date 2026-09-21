@@ -10159,6 +10159,7 @@ function buildStoreDealCard(deal) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(deal.image) || "covers/default.jpg"}" alt="" loading="lazy" decoding="async">
             <span class="storeDiscountBadge free-games-pill"></span>
+            <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch trailer">${uiIcon("maximize")}</button>
         </div>
@@ -10190,6 +10191,21 @@ function buildStoreDealCard(deal) {
     card.querySelector(".game-info h3").textContent = deal.name;
     card.querySelector(".storeDiscountBadge").textContent = `-${deal.discountPercent}%`;
     card.querySelector(".free-game-platform").textContent = `🕹️ ${deal.source}`;
+
+    // Steam's own rating when available (CheapShark-resolved deals and
+    // Store's native Steam specials both carry it), Metacritic as the
+    // fallback for everything else -- covers non-Steam stores (GOG,
+    // Epic, etc) that still have a Metacritic page.
+    const ratingBadge = card.querySelector(".media-rating-badge");
+    if (typeof deal.ratingPercent === "number") {
+        ratingBadge.textContent = `👍 ${deal.ratingPercent}%`;
+        ratingBadge.title = deal.ratingText || "Steam rating";
+        ratingBadge.hidden = false;
+    } else if (typeof deal.metacriticScore === "number") {
+        ratingBadge.textContent = `MC ${deal.metacriticScore}`;
+        ratingBadge.title = "Metacritic score";
+        ratingBadge.hidden = false;
+    }
 
     const priceRow = card.querySelector(".store-price-row");
     const finalLabel = formatStorePrice(deal.finalPrice, deal.currency);

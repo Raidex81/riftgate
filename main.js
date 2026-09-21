@@ -3204,12 +3204,38 @@ ipcMain.handle("get-cached-free-games", async () => mergeFreshCuratedGames(loadD
 // Steam's official featuredcategories endpoint — cc=us/l=english pins
 // the response to USD/English regardless of this machine's own locale,
 // matching how Free Games' Steam fetch already treats pricing/region.
+// Steam's own featuredcategories feed (used below) carries no review
+// data at all, unlike CheapShark's deals (which do, when they've
+// resolved a Steam match -- see the ratingText/ratingPercent fields in
+// fetchCheapSharkDeals). This is Steam's separate, unauthenticated
+// per-app review summary endpoint, used to backfill the same rating
+// (and a real review count to rank by) for Store's native Steam specials
+// so both "halves" of the Store tab show the same ranking info.
+async function fetchSteamAppReviewSummary(appId) {
+    try {
+        const data = await httpsGetJsonPlain(
+            `https://store.steampowered.com/appreviews/${appId}?json=1&num_per_page=0&language=all&purchase_type=all`,
+            8000
+        );
+        const summary = data && data.query_summary;
+        if (!summary || !summary.total_reviews) return null;
+        const percent = Math.round((summary.total_positive / summary.total_reviews) * 100);
+        return {
+            ratingText: summary.review_score_desc || null,
+            ratingPercent: isNaN(percent) ? null : percent,
+            ratingCount: summary.total_reviews
+        };
+    } catch (err) {
+        return null;
+    }
+}
+
 async function fetchSteamDeals() {
     try {
         const data = await httpsGetJsonPlain("https://store.steampowered.com/api/featuredcategories?cc=us&l=english", 10000);
         const items = (data.specials && data.specials.items) || [];
 
-        return items
+        const mapped = items
             // Steam's specials feed is discounted-but-still-paid games, not
             // giveaways -- a 100%-off item belongs in Free Games instead
             // (see fetchCheapSharkFreeGames), same reasoning as the
@@ -3234,10 +3260,31 @@ async function fetchSteamDeals() {
                 finalPrice: typeof it.final_price === "number" ? it.final_price / 100 : null,
                 originalPrice: typeof it.original_price === "number" ? it.original_price / 100 : null,
                 currency: it.currency || "USD",
-                // No review-count field on this endpoint to rank by --
-                // see the CheapShark popularity comment below.
-                popularity: null
+                // Backfilled just below via appreviews -- this endpoint
+                // itself has no review-count field to rank by.
+                popularity: null,
+                ratingText: null,
+                ratingPercent: null,
+                metacriticScore: null
             }));
+
+        // Bounded concurrency (6 at a time) rather than firing every
+        // request at once -- same reasoning as every other
+        // runWithConcurrencyLimit use in this app: a batch this size
+        // hitting an external API in one burst risks tripping its rate
+        // limiting. This only runs on the same 6-hour-throttled Store
+        // refresh as everything else here, so the extra round trip per
+        // item is a non-issue in practice.
+        await runWithConcurrencyLimit(mapped, 6, async (deal) => {
+            const summary = await fetchSteamAppReviewSummary(deal.steamAppId);
+            if (summary) {
+                deal.ratingText = summary.ratingText;
+                deal.ratingPercent = summary.ratingPercent;
+                deal.popularity = summary.ratingCount;
+            }
+        });
+
+        return mapped;
     } catch (err) {
         console.error("[store] Steam deals fetch failed:", err.message || err);
         return [];
@@ -3443,20 +3490,6 @@ async function fetchCheapSharkDeals() {
     try {
         const { storeNames, deals } = await fetchCheapSharkRawDeals();
 
-        // TEMPORARY DEBUG INSTRUMENTATION -- checking exactly which
-        // review/rating fields CheapShark's raw deal objects actually
-        // carry (steamRatingPercent/Text, metacriticScore, etc.) before
-        // building a "ranking" display against them. Safe to remove once
-        // confirmed.
-        try {
-            fs.writeFileSync(
-                path.join(__dirname, "debug-cheapshark-deal-fields.json"),
-                JSON.stringify(deals.slice(0, 5), null, 2)
-            );
-        } catch (debugErr) {
-            console.error("[store] debug field dump failed:", debugErr.message || debugErr);
-        }
-
         const mapped = deals
             .map((d) => {
                 const storeName = storeNames[d.storeID] || `Store ${d.storeID}`;
@@ -3479,6 +3512,15 @@ async function fetchCheapSharkDeals() {
                 // match; parseInt on undefined/"" correctly yields NaN,
                 // normalized to null below.
                 const popularity = parseInt(d.steamRatingCount, 10);
+
+                // Ranking display: Steam's own rating when CheapShark has
+                // resolved one ("94" + "Very Positive"), Metacritic as the
+                // fallback for titles with no Steam match. CheapShark
+                // returns "0"/null for "no data" here, not a real score of
+                // zero, so those are normalized to null rather than shown
+                // as a 0% rating.
+                const steamRatingPercentNum = parseInt(d.steamRatingPercent, 10);
+                const metacriticScoreNum = parseInt(d.metacriticScore, 10);
 
                 return {
                     id: `cheapshark-${d.dealID}`,
@@ -3503,7 +3545,10 @@ async function fetchCheapSharkDeals() {
                     finalPrice: isNaN(finalPrice) ? null : finalPrice,
                     originalPrice: isNaN(originalPrice) ? null : originalPrice,
                     currency: "USD",
-                    popularity: isNaN(popularity) ? null : popularity
+                    popularity: isNaN(popularity) ? null : popularity,
+                    ratingText: d.steamRatingText || null,
+                    ratingPercent: !isNaN(steamRatingPercentNum) && steamRatingPercentNum > 0 ? steamRatingPercentNum : null,
+                    metacriticScore: !isNaN(metacriticScoreNum) && metacriticScoreNum > 0 ? metacriticScoreNum : null
                 };
             })
             .filter(Boolean);
