@@ -1124,6 +1124,33 @@ function initUserData() {
         fs.writeFileSync(TRAILER_CACHE_FILE, "{}");
     }
 
+    // One-time cleanup: any Store trailer cached before Steam's own
+    // official trailer became available as a source (see
+    // fetchSteamOfficialTrailerUrl) may have locked in a wrong YouTube
+    // search result for an ambiguous title. Drop just those entries so
+    // they get looked up fresh, this time preferring the unambiguous
+    // Steam source when one exists -- everything else in the cache
+    // (Installed Games, My Shows, etc.) is untouched.
+    try {
+        const trailerCache = JSON.parse(fs.readFileSync(TRAILER_CACHE_FILE, "utf8"));
+        if (!trailerCache.__storeTrailerCacheMigrated) {
+            let purged = 0;
+            for (const key of Object.keys(trailerCache)) {
+                if (key.startsWith("steam-") || key.startsWith("cheapshark-")) {
+                    delete trailerCache[key];
+                    purged++;
+                }
+            }
+            trailerCache.__storeTrailerCacheMigrated = true;
+            fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(trailerCache, null, 2));
+            if (purged > 0) {
+                console.log(`[trailer] One-time cleanup: cleared ${purged} previously-cached Store trailer(s) so they re-resolve with Steam's official source when available.`);
+            }
+        }
+    } catch (err) {
+        console.error("[trailer] Store trailer cache migration failed:", err.message || err);
+    }
+
     if (!fs.existsSync(OVERRIDES_FILE)) {
         fs.writeFileSync(OVERRIDES_FILE, "{}");
     }
@@ -3156,6 +3183,7 @@ async function fetchSteamDeals() {
             .filter((it) => it && typeof it.discount_percent === "number" && it.discount_percent > 0 && it.discount_percent < 100)
             .map((it) => ({
                 id: `steam-${it.id}`,
+                steamAppId: String(it.id),
                 name: it.name,
                 // The portrait "library capsule" (2:3, same shape/CDN
                 // pattern already used for Free Games' Steam covers --
@@ -3381,7 +3409,7 @@ async function fetchCheapSharkDeals() {
     try {
         const { storeNames, deals } = await fetchCheapSharkRawDeals();
 
-        return deals
+        const mapped = deals
             .map((d) => {
                 const storeName = storeNames[d.storeID] || `Store ${d.storeID}`;
                 // Steam is already covered directly (and more completely)
@@ -3406,6 +3434,16 @@ async function fetchCheapSharkDeals() {
 
                 return {
                     id: `cheapshark-${d.dealID}`,
+                    // CheapShark's own cross-store identifier for "this is
+                    // the same underlying game" -- used just below to
+                    // collapse duplicate listings from different resellers.
+                    gameId: d.gameID || null,
+                    // When CheapShark has resolved a Steam match for this
+                    // title, renderer.js passes it back into fetch-trailer
+                    // so Steam's own official trailer can be used instead
+                    // of an ambiguous YouTube text search -- see
+                    // fetchSteamOfficialTrailerUrl.
+                    steamAppId,
                     name: d.title,
                     image: steamAppId
                         ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`
@@ -3421,6 +3459,27 @@ async function fetchCheapSharkDeals() {
                 };
             })
             .filter(Boolean);
+
+        // Multiple resellers (e.g. GameBillet and Gamesplanet) frequently
+        // list the exact same game at different prices -- CheapShark's
+        // gameID is the same for all of them, so it's the correct key to
+        // group by. Keep only the cheapest listing per game; deals with no
+        // resolvable gameID (rare) are left alone rather than merged away.
+        const cheapestByGame = new Map();
+        const noGameId = [];
+        for (const deal of mapped) {
+            if (!deal.gameId) {
+                noGameId.push(deal);
+                continue;
+            }
+            const existing = cheapestByGame.get(deal.gameId);
+            const dealIsCheaper = deal.finalPrice != null && (existing?.finalPrice == null || deal.finalPrice < existing.finalPrice);
+            if (!existing || dealIsCheaper) {
+                cheapestByGame.set(deal.gameId, deal);
+            }
+        }
+
+        return [...cheapestByGame.values(), ...noGameId];
     } catch (err) {
         console.error("[store] CheapShark deals fetch failed:", err.message || err);
         return [];
@@ -4468,7 +4527,30 @@ ipcMain.handle("fetch-description", async (event, gameName) => {
     }
 });
 
-ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cacheKey) => {
+// Steam's own appdetails endpoint exposes each game's official trailer(s)
+// directly by numeric appid -- no search/relevance guessing involved,
+// unlike the YouTube fallback below. Tried first whenever a Store deal has
+// a resolvable Steam appid (see fetch-trailer), since a text search can
+// occasionally return an unrelated video for a short/generic title (e.g.
+// a one-word game name matching something else entirely) while this
+// cannot -- it's either that exact app's trailer or nothing.
+async function fetchSteamOfficialTrailerUrl(appId) {
+    try {
+        const data = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=english&filters=movies`, 10000);
+        const entry = data && data[appId];
+        const movies = entry && entry.success && entry.data && Array.isArray(entry.data.movies) ? entry.data.movies : [];
+        if (movies.length === 0) return null;
+
+        const movie = movies.find((m) => m.highlight) || movies[0];
+        const url = (movie.mp4 && (movie.mp4.max || movie.mp4["480"])) || (movie.webm && (movie.webm.max || movie.webm["480"])) || null;
+        return url || null;
+    } catch (err) {
+        console.error(`[trailer] Steam official trailer fetch failed for appid ${appId}:`, err.message || err);
+        return null;
+    }
+}
+
+ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cacheKey, steamAppId) => {
 
     // Permanent cache — Installed Games and My Shows already persist their
     // trailer in games.json/watchlist.json, but Free Games and Upcoming
@@ -4489,6 +4571,19 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
     }
 
     console.log(`[trailer] Looking up trailer for "${gameName}" (type: ${type || "game"})...`);
+
+    if (steamAppId && /^\d+$/.test(String(steamAppId))) {
+        const steamTrailerUrl = await fetchSteamOfficialTrailerUrl(steamAppId);
+        if (steamTrailerUrl) {
+            console.log(`[trailer] Using Steam's own official trailer for "${gameName}" (appid ${steamAppId}) -- no YouTube search needed.`);
+            if (cacheKey) {
+                cache[cacheKey] = steamTrailerUrl;
+                fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(cache, null, 2));
+            }
+            return steamTrailerUrl;
+        }
+        console.log(`[trailer] Steam has no official trailer for appid ${steamAppId}, falling back to YouTube search.`);
+    }
 
     // Biases the search toward the right kind of result, so a show/app/game
     // that happens to share a name with something else doesn't pull in the

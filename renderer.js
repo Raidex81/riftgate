@@ -3612,6 +3612,14 @@ function updateAllSoundToggles() {
     });
 }
 
+// A Steam official trailer (see fetchSteamOfficialTrailerUrl in main.js)
+// comes back from fetch-trailer as a real https:// video URL; a YouTube
+// result comes back as a bare video ID. Telling them apart by shape is all
+// that's needed to pick the right playback path below.
+function isDirectTrailerUrl(trailerId) {
+    return typeof trailerId === "string" && /^https?:\/\//i.test(trailerId);
+}
+
 function postPlayerCommand(iframe, func, args) {
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage(
@@ -3621,6 +3629,12 @@ function postPlayerCommand(iframe, func, args) {
 }
 
 function applySoundToAllFrames() {
+    const video = theaterVideoWrap.querySelector("video");
+    if (video) {
+        video.muted = !soundEnabled;
+        return;
+    }
+
     const frame = theaterVideoWrap.querySelector("iframe");
     if (!frame) return;
     // postMessage mute/unMute commands can get silently dropped if the
@@ -3638,6 +3652,12 @@ function applySoundToAllFrames() {
 }
 
 function applyVolumeToAllFrames() {
+    const video = theaterVideoWrap.querySelector("video");
+    if (video) {
+        video.volume = Math.max(0, Math.min(1, (settings.trailerVolume || 0) / 100));
+        return;
+    }
+
     const frame = theaterVideoWrap.querySelector("iframe");
     if (frame) postPlayerCommand(frame, "setVolume", [settings.trailerVolume]);
 }
@@ -7035,23 +7055,41 @@ const theaterYoutubeBtn = document.getElementById("theaterYoutubeBtn");
 let theaterVideoId = null;
 
 function openTheaterMode(trailerId) {
-    // trailerId is built into an iframe URL — assigned as a real DOM
+    // trailerId is built into an iframe/video URL — assigned as a real DOM
     // property below (never interpolated into an innerHTML string), so a
     // crafted value can't break out of the src attribute into markup.
     theaterVideoId = trailerId;
     theaterVideoWrap.innerHTML = "";
 
-    const iframe = document.createElement("iframe");
-    iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
-    iframe.setAttribute("allow", "autoplay; encrypted-media");
-    iframe.allowFullscreen = true;
-    theaterVideoWrap.appendChild(iframe);
+    if (isDirectTrailerUrl(trailerId)) {
+        // A Steam official trailer — a real hosted mp4/webm file, not a
+        // YouTube video, so it plays through a plain <video> element
+        // instead of the YouTube iframe embed below.
+        const video = document.createElement("video");
+        video.src = trailerId;
+        video.autoplay = true;
+        video.controls = true;
+        video.muted = !soundEnabled;
+        video.volume = Math.max(0, Math.min(1, (settings.trailerVolume || 0) / 100));
+        theaterVideoWrap.appendChild(video);
+    } else {
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=${soundEnabled ? 0 : 1}&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
+        iframe.setAttribute("allow", "autoplay; encrypted-media");
+        iframe.allowFullscreen = true;
+        theaterVideoWrap.appendChild(iframe);
+
+        // Give the embedded player a moment to actually initialize before
+        // sending it a volume command.
+        setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
+    }
+
+    // "Watch on YouTube" makes no sense for a direct Steam-hosted trailer
+    // file — relabel it to something accurate for that case (the button
+    // opens the raw video URL itself, not a store page).
+    theaterYoutubeBtn.textContent = isDirectTrailerUrl(trailerId) ? "▶ Open Trailer in Browser" : "▶ Watch on YouTube";
 
     theaterModal.classList.add("active");
-
-    // Give the embedded player a moment to actually initialize before
-    // sending it a volume command.
-    setTimeout(() => postPlayerCommand(iframe, "setVolume", [settings.trailerVolume]), 1000);
 }
 
 function closeTheaterMode() {
@@ -7067,7 +7105,10 @@ theaterModal.addEventListener("click", (event) => {
 });
 
 theaterYoutubeBtn.addEventListener("click", () => {
-    if (theaterVideoId) {
+    if (!theaterVideoId) return;
+    if (isDirectTrailerUrl(theaterVideoId)) {
+        window.riftgate.invoke("open-external", theaterVideoId);
+    } else {
         window.riftgate.invoke("open-external", `https://www.youtube.com/watch?v=${theaterVideoId}`);
     }
 });
@@ -9642,7 +9683,7 @@ function buildStoreDealCard(deal) {
 
     async function fetchStoreDealTrailerOnce() {
         if (storeDealTrailerId === undefined || storeDealTrailerId === null) {
-            storeDealTrailerId = await window.riftgate.invoke("fetch-trailer", deal.name, "game", null, deal.id);
+            storeDealTrailerId = await window.riftgate.invoke("fetch-trailer", deal.name, "game", null, deal.id, deal.steamAppId);
         }
         return storeDealTrailerId;
     }
