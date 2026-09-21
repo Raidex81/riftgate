@@ -4141,6 +4141,30 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
     }
 });
 
+// Anime is very often catalogued on TMDB as a brand-new show entry per
+// SEASON (its own id, its own "first_air_date" set to when that season
+// started airing) rather than as one show with multiple seasons the way
+// Western TV almost always is -- so the first_air_date.gte filter below,
+// which correctly keeps get-new-tv-shows above to real new shows, lets a
+// returning anime's new season right back in too, since as far as TMDB's
+// data is concerned it genuinely is a "new" entry. There's no reliable
+// flag for this, so this catches it the same way a person would: by the
+// title itself almost always saying "Season 2", "3rd Season", "Part 2",
+// "Final Season", trailing " II"/" III", etc. for a continuing show.
+const SEQUEL_SEASON_NAME_PATTERNS = [
+    /\bseasons?\s*\d+\b/i,
+    /\b\d+(st|nd|rd|th)\s*season\b/i,
+    /\bfinal\s*season\b/i,
+    /\bpart\s*\d+\b/i,
+    /\bcour\s*\d+\b/i,
+    /\b(ii|iii|iv|v|vi|vii)$/i
+];
+
+function looksLikeSequelSeason(name) {
+    if (!name) return false;
+    return SEQUEL_SEASON_NAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
 // TMDB has no dedicated "this is anime" flag -- Animation (genre 16) +
 // origin country Japan is the standard proxy every app built on TMDB
 // uses for this, since virtually everything that combination returns
@@ -4163,7 +4187,8 @@ ipcMain.handle("get-new-anime", async (event, countryCode) => {
         });
 
         const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
-        const mapped = await Promise.all((data.results || []).map(async (s) => {
+        const genuinelyNew = (data.results || []).filter((s) => !looksLikeSequelSeason(s.name));
+        const mapped = await Promise.all(genuinelyNew.map(async (s) => {
             let image = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : null;
             if (!image) {
                 image = await fetchFallbackPoster("tv", s.id, tmdbLanguage);
