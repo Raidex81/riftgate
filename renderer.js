@@ -1611,26 +1611,18 @@ async function checkForUpdatePopup() {
     const isFirstRunEver = settings.lastSeenVersion === null;
     const previousTourVersion = settings.lastSeenTourVersion;
 
-    // A brand-new install has no changelog to "catch up" on — skip
-    // straight to the general first-run tour instead of opening a wall of
-    // every historical version's notes before the user's even touched the
-    // app (see GENERAL_TOUR / maybeRunFeatureTour).
+    // A real update (not a first-ever install) used to auto-open the
+    // changelog modal right here on the first launch after updating —
+    // that's gone now; "what's new" is still there, just opt-in via the
+    // 🔔 button instead of popping up unasked. The New-tab cache still
+    // gets cleared on a real update, though, so its next load is a
+    // genuinely fresh fetch under this version's logic instead of
+    // whatever got cached under the version being upgraded from.
     if (!isFirstRunEver && settings.lastSeenVersion !== appVersion) {
-        // A real update, not a first-ever install — clear the one New-tab
-        // cache that persists across restarts so its next load is a
-        // genuinely fresh fetch under this version's logic, not whatever
-        // got cached under the version being upgraded from.
         window.riftgate.invoke("clear-new-section-cache");
-        openChangelogModal();
-        saveSetting("lastSeenVersion", appVersion);
-
-        // The tour waits for the changelog to be dismissed (see
-        // dismissChangelogModal) so the two never overlap on screen.
-        pendingFeatureTourRunner = () => maybeRunFeatureTour(isFirstRunEver, previousTourVersion);
-    } else {
-        saveSetting("lastSeenVersion", appVersion);
-        await maybeRunFeatureTour(isFirstRunEver, previousTourVersion);
     }
+    saveSetting("lastSeenVersion", appVersion);
+    await maybeRunFeatureTour(isFirstRunEver, previousTourVersion);
 }
 
 // --- "What's new" guided tour -----------------------------------------
