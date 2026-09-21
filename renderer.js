@@ -9564,6 +9564,7 @@ document.getElementById("storeRefreshBtn").addEventListener("click", async () =>
     btn.textContent = "🔄 Refreshing...";
     storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
+    updateStorePlatformOptions();
     renderStoreDeals();
     btn.disabled = false;
     btn.textContent = "🔄 Refresh";
