@@ -1220,6 +1220,16 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.5.0": [
+        "New: a Store section — browse discounted PC games aggregated from Steam and other resellers, with review scores, trailers, platform filters, and quick links straight to the storefront to buy",
+        "New: optional email verification for new accounts",
+        "New: Theatre's Streaming Providers now shows one row per streaming service (Netflix, Prime Video, Disney+, Max, Hulu, Apple TV+, Paramount+, Peacock, Crunchyroll) instead of a single dropdown-driven row, each with a \"Watch on <Provider>\" button that opens the title on that service's own site",
+        "New: a \"New Anime\" row in the New tab, alongside New Series",
+        "Fixed: dragging the first New tab section (or sidebar section, or Free Games platform row) onto its immediate neighbor could silently fail to reorder it",
+        "Fixed: cards in the New tab and other carousels could render at inconsistent sizes or get cut off at the edge instead of resizing to fit",
+        "Fixed: the hero banner's background no longer mismatches the video playing inside it",
+        "Fixed: removing a show from My Shows now also removes its entry from Recently Released instead of leaving it behind"
+    ],
     "1.4.2": [
         "Changed: camera, microphone, location, and other sensitive browser permissions are now blocked by default app-wide, closing a gap where anything embedded in Riftgate could have silently been granted them"
     ],
