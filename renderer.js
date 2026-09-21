@@ -218,7 +218,15 @@ let CATEGORY_ORDER = ["game", "vr", "app", "other"];
 // User-customizable order for the section tabs (New / Installed / Free
 // Games / etc.) — same idea as CATEGORY_ORDER above, but for the sidebar
 // nav list and the persistent top tab strip, which are kept in sync.
-let SECTION_ORDER = ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"];
+//
+// IMPORTANT: a section that's added to the sidebar later (Store was) has
+// to be added here too, or applySectionOrder's appendChild loop below
+// skips it entirely — since it never gets moved, every OTHER section
+// sliding past it as it's moved to its place ends up shoving the
+// unlisted one toward the front instead of leaving it where its own
+// index.html position put it. (This is exactly what happened to Store:
+// it rendered as the very first tab instead of after Free Games.)
+let SECTION_ORDER = ["new", "installed", "free-games", "store", "theatre", "reading-room", "shared-folder", "applications"];
 
 // The "New" tab's three blocks (Upcoming Games/Movies, New Series) —
 // reorderable the same way the sidebar tabs are, just stacked vertically
@@ -2522,8 +2530,27 @@ async function loadSettings() {
     if (Array.isArray(settings.sectionOrder)) {
         const knownSections = new Set(SECTION_ORDER);
         const restoredOrder = settings.sectionOrder.filter((key) => knownSections.has(key));
+        // A section added since this order was last saved (Store, the
+        // first time this runs after it shipped) isn't in restoredOrder
+        // yet — rather than just pushing it onto the very end regardless
+        // of where it belongs, insert it right after whichever of its
+        // DEFAULT-order neighbors is still present, so a fresh section
+        // lands somewhere sane relative to a user's own custom order
+        // instead of always trailing behind sections they may have
+        // deliberately dragged to the back.
         SECTION_ORDER.forEach((key) => {
-            if (!restoredOrder.includes(key)) restoredOrder.push(key);
+            if (restoredOrder.includes(key)) return;
+            const defaultIndex = SECTION_ORDER.indexOf(key);
+            let insertAfterIndex = -1;
+            for (let i = defaultIndex - 1; i >= 0; i--) {
+                const precedingKey = SECTION_ORDER[i];
+                const pos = restoredOrder.indexOf(precedingKey);
+                if (pos !== -1) {
+                    insertAfterIndex = pos;
+                    break;
+                }
+            }
+            restoredOrder.splice(insertAfterIndex + 1, 0, key);
         });
         SECTION_ORDER = restoredOrder;
         applySectionOrder();
