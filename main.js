@@ -4886,6 +4886,26 @@ async function searchSteamGridDb(term) {
 
 ipcMain.handle("fetch-online-cover", async (event, gameName) => {
 
+    // Skip the network round trip for a title already fetched before --
+    // this now runs far more often than just the Installed library's
+    // manual "Add cover"/scan flows (every landscape cover across the app
+    // tries this once, see watchForLandscapeCover in renderer.js), so
+    // re-hitting SteamGridDB for the same title on every render would
+    // burn API quota for nothing.
+    try {
+        if (fs.existsSync(COVERS_FOLDER)) {
+            const baseName = safeFileName(gameName);
+            const cached = fs.readdirSync(COVERS_FOLDER).find((f) => f.startsWith(`${baseName}.`));
+            if (cached) {
+                console.log(`[cover] Using cached cover for "${gameName}": ${cached}`);
+                return `covers/${cached}`;
+            }
+        }
+    } catch (err) {
+        // Fall through to a fresh online lookup if the cache check itself
+        // fails for any reason.
+    }
+
     console.log(`[cover] Looking up "${gameName}" on SteamGridDB...`);
 
     try {

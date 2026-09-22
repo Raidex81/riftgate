@@ -3280,6 +3280,7 @@ function buildCard(game, navList) {
 `;
 
     card.querySelector(".cover-img").alt = game.name;
+    if (category !== "app") watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
     card.querySelector(".game-info h3").textContent = game.name;
     card.querySelector(".game-desc").textContent = description;
 
@@ -4621,19 +4622,104 @@ function freeGameCoverCacheSrc(url) {
     return url;
 }
 
+// A landscape cover (wider than it is tall) never sits right next to the
+// portrait covers everywhere else in the app -- cropping it badly clips
+// whatever made the art worth using, and letting the card's frame stretch
+// or shrink to fit it is exactly the "big and small frames in the same
+// row" problem. Rather than warp the frame around the wrong-shaped image,
+// this looks up a genuinely vertical cover for the same title online --
+// SteamGridDB, the same fan-art database (official box art isn't always
+// there, so this is "even if not official" by design) already used for
+// the Installed library's own cover picker and auto-scan -- and swaps it
+// in once the loaded cover turns out to be landscape. A silent no-op when
+// there's no title to search, the cover's already portrait/square, or
+// nothing better turns up online; whatever called this can fall back to
+// its own handling in that case (see applyFreeGameWideCoverIfNeeded below
+// for Free Games/Store's fallback).
+const verticalCoverAttempted = new WeakSet();
+
+// A row can easily load a handful of landscape covers at once on first
+// render (before any of them are cached on disk -- see the cache check
+// this adds to fetch-online-cover in main.js), and every one of those
+// would otherwise fire its SteamGridDB lookup in the same instant. The
+// app's other bulk cover lookup (the "Add selected" scan import above)
+// avoids that by going strictly one at a time; this affords a little more
+// parallelism since these fire independently across the whole app rather
+// than one big batch, but still caps it instead of letting it go
+// unbounded.
+const MAX_CONCURRENT_VERTICAL_COVER_LOOKUPS = 2;
+let activeVerticalCoverLookups = 0;
+const verticalCoverLookupQueue = [];
+
+function pumpVerticalCoverLookupQueue() {
+    while (activeVerticalCoverLookups < MAX_CONCURRENT_VERTICAL_COVER_LOOKUPS && verticalCoverLookupQueue.length > 0) {
+        const { itemName, resolve } = verticalCoverLookupQueue.shift();
+        activeVerticalCoverLookups++;
+        window.riftgate.invoke("fetch-online-cover", itemName)
+            .catch((err) => {
+                console.error("[cover] vertical replacement lookup failed:", err.message || err);
+                return null;
+            })
+            .then((result) => {
+                activeVerticalCoverLookups--;
+                pumpVerticalCoverLookupQueue();
+                resolve(result);
+            });
+    }
+}
+
+function queueVerticalCoverLookup(itemName) {
+    return new Promise((resolve) => {
+        verticalCoverLookupQueue.push({ itemName, resolve });
+        pumpVerticalCoverLookupQueue();
+    });
+}
+
+async function fetchVerticalCoverReplacement(img, itemName) {
+    if (!itemName) return null;
+    if (!img.naturalWidth || !img.naturalHeight) return null;
+    if (img.naturalWidth <= img.naturalHeight) return null;
+    // One attempt per <img> element (a fresh one every time a card is
+    // rebuilt) -- avoids re-searching SteamGridDB every time "load" fires
+    // again, including the second "load" this same swap triggers.
+    if (verticalCoverAttempted.has(img)) return null;
+    verticalCoverAttempted.add(img);
+
+    return queueVerticalCoverLookup(itemName);
+}
+
+// Generic version for every card type that doesn't already have its own
+// wide-cover handling (Installed, My Shows, Theatre, New Series/Anime,
+// Upcoming Games, Related items, streaming-provider rows) -- these just
+// leave a mismatched card alone today if the cover turns out sideways, so
+// there's nothing to fall back to here beyond trying the replacement.
+function watchForLandscapeCover(img, itemName) {
+    const check = async () => {
+        const replacement = await fetchVerticalCoverReplacement(img, itemName);
+        if (replacement) img.src = replacement;
+    };
+    img.addEventListener("load", check);
+    // Mirrors the requestAnimationFrame fallback below -- "load" doesn't
+    // reliably re-fire for an image that's already cached/complete by the
+    // time this listener attaches.
+    requestAnimationFrame(check);
+}
+
 // A cover that's meaningfully wider than tall (a landscape screenshot or
 // piece of banner key art, not the ~2:3 portrait box art most covers use)
 // gets cropped badly by object-fit:cover — whatever made that art worth
-// using is usually right at the edges a crop trims off. Rather than crop
-// it, or leave that one card shorter than its neighbors (the ~true
-// intrinsic height it'd naturally want), this widens that one card
-// instead: spans extra grid columns in a browse-grid, or gets a direct
-// inline width in a carousel row (not a grid, so column-span means
-// nothing there) — either way at the SAME height as every other card in
-// the row, sized close enough to the image's own shape that
-// object-fit:contain (see the .free-game-wide-cover rules in style.css)
-// shows the whole picture with nothing left worth calling a bar.
-function applyFreeGameWideCoverIfNeeded(card, img) {
+// using is usually right at the edges a crop trims off. This first tries
+// a genuinely vertical replacement (see fetchVerticalCoverReplacement
+// above) so the card can stay the same size as everything else in its
+// row; only if nothing better is found online does it fall back to
+// widening that one card instead: spans extra grid columns in a
+// browse-grid, or gets a direct inline width in a carousel row (not a
+// grid, so column-span means nothing there) — either way at the SAME
+// height as every other card in the row, sized close enough to the
+// image's own shape that object-fit:contain (see the
+// .free-game-wide-cover rules in style.css) shows the whole picture with
+// nothing left worth calling a bar.
+async function applyFreeGameWideCoverIfNeeded(card, img, itemName) {
     if (card.classList.contains("free-game-wide-cover")) return;
     const naturalW = img.naturalWidth;
     const naturalH = img.naturalHeight;
@@ -4654,6 +4740,16 @@ function applyFreeGameWideCoverIfNeeded(card, img) {
     // here — anything close to (or narrower than) a single column already
     // looks right cropped to fill, same as before.
     if (desiredWidth <= columnWidth * 1.1) return;
+
+    // Try a real vertical cover before resorting to widening this card --
+    // swapping img.src re-triggers this same check via the "load"
+    // listener below, and a genuinely portrait replacement passes the
+    // check above and stops right here on that second pass.
+    const replacement = await fetchVerticalCoverReplacement(img, itemName);
+    if (replacement) {
+        img.src = replacement;
+        return;
+    }
 
     card.classList.add("free-game-wide-cover");
     coverWrap.style.height = `${rowHeight}px`;
@@ -4725,7 +4821,7 @@ function buildFreeGameCard(game, navList) {
     });
 
     freeGameCoverImgEl.addEventListener("load", () => {
-        applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl);
+        applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl, game.name);
     });
     // "load" doesn't reliably re-fire for an image that's already cached/
     // complete by the time this listener attaches — deferred to the next
@@ -4733,7 +4829,7 @@ function buildFreeGameCard(game, navList) {
     // (buildFreeGameCard just returns the card; the grid/track it belongs
     // in only gets it via appendChild right after), since the measurement
     // above needs real layout dimensions to work from.
-    requestAnimationFrame(() => applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl));
+    requestAnimationFrame(() => applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl, game.name));
 
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
@@ -6812,6 +6908,7 @@ function buildShowCard(show, navList) {
     `;
 
     card.querySelector(".cover-img").alt = show.name;
+    watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
     card.querySelector(".game-info h3").textContent = show.name;
     card.querySelector(".game-desc").textContent = show.description || "Loading description...";
 
@@ -7248,6 +7345,7 @@ function buildMovieCard(movie, showReleaseDate, navList) {
     `;
 
     card.querySelector(".cover-img").alt = movie.title;
+    watchForLandscapeCover(card.querySelector(".cover-img"), movie.title);
     card.querySelector(".game-info h3").textContent = movie.title;
     card.querySelector(".game-desc").textContent = movie.description || "No description available.";
 
@@ -7455,6 +7553,7 @@ function buildStreamingProviderCard(item, providerName) {
     `;
 
     card.querySelector(".cover-img").alt = item.name;
+    watchForLandscapeCover(card.querySelector(".cover-img"), item.name);
     card.querySelector(".game-info h3").textContent = item.name;
     card.querySelector(".game-desc").textContent = item.description || "No description available.";
     card.querySelector(".watchOnProviderBtnLabel").textContent = `Watch on ${providerName}`;
@@ -8047,6 +8146,7 @@ function renderRelatedGames(rawGames) {
             </div>
         `;
         card.querySelector(".cover-img").alt = game.name;
+        watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
         card.querySelector(".game-info h3").textContent = game.name;
         card.addEventListener("click", () => openGameDetailModal(game, "game", games));
         attachAdminRemoveButton(card, "game", game.id, game.name);
@@ -8239,6 +8339,7 @@ function renderNewShows() {
         `;
 
         card.querySelector(".cover-img").alt = show.name;
+        watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
 
@@ -8381,6 +8482,7 @@ function renderNewAnime() {
         `;
 
         card.querySelector(".cover-img").alt = show.name;
+        watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
         card.querySelector(".game-info h3").textContent = show.name;
         card.querySelector(".game-desc").textContent = show.description || "No description available.";
 
@@ -8521,6 +8623,7 @@ async function loadUpcomingGames() {
         `;
 
         card.querySelector(".cover-img").alt = game.name;
+        watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
         card.querySelector(".game-info h3").textContent = game.name;
         // Third-party platform names from RAWG — textContent, never innerHTML.
         const platformsEl = card.querySelector(".upcoming-game-platforms");
@@ -10459,7 +10562,7 @@ function buildStoreDealCard(deal) {
         }
     });
     coverImgEl.addEventListener("load", () => {
-        applyFreeGameWideCoverIfNeeded(card, coverImgEl);
+        applyFreeGameWideCoverIfNeeded(card, coverImgEl, deal.name);
     });
     coverImgEl.alt = deal.name;
 
