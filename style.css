@@ -19,6 +19,22 @@
        string repeated at every call site. */
     --accent-gradient:linear-gradient(135deg, var(--accent-1), var(--accent-2));
     --titlebar-height:32px;
+
+    /* Semantic danger/success/status colors -- named once so every
+       remove/delete control and status indicator draws from the same
+       palette instead of each picking its own close-enough red or
+       green. --color-danger-soft replaces four near-identical light
+       reds (#f87171/#ff5f5f/#ff8080/#ff8a8a) that had drifted apart
+       across different buttons with no visible reason for the
+       difference. */
+    --color-danger:#e53935;
+    --color-danger-dark:#c62828;
+    --color-danger-soft:#f87171;
+    --color-danger-soft-bg:rgba(248, 113, 113, .15);
+    --color-success:#238636;
+    --color-success-hover:#2ea043;
+    --color-status-ok:#22c55e;
+    --color-status-warning:#fbbf24;
 }
 
 body.light-theme{
@@ -152,14 +168,14 @@ input{
     height:40px;
     border:none;
     border-radius:50%;
-    background:#238636;
+    background:var(--color-success);
     color:white;
     font-size:22px;
     cursor:pointer;
 }
 
 #addBtn:hover{
-    background:#2ea043;
+    background:var(--color-success-hover);
 }
 
 .category-section{
@@ -193,8 +209,8 @@ input{
    to wipe everything at once. */
 .clear-section-btn{
     background:rgba(229,57,53,.12);
-    border:1px solid #e53935;
-    color:#e53935;
+    border:1px solid var(--color-danger);
+    color:var(--color-danger);
     border-radius:6px;
     padding:4px 10px;
     font-size:11px;
@@ -205,7 +221,7 @@ input{
 }
 
 .clear-section-btn:hover{
-    background:#e53935;
+    background:var(--color-danger);
     color:#fff;
 }
 
@@ -660,7 +676,8 @@ body.density-compact .new-shows-track .game-card{
     transition:0.2s;
 }
 
-.game-card:hover .soundToggle{
+.game-card:hover .soundToggle,
+.game-card:focus-within .soundToggle{
     opacity:1;
 }
 
@@ -748,8 +765,8 @@ body.density-compact .new-shows-track .game-card{
 
 .uninstallBtn:hover{
     background:rgba(255,95,95,.12);
-    border-color:#ff5f5f;
-    color:#ff5f5f;
+    border-color:var(--color-danger-soft);
+    color:var(--color-danger-soft);
 }
 
 .removeBtn{
@@ -760,7 +777,7 @@ body.density-compact .new-shows-track .game-card{
     height:26px;
     border:none;
     border-radius:50%;
-    background:#c62828;
+    background:var(--color-danger-dark);
     color:white;
     cursor:pointer;
     opacity:0;
@@ -831,12 +848,13 @@ body.density-compact .new-shows-track .game-card{
     color:var(--text-primary);
 }
 
-.game-card:hover .removeBtn{
+.game-card:hover .removeBtn,
+.game-card:focus-within .removeBtn{
     opacity:1;
 }
 
 .removeBtn:hover{
-    background:#e53935;
+    background:var(--color-danger);
 }
 
 /* Admin/super-admin-only "remove from Riftgate for everyone" button —
@@ -855,7 +873,7 @@ body.density-compact .new-shows-track .game-card{
     height:26px;
     border:none;
     border-radius:50%;
-    background:#c62828;
+    background:var(--color-danger-dark);
     color:white;
     cursor:pointer;
     opacity:0;
@@ -865,16 +883,17 @@ body.density-compact .new-shows-track .game-card{
     z-index:4;
 }
 
-.game-card:hover .admin-remove-item-btn{
+.game-card:hover .admin-remove-item-btn,
+.game-card:focus-within .admin-remove-item-btn{
     opacity:1;
 }
 
 .admin-remove-item-btn:hover{
-    background:#e53935;
+    background:var(--color-danger);
 }
 
 .launchBtn:hover{
-    background:#2ea043;
+    background:var(--color-success-hover);
 }
 
 .modal-overlay{
@@ -1152,12 +1171,12 @@ body.density-compact .new-shows-track .game-card{
 }
 
 #copyPathBtn{
-    background:#238636;
+    background:var(--color-success);
     color:white;
 }
 
 #copyPathBtn:hover{
-    background:#2ea043;
+    background:var(--color-success-hover);
 }
 
 #closeModalBtn{
@@ -1189,7 +1208,7 @@ body.density-compact .new-shows-track .game-card{
 
 .categoryOption:hover{
     background:var(--bg-tertiary);
-    border-color:#238636;
+    border-color:var(--color-success);
 }
 
 .intro-screen{
@@ -1262,7 +1281,7 @@ body.density-compact .new-shows-track .game-card{
     width:22px;
     height:22px;
     border-radius:50%;
-    background:#238636;
+    background:var(--color-success);
     color:white;
     font-size:12px;
     font-weight:bold;
@@ -1272,7 +1291,7 @@ body.density-compact .new-shows-track .game-card{
 }
 
 .intro-cta{
-    background:#238636;
+    background:var(--color-success);
     border:none;
     color:white;
     padding:12px 24px;
@@ -1282,7 +1301,7 @@ body.density-compact .new-shows-track .game-card{
 }
 
 .intro-cta:hover{
-    background:#2ea043;
+    background:var(--color-success-hover);
 }
 
 .intro-cta-row{
@@ -1756,7 +1775,8 @@ body.density-compact .new-shows-track .game-card{
     position:static;
 }
 
-.game-card:hover .manualCoverBtn{
+.game-card:hover .manualCoverBtn,
+.game-card:focus-within .manualCoverBtn{
     opacity:1;
 }
 
@@ -1905,7 +1925,7 @@ body.density-compact .new-shows-track .game-card{
     height:40px;
     border:none;
     border-radius:50%;
-    background:#238636;
+    background:var(--color-success);
     color:white;
     font-size:22px;
     cursor:pointer;
@@ -1913,7 +1933,7 @@ body.density-compact .new-shows-track .game-card{
 }
 
 #addEbookBtn:hover{
-    background:#2ea043;
+    background:var(--color-success-hover);
 }
 
 /* ================= Favorite star ================= */
@@ -1935,7 +1955,8 @@ body.density-compact .new-shows-track .game-card{
     transition:.2s;
 }
 
-.game-card:hover .favoriteBtn{
+.game-card:hover .favoriteBtn,
+.game-card:focus-within .favoriteBtn{
     opacity:1;
 }
 
@@ -2212,8 +2233,8 @@ body.is-fullscreen #mainContent{
 }
 
 #closeLauncherBtn:hover{
-    background:#c62828;
-    border-color:#c62828;
+    background:var(--color-danger-dark);
+    border-color:var(--color-danger-dark);
     color:#fff;
 }
 
@@ -2410,13 +2431,13 @@ body.is-fullscreen #mainContent{
 
 .danger-btn{
     background:rgba(229,57,53,.12);
-    border-color:#e53935;
-    color:#e53935;
+    border-color:var(--color-danger);
+    color:var(--color-danger);
 }
 
 .danger-btn:hover{
-    background:#e53935;
-    border-color:#e53935;
+    background:var(--color-danger);
+    border-color:var(--color-danger);
     color:#fff;
 }
 
@@ -3031,8 +3052,8 @@ body.is-fullscreen #mainContent{
 
 .markSeenBtn.seen-btn-active{
     background:rgba(34,197,94,.18);
-    border-color:#22c55e;
-    color:#22c55e;
+    border-color:var(--color-status-ok);
+    color:var(--color-status-ok);
 }
 
 .movie-card-actions{
@@ -3143,7 +3164,7 @@ body.density-compact #moviesGrid.games-grid{
     height:26px;
     border:none;
     border-radius:50%;
-    background:#c62828;
+    background:var(--color-danger-dark);
     color:white;
     cursor:pointer;
     opacity:0;
@@ -3151,7 +3172,8 @@ body.density-compact #moviesGrid.games-grid{
     z-index:2;
 }
 
-.game-card:hover .removeShowBtn{
+.game-card:hover .removeShowBtn,
+.game-card:focus-within .removeShowBtn{
     opacity:1;
 }
 
@@ -3471,7 +3493,8 @@ body.density-compact #moviesGrid.games-grid{
     transition:.2s;
 }
 
-.game-card:hover .enlargeBtn{
+.game-card:hover .enlargeBtn,
+.game-card:focus-within .enlargeBtn{
     opacity:1;
 }
 
@@ -3650,11 +3673,11 @@ body.density-compact #moviesGrid.games-grid{
 
 .library-action-btn--danger{
     border:1px solid rgba(230,80,80,0.4);
-    color:#ff8a8a;
+    color:var(--color-danger-soft);
 }
 
 .library-action-btn--danger:hover{
-    background:#c62828;
+    background:var(--color-danger-dark);
     color:#fff;
 }
 
@@ -4413,7 +4436,7 @@ body.startup-locked{
 }
 
 .suggestion-delete-btn{
-    color:#ff8080 !important;
+    color:var(--color-danger-soft) !important;
 }
 
 .suggestion-reply-form{
@@ -4512,9 +4535,9 @@ body.startup-locked{
 .detection-remove-btn{
     padding:7px 14px;
     border-radius:8px;
-    border:1px solid #ff5f5f;
+    border:1px solid var(--color-danger-soft);
     background:transparent;
-    color:#ff8080;
+    color:var(--color-danger-soft);
     font-size:12px;
     font-weight:700;
     cursor:pointer;
@@ -4839,8 +4862,8 @@ body.startup-locked{
 }
 
 .app-card-delete-btn{
-    background:rgba(248, 113, 113, .15);
-    color:#f87171;
+    background:var(--color-danger-soft-bg);
+    color:var(--color-danger-soft);
 }
 
 .app-top5-list{
@@ -4907,8 +4930,8 @@ body.startup-locked{
 }
 
 .app-top5-paid{
-    background:rgba(248, 113, 113, .15);
-    color:#f87171;
+    background:var(--color-danger-soft-bg);
+    color:var(--color-danger-soft);
 }
 
 .app-top5-freemium{
@@ -4964,7 +4987,7 @@ body.startup-locked{
 }
 
 .shared-file-meta .expiring-soon{
-    color:#fbbf24;
+    color:var(--color-status-warning);
 }
 
 /* Small color-coded countdown bar under a file/link's meta row — fill
@@ -4984,19 +5007,19 @@ body.startup-locked{
     height:100%;
     border-radius:999px;
     transition:width 1s linear, background-color .4s;
-    background:#22c55e;
+    background:var(--color-status-ok);
 }
 
 .vault-expiry-bar-fill.level-ok{
-    background:#22c55e;
+    background:var(--color-status-ok);
 }
 
 .vault-expiry-bar-fill.level-warning{
-    background:#fbbf24;
+    background:var(--color-status-warning);
 }
 
 .vault-expiry-bar-fill.level-critical{
-    background:#f87171;
+    background:var(--color-danger-soft);
 }
 
 .shared-file-desc{
@@ -5026,8 +5049,8 @@ body.startup-locked{
 }
 
 .shared-file-delete-btn{
-    background:rgba(248, 113, 113, .15);
-    color:#f87171;
+    background:var(--color-danger-soft-bg);
+    color:var(--color-danger-soft);
 }
 
 /* --- Upload modal --- */
@@ -5100,8 +5123,8 @@ body.startup-locked{
 }
 
 .allowlist-remove-btn{
-    background:rgba(248, 113, 113, .15);
-    color:#f87171;
+    background:var(--color-danger-soft-bg);
+    color:var(--color-danger-soft);
     border:none;
     border-radius:6px;
     padding:4px 10px;
