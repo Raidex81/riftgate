@@ -4884,6 +4884,28 @@ async function searchSteamGridDb(term) {
     return searchResult.data[0];
 }
 
+// generateNameVariants' "just the first word" fallback is a reasonable
+// guess for a real game ("Diablo IV" -> "Diablo"), but for a Store bundle/
+// collection listing ("Daedalic - Gigantic Bundle") that first word is
+// often just a publisher name, and SteamGridDB's autocomplete will still
+// happily return SOME unrelated game for it -- which then gets accepted
+// as this title's "vertical replacement" and shown instead, wrong picture
+// and all. This checks the match SteamGridDB actually returned against
+// the real, full title (never the variant that found it) and rejects one
+// that shares no real words with it, rather than trust any hit at all.
+function isPlausibleSteamGridMatch(searchName, matchName) {
+    if (!matchName) return false;
+    const normalize = (s) => (s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2);
+    const searchWords = normalize(searchName);
+    if (searchWords.length === 0) return true;
+    const matchWords = new Set(normalize(matchName));
+    return searchWords.some((w) => matchWords.has(w));
+}
+
 ipcMain.handle("fetch-online-cover", async (event, gameName) => {
 
     // Skip the network round trip for a title already fetched before --
@@ -4914,15 +4936,21 @@ ipcMain.handle("fetch-online-cover", async (event, gameName) => {
 
         for (const variant of variants) {
             console.log(`[cover] Trying "${variant}"...`);
-            match = await searchSteamGridDb(variant);
-            if (match) {
-                console.log(`[cover] Match found via "${variant}": ${match.name} (id ${match.id})`);
-                break;
+            const candidate = await searchSteamGridDb(variant);
+            if (!candidate) continue;
+
+            if (!isPlausibleSteamGridMatch(gameName, candidate.name)) {
+                console.log(`[cover] Rejecting implausible match via "${variant}": ${candidate.name} (id ${candidate.id}) doesn't share a word with "${gameName}"`);
+                continue;
             }
+
+            match = candidate;
+            console.log(`[cover] Match found via "${variant}": ${match.name} (id ${match.id})`);
+            break;
         }
 
         if (!match) {
-            console.log(`[cover] No search results for "${gameName}" after trying: ${variants.join(", ")}`);
+            console.log(`[cover] No plausible match for "${gameName}" after trying: ${variants.join(", ")}`);
             return null;
         }
 

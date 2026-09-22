@@ -496,21 +496,28 @@ body.density-compact .new-shows-track .game-card{
 .cover-wrap{
     position:relative;
     width:100%;
-    /* No fixed height on purpose — a fixed box forces every cover into the
-       same rectangle regardless of the source image's own shape, which is
-       exactly what produced both complaints: object-fit:cover cropped the
-       overflow, and object-fit:contain (the previous fix) padded the gap
-       with visible bars above/below instead. Letting height follow the
-       image's own natural aspect ratio at the card's width means the box
-       IS the image's shape, so there's nothing left over to crop or pad
-       either way. */
+    /* A fixed 2:3 box (same one Free Games/Store/book covers already use
+       — see #freeGamesContainer .cover-wrap, #storeContainer .cover-wrap,
+       .book-cover-wrap) so every card in a row is genuinely the same
+       size, full stop, regardless of what shape its own cover happens to
+       be — an earlier version of this left height intrinsic instead to
+       avoid ever cropping a cover, but that traded a uniform frame for
+       "big and small frames in the same row" whenever covers mixed
+       portrait and landscape, which is worse. Cropping a landscape cover
+       into this box is now mostly a fallback rather than the norm, too:
+       watchForLandscapeCover (renderer.js) tries to replace a landscape
+       cover with a real vertical one online before this box ever has to
+       crop it. */
+    aspect-ratio:2/3;
+    height:auto;
     overflow:hidden;
     background:var(--bg-primary);
 }
 
-.cover-wrap img{
+.cover-wrap img.cover-img{
     width:100%;
-    height:auto;
+    height:100%;
+    object-fit:cover;
     display:block;
 }
 
@@ -617,15 +624,13 @@ body.density-compact .new-shows-track .game-card{
     font-weight:700;
 }
 
-/* Same fixed 2:3 portrait box Free Games uses (#freeGamesContainer
-   .cover-wrap above) and for the same reason -- deal covers come from a
-   mix of sources (a Steam-derived portrait "library capsule" when one's
-   available, a landscape store thumbnail when it isn't; see
-   buildStoreDealCard in renderer.js), and letting height stay fully
-   intrinsic would put a tall poster right next to a short landscape
-   thumbnail in the same row. A cover that turns out landscape still gets
-   handled properly, not cropped -- see the shared .free-game-wide-cover
-   rules below this, which already apply to any .game-card. */
+/* Redundant with the app-wide .cover-wrap default (same fixed 2:3 box) --
+   deal covers come from a mix of sources (a Steam-derived portrait
+   "library capsule" when one's available, a landscape store thumbnail or
+   bundle-marketing image when it isn't; see buildStoreDealCard in
+   renderer.js), and a landscape one gets a real vertical replacement
+   first when possible (watchForLandscapeCover in renderer.js) before
+   ever falling back to this box's crop. */
 #storeContainer .cover-wrap{
     aspect-ratio:2/3;
     height:auto;
@@ -3978,18 +3983,10 @@ body.density-compact #moviesGrid.games-grid{
    override here any more — this now just inherits the same sizing as
    every other .games-grid (Installed included), per Alfredo. */
 
-/* Letting height stay fully intrinsic (Installed's own approach, and
-   Free Games' briefly too) puts a short landscape banner right next to a
-   tall portrait poster in the same row — technically no cropping and no
-   bars on any single cover, but the row itself reads as broken, with each
-   card's info text landing at a different height below it. Per Alfredo,
-   Free Games cards need every row at one uniform height instead — this
-   aspect-ratio (rather than a flat pixel height) keeps that box
-   proportional to whatever width this card actually renders at. A cover
-   that's genuinely wide/horizontal relative to this box gets handled
-   separately — see the .free-game-wide-cover rules below and
-   applyFreeGameWideCoverIfNeeded in renderer.js — by widening that one
-   card at the SAME height instead of cropping it or leaving it short. */
+/* Redundant with the app-wide .cover-wrap default above (same fixed 2:3
+   box), kept explicit here since this is where Free Games' uniform-row
+   requirement was first introduced -- see that rule's own comment for
+   why every .cover-wrap works this way now. */
 #freeGamesContainer .cover-wrap{
     aspect-ratio:2/3;
     height:auto;
@@ -4000,23 +3997,6 @@ body.density-compact #moviesGrid.games-grid{
     height:100%;
     object-fit:cover;
     display:block;
-}
-
-/* Set by applyFreeGameWideCoverIfNeeded (renderer.js) once a cover's own
-   image has loaded and turns out meaningfully wider than this box's usual
-   2:3 shape. Rather than cropping it (the default above) or leaving that
-   one card shorter than its neighbors, the card itself gets wider —
-   either by spanning extra grid columns (browse-grid) or a direct inline
-   width (carousel rows, which aren't a grid) — at the SAME height as
-   every other card in the row, sized close to the image's own shape so
-   object-fit:contain shows the whole thing with nothing worth calling a
-   bar. */
-.game-card.free-game-wide-cover .cover-wrap{
-    aspect-ratio:unset;
-}
-
-.game-card.free-game-wide-cover .cover-wrap img.cover-img{
-    object-fit:contain;
 }
 
 /* Book covers (My Library, Discover Online, Buy Books, Manga, Comics --

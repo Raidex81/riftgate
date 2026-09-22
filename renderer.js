@@ -4631,11 +4631,14 @@ function freeGameCoverCacheSrc(url) {
 // SteamGridDB, the same fan-art database (official box art isn't always
 // there, so this is "even if not official" by design) already used for
 // the Installed library's own cover picker and auto-scan -- and swaps it
-// in once the loaded cover turns out to be landscape. A silent no-op when
-// there's no title to search, the cover's already portrait/square, or
-// nothing better turns up online; whatever called this can fall back to
-// its own handling in that case (see applyFreeGameWideCoverIfNeeded below
-// for Free Games/Store's fallback).
+// in once the loaded cover turns out to be landscape, so the card stays
+// the same size as everything else in its row instead of being resized
+// around the wrong-shaped image. A silent no-op when there's no title to
+// search, the cover's already portrait/square, or nothing better turns up
+// online -- in that last case the cover just keeps whatever it was
+// already showing, which every card's fixed cover-wrap box (or, for
+// sections without one, its own intrinsic sizing) already handles on its
+// own.
 const verticalCoverAttempted = new WeakSet();
 
 // A row can easily load a handful of landscape covers at once on first
@@ -4705,68 +4708,6 @@ function watchForLandscapeCover(img, itemName) {
     requestAnimationFrame(check);
 }
 
-// A cover that's meaningfully wider than tall (a landscape screenshot or
-// piece of banner key art, not the ~2:3 portrait box art most covers use)
-// gets cropped badly by object-fit:cover — whatever made that art worth
-// using is usually right at the edges a crop trims off. This first tries
-// a genuinely vertical replacement (see fetchVerticalCoverReplacement
-// above) so the card can stay the same size as everything else in its
-// row; only if nothing better is found online does it fall back to
-// widening that one card instead: spans extra grid columns in a
-// browse-grid, or gets a direct inline width in a carousel row (not a
-// grid, so column-span means nothing there) — either way at the SAME
-// height as every other card in the row, sized close enough to the
-// image's own shape that object-fit:contain (see the
-// .free-game-wide-cover rules in style.css) shows the whole picture with
-// nothing left worth calling a bar.
-async function applyFreeGameWideCoverIfNeeded(card, img, itemName) {
-    if (card.classList.contains("free-game-wide-cover")) return;
-    const naturalW = img.naturalWidth;
-    const naturalH = img.naturalHeight;
-    if (!naturalW || !naturalH) return;
-
-    const coverWrap = card.querySelector(".cover-wrap");
-    if (!coverWrap) return;
-
-    // Measured before any span/width override is applied, so this is
-    // genuinely the same single-column size every other card in this row
-    // is using right now.
-    const columnWidth = coverWrap.getBoundingClientRect().width;
-    const rowHeight = coverWrap.getBoundingClientRect().height;
-    if (!columnWidth || !rowHeight) return;
-
-    const desiredWidth = rowHeight * (naturalW / naturalH);
-    // Only meaningfully wider than one column counts as "horizontal"
-    // here — anything close to (or narrower than) a single column already
-    // looks right cropped to fill, same as before.
-    if (desiredWidth <= columnWidth * 1.1) return;
-
-    // Try a real vertical cover before resorting to widening this card --
-    // swapping img.src re-triggers this same check via the "load"
-    // listener below, and a genuinely portrait replacement passes the
-    // check above and stops right here on that second pass.
-    const replacement = await fetchVerticalCoverReplacement(img, itemName);
-    if (replacement) {
-        img.src = replacement;
-        return;
-    }
-
-    card.classList.add("free-game-wide-cover");
-    coverWrap.style.height = `${rowHeight}px`;
-
-    const grid = card.closest(".games-grid");
-    if (grid) {
-        const gridStyle = getComputedStyle(grid);
-        const gapPx = parseFloat(gridStyle.columnGap || gridStyle.gap) || 18;
-        const colSpan = Math.min(4, Math.max(2, Math.ceil((desiredWidth + gapPx) / (columnWidth + gapPx))));
-        card.style.gridColumn = `span ${colSpan}`;
-    } else {
-        // A horizontally-scrolling carousel row, not a grid — just widen
-        // this one tile directly instead of spanning columns.
-        card.style.width = `${Math.round(desiredWidth)}px`;
-    }
-}
-
 function buildFreeGameCard(game, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
@@ -4793,16 +4734,15 @@ function buildFreeGameCard(game, navList) {
         </div>
     `;
 
-    // Free Games cards need every row to line up at the same height (a
-    // carousel/grid of mismatched-height cards from wildly different cover
-    // shapes — tall portrait posters next to wide banners — looks broken),
-    // so unlike the rest of the app this box has a fixed aspect-ratio
-    // rather than an intrinsic one. .cover-wrap img.cover-img is
-    // object-fit:cover (see style.css) by default, so a normal ~2:3
-    // portrait or square cover just crops to fill the box completely — no
-    // gap, no bar. A cover that's genuinely wide/horizontal instead gets
-    // widened rather than cropped or left short once it's loaded — see
-    // applyFreeGameWideCoverIfNeeded above.
+    // Free Games cards keep a fixed 2:3 aspect-ratio box (see
+    // #freeGamesContainer .cover-wrap in style.css) so every card in a
+    // row lines up at the same height/width regardless of a source
+    // cover's own shape -- object-fit:cover crops a normal portrait/
+    // square cover to fill it with no gap. A landscape cover instead
+    // gets swapped for a real vertical one first when possible (see
+    // watchForLandscapeCover above); only when no replacement can be
+    // found does it fall back to the same crop everything else gets,
+    // rather than resizing the card around the wrong-shaped image.
     //
     // Steam entries point .image at the portrait "library capsule" (see
     // fetchSteamFreeGames in main.js); not every Steam appid has that asset
@@ -4820,16 +4760,7 @@ function buildFreeGameCard(game, navList) {
         }
     });
 
-    freeGameCoverImgEl.addEventListener("load", () => {
-        applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl, game.name);
-    });
-    // "load" doesn't reliably re-fire for an image that's already cached/
-    // complete by the time this listener attaches — deferred to the next
-    // frame so it runs after the caller has appended this card to the DOM
-    // (buildFreeGameCard just returns the card; the grid/track it belongs
-    // in only gets it via appendChild right after), since the measurement
-    // above needs real layout dimensions to work from.
-    requestAnimationFrame(() => applyFreeGameWideCoverIfNeeded(card, freeGameCoverImgEl, game.name));
+    watchForLandscapeCover(freeGameCoverImgEl, game.name);
 
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
@@ -10523,13 +10454,14 @@ function renderStoreDeals() {
 // Steam appid is known (direct Steam deals, or a CheapShark deal that
 // maps to one — see fetchSteamDeals/fetchCheapSharkDeals in main.js);
 // not every appid actually has that asset, and plenty of CheapShark-only
-// deals have no Steam equivalent at all, so this reuses Free Games'
-// exact cover-fallback chain: a failed load falls back to
-// deal.fallbackImage (the store's own landscape thumbnail/capsule), then
-// finally the generic placeholder, and applyFreeGameWideCoverIfNeeded
-// widens the card instead of badly cropping it whenever the image that
-// actually ends up loading turns out to be landscape — same sizing and
-// border treatment every other grid in the app already uses for this.
+// deals have no Steam equivalent at all (bundle/collection listings
+// especially), so this reuses Free Games' exact cover-fallback chain: a
+// failed load falls back to deal.fallbackImage (the store's own landscape
+// thumbnail/capsule), then finally the generic placeholder, and
+// watchForLandscapeCover swaps in a real vertical cover whenever the
+// image that actually ends up loading turns out to be landscape -- same
+// fixed 2:3 crop every other grid in the app already uses for this when
+// no replacement can be found.
 function buildStoreDealCard(deal) {
     const card = document.createElement("div");
     card.className = "game-card";
@@ -10561,9 +10493,7 @@ function buildStoreDealCard(deal) {
             coverImgEl.src = "covers/default.jpg";
         }
     });
-    coverImgEl.addEventListener("load", () => {
-        applyFreeGameWideCoverIfNeeded(card, coverImgEl, deal.name);
-    });
+    watchForLandscapeCover(coverImgEl, deal.name);
     coverImgEl.alt = deal.name;
 
     card.querySelector(".game-info h3").textContent = deal.name;
