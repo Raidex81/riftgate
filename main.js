@@ -1325,6 +1325,12 @@ async function createWindow() {
         title: "Riftgate",
         autoHideMenuBar: true,
         frame: false,
+        // Opening hidden and only showing once maximized (see the
+        // ready-to-show handler below) avoids a visible "small window
+        // that suddenly snaps to full size" flash a plain win.maximize()
+        // right here would cause -- this way the very first frame the
+        // user sees is already the maximized one.
+        show: false,
         // Without this, Windows falls back to the .exe's own embedded icon
         // for the taskbar/alt-tab entry — correct for a packaged build, but
         // in dev mode ("electron .") that .exe is just Electron's own
@@ -1337,6 +1343,22 @@ async function createWindow() {
             sandbox: true,
             preload: path.join(__dirname, "preload.js")
         }
+    });
+
+    // width/height above (1400x900) is only ever the UN-maximized restore
+    // size (what the window returns to if the user later unmaximizes it) --
+    // the actual window a user sees on first launch is maximized to
+    // whichever monitor and resolution they're actually using, exactly
+    // like every other properly screen-size-aware desktop app. Without
+    // this, Riftgate always opened at that fixed 1400x900 regardless of
+    // the user's real screen size, which is what made carousels and grids
+    // look like they were clipping content on a larger display: not a bug
+    // in the row-fitting logic itself (fitHscrollTrack already sizes cards
+    // to whatever width it's actually given), just a window that was
+    // never given the screen's real width to fit to in the first place.
+    win.once("ready-to-show", () => {
+        win.maximize();
+        win.show();
     });
 
     win.loadURL(`http://127.0.0.1:${port}`);
@@ -3389,7 +3411,7 @@ async function fetchCheapSharkFreeGames() {
     try {
         const { storeNames, deals } = await fetchCheapSharkRawDeals();
 
-        return deals
+        const mapped = deals
             .map((d) => {
                 const discountPercent = Math.round(parseFloat(d.savings));
                 if (discountPercent < 100) return null;
@@ -3416,10 +3438,27 @@ async function fetchCheapSharkFreeGames() {
                     url: `https://www.cheapshark.com/redirect?dealID=${d.dealID}`,
                     source,
                     tags: [],
-                    vr: null
+                    vr: null,
+                    __unverifiedSteamAppId: steamAppId // checked just below, then discarded
                 };
             })
             .filter(Boolean);
+
+        // Same CheapShark cross-reference check fetchCheapSharkDeals runs
+        // for Store -- see verifySteamAppIdMatchesName's comment above.
+        await runWithConcurrencyLimit(mapped, 6, async (game) => {
+            const steamAppId = game.__unverifiedSteamAppId;
+            if (!steamAppId) return;
+            const verified = await verifySteamAppIdMatchesName(steamAppId, game.name);
+            if (!verified) {
+                console.log(`[free-games] Dropping unverified Steam appid ${steamAppId} for "${game.name}" -- CheapShark's cross-reference didn't match Steam's own name for that appid.`);
+                game.image = game.fallbackImage || game.image;
+                game.fallbackImage = null;
+            }
+        });
+        mapped.forEach((game) => { delete game.__unverifiedSteamAppId; });
+
+        return mapped;
     } catch (err) {
         console.error("[free-games] CheapShark fetch failed:", err.message || err);
         return [];
@@ -3612,6 +3651,24 @@ async function fetchCheapSharkDeals() {
                 };
             })
             .filter(Boolean);
+
+        // CheapShark's steamAppID is its own crowdsourced cross-reference,
+        // not something Steam confirms -- verify each one against Steam's
+        // own name for that appid before trusting it for cover art or a
+        // trailer (see verifySteamAppIdMatchesName's comment above). Only
+        // deals that actually resolved one need checking; bounded to 6 at
+        // once, same as fetchSteamDeals' review-summary pass, since this
+        // only runs on the same 6-hour-throttled Store refresh as that.
+        await runWithConcurrencyLimit(mapped, 6, async (deal) => {
+            if (!deal.steamAppId) return;
+            const verified = await verifySteamAppIdMatchesName(deal.steamAppId, deal.name);
+            if (!verified) {
+                console.log(`[store] Dropping unverified Steam appid ${deal.steamAppId} for "${deal.name}" -- CheapShark's cross-reference didn't match Steam's own name for that appid.`);
+                deal.steamAppId = null;
+                deal.image = deal.fallbackImage || deal.image;
+                deal.fallbackImage = null;
+            }
+        });
 
         // Multiple resellers (e.g. GameBillet and Gamesplanet) frequently
         // list the exact same game at different prices -- CheapShark's
@@ -5153,6 +5210,34 @@ async function resolveSteamAppIdByExactName(name) {
     } catch (err) {
         console.error(`[trailer] Steam appid resolution by name failed for "${name}":`, err.message || err);
         return null;
+    }
+}
+
+// See resolveSteamAppIdByExactName's comment just above for the general
+// "don't borrow a different game's trailer" philosophy -- this is the
+// same idea applied to CheapShark's OWN cross-reference instead of a
+// text search. Used by fetchCheapSharkDeals/fetchCheapSharkFreeGames
+// below to sanity-check d.steamAppID before trusting it for anything
+// (cover art, and — via fetch-trailer's steamAppId short-circuit —
+// the trailer itself), since that field is CheapShark's own crowdsourced
+// guess at which Steam listing a deal corresponds to, not something
+// Steam itself confirms. filters=basic keeps this cheap (just a name),
+// since a cross-reference check has no need for the fuller payload
+// fetchSteamOfficialTrailerUrl's filters=movies fetches.
+async function verifySteamAppIdMatchesName(appId, expectedName) {
+    try {
+        const data = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=english&filters=basic`, 8000);
+        const entry = data && data[appId];
+        const actualName = entry && entry.success && entry.data && entry.data.name;
+        if (!actualName) return false;
+
+        const actual = normalizeGameName(actualName);
+        const expected = normalizeGameName(expectedName);
+        if (!actual || !expected) return false;
+        return actual === expected || actual.startsWith(expected) || expected.startsWith(actual);
+    } catch (err) {
+        console.error(`[store] Steam appid verification failed for appid ${appId}:`, err.message || err);
+        return false; // unverifiable -- don't trust a mapping that couldn't be confirmed
     }
 }
 
