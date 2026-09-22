@@ -216,6 +216,9 @@
             </p>
             <input type="password" id="vaultPasswordInput" placeholder="Password..." style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
             <p id="vaultLoginError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <p style="text-align:right;margin:-6px 0 10px;">
+                <a href="#" id="vaultForgotPasswordLink" style="color:var(--text-secondary);font-size:12px;text-decoration:underline;cursor:pointer;">Forgot password?</a>
+            </p>
             <div class="modal-actions">
                 <button id="vaultLoginCancelBtn">Cancel</button>
                 <button id="vaultLoginSubmitBtn" class="wheel-play">Log In</button>
@@ -236,6 +239,26 @@
                 <button id="vaultSetPasswordCancelBtn">Cancel</button>
                 <button id="vaultSetPasswordSubmitBtn" class="wheel-play">Set Password</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="resetPasswordModal">
+        <div class="modal-box">
+            <h3>🔑 Reset Your Password</h3>
+            <p id="resetPasswordStatus" style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                If your account has a verified email on file, a reset code was just sent to it. Enter it below along with a new password. Codes expire after 30 minutes.
+            </p>
+            <input type="text" id="resetPasswordCodeInput" placeholder="Reset Code" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;text-transform:uppercase;letter-spacing:2px;">
+            <input type="password" id="resetPasswordNewInput" placeholder="New Password (min. 8 characters)" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <input type="password" id="resetPasswordConfirmInput" placeholder="Repeat New Password" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <p id="resetPasswordError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="resetPasswordCancelBtn">Cancel</button>
+                <button id="resetPasswordSubmitBtn" class="wheel-play">Reset Password</button>
+            </div>
+            <p style="text-align:center;margin:10px 0 0;">
+                <a href="#" id="resetPasswordResendLink" style="color:var(--text-secondary);font-size:12px;text-decoration:underline;cursor:pointer;">Didn't get a code? Send another</a>
+            </p>
         </div>
     </div>
 

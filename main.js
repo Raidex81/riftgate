@@ -15,7 +15,8 @@ const {
     callAdminRpc,
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,
-    sendVerificationEmail
+    sendVerificationEmail,
+    sendPasswordResetEmail
 } = require("./services/supabase");
 const {
     httpsGetJson,
@@ -7491,6 +7492,51 @@ ipcMain.handle("get-email-verification-status", async (event, { username, passwo
     }
 
     return { success: true, email: rpcResult.email, verified: rpcResult.verified, sentAt: rpcResult.sentAt };
+});
+
+// Self-service "forgot password" recovery. Unlike the email-verification
+// handlers just above, this is NOT authenticated with the account's own
+// password -- that's the whole point, the user has forgotten it. The
+// request_password_reset RPC always returns the same generic
+// {success:true} shape whether the username exists, has a verified
+// email, or was just rate-limited (see its own comment in the SQL) --
+// this handler preserves that by never surfacing an RPC-level failure
+// either, so nothing here can be used to probe which usernames are
+// registered. A code is only ever actually emailed when the RPC handed
+// one back.
+ipcMain.handle("request-password-reset", async (event, { username }) => {
+    const r = await callAdminRpc("request_password_reset", { input_username: username });
+    if (!r.success) return { success: true };
+
+    const rpcResult = r.result;
+    if (rpcResult && rpcResult.email && rpcResult.code) {
+        const sendResult = await sendPasswordResetEmail(username, rpcResult.email, rpcResult.code);
+        if (!sendResult.success) {
+            console.error(`[password-reset] Failed to send reset email for "${username}".`);
+        }
+    }
+
+    return { success: true };
+});
+
+// Second step: the code the user just got emailed, plus their new
+// password. confirm_password_reset itself enforces expiry, single-use,
+// and a 5-attempt lockout on the code -- this handler just relays
+// whatever it decides.
+ipcMain.handle("confirm-password-reset", async (event, { username, code, newPassword }) => {
+    const r = await callAdminRpc("confirm_password_reset", {
+        input_username: username,
+        input_code: code,
+        input_new_password: newPassword
+    });
+    if (!r.success) return { success: false, error: r.error };
+
+    const rpcResult = r.result;
+    if (!rpcResult || !rpcResult.success) {
+        return { success: false, error: (rpcResult && rpcResult.error) || "Couldn't reset the password." };
+    }
+
+    return { success: true };
 });
 
 // Everything below requires super-admin credentials, re-verified inside

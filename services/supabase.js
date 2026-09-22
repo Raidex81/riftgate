@@ -280,6 +280,30 @@ async function sendVerificationEmail(username, email, token) {
     }
 }
 
+// Posts to the "send-password-reset-email" Edge Function, which emails
+// a short reset CODE via Resend (not a clickable link, unlike
+// sendVerificationEmail above -- setting a new password is a form,
+// which belongs inside the trusted app rather than on a bare web page).
+// Only ever called right after the request_password_reset RPC has
+// already decided a code should be issued for this account.
+async function sendPasswordResetEmail(username, email, code) {
+    try {
+        const { statusCode, body } = await httpsPostJson(
+            `${SUPABASE_URL}/functions/v1/send-password-reset-email`,
+            { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            { username, email, code }
+        );
+        if (statusCode < 200 || statusCode >= 300) {
+            console.error("[email] send-password-reset-email failed:", statusCode, body);
+            return { success: false };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("[email] send-password-reset-email errored:", err.message || err);
+        return { success: false };
+    }
+}
+
 module.exports = {
     supabaseRequest,
     supabaseStorageUpload,
@@ -288,5 +312,6 @@ module.exports = {
     callAdminRpc,
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,
-    sendVerificationEmail
+    sendVerificationEmail,
+    sendPasswordResetEmail
 };

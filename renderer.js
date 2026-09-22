@@ -11624,6 +11624,107 @@ document.getElementById("vaultPasswordInput").addEventListener("keydown", (event
 });
 document.getElementById("vaultLoginCancelBtn").addEventListener("click", closeVaultLoginModal);
 
+// "Forgot password?" recovery, reachable from the login password prompt.
+// Two steps: first ask for a reset code (request-password-reset always
+// returns the same generic result either way -- it never reveals
+// whether the account exists, has a verified email, or was just
+// rate-limited; see its own comment in main.js), then let the user
+// enter that code plus a new password. confirm-password-reset DOES
+// report specific errors at that second step (bad/expired code, too
+// many attempts, password too short) since nothing is being enumerated
+// by then. No username field anywhere here -- Riftgate is one account
+// per device, so settings.username is already known.
+async function requestPasswordReset() {
+    await window.riftgate.invoke("request-password-reset", { username: settings.username });
+}
+
+function openResetPasswordModal(statusText) {
+    document.getElementById("resetPasswordCodeInput").value = "";
+    document.getElementById("resetPasswordNewInput").value = "";
+    document.getElementById("resetPasswordConfirmInput").value = "";
+    document.getElementById("resetPasswordError").textContent = "";
+    document.getElementById("resetPasswordStatus").textContent = statusText;
+    document.getElementById("resetPasswordModal").classList.add("active");
+    document.getElementById("resetPasswordCodeInput").focus();
+}
+
+function closeResetPasswordModal() {
+    document.getElementById("resetPasswordModal").classList.remove("active");
+}
+
+const RESET_CODE_SENT_TEXT = "If your account has a verified email on file, a reset code was just sent to it. Enter it below along with a new password. Codes expire after 30 minutes.";
+
+document.getElementById("vaultForgotPasswordLink").addEventListener("click", async (event) => {
+    event.preventDefault();
+    const link = event.currentTarget;
+    link.style.pointerEvents = "none";
+    link.style.opacity = "0.6";
+    closeVaultLoginModal();
+    await requestPasswordReset();
+    link.style.pointerEvents = "";
+    link.style.opacity = "";
+    openResetPasswordModal(RESET_CODE_SENT_TEXT);
+});
+
+document.getElementById("resetPasswordResendLink").addEventListener("click", async (event) => {
+    event.preventDefault();
+    const link = event.currentTarget;
+    if (link.dataset.sending === "1") return;
+    link.dataset.sending = "1";
+    const originalText = link.textContent;
+    link.textContent = "Sending...";
+    await requestPasswordReset();
+    link.textContent = originalText;
+    link.dataset.sending = "";
+    document.getElementById("resetPasswordStatus").textContent = "Another code was sent, if your account has a verified email on file.";
+});
+
+document.getElementById("resetPasswordCancelBtn").addEventListener("click", () => {
+    closeResetPasswordModal();
+    openVaultLoginModal();
+});
+
+async function attemptPasswordResetConfirm() {
+    const code = document.getElementById("resetPasswordCodeInput").value.trim();
+    const newPass = document.getElementById("resetPasswordNewInput").value;
+    const confirmPass = document.getElementById("resetPasswordConfirmInput").value;
+    const errorEl = document.getElementById("resetPasswordError");
+    const submitBtn = document.getElementById("resetPasswordSubmitBtn");
+
+    if (!code) {
+        errorEl.textContent = "Enter the code from your email.";
+        return;
+    }
+    if (!newPass || newPass.length < 8) {
+        errorEl.textContent = "Choose a password of at least 8 characters.";
+        return;
+    }
+    if (newPass !== confirmPass) {
+        errorEl.textContent = "Passwords don't match.";
+        return;
+    }
+
+    submitBtn.disabled = true;
+    errorEl.textContent = "";
+    const result = await window.riftgate.invoke("confirm-password-reset", { username: settings.username, code, newPassword: newPass });
+    submitBtn.disabled = false;
+
+    if (!result.success) {
+        errorEl.textContent = result.error || "Couldn't reset your password -- try again.";
+        return;
+    }
+
+    closeResetPasswordModal();
+    await completeLogin(newPass);
+}
+
+document.getElementById("resetPasswordSubmitBtn").addEventListener("click", attemptPasswordResetConfirm);
+["resetPasswordCodeInput", "resetPasswordNewInput", "resetPasswordConfirmInput"].forEach((id) => {
+    document.getElementById(id).addEventListener("keydown", (event) => {
+        if (event.key === "Enter") attemptPasswordResetConfirm();
+    });
+});
+
 function openVaultSetPasswordModal(reason) {
     document.getElementById("vaultNewPasswordInput").value = "";
     document.getElementById("vaultConfirmPasswordInput").value = "";
