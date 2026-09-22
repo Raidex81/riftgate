@@ -8114,20 +8114,47 @@ function fitHscrollTrack(trackEl, minCardWidth, gap) {
     const containerWidth = trackEl.clientWidth;
     if (containerWidth <= 0) return; // not visible right now -- nothing to measure
 
+    const isGrid2Row = trackEl.classList.contains("hscroll-grid-2row");
+    const cards = trackEl.querySelectorAll(":scope > .game-card");
+
+    // A resize/refit recalculates every card's width below, but never
+    // otherwise touches scrollLeft -- so a row the user had already
+    // scrolled into, correctly snapped under the OLD card width, ends up
+    // resting at a raw pixel offset that lines up with nothing under the
+    // NEW one, slicing whatever card is left at the edge in half. CSS
+    // scroll-snap only corrects that on the NEXT actual scroll gesture --
+    // it does nothing just because the snap points themselves moved --
+    // so that cut card would otherwise sit there, visible, until the
+    // user happened to scroll again. Reading which card the view is
+    // currently nearest to under the OLD sizing, before anything below
+    // changes it, is what lets that same card get re-selected at an
+    // exact snap point under the new sizing a few lines down, instead.
+    let cardIndex = 0;
+    if (cards.length > 0) {
+        const prevStep = (cards[0].getBoundingClientRect().width || minCardWidth) + gap;
+        if (prevStep > 0) {
+            cardIndex = Math.round(trackEl.scrollLeft / prevStep);
+        }
+    }
+
     const count = Math.max(1, Math.floor((containerWidth + gap) / (minCardWidth + gap)));
     const cardWidth = Math.floor((containerWidth - (count - 1) * gap) / count);
 
-    if (trackEl.classList.contains("hscroll-grid-2row")) {
+    if (isGrid2Row) {
         // Upcoming Movies: a 2-row CSS grid, not a flex row -- the column
         // track width is what needs to change, not each card individually.
         trackEl.style.gridAutoColumns = `${cardWidth}px`;
-        return;
+    } else {
+        cards.forEach((card) => {
+            card.style.width = `${cardWidth}px`;
+            card.style.flex = `0 0 ${cardWidth}px`;
+        });
     }
 
-    trackEl.querySelectorAll(":scope > .game-card").forEach((card) => {
-        card.style.width = `${cardWidth}px`;
-        card.style.flex = `0 0 ${cardWidth}px`;
-    });
+    // Re-apply that same card's position under the new width, landing
+    // exactly on its snap point instead of wherever the stale scrollLeft
+    // now falls.
+    trackEl.scrollLeft = cardIndex * (cardWidth + gap);
 }
 
 // Every horizontal arrow-scroll carousel app-wide, not just the New tab
