@@ -313,7 +313,7 @@ input{
 }
 
 body.density-compact .games-grid{
-    grid-template-columns:repeat(auto-fill, minmax(120px, 160px));
+    grid-template-columns:repeat(auto-fill, 160px);
     justify-content:start;
     gap:10px;
 }
@@ -3113,7 +3113,7 @@ body.is-fullscreen #mainContent{
 }
 
 body.density-compact #moviesGrid.games-grid{
-    grid-template-columns:repeat(auto-fill, minmax(120px, 160px));
+    grid-template-columns:repeat(auto-fill, 160px);
 }
 
 #moviesGrid .ticketsBtn{
