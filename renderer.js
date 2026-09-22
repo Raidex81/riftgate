@@ -3440,7 +3440,7 @@ function buildCard(game, navList) {
             event.stopPropagation();
             let trailerId = game.trailerId;
             if (trailerId === undefined || trailerId === null) {
-                trailerId = await window.riftgate.invoke("fetch-trailer", game.searchName || game.name, game.category || "game", game.description);
+                trailerId = await window.riftgate.invoke("fetch-trailer", game.searchName || game.name, game.category || "game", game.description, undefined, steamAppId);
                 game.trailerId = trailerId;
                 if (trailerId) {
                     await window.riftgate.invoke("update-game", { path: game.path, trailerId });
@@ -4808,7 +4808,18 @@ function buildFreeGameCard(game, navList) {
 
     async function fetchTrailerOnce() {
         if (trailerId === undefined || trailerId === null) {
-            trailerId = await window.riftgate.invoke("fetch-trailer", game.name, "game", game.description, game.id);
+            // A "Steam"-sourced free game already carries its appid right
+            // in its id (see fetchSteamFreeGames: `steam-${appid}`) --
+            // passing it through gets that game's real, deterministic
+            // Steam trailer instead of leaving even these to a YouTube
+            // guess. Every other source (GamerPower, itch.io, GOG,
+            // curated) still has none to pass here, but fetch-trailer
+            // itself now also tries resolving one by exact name before
+            // falling back to YouTube.
+            const steamAppId = game.source === "Steam" && typeof game.id === "string" && game.id.startsWith("steam-")
+                ? game.id.slice("steam-".length)
+                : undefined;
+            trailerId = await window.riftgate.invoke("fetch-trailer", game.name, "game", game.description, game.id, steamAppId);
         }
         return trailerId;
     }

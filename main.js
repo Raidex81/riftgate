@@ -1205,6 +1205,41 @@ function initUserData() {
         console.error("[trailer] Store trailer cache migration (2) failed:", err.message || err);
     }
 
+    // Third one-time cleanup: neither migration above helps a non-Store
+    // free game (GamerPower, itch.io, GOG, a curated DRM-Free listing,
+    // etc.) that was cached under fetch-trailer's old YouTube-only guess
+    // -- fetch-trailer now also tries resolving a matching Steam listing
+    // by exact name first (see resolveSteamAppIdByExactName), but a cache
+    // hit returns immediately, before that new logic ever gets a chance
+    // to run (reported case: a one-word DRM-Free giveaway, "Leaper",
+    // locked in an unrelated YouTube result). Any cached entry that ISN'T
+    // already a full https:// URL is necessarily a bare YouTube video id
+    // from that old guess-only path, so purge just those -- a Steam
+    // trailer URL, once found for a specific appid, is never wrong and is
+    // left alone -- and let every one of them get a fresh chance at the
+    // deterministic Steam source.
+    try {
+        const trailerCache = JSON.parse(fs.readFileSync(TRAILER_CACHE_FILE, "utf8"));
+        if (!trailerCache.__storeTrailerCacheMigrated3) {
+            let purged = 0;
+            for (const key of Object.keys(trailerCache)) {
+                if (key.startsWith("__")) continue;
+                const value = trailerCache[key];
+                if (typeof value === "string" && !value.startsWith("http")) {
+                    delete trailerCache[key];
+                    purged++;
+                }
+            }
+            trailerCache.__storeTrailerCacheMigrated3 = true;
+            fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(trailerCache, null, 2));
+            if (purged > 0) {
+                console.log(`[trailer] One-time cleanup: cleared ${purged} previously YouTube-guessed trailer(s) so they get a chance to resolve to an exact-match Steam trailer instead.`);
+            }
+        }
+    } catch (err) {
+        console.error("[trailer] Trailer cache migration (3) failed:", err.message || err);
+    }
+
     if (!fs.existsSync(OVERRIDES_FILE)) {
         fs.writeFileSync(OVERRIDES_FILE, "{}");
     }
@@ -5088,6 +5123,39 @@ async function fetchSteamOfficialTrailerUrl(appId) {
     }
 }
 
+// Most Free Games entries come from a giveaway source (GamerPower,
+// itch.io, GOG, a curated DRM-Free listing) that has no official trailer
+// of its own to offer -- so fetch-trailer falls back to guessing from a
+// YouTube text search, which is unreliable for a short/generic title
+// ("Leaper" is a real word before it's ever a game name, and there can
+// genuinely be more than one product that goes by it). Many of these
+// giveaway titles are ALSO, separately, for sale on Steam under the exact
+// same name even though this particular deal isn't the Steam one -- and
+// Steam's own official trailer (fetchSteamOfficialTrailerUrl) is
+// deterministic, not a guess. This resolves a Steam appid purely by exact
+// normalized name match against Steam's own store search, so it's only
+// ever used when the match is unambiguous; anything less than an exact
+// match falls through to the YouTube search below rather than risk
+// borrowing a different, similarly-named game's trailer.
+async function resolveSteamAppIdByExactName(name) {
+    try {
+        const term = (name || "").trim();
+        if (!term) return null;
+
+        const data = await httpsGetJsonPlain(
+            `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(term)}&cc=us&l=english`,
+            8000
+        );
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        const target = normalizeGameName(term);
+        const match = items.find((item) => normalizeGameName(item.name) === target);
+        return match ? String(match.id) : null;
+    } catch (err) {
+        console.error(`[trailer] Steam appid resolution by name failed for "${name}":`, err.message || err);
+        return null;
+    }
+}
+
 ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cacheKey, steamAppId) => {
 
     // Permanent cache — Installed Games and My Shows already persist their
@@ -5121,6 +5189,22 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
             return steamTrailerUrl;
         }
         console.log(`[trailer] Steam has no official trailer for appid ${steamAppId}, falling back to YouTube search.`);
+    }
+
+    if (!steamAppId) {
+        const resolvedAppId = await resolveSteamAppIdByExactName(gameName);
+        if (resolvedAppId) {
+            const steamTrailerUrl = await fetchSteamOfficialTrailerUrl(resolvedAppId);
+            if (steamTrailerUrl) {
+                console.log(`[trailer] Resolved "${gameName}" to Steam appid ${resolvedAppId} by exact name match -- using its official trailer instead of a YouTube guess.`);
+                if (cacheKey) {
+                    cache[cacheKey] = steamTrailerUrl;
+                    fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(cache, null, 2));
+                }
+                return steamTrailerUrl;
+            }
+            console.log(`[trailer] Resolved "${gameName}" to Steam appid ${resolvedAppId} but it has no official trailer, falling back to YouTube search.`);
+        }
     }
 
     // Biases the search toward the right kind of result, so a show/app/game
