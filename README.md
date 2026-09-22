@@ -3,8 +3,9 @@
 **Your games. Your apps. Your media. One gateway.**
 
 A unified desktop launcher — organize your installed games and apps,
-discover what's free right now on Steam and Epic, and keep track of the
-movies and shows you care about, all in one place.
+discover what's free or on sale right now across Steam, GOG, Epic, and
+dozens of other stores, and keep track of the movies and shows you care
+about, all in one place.
 
 ![Riftgate — New tab, showing upcoming games and new series](screenshots/new.png)
 
@@ -41,6 +42,14 @@ or free to play right now on Steam, Epic Games, GOG, itch.io, and
 giveaway aggregators like GamerPower.
 
 ![Free Games](screenshots/free-games.png)
+
+**🛒 Store** — the best discounts on PC games right now, aggregated
+across Steam and dozens of other resellers (GOG, Epic, Humble,
+Fanatical, GreenManGaming, and more) in one searchable, sortable grid.
+Every deal shows its discount, a review-score badge (Steam rating or
+Metacritic), and a trailer preview, with quick links straight to each
+store to buy. Prices and currency follow your Region setting, so
+they match the store you'd actually be buying from.
 
 **🎬 Theatre** — track TV series for new episodes (with ratings and a
 next-episode countdown), browse movies currently playing near you, and
