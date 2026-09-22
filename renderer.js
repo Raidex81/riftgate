@@ -1546,15 +1546,30 @@ const updateNowBtn = document.getElementById("updateNowBtn");
 
 window.riftgate.on("update-available", (info) => {
     manualUpdateCheckInProgress = false;
-    // info.version/releaseNotes come from the GitHub release (electron-
-    // updater) — treated as untrusted, so both go through textContent
-    // rather than innerHTML.
+    // Used to show info.releaseNotes here — GitHub's own auto-generated
+    // release body, which is really just electron-builder dumping the
+    // release's raw git commit message(s) through a markdown-to-HTML
+    // pass. That surfaced internal commit trailers and literal <p>/<br>
+    // markup straight to every user (since this is textContent, the
+    // tags show up as literal text rather than rendering). The in-app
+    // CHANGELOG is already written for users — same list the 🔔 button
+    // shows — so use that instead, with the same Vault-mention filter
+    // renderChangelog() applies for non-admins.
     updateModalBody.innerHTML = `
         <p style="margin-bottom:10px;">Version <strong class="update-version"></strong> is available. Here's what's new:</p>
-        <p style="white-space:pre-line;color:var(--text-secondary);font-size:13px;" class="update-notes"></p>
+        <div class="update-notes" style="color:var(--text-secondary);font-size:13px;"></div>
     `;
     updateModalBody.querySelector(".update-version").textContent = info.version;
-    updateModalBody.querySelector(".update-notes").textContent = info.releaseNotes || "See the release on GitHub for details.";
+
+    const notesEl = updateModalBody.querySelector(".update-notes");
+    const rawItems = CHANGELOG[info.version] || [];
+    const items = isAdminMode ? rawItems : rawItems.filter((item) => !/vault/i.test(item));
+    if (items.length) {
+        notesEl.innerHTML = `<ul style="margin:0;padding-left:18px;">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+    } else {
+        notesEl.textContent = "New features and fixes — open the 🔔 changelog after updating for details.";
+    }
+
     updateProgressWrap.style.display = "none";
     updateModalActions.style.display = "flex";
     updateNowBtn.disabled = false;
