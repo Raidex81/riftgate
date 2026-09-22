@@ -10167,6 +10167,25 @@ const RESELLER_STORE_NAMES = new Set([
     "IndieGala", "WinGameStore", "GameBillet", "2Game", "Voidu", "GamersGate"
 ]);
 
+// Surfaces the official/reseller distinction above on the card itself --
+// not a warning, just enough context to know what you're buying and
+// from where before clicking through, especially now that Store
+// aggregates dozens of different sellers rather than just a couple of
+// familiar names. Most resellers get the plain "Key reseller" label;
+// only ones that are themselves a marketplace of other sellers (rather
+// than selling keys they've sourced directly) get called out as such.
+const MARKETPLACE_RESELLER_NAMES = new Set(["Loaded (CDKeys)"]);
+const SELLER_TYPE_INFO = {
+    official: { label: "Official store", title: "Sold and delivered directly by the platform itself." },
+    reseller: { label: "Key reseller", title: "A third-party reseller of official game keys, not the game's own storefront." },
+    marketplace: { label: "Key marketplace/reseller", title: "A third-party marketplace reselling game keys from multiple sellers — worth a quick look at the store's own reviews before buying." }
+};
+function sellerTypeInfo(source) {
+    if (!RESELLER_STORE_NAMES.has(source)) return SELLER_TYPE_INFO.official;
+    if (MARKETPLACE_RESELLER_NAMES.has(source)) return SELLER_TYPE_INFO.marketplace;
+    return SELLER_TYPE_INFO.reseller;
+}
+
 function updateStorePlatformLinks() {
     const container = document.getElementById("storePlatformLinks");
     container.innerHTML = "";
@@ -10421,7 +10440,10 @@ function buildStoreDealCard(deal) {
 
     card.querySelector(".game-info h3").textContent = deal.name;
     card.querySelector(".storeDiscountBadge").textContent = `-${deal.discountPercent}%`;
-    card.querySelector(".free-game-platform").textContent = `🕹️ ${deal.source}`;
+    const sellerType = sellerTypeInfo(deal.source);
+    const platformEl = card.querySelector(".free-game-platform");
+    platformEl.textContent = `🕹️ ${deal.source} · ${sellerType.label}`;
+    platformEl.title = sellerType.title;
 
     // Steam's own rating when available (CheapShark-resolved deals and
     // Store's native Steam specials both carry it), Metacritic as the
