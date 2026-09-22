@@ -1222,6 +1222,22 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.5.2": [
+        "New: a Region setting (Options → Region) — one country selector now drives Theatre showtimes and streaming availability, New tab's upcoming movies/shows, and Store's pricing and currency, replacing the separate pickers each used to have",
+        "New: \"Forgot password?\" on the login screen — recover your account with an emailed reset code if you forget your password, no admin needed",
+        "New: Store deal cards now show whether the seller is the official store, a key reseller, or a key marketplace, with a tooltip explaining the difference",
+        "Fixed: some Store and Free Games cards could show the wrong game's cover art and trailer entirely — now verified against Steam's own listing before being trusted",
+        "Fixed: cards with a non-portrait cover no longer get resized to fit — a real vertical cover is found instead, so every card in a row stays the same size, including Reading Room and book covers",
+        "Fixed: Grid density (compact mode) now shrinks every section evenly instead of leaving Installed a different size than carousel rows",
+        "Fixed: a carousel row (Upcoming Games, New Shows/Anime, Reading Room, Favorites, Recently Opened, Related items) could leave a card sliced in half at the edge after resizing the window",
+        "Fixed: New Anime no longer shows a returning show's new season as if it were a brand-new series",
+        "Fixed: free games' trailers now prefer the real Steam trailer over a YouTube guess, which could show unrelated content for short or generic titles",
+        "Fixed: keyboard focus on a card's buttons (favorite, remove, sound, etc.) is now visible when tabbing to it, not just on hover",
+        "Changed: the app now opens maximized to your screen instead of a small fixed window, so rows aren't cut off",
+        "Changed: the changelog no longer pops open automatically after an update — open it anytime with the 🔔 button",
+        "Changed: switching sections resets scroll back to the top instead of keeping the previous section's scroll position",
+        "Changed: The Vault is admin/super-admin only for now while it's reworked"
+    ],
     "1.5.1": [
         "Fixed: the \"Where to Watch\" button on Recently Released episode cards was opening a broken JustWatch link instead of a working search"
     ],

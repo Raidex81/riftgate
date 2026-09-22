@@ -42,38 +42,41 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round (v1.5.0):
+Quick pass on what actually changed this round (v1.5.2):
 
-- **Store (new section)** — open the new Store tab. Confirm deals load,
-  the platform filter and store quick-link buttons work, sorting (incl.
-  "Most Popular") works, and cards show a review-score badge, a working
-  trailer (enlarge) button, and a sound toggle. Click a card's buy link
-  and confirm it opens the actual storefront listing.
-- **Sign-up — email verification** — create a new account and confirm
-  the optional email verification step appears and completes correctly.
-  Existing accounts should be unaffected.
-- **Theatre — Streaming Providers** — open Theatre and confirm the
-  Streaming Providers block now shows a separate row per service
-  (Netflix, Prime Video, Disney+, Max, Hulu, Apple TV+, Paramount+,
-  Peacock, Crunchyroll) instead of one dropdown-driven row. Click a
-  card's "Watch on <Provider>" button and confirm it opens that title on
-  the provider's own site. The "🔍 Find Where to Watch" search below the
-  rows should still work for titles outside those providers.
-- **Theatre — My Shows / Recently Released sync** — track a show, wait
-  for (or fake) it to appear in Recently Released, then remove it from
-  My Shows. Confirm its card disappears from Recently Released too
-  instead of lingering.
-- **New tab — New Anime row** — confirm a "New Anime" row appears
-  alongside New Series, and that it can be dragged to reorder among the
-  other New tab sections — including dragging the *first* section onto
-  its immediate neighbor, which used to silently fail to swap.
-- **New tab & other carousels — card sizing** — scroll through New tab
-  rows (and Reading Room's carousels) and confirm cards are all the same
-  size and none are visibly cut off at the right edge.
-- **Hero banner** — open the app and confirm the banner's background no
-  longer visibly mismatches the video playing inside it.
-- **🔔 Notifications (changelog)** — click the bell icon and confirm
-  v1.5.0 shows real patch notes instead of the list stopping at v1.4.2.
+- **Region setting (new)** — go to Options → Region, change the country,
+  and confirm Theatre showtimes/streaming availability, New tab's
+  upcoming movies/shows, and Store's pricing and currency all update to
+  match.
+- **Forgot password (new)** — from the login prompt, click "Forgot
+  password?", confirm a reset code arrives by email (if the account has
+  a verified email on file), enter it with a new password, and confirm
+  it logs you in.
+- **Store seller labels (new)** — open Store and confirm each deal
+  card shows a seller-type label (official / key reseller / key
+  marketplace) with a working tooltip.
+- **Store/Free Games cover & trailer accuracy (fix)** — spot-check a
+  few Store and Free Games cards, especially any you remember being
+  wrong before, and confirm the cover art, title, and trailer all match
+  the actual game.
+- **Card sizing / cover frames (fix)** — scroll through Reading Room,
+  Free Games, Store, and book carousels and confirm every card in a row
+  is the same size, with no widened or landscape-shaped cards.
+- **Grid density (fix)** — turn on Options → compact Grid density and
+  confirm Installed shrinks to match every other carousel row, not just
+  itself.
+- **Carousel resize snapping (fix)** — scroll partway into a carousel
+  row (e.g. Upcoming Games), resize the window (or toggle the sidebar),
+  and confirm the row re-snaps cleanly instead of leaving a card cut in
+  half.
+- **New Anime filtering (fix)** — confirm New Anime shows genuinely new
+  series, not a returning show's new season.
+- **Window maximized on launch (change)** — close and reopen the app
+  and confirm it opens maximized to your screen instead of a small
+  fixed window.
+- **Changelog no longer auto-opens (change)** — update or relaunch and
+  confirm the 🔔 changelog modal does NOT pop open by itself; clicking
+  the bell still opens it.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
