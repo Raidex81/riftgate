@@ -1442,7 +1442,21 @@ const closeLauncherBtn = document.getElementById("closeLauncherBtn");
 let appVersion = null;
 
 function renderChangelog() {
-    let html = Object.entries(CHANGELOG)
+    // The Vault is admin/super-admin only for now, while it's reworked --
+    // a regular user has no way to reach it, so a changelog bullet
+    // naming it would be the one place left still giving its existence
+    // away. Filtering out just the bullets that mention it, rather than
+    // the whole version block (which usually covers unrelated things
+    // too), keeps the rest of each version's list intact.
+    const visibleChangelog = isAdminMode
+        ? CHANGELOG
+        : Object.fromEntries(
+            Object.entries(CHANGELOG)
+                .map(([version, items]) => [version, items.filter((item) => !/vault/i.test(item))])
+                .filter(([, items]) => items.length > 0)
+        );
+
+    let html = Object.entries(visibleChangelog)
         .map(([version, items]) => `
             <div class="changelog-version">v${version}</div>
             <ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>
@@ -3938,6 +3952,12 @@ function populateStartupSectionOptions() {
     SECTION_ORDER.forEach((key) => {
         const btn = document.querySelector(`.sidebarNavBtn[data-section="${key}"]`);
         if (!btn) return;
+        // The Vault's own nav button is hidden outright while it's
+        // admin/super-admin only (see updateAdminUiVisibility) -- a
+        // regular user shouldn't be able to discover it exists just by
+        // opening this dropdown, so it's left out here too whenever its
+        // button currently is.
+        if (btn.style.display === "none") return;
         const option = document.createElement("option");
         option.value = key;
         option.textContent = btn.textContent;
@@ -4361,6 +4381,16 @@ function resetAllSectionSearchBars() {
 let sectionSwitchInProgress = false;
 
 function switchSection(section) {
+    // The Vault is admin/super-admin only for now, while it's reworked
+    // (see updateAdminUiVisibility, which hides its own nav buttons) --
+    // this is the one place every way of reaching a section funnels
+    // through (nav clicks, app startup, the feature tour, a global
+    // search result), so it's also the one place that needs to redirect
+    // a non-admin away from it, whichever route got them here.
+    if (section === "shared-folder" && !isAdminMode) {
+        section = "new";
+    }
+
     const contentEl = document.getElementById("sectionContentArea");
 
     // Switching to the section already showing (e.g. re-clicking the same
@@ -9780,6 +9810,18 @@ function updateAdminUiVisibility() {
     });
     updateAdminPreviewRoleUi();
 
+    // The Vault is admin/super-admin only for now, while it's reworked --
+    // a regular user shouldn't even know it exists, so both of its nav
+    // entries (the sidebar list and the persistent top pill strip) stay
+    // fully hidden rather than just disabled/locked. The startup-section
+    // dropdown is rebuilt right after, so it stops (or starts) offering
+    // it in sync with this same change instead of only catching up the
+    // next time something unrelated reorders it.
+    document.querySelectorAll('.sidebarNavBtn[data-section="shared-folder"], .sectionOption[data-section="shared-folder"]').forEach((btn) => {
+        btn.style.display = isAdminMode ? "" : "none";
+    });
+    populateStartupSectionOptions();
+
     // The Vault's admin-only buttons were only ever set inside
     // loadSharedFolder(), which only runs when switching into that
     // section — so becoming recognized as admin while already viewing
@@ -9792,7 +9834,16 @@ function updateAdminUiVisibility() {
     if (cleanVaultNowBtnEl) cleanVaultNowBtnEl.style.display = isAdminMode ? "" : "none";
 
     if (currentSection === "shared-folder") {
-        loadSharedFolder();
+        // Losing admin status (e.g. logging out) while The Vault happens
+        // to be the open section can't just re-render it in place
+        // anymore — a non-admin has no business seeing it at all now, so
+        // this sends them back to New, the same way switchSection itself
+        // already redirects any other attempt to reach it.
+        if (isAdminMode) {
+            loadSharedFolder();
+        } else {
+            switchSection("new");
+        }
     }
 }
 
