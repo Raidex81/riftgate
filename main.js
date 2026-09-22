@@ -4262,26 +4262,6 @@ ipcMain.handle("get-new-anime", async (event, countryCode) => {
             page: "1"
         });
 
-        // TEMP DEBUG -- remove once the "Ghost in the Shell" report is
-        // diagnosed. Dumps every raw TMDB result (before the sequel-name
-        // filter runs) so we can see exactly what entry(ies) TMDB is
-        // actually returning and why they pass the 90-day window.
-        try {
-            fs.writeFileSync(
-                path.join(__dirname, "debug-new-anime.json"),
-                JSON.stringify((data.results || []).map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    original_name: s.original_name,
-                    first_air_date: s.first_air_date,
-                    origin_country: s.origin_country,
-                    popularity: s.popularity,
-                    vote_count: s.vote_count
-                })), null, 2)
-            );
-        } catch (dumpErr) {
-            console.error("[debug] new-anime dump failed:", dumpErr.message || dumpErr);
-        }
 
         const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
         const genuinelyNew = (data.results || []).filter((s) => !looksLikeSequelSeason(s.name));
