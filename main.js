@@ -169,6 +169,13 @@ const DEFAULT_SETTINGS = {
     dismissedImports: [],
     categoryOrder: ["game", "vr", "app", "other"],
     sectionOrder: ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"],
+    // The single app-wide region setting -- drives Theatre (showtimes,
+    // streaming providers), New tab (upcoming movies/shows region), and
+    // Store (Steam pricing region + display currency). movieCountry and
+    // upcomingMoviesCountry below are legacy/superseded: kept only so an
+    // existing install's prior choice can be migrated into `country`
+    // instead of silently resetting to US (see renderer.js).
+    country: "US",
     movieCountry: "US",
     upcomingMoviesCountry: "US",
     startupSection: "new",
@@ -262,6 +269,23 @@ const TMDB_LANGUAGE_BY_COUNTRY = {
     EG: "ar-EG",
     IL: "he-IL",
     UA: "uk-UA"
+};
+
+// ISO 4217 currency for each of the same countries above -- drives Store
+// pricing (see fetchSteamDeals/performStoreDealsRefresh) so a deal's
+// price is shown in the currency of the country the user actually picked,
+// not always USD.
+const CURRENCY_BY_COUNTRY = {
+    US: "USD", GB: "GBP", PT: "EUR", CA: "CAD", AU: "AUD",
+    DE: "EUR", FR: "EUR", ES: "EUR", BR: "BRL", IT: "EUR",
+    NL: "EUR", BE: "EUR", IE: "EUR", CH: "CHF", AT: "EUR",
+    MX: "MXN", AR: "ARS", CL: "CLP", CO: "COP", JP: "JPY",
+    KR: "KRW", CN: "CNY", HK: "HKD", TW: "TWD", IN: "INR",
+    RU: "RUB", SE: "SEK", NO: "NOK", DK: "DKK", FI: "EUR",
+    PL: "PLN", TR: "TRY", GR: "EUR", CZ: "CZK", HU: "HUF",
+    RO: "RON", ZA: "ZAR", NZ: "NZD", PH: "PHP", ID: "IDR",
+    MY: "MYR", SG: "SGD", TH: "THB", VN: "VND", SA: "SAR",
+    AE: "AED", EG: "EGP", IL: "ILS", UA: "UAH"
 };
 
 function downloadImage(url, destPath) {
@@ -3230,9 +3254,10 @@ async function fetchSteamAppReviewSummary(appId) {
     }
 }
 
-async function fetchSteamDeals() {
+async function fetchSteamDeals(countryCode) {
     try {
-        const data = await httpsGetJsonPlain("https://store.steampowered.com/api/featuredcategories?cc=us&l=english", 10000);
+        const cc = (countryCode || "US").toLowerCase();
+        const data = await httpsGetJsonPlain(`https://store.steampowered.com/api/featuredcategories?cc=${cc}&l=english`, 10000);
         const items = (data.specials && data.specials.items) || [];
 
         const mapped = items
@@ -3593,14 +3618,23 @@ function readStoreDealsLastRefresh() {
     }
 }
 
+function readStoreDealsLastCountry() {
+    try {
+        const data = JSON.parse(fs.readFileSync(STORE_DEALS_LAST_REFRESH_FILE, "utf8"));
+        return data.countryCode || null;
+    } catch (err) {
+        return null;
+    }
+}
+
 // sourceCounts rides alongside the timestamp — per-platform result
 // counts from the last refresh, so a "why is one platform missing/empty"
 // question can be answered from inside the app itself (Store's result
 // count line shows it, see renderer.js), rather than needing console/log
 // access that isn't normally reachable once the app is packaged.
-function saveStoreDealsLastRefresh(timestamp, sourceCounts) {
+function saveStoreDealsLastRefresh(timestamp, sourceCounts, countryCode) {
     try {
-        fs.writeFileSync(STORE_DEALS_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp, sourceCounts: sourceCounts || {} }));
+        fs.writeFileSync(STORE_DEALS_LAST_REFRESH_FILE, JSON.stringify({ lastRefreshedAt: timestamp, sourceCounts: sourceCounts || {}, countryCode: countryCode || "US" }));
     } catch (err) {
         console.error("[store] failed to save last-refresh timestamp:", err.message || err);
     }
@@ -3638,20 +3672,57 @@ function storeSeenKey(deal) {
     return `name-${normalizeGameName(deal.name)}`;
 }
 
+// CheapShark (all ~30 non-Steam stores in Store) has no country/currency
+// parameter at all -- it only ever returns US-dollar prices, no matter
+// what region the request is "for". This is the only way to still show
+// something other than USD for those listings: convert the number with a
+// live exchange rate. open.er-api.com is free, keyless, and covers every
+// currency CURRENCY_BY_COUNTRY above can name. Best-effort -- if this
+// fails (offline, rate-limited, etc.), those deals just stay in USD
+// rather than the whole Store refresh failing over a pricing nicety.
+async function fetchUsdToTargetRate(targetCurrency) {
+    if (!targetCurrency || targetCurrency === "USD") return 1;
+    try {
+        const data = await httpsGetJsonPlain("https://open.er-api.com/v6/latest/USD", 10000);
+        const rate = data && data.rates && data.rates[targetCurrency];
+        return typeof rate === "number" && rate > 0 ? rate : null;
+    } catch (err) {
+        console.error("[store] exchange rate fetch failed:", err.message || err);
+        return null;
+    }
+}
+
 // Same in-flight-promise dedupe as performFreeGamesRefresh above, so a
 // renderer refresh landing at the same instant as the startup auto-check
 // doesn't double up on requests to Steam/CheapShark.
 let storeDealsRefreshPromise = null;
 
-async function performStoreDealsRefresh() {
+async function performStoreDealsRefresh(countryCode) {
     if (storeDealsRefreshPromise) return storeDealsRefreshPromise;
 
     storeDealsRefreshPromise = (async () => {
         // fetchLoadedDeals is disabled (Cloudflare blocks it outright --
         // see its own comment) and deliberately left out of this list
         // rather than called for a guaranteed-empty result every refresh.
-        const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(), fetchCheapSharkDeals()]);
+        const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(countryCode), fetchCheapSharkDeals()]);
         const deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+
+        // Steam already comes back priced in the target currency (via its
+        // own cc= region param above); anything still priced in a
+        // different currency at this point is CheapShark-sourced and
+        // needs converting to match. Fetched once per refresh, not once
+        // per deal.
+        const targetCurrency = CURRENCY_BY_COUNTRY[countryCode] || "USD";
+        const needsConversion = deals.some((d) => d.currency && d.currency !== targetCurrency);
+        const rate = needsConversion ? await fetchUsdToTargetRate(targetCurrency) : 1;
+        deals.forEach((deal) => {
+            if (deal.currency && deal.currency !== targetCurrency && typeof rate === "number") {
+                if (typeof deal.finalPrice === "number") deal.finalPrice = Math.round(deal.finalPrice * rate * 100) / 100;
+                if (typeof deal.originalPrice === "number") deal.originalPrice = Math.round(deal.originalPrice * rate * 100) / 100;
+                deal.currency = targetCurrency;
+                deal.priceIsConverted = true;
+            }
+        });
 
         // Tallied from whichever source names actually turned up this
         // refresh, rather than a fixed list -- CheapShark can surface
@@ -3682,7 +3753,7 @@ async function performStoreDealsRefresh() {
         fs.writeFileSync(STORE_SEEN_FILE, JSON.stringify(prunedSeenCache, null, 2));
 
         saveDataCache("cache-store-deals.json", deals);
-        saveStoreDealsLastRefresh(Date.now(), sourceCounts);
+        saveStoreDealsLastRefresh(Date.now(), sourceCounts, countryCode);
         console.log(`[store] refreshed: ${deals.length} deal(s) across ${Object.keys(sourceCounts).length} store(s).`);
         return deals;
     })().finally(() => {
@@ -3693,20 +3764,25 @@ async function performStoreDealsRefresh() {
 }
 
 // Same "cached instantly, real refresh only once it's actually due"
-// pattern as get-free-games above.
-ipcMain.handle("get-store-deals", async () => {
+// pattern as get-free-games above -- except the cache is also considered
+// stale the instant the requested country doesn't match whichever
+// country it was built for, so switching your region in Options doesn't
+// keep showing the old region's prices/currency for up to 6 hours.
+ipcMain.handle("get-store-deals", async (event, countryCode) => {
     const cached = loadDataCache("cache-store-deals.json") || [];
     const lastRefreshedAt = readStoreDealsLastRefresh();
+    const lastCountry = readStoreDealsLastCountry();
+    const country = countryCode || "US";
 
-    if (cached.length > 0 && (Date.now() - lastRefreshedAt) < STORE_DEALS_REFRESH_MIN_AGE_MS) {
+    if (cached.length > 0 && lastCountry === country && (Date.now() - lastRefreshedAt) < STORE_DEALS_REFRESH_MIN_AGE_MS) {
         return cached;
     }
-    return performStoreDealsRefresh();
+    return performStoreDealsRefresh(country);
 });
 
 // Backs the manual Refresh button — always does a real fetch regardless
 // of the 6h gate.
-ipcMain.handle("force-refresh-store-deals", async () => performStoreDealsRefresh());
+ipcMain.handle("force-refresh-store-deals", async (event, countryCode) => performStoreDealsRefresh(countryCode || "US"));
 
 // Instant retrieval of the last successfully fetched list, for showing
 // something immediately on section open while a real refresh (if due)
@@ -4185,6 +4261,27 @@ ipcMain.handle("get-new-anime", async (event, countryCode) => {
             language: "en-US",
             page: "1"
         });
+
+        // TEMP DEBUG -- remove once the "Ghost in the Shell" report is
+        // diagnosed. Dumps every raw TMDB result (before the sequel-name
+        // filter runs) so we can see exactly what entry(ies) TMDB is
+        // actually returning and why they pass the 90-day window.
+        try {
+            fs.writeFileSync(
+                path.join(__dirname, "debug-new-anime.json"),
+                JSON.stringify((data.results || []).map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    original_name: s.original_name,
+                    first_air_date: s.first_air_date,
+                    origin_country: s.origin_country,
+                    popularity: s.popularity,
+                    vote_count: s.vote_count
+                })), null, 2)
+            );
+        } catch (dumpErr) {
+            console.error("[debug] new-anime dump failed:", dumpErr.message || dumpErr);
+        }
 
         const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
         const genuinelyNew = (data.results || []).filter((s) => !looksLikeSequelSeason(s.name));

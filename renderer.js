@@ -198,12 +198,14 @@ let settings = {
     runInBackground: false,
     categoryOrder: ["game", "vr", "app", "other"],
     sectionOrder: ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"],
+    // Single app-wide region: Theatre, New tab, and Store all read this
+    // one value now (see movieCountrySelect below -- the element it's
+    // bound to is #globalCountrySelect, in the Options sidebar's Region
+    // section). movieCountry/upcomingMoviesCountry are legacy fallbacks
+    // read only for migrating an existing install's prior per-section
+    // choice (see applySettingsToUI) -- nothing writes to them anymore.
+    country: "US",
     movieCountry: "US",
-    // Deliberately separate from movieCountry (which drives Now Playing /
-    // showtimes) — sharing one setting meant changing your country for
-    // local showtimes silently changed what Upcoming Movies showed too,
-    // which is exactly what made two people comparing screens see two
-    // different upcoming release slates without ever touching this section.
     upcomingMoviesCountry: "US",
     startupSection: "new",
     movieCity: "",
@@ -2524,9 +2526,8 @@ function applySettingsToUI() {
 
     applyGridDensity(settings.gridDensity || "comfortable");
 
-    movieCountrySelect.value = settings.movieCountry || "US";
+    movieCountrySelect.value = settings.country || settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
-    upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
 
     steamId64Input.value = settings.steamId64 || "";
 }
@@ -7076,7 +7077,13 @@ const COUNTRY_NAMES = {
     EG: "Egypt", IL: "Israel", UA: "Ukraine"
 };
 
-const movieCountrySelect = document.getElementById("movieCountrySelect");
+// Bound to #globalCountrySelect (Options sidebar, Region section) --
+// the one country control for the whole app now. Kept under this
+// existing variable name deliberately: every call site that already
+// read movieCountrySelect.value (Theatre showtimes, streaming providers,
+// JustWatch locale, and now Store/Upcoming Movies too) keeps working
+// unchanged.
+const movieCountrySelect = document.getElementById("globalCountrySelect");
 const movieCitySelect = document.getElementById("movieCitySelect");
 const moviesGrid = document.getElementById("moviesGrid");
 
@@ -7088,21 +7095,6 @@ const moviesGrid = document.getElementById("moviesGrid");
     if (currentValue) movieCountrySelect.value = currentValue;
 })();
 
-// Upcoming Movies gets its own country selector, deliberately separate
-// from movieCountrySelect above (see upcomingMoviesCountry in the
-// default settings) — but it's still the exact same list of countries,
-// built by cloning movieCountrySelect's already-sorted options rather
-// than keeping a second copy of ~40 <option> tags in index.html that
-// could quietly drift out of sync with the first.
-const upcomingMoviesCountrySelect = document.getElementById("upcomingMoviesCountrySelect");
-upcomingMoviesCountrySelect.innerHTML = movieCountrySelect.innerHTML;
-upcomingMoviesCountrySelect.value = settings.upcomingMoviesCountry || "US";
-
-upcomingMoviesCountrySelect.addEventListener("change", () => {
-    saveSetting("upcomingMoviesCountry", upcomingMoviesCountrySelect.value);
-    loadUpcomingMovies();
-});
-
 function populateCitySelect(countryCode, preferredCity) {
     const cities = (CITIES_BY_COUNTRY[countryCode] || []).slice().sort((a, b) => a.localeCompare(b));
     movieCitySelect.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
@@ -7113,7 +7105,11 @@ function populateCitySelect(countryCode, preferredCity) {
 }
 
 movieCountrySelect.addEventListener("change", () => {
-    saveSetting("movieCountry", movieCountrySelect.value);
+    // The one app-wide region setting now -- see its declaration above
+    // for why this still reads/writes through the movieCountrySelect
+    // name. Everything region-dependent across the app reacts here
+    // instead of each keeping (or needing) its own separate picker.
+    saveSetting("country", movieCountrySelect.value);
     populateCitySelect(movieCountrySelect.value, null);
     saveSetting("movieCity", movieCitySelect.value);
     loadMovies();
@@ -7122,6 +7118,11 @@ movieCountrySelect.addEventListener("change", () => {
     // re-fetch of the provider list itself, not just the trending row.
     streamingProvidersLoaded = false;
     loadStreamingProviders();
+    loadUpcomingMovies();
+    // Only if Store's already been opened this session -- otherwise this
+    // would trigger an eager Store fetch the very first time anyone
+    // touches this dropdown, before they've ever looked at Store.
+    if (storeDealsCache.length > 0) loadStoreDeals();
 });
 
 movieCitySelect.addEventListener("change", () => {
@@ -8157,7 +8158,7 @@ async function loadUpcomingMovies() {
     const grid = document.getElementById("upcomingMoviesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
-    const movies = await window.riftgate.invoke("get-upcoming-movies", settings.upcomingMoviesCountry || "US");
+    const movies = await window.riftgate.invoke("get-upcoming-movies", movieCountrySelect.value || "US");
     upcomingMoviesCache = movies || [];
 
     if (upcomingMoviesCache.length === 0) {
@@ -10121,7 +10122,7 @@ async function loadStoreDeals(silent) {
         }
     }
 
-    const deals = await window.riftgate.invoke("get-store-deals");
+    const deals = await window.riftgate.invoke("get-store-deals", movieCountrySelect.value);
     storeDealsCache = deals || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     updateStorePlatformLinks();
@@ -10219,10 +10220,15 @@ function updateStorePlatformSelect() {
     }
 }
 
-function formatStorePrice(amount, currency) {
+function formatStorePrice(amount, currency, isConverted) {
     if (typeof amount !== "number") return null;
-    const symbol = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
-    return `${symbol}${amount.toFixed(2)}`;
+    let formatted;
+    try {
+        formatted = new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(amount);
+    } catch (err) {
+        formatted = `$${amount.toFixed(2)}`;
+    }
+    return isConverted ? `≈${formatted}` : formatted;
 }
 
 // Builds one curated preview row (Newly Added / Most Popular /
@@ -10433,18 +10439,23 @@ function buildStoreDealCard(deal) {
     }
 
     const priceRow = card.querySelector(".store-price-row");
-    const finalLabel = formatStorePrice(deal.finalPrice, deal.currency);
-    const originalLabel = formatStorePrice(deal.originalPrice, deal.currency);
+    const finalLabel = formatStorePrice(deal.finalPrice, deal.currency, deal.priceIsConverted);
+    const originalLabel = formatStorePrice(deal.originalPrice, deal.currency, deal.priceIsConverted);
+    const convertedTitle = deal.priceIsConverted
+        ? `Converted from this store's own USD price using a live exchange rate -- not ${deal.source}'s real local price`
+        : "";
     if (originalLabel && originalLabel !== finalLabel) {
         const originalEl = document.createElement("span");
         originalEl.className = "store-price-original";
         originalEl.textContent = originalLabel;
+        if (convertedTitle) originalEl.title = convertedTitle;
         priceRow.appendChild(originalEl);
     }
     if (finalLabel) {
         const finalEl = document.createElement("span");
         finalEl.className = "store-price-final";
         finalEl.textContent = finalLabel;
+        if (convertedTitle) finalEl.title = convertedTitle;
         priceRow.appendChild(finalEl);
     }
 
@@ -10493,7 +10504,7 @@ document.getElementById("storeRefreshBtn").addEventListener("click", async () =>
     const btn = document.getElementById("storeRefreshBtn");
     btn.disabled = true;
     btn.textContent = "🔄 Refreshing...";
-    storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals") || [];
+    storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals", movieCountrySelect.value) || [];
     storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
     updateStorePlatformLinks();
     updateStorePlatformSelect();
