@@ -5557,8 +5557,19 @@ function buildEbookCard(book, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
 
+    // Book covers from different sources come in every shape imaginable
+    // (tall portrait novels next to a squarer "declassified report" style
+    // cover) -- letting each one's height stay intrinsic put them at
+    // different heights in the same row/carousel, with each card's title,
+    // author and buttons landing at a different spot below it. A fixed
+    // 2:3 box with object-fit:cover (see .book-cover-wrap in style.css)
+    // keeps every book card the same size, same as every other row in
+    // Reading Room, Buy Books, Manga and Comics.
+    const coverWrap = document.createElement("div");
+    coverWrap.className = "cover-wrap book-cover-wrap";
+
     const cover = document.createElement("img");
-    cover.className = "cover";
+    cover.className = "cover-img";
     cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
@@ -5566,7 +5577,8 @@ function buildEbookCard(book, navList) {
     cover.addEventListener("click", () => {
         openGameDetailModal(book, "book", navList);
     });
-    card.appendChild(cover);
+    coverWrap.appendChild(cover);
+    card.appendChild(coverWrap);
 
     const manualCoverBtn = document.createElement("button");
     manualCoverBtn.className = "manualCoverBtn";
@@ -5734,8 +5746,12 @@ function buildDiscoveryEbookCard(book, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
 
+    // Same uniform-row fix as buildEbookCard above -- see its comment.
+    const coverWrap = document.createElement("div");
+    coverWrap.className = "cover-wrap book-cover-wrap";
+
     const cover = document.createElement("img");
-    cover.className = "cover";
+    cover.className = "cover-img";
     cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
@@ -5743,7 +5759,8 @@ function buildDiscoveryEbookCard(book, navList) {
     cover.addEventListener("click", () => {
         openGameDetailModal(book, "book", navList);
     });
-    card.appendChild(cover);
+    coverWrap.appendChild(cover);
+    card.appendChild(coverWrap);
 
     const manualCoverBtn = document.createElement("button");
     manualCoverBtn.className = "manualCoverBtn";
@@ -5949,8 +5966,15 @@ function buildBuyFreeBookCard(book, section, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
 
+    // Same uniform-row fix as buildEbookCard above -- see its comment.
+    // This builder feeds Buy Books (Search Results, Most Popular, Best
+    // Seller, New Releases) as well as Manga and Comics, so it's the one
+    // most likely to mix wildly different cover shapes in one row.
+    const coverWrap = document.createElement("div");
+    coverWrap.className = "cover-wrap book-cover-wrap";
+
     const cover = document.createElement("img");
-    cover.className = "cover";
+    cover.className = "cover-img";
     cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
@@ -5968,7 +5992,8 @@ function buildBuyFreeBookCard(book, section, navList) {
             }
         }
     });
-    card.appendChild(cover);
+    coverWrap.appendChild(cover);
+    card.appendChild(coverWrap);
 
     const manualCoverBtn = document.createElement("button");
     manualCoverBtn.className = "manualCoverBtn";

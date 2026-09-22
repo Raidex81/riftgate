@@ -386,6 +386,26 @@ body.density-compact .categoryPicker{
     left:6px;
 }
 
+/* Carousel rows use a fixed pixel width per track (see .carousel-track
+   .game-card and its per-track overrides below) instead of the wrapping
+   .games-grid's responsive column sizing above, so Grid density needs its
+   own override for each one -- otherwise every horizontally-scrolling row
+   in the app stays at normal size no matter what's picked here, which is
+   exactly what made Grid density look like an Installed-only setting.
+   Same ~30% reduction as the wrapping grid's 230px -> 160px. */
+body.density-compact .carousel-track .game-card,
+body.density-compact .free-games-track .game-card{
+    width:160px;
+}
+
+body.density-compact .upcoming-games-track .game-card{
+    width:210px;
+}
+
+body.density-compact .new-shows-track .game-card{
+    width:150px;
+}
+
 .game-card{
     position:relative;
     background:var(--bg-secondary);
@@ -439,13 +459,6 @@ body.density-compact .categoryPicker{
     height:auto;
     object-fit:contain;
     background:var(--bg-primary);
-}
-
-.game-card img.cover{
-    height:auto;
-    object-fit:contain;
-    background:var(--bg-primary);
-    display:block;
 }
 
 .card-overlay{
@@ -3094,6 +3107,10 @@ body.is-fullscreen #mainContent{
     grid-template-columns:repeat(auto-fill, minmax(220px, 260px));
 }
 
+body.density-compact #moviesGrid.games-grid{
+    grid-template-columns:repeat(auto-fill, minmax(120px, 160px));
+}
+
 #moviesGrid .ticketsBtn{
     flex:1 1 100%;
 }
@@ -4000,6 +4017,27 @@ body.is-fullscreen #mainContent{
 
 .game-card.free-game-wide-cover .cover-wrap img.cover-img{
     object-fit:contain;
+}
+
+/* Book covers (My Library, Discover Online, Buy Books, Manga, Comics --
+   see buildEbookCard/buildDiscoveryEbookCard/buildBuyFreeBookCard in
+   renderer.js) get the same fixed-box treatment as Free Games above, for
+   the same reason: search results mix every cover shape imaginable, and
+   letting each one's height stay intrinsic left rows with cards of
+   mismatched heights and titles landing at different spots. Unlike Free
+   Games there's no wide-cover exception here -- book covers are close
+   enough to 2:3 in practice that a plain object-fit:cover crop reads
+   better than adding width variance back into the row. */
+.book-cover-wrap{
+    aspect-ratio:2/3;
+    height:auto;
+}
+
+.book-cover-wrap img.cover-img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
 }
 
 
