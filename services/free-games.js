@@ -640,6 +640,760 @@ function getCuratedAlwaysFreeGames() {
             source: "Grinding Gear Games",
             releaseDate: "2013",
             tags: ["RPG"]
+        },
+
+        // Meta Quest -- Meta's own Quest/Horizon Store has no public API and
+        // its web storefront is a JS-rendered app with nothing usable in the
+        // raw HTML (same situation as EA/Ubisoft above), so this list is
+        // hand-curated from Alfredo's own Quest library instead of live-fetched.
+        // Grouped into genre subsections below purely for readability -- every
+        // entry here still goes through the exact same alwaysFree/dedup handling
+        // as every other curated platform. Alfredo checks these manually from
+        // time to time to confirm they're still free; there's no automated
+        // re-verification for this platform the way Steam gets.
+
+        // --- Meta Quest: Museums & Culture ---
+        {
+            id: "curated-metaquest-kremer-collection-vr-museum",
+            name: "The Kremer Collection VR Museum",
+            description: "A virtual gallery of the Kremer Collection's Dutch and Flemish Golden Age paintings, walkable in VR the way the real collection is displayed.",
+            image: "covers/meta-quest/kremer-collection-vr-museum.jpg",
+            url: "https://www.google.com/search?q=The+Kremer+Collection+VR+Museum+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Museums & Culture"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-virtual-museum-de-fornaris",
+            name: "Virtual Museum De Fornaris",
+            description: "A VR walkthrough of the De Fornaris art museum's collection.",
+            image: "covers/meta-quest/virtual-museum-de-fornaris.jpg",
+            url: "https://www.google.com/search?q=Virtual+Museum+De+Fornaris+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Museums & Culture"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-anne-frank-house-vr",
+            name: "Anne Frank House VR",
+            description: "An official VR tour of the Anne Frank House in Amsterdam, recreating the rooms of the Secret Annex.",
+            image: "covers/meta-quest/anne-frank-house-vr.jpg",
+            url: "https://www.google.com/search?q=Anne+Frank+House+VR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Museums & Culture"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Exploration & Travel ---
+        {
+            id: "curated-metaquest-google-earth-vr",
+            name: "Google Earth VR",
+            description: "Google's own VR viewer for exploring the entire planet -- cities, landmarks, and terrain -- at any scale.",
+            image: "covers/meta-quest/google-earth-vr.jpg",
+            url: "https://www.google.com/search?q=Google+Earth+VR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-notre-dame-de-paris-journey-back-in-time",
+            name: "Notre-Dame de Paris: Journey Back in Time",
+            description: "A VR reconstruction of Notre-Dame Cathedral across its history, including before and after the 2019 fire.",
+            image: "covers/meta-quest/notre-dame-de-paris-journey-back-in-time.jpg",
+            url: "https://www.google.com/search?q=Notre-Dame+de+Paris:+Journey+Back+in+Time+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-smithsonian-journeys-venice",
+            name: "Smithsonian Journeys: Venice",
+            description: "A Smithsonian-produced VR travelogue through Venice's canals and architecture.",
+            image: "covers/meta-quest/smithsonian-journeys-venice.jpg",
+            url: "https://www.google.com/search?q=Smithsonian+Journeys:+Venice+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-baalbek-reborn-temples",
+            name: "Baalbek Reborn: Temples",
+            description: "A digital reconstruction of the ancient Roman temple complex at Baalbek, Lebanon, in VR.",
+            image: "covers/meta-quest/baalbek-reborn-temples.jpg",
+            url: "https://www.google.com/search?q=Baalbek+Reborn:+Temples+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-oika",
+            name: "Oika",
+            description: "A calm VR relaxation space built around a campfire scene.",
+            image: "covers/meta-quest/oika.jpg",
+            url: "https://www.google.com/search?q=Oika+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-get-lost-in-nature-with-luke",
+            name: "Get Lost In Nature With Luke",
+            description: "A guided VR nature-walk relaxation experience.",
+            image: "covers/meta-quest/get-lost-in-nature-with-luke.jpg",
+            url: "https://www.google.com/search?q=Get+Lost+In+Nature+With+Luke+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Exploration & Travel"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Documentaries & Stories ---
+        {
+            id: "curated-metaquest-1943-berlin-blitz",
+            name: "1943 Berlin Blitz",
+            description: "A BBC-produced VR documentary putting the viewer inside a WWII bombing raid over Berlin.",
+            image: "covers/meta-quest/1943-berlin-blitz.jpg",
+            url: "https://www.google.com/search?q=1943+Berlin+Blitz+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-easter-rising-voice-of-a-rebel",
+            name: "Easter Rising: Voice of a Rebel",
+            description: "A BBC VR docudrama following a fictionalized participant through Dublin's 1916 Easter Rising.",
+            image: "covers/meta-quest/easter-rising-voice-of-a-rebel.jpg",
+            url: "https://www.google.com/search?q=Easter+Rising:+Voice+of+a+Rebel+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-the-peoples-house",
+            name: "The People's House",
+            description: "An official VR tour of the White House with Barack and Michelle Obama.",
+            image: "covers/meta-quest/the-peoples-house.jpg",
+            url: "https://www.google.com/search?q=The+People's+House+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-rapid-fire-a-brief-history-of-flight",
+            name: "Rapid Fire: a brief history of flight",
+            description: "A VR documentary short covering the history of powered flight.",
+            image: "covers/meta-quest/rapid-fire-a-brief-history-of-flight.jpg",
+            url: "https://www.google.com/search?q=Rapid+Fire:+a+brief+history+of+flight+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-home-after-war",
+            name: "Home After War",
+            description: "An Emmy-nominated VR documentary following people rebuilding their lives after conflict.",
+            image: "covers/meta-quest/home-after-war.jpg",
+            url: "https://www.google.com/search?q=Home+After+War+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-traveling-while-black",
+            name: "Traveling While Black",
+            description: "An Emmy-nominated VR documentary on the Black American travel experience, centered on Washington D.C.'s Ben's Chili Bowl.",
+            image: "covers/meta-quest/traveling-while-black.jpg",
+            url: "https://www.google.com/search?q=Traveling+While+Black+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-the-book-of-distance",
+            name: "The Book of Distance",
+            description: "A VR documentary retelling the director's grandfather's immigration story through personal documents.",
+            image: "covers/meta-quest/the-book-of-distance.jpg",
+            url: "https://www.google.com/search?q=The+Book+of+Distance+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-henry",
+            name: "Henry",
+            description: "Oculus Story Studio's Emmy-winning animated VR short about a lonely hedgehog on his birthday.",
+            image: "covers/meta-quest/henry.jpg",
+            url: "https://www.google.com/search?q=Henry+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-invasion",
+            name: "INVASION!",
+            description: "Oculus Story Studio's Emmy-winning animated VR short about two rabbits encountering alien visitors.",
+            image: "covers/meta-quest/invasion.jpg",
+            url: "https://www.google.com/search?q=INVASION!+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-the-last-goodbye",
+            name: "The Last Goodbye",
+            description: "A VR documentary following a Holocaust survivor's return to the Majdanek concentration camp.",
+            image: "covers/meta-quest/the-last-goodbye.jpg",
+            url: "https://www.google.com/search?q=The+Last+Goodbye+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-lost",
+            name: "Lost",
+            description: "Oculus Story Studio's animated VR short about a lost robot searching a forest for its way home.",
+            image: "covers/meta-quest/lost.jpg",
+            url: "https://www.google.com/search?q=Lost+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-jurassic-world-blue",
+            name: "Jurassic World: Blue",
+            description: "An official Jurassic World VR experience, accompanying a raptor through Isla Nublar.",
+            image: "covers/meta-quest/jurassic-world-blue.jpg",
+            url: "https://www.google.com/search?q=Jurassic+World:+Blue+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-shelter-in-place",
+            name: "Shelter in Place",
+            description: "A narrative VR experience.",
+            image: "covers/meta-quest/shelter-in-place.jpg",
+            url: "https://www.google.com/search?q=Shelter+in+Place+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-experience-colorblindness",
+            name: "eXPerience: Colorblindness",
+            description: "A VR experience simulating color vision deficiency to build awareness of what colorblindness looks like.",
+            image: "covers/meta-quest/experience-colorblindness.jpg",
+            url: "https://www.google.com/search?q=eXPerience:+Colorblindness+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-introduction-to-virtual-reality",
+            name: "Introduction to Virtual Reality",
+            description: "A short onboarding VR experience introducing newcomers to what VR can do.",
+            image: "covers/meta-quest/introduction-to-virtual-reality.jpg",
+            url: "https://www.google.com/search?q=Introduction+to+Virtual+Reality+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Social & Multiplayer Worlds ---
+        {
+            id: "curated-metaquest-vrchat",
+            name: "VRChat",
+            description: "A free-to-play social VR platform with user-created worlds and avatars, cross-platform with its Steam release.",
+            image: "covers/meta-quest/vrchat.jpg",
+            url: "https://www.google.com/search?q=VRChat+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Social & Multiplayer Worlds"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-rec-room",
+            name: "Rec Room",
+            description: "A free-to-play social VR platform with user-made games and hangout spaces, cross-platform with its Steam release.",
+            image: "covers/meta-quest/rec-room.jpg",
+            url: "https://www.google.com/search?q=Rec+Room+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Social & Multiplayer Worlds"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-bigscreen-beta",
+            name: "Bigscreen Beta",
+            description: "A social VR app for watching movies, streaming desktops, and hanging out together in shared virtual rooms.",
+            image: "covers/meta-quest/bigscreen-beta.jpg",
+            url: "https://www.google.com/search?q=Bigscreen+Beta+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Social & Multiplayer Worlds"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-contraverse-expo",
+            name: "Contraverse Expo",
+            description: "A social VR expo space for browsing and demoing other VR titles.",
+            image: "covers/meta-quest/contraverse-expo.jpg",
+            url: "https://www.google.com/search?q=Contraverse+Expo+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Social & Multiplayer Worlds"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Creativity & Tools ---
+        {
+            id: "curated-metaquest-open-brush",
+            name: "Open Brush",
+            description: "A free, open-source VR painting and 3D-sketching tool, the community-maintained successor to Google's Tilt Brush.",
+            image: "covers/meta-quest/open-brush.jpg",
+            url: "https://www.google.com/search?q=Open+Brush+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-gravity-sketch",
+            name: "Gravity Sketch",
+            description: "A free VR 3D design and modeling tool used for industrial design and collaborative sketching.",
+            image: "covers/meta-quest/gravity-sketch.jpg",
+            url: "https://www.google.com/search?q=Gravity+Sketch+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-quill-by-smoothstep",
+            name: "Quill by Smoothstep",
+            description: "A VR illustration and animation tool for painting and animating in 3D space.",
+            image: "covers/meta-quest/quill-by-smoothstep.jpg",
+            url: "https://www.google.com/search?q=Quill+by+Smoothstep+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-embodyme",
+            name: "EmbodyMe",
+            description: "A VR face-tracking avatar app.",
+            image: "covers/meta-quest/embodyme.jpg",
+            url: "https://www.google.com/search?q=EmbodyMe+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-wrench-engine-building-demo",
+            name: "Wrench: Engine Building Demo",
+            description: "A free demo of Wrench, a VR engine-building and mechanic simulator.",
+            image: "covers/meta-quest/wrench-engine-building-demo.jpg",
+            url: "https://www.google.com/search?q=Wrench:+Engine+Building+Demo+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-tribe-xr-dj-academy",
+            name: "Tribe XR | DJ Academy",
+            description: "A VR DJ-training app that teaches real DJ techniques on a simulated set of decks.",
+            image: "covers/meta-quest/tribe-xr-dj-academy.jpg",
+            url: "https://www.google.com/search?q=Tribe+XR+|+DJ+Academy+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Creativity & Tools"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Media Players & Utilities ---
+        {
+            id: "curated-metaquest-deovr-rift",
+            name: "DeoVR Rift",
+            description: "A VR video player built for 180 degree/360 degree and VR-format video content.",
+            image: "covers/meta-quest/deovr-rift.jpg",
+            url: "https://www.google.com/search?q=DeoVR+Rift+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-playa-video-player",
+            name: "PLAY'A Video Player",
+            description: "A general-purpose VR video player.",
+            image: "covers/meta-quest/playa-video-player.jpg",
+            url: "https://www.google.com/search?q=PLAY'A+Video+Player+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-viveport-video",
+            name: "Viveport Video",
+            description: "HTC Viveport's VR video player app.",
+            image: "covers/meta-quest/viveport-video.jpg",
+            url: "https://www.google.com/search?q=Viveport+Video+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-steamvr",
+            name: "SteamVR",
+            description: "Valve's SteamVR runtime/companion app, used to run SteamVR-compatible PC VR titles from a Quest headset.",
+            image: "covers/meta-quest/steamvr.jpg",
+            url: "https://www.google.com/search?q=SteamVR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-blackbox",
+            name: "Blackbox",
+            description: "A minimalist puzzle-box VR app.",
+            image: "covers/meta-quest/blackbox.jpg",
+            url: "https://www.google.com/search?q=Blackbox+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-inlight-spark",
+            name: "Inlight Spark",
+            description: "A VR relaxation/ambient app set on the open water.",
+            image: "covers/meta-quest/inlight-spark.jpg",
+            url: "https://www.google.com/search?q=Inlight+Spark+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Media Players & Utilities"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Puzzle, Board & Card Games ---
+        {
+            id: "curated-metaquest-magic-table-chess",
+            name: "Magic Table Chess",
+            description: "A VR chess app set at a virtual table, playable solo or against others.",
+            image: "covers/meta-quest/magic-table-chess.jpg",
+            url: "https://www.google.com/search?q=Magic+Table+Chess+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Puzzle, Board & Card Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-pokerstars-vegas-infinite",
+            name: "PokerStars - Vegas Infinite",
+            description: "PokerStars' free-to-play VR casino, with poker, slots, blackjack, roulette, and craps.",
+            image: "covers/meta-quest/pokerstars-vegas-infinite.jpg",
+            url: "https://www.google.com/search?q=PokerStars+-+Vegas+Infinite+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Puzzle, Board & Card Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-poker-vr",
+            name: "Poker VR",
+            description: "A free VR poker app with customizable player avatars.",
+            image: "covers/meta-quest/poker-vr.jpg",
+            url: "https://www.google.com/search?q=Poker+VR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Puzzle, Board & Card Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-arthur-owls-word-block",
+            name: "Arthur Owl's Word Block",
+            description: "A VR word-puzzle game.",
+            image: "covers/meta-quest/arthur-owls-word-block.jpg",
+            url: "https://www.google.com/search?q=Arthur+Owl's+Word+Block+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Puzzle, Board & Card Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-dillyminesweeper",
+            name: "DillyMineSweeper",
+            description: "A VR take on the classic Minesweeper puzzle.",
+            image: "covers/meta-quest/dillyminesweeper.jpg",
+            url: "https://www.google.com/search?q=DillyMineSweeper+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Puzzle, Board & Card Games"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Fitness & Wellness ---
+        {
+            id: "curated-metaquest-tripp",
+            name: "TRIPP",
+            description: "A VR meditation and mindfulness app with guided sessions and generative visuals.",
+            image: "covers/meta-quest/tripp.jpg",
+            url: "https://www.google.com/search?q=TRIPP+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Fitness & Wellness"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-punch-fit",
+            name: "PUNCH FIT",
+            description: "A VR boxing-style fitness workout app.",
+            image: "covers/meta-quest/punch-fit.jpg",
+            url: "https://www.google.com/search?q=PUNCH+FIT+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Fitness & Wellness"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-free-my-sight",
+            name: "FREE MY SIGHT",
+            description: "A VR eye-relaxation/vision-exercise app.",
+            image: "covers/meta-quest/free-my-sight.jpg",
+            url: "https://www.google.com/search?q=FREE+MY+SIGHT+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Fitness & Wellness"],
+            vr: "native"
+        },
+
+        // --- Meta Quest: Action & Arcade Games ---
+        {
+            id: "curated-metaquest-hyper-dash",
+            name: "Hyper Dash",
+            description: "A free-to-play VR arena shooter.",
+            image: "covers/meta-quest/hyper-dash.jpg",
+            url: "https://www.google.com/search?q=Hyper+Dash+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-zenith-nexus",
+            name: "Zenith: Nexus",
+            description: "An MMO-style VR action-RPG.",
+            image: "covers/meta-quest/zenith-nexus.jpg",
+            url: "https://www.google.com/search?q=Zenith:+Nexus+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-downshot",
+            name: "DOWNSHOT",
+            description: "A VR arcade shooter.",
+            image: "covers/meta-quest/downshot.jpg",
+            url: "https://www.google.com/search?q=DOWNSHOT+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-vroom-kaboom",
+            name: "VROOM KABOOM",
+            description: "A VR vehicle-combat arcade game.",
+            image: "covers/meta-quest/vroom-kaboom.jpg",
+            url: "https://www.google.com/search?q=VROOM+KABOOM+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-base-blitz",
+            name: "Base Blitz",
+            description: "A VR tower-defense/base-combat arcade game.",
+            image: "covers/meta-quest/base-blitz.jpg",
+            url: "https://www.google.com/search?q=Base+Blitz+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-starfighter-arduxim-multiplayer",
+            name: "Starfighter Arduxim Multiplayer",
+            description: "A multiplayer VR space-combat game.",
+            image: "covers/meta-quest/starfighter-arduxim-multiplayer.jpg",
+            url: "https://www.google.com/search?q=Starfighter+Arduxim+Multiplayer+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-asteroid-shooter",
+            name: "Asteroid Shooter",
+            description: "A VR arcade shooter set in an asteroid field.",
+            image: "covers/meta-quest/asteroid-shooter.jpg",
+            url: "https://www.google.com/search?q=Asteroid+Shooter+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-pro-fishing-challenge-vr",
+            name: "Pro Fishing Challenge VR",
+            description: "A VR fishing simulator.",
+            image: "covers/meta-quest/pro-fishing-challenge-vr.jpg",
+            url: "https://www.google.com/search?q=Pro+Fishing+Challenge+VR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-rc-playground",
+            name: "RC Playground",
+            description: "A VR remote-control vehicle sandbox.",
+            image: "covers/meta-quest/rc-playground.jpg",
+            url: "https://www.google.com/search?q=RC+Playground+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-mini-golf-hustler",
+            name: "Mini Golf Hustler",
+            description: "A VR mini-golf game.",
+            image: "covers/meta-quest/mini-golf-hustler.jpg",
+            url: "https://www.google.com/search?q=Mini+Golf+Hustler+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-harvest-vr",
+            name: "Harvest VR",
+            description: "A VR farming game.",
+            image: "covers/meta-quest/harvest-vr.jpg",
+            url: "https://www.google.com/search?q=Harvest+VR+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-glyph",
+            name: "Glyph",
+            description: "A VR puzzle-platformer built around rolling a ball through ancient ruins.",
+            image: "covers/meta-quest/glyph.jpg",
+            url: "https://www.google.com/search?q=Glyph+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-complex",
+            name: "COMPLEX",
+            description: "A VR arcade puzzle game.",
+            image: "covers/meta-quest/complex.jpg",
+            url: "https://www.google.com/search?q=COMPLEX+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-corpus-misty",
+            name: "Corpus Misty",
+            description: "A VR experience/game.",
+            image: "covers/meta-quest/corpus-misty.jpg",
+            url: "https://www.google.com/search?q=Corpus+Misty+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-butts-the-vr-experience",
+            name: "\\\"BUTTS\\\": The VR Experience",
+            description: "A comedic multiplayer VR party game.",
+            image: "covers/meta-quest/butts-the-vr-experience.jpg",
+            url: "https://www.google.com/search?q=\\\\\\\"BUTTS\\\\\\\":+The+VR+Experience+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-heart-of-the-emberstone-coliseum",
+            name: "Heart of the Emberstone: Coliseum",
+            description: "A VR coliseum-combat game, part of the Heart of the Emberstone series.",
+            image: "covers/meta-quest/heart-of-the-emberstone-coliseum.jpg",
+            url: "https://www.google.com/search?q=Heart+of+the+Emberstone:+Coliseum+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-epic-roller-coasters",
+            name: "Epic Roller Coasters",
+            description: "A free VR roller-coaster simulator with multiple rides.",
+            image: "covers/meta-quest/epic-roller-coasters.jpg",
+            url: "https://www.google.com/search?q=Epic+Roller+Coasters+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-toy-with-funi",
+            name: "Toy with Funi",
+            description: "A cute, casual VR toy-box style app.",
+            image: "covers/meta-quest/toy-with-funi.jpg",
+            url: "https://www.google.com/search?q=Toy+with+Funi+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
         }
     ].map((entry) => ({
         ...entry,
@@ -690,7 +1444,7 @@ function normalizeGameName(name) {
 // Apex Legends and Rainbow Six Siege really are also legitimately
 // findable live on Steam, so those DO need the dedup check.)
 const CURATED_ONLY_PLATFORMS = new Set([
-    "Battle.net", "Riot Games", "Wargaming.net", "Gaijin.net", "Grinding Gear Games"
+    "Battle.net", "Riot Games", "Wargaming.net", "Gaijin.net", "Grinding Gear Games", "Meta Quest"
 ]);
 
 function dedupeCuratedAgainstLive(curatedGames, liveGames) {

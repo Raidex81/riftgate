@@ -4968,7 +4968,8 @@ const PLATFORM_LABELS = {
     "Ubisoft Connect": "UBISOFT CONNECT",
     "Wargaming.net": "WARGAMING.NET",
     "Gaijin.net": "GAIJIN.NET",
-    "Grinding Gear Games": "GRINDING GEAR GAMES"
+    "Grinding Gear Games": "GRINDING GEAR GAMES",
+    "Meta Quest": "META QUEST"
 };
 
 const PLATFORM_ICONS = {
@@ -4984,7 +4985,8 @@ const PLATFORM_ICONS = {
     "Ubisoft Connect": "🐇",
     "Wargaming.net": "🚀",
     "Gaijin.net": "✈️",
-    "Grinding Gear Games": "💀"
+    "Grinding Gear Games": "💀",
+    "Meta Quest": "🥽"
 };
 
 // Platforms whose row is shown as a small "preview" (capped, no arrows,
@@ -5481,7 +5483,7 @@ function renderFreeGames() {
     // to go through Newly Added.
     const CURATED_ONLY_PLATFORMS = new Set([
         "Battle.net", "EA", "Riot Games", "Ubisoft Connect",
-        "Wargaming.net", "Gaijin.net", "Grinding Gear Games"
+        "Wargaming.net", "Gaijin.net", "Grinding Gear Games", "Meta Quest"
     ]);
     const isCuratedPlatform = (g) => g.alwaysFree || CURATED_ONLY_PLATFORMS.has(g.source);
     const newlyAdded = sortFreeGames(filtered.filter((g) => !isCuratedPlatform(g) && (g.firstSeenAt || 0) > oneWeekAgo), "newest");
