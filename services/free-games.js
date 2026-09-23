@@ -449,6 +449,26 @@ function getCuratedAlwaysFreeGames() {
             releaseDate: "2019",
             tags: ["Strategy"]
         },
+        {
+            id: "curated-riot-legends-of-runeterra",
+            name: "Legends of Runeterra",
+            description: "Riot's free-to-play collectible card game set in the League of Legends universe, pitting champions and regions of Runeterra against each other in fast, strategic duels.",
+            image: "https://playruneterra.com/assets/ccc9b55ec5fec88d1a616e7dec4795282a3aba52/static/image/share-image.jpg",
+            url: "https://playruneterra.com/en-us/",
+            source: "Riot Games",
+            releaseDate: "2020",
+            tags: ["Card Game"]
+        },
+        {
+            id: "curated-riot-2xko",
+            name: "2XKO",
+            description: "Riot's free-to-play 2v2 tag-team fighting game starring League of Legends champions, built around accessible combos and cross-platform online play.",
+            image: "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/0d8da14d9cc0c69376e8fb42cc6344276bf937ad-1200x600.jpg?accountingTag=2XKO?w=1200&h=630&fm=webp&fit=crop&crop=center",
+            url: "https://2xko.riotgames.com/en-us/",
+            source: "Riot Games",
+            releaseDate: "2026",
+            tags: ["Fighting"]
+        },
 
         // Ubisoft Connect — pulled straight from Ubisoft's own live
         // "Free to Play" page (ubisoft.com/en-us/games/free); titles,
@@ -614,6 +634,16 @@ function getCuratedAlwaysFreeGames() {
             releaseDate: "2013",
             tags: ["MMO"]
         },
+        {
+            id: "curated-wargaming-world-of-tanks-blitz",
+            name: "World of Tanks Blitz",
+            description: "The free-to-play, cross-platform companion to World of Tanks, built for shorter 7-vs-7 matches on PC, mobile, and consoles.",
+            image: "https://wargaming.com/media/uploads/games/wotb/wotb_1920_1080.jpg",
+            url: "https://wotblitz.com/",
+            source: "Wargaming.net",
+            releaseDate: "2014",
+            tags: ["MMO"]
+        },
 
         // Gaijin.net — Gaijin Entertainment's own launcher for its
         // permanently free-to-play combined-arms MMO.
@@ -626,6 +656,26 @@ function getCuratedAlwaysFreeGames() {
             source: "Gaijin.net",
             releaseDate: "2012",
             tags: ["MMO"]
+        },
+        {
+            id: "curated-gaijin-enlisted",
+            name: "Enlisted",
+            description: "Gaijin's free-to-play squad-based WWII shooter, commanding AI soldiers alongside other players across historic battlefronts.",
+            image: "https://enlisted.net/i/enl-opengraph.jpg",
+            url: "https://enlisted.net/en/",
+            source: "Gaijin.net",
+            releaseDate: "2021",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-gaijin-crossout",
+            name: "Crossout",
+            description: "Gaijin's free-to-play vehicular combat MMO — build armed, armored vehicles from scavenged parts and battle other players in a post-apocalyptic wasteland.",
+            image: "https://patchnotes.cdn.gaijin.net/crossout/Images/main-kv.jpg",
+            url: "https://crossout.net/en/",
+            source: "Gaijin.net",
+            releaseDate: "2017",
+            tags: ["Action"]
         },
 
         // Grinding Gear Games — Path of Exile is free-to-play with no
