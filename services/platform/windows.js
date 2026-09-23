@@ -419,7 +419,7 @@ function startInstallWatcher(getGamesFilePath, onDetected) {
                 scanForNewShortcuts(startTime, getGamesFilePath(), onDetected);
             }
         }
-    }, 5000);
+    }, 3600000); // once an hour — was every 5s, way more often than a "new install" check needs
 }
 
 // Many Electron-based apps (Discord, Slack, VS Code, and others) use a

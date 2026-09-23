@@ -332,7 +332,7 @@ function startInstallWatcher(getGamesFilePath, onDetected) {
             console.log(`[installer-detect] Found ${candidates.length} new app(s) in /Applications.`);
             onDetected(candidates);
         }
-    }, 10000);
+    }, 3600000); // once an hour — matches windows.js; a "new install" check doesn't need to be near-instant
 }
 
 // Mac apps update in place inside the same .app bundle rather than the
