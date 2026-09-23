@@ -990,6 +990,18 @@ function startLocalServer() {
             if (urlPath.startsWith("/covers/")) {
                 root = COVERS_FOLDER;
                 relativePath = urlPath.replace("/covers/", "");
+
+                // Runtime-downloaded covers (Steam/Epic/etc., fetched on
+                // demand) live here, in the writable AppData folder. But
+                // some entries ship their cover art bundled with the app
+                // itself instead — e.g. the locally-cropped Meta Quest
+                // covers, which have no live source to download from at
+                // runtime — and those live read-only under the app's own
+                // covers/ folder, never copied into AppData. Fall back to
+                // that bundled copy whenever AppData doesn't have the file.
+                if (!fs.existsSync(path.resolve(path.join(root, relativePath)))) {
+                    root = path.join(__dirname, "covers");
+                }
             } else {
                 root = __dirname;
                 relativePath = urlPath;
