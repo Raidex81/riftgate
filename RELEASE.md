@@ -118,17 +118,48 @@ GitHub Release matching whatever version is in `package.json` right
 now. It can take a few minutes — it's building and uploading the whole
 installer.
 
+## 5b. Build and publish the macOS release
+
+Riftgate has no Mac build hardware, so the Mac installer is built by
+GitHub Actions instead of on anyone's own machine. Do this after step 5
+above (or before — order doesn't matter, they publish to the same
+release):
+
+1. Go to https://github.com/Raidex81/Riftgate/actions/workflows/release-mac.yml
+2. Click **Run workflow** → **Run workflow** (defaults to the `main`
+   branch, which is what you want).
+3. Wait for it to finish (a few minutes — it's building a real dmg/zip
+   on an actual macOS runner). It publishes straight into the same
+   GitHub Release `npm run release` created for the current
+   `package.json` version.
+
+No token setup needed for this one — it uses the token GitHub Actions
+provides automatically. This produces an **unsigned** Mac build (same
+situation as the unsigned Windows installer today): first launch on a
+Mac needs a right-click → Open instead of a plain double-click, until
+Alfredo has an Apple Developer account and code signing is set up. Once
+that happens, the certificate/notarization secrets it needs are
+documented right in `.github/workflows/release-mac.yml`.
+
+There's also a `Build Check` workflow that runs automatically on every
+push — it builds both Windows and Mac from the same commit (without
+publishing anything) so a change that breaks the Mac build gets caught
+right away instead of only being noticed at release time. Check
+https://github.com/Raidex81/Riftgate/actions if you want to see its
+results for the commit you just pushed.
+
 ## 6. Verify
 
 Check https://github.com/Raidex81/Riftgate/releases and confirm the new
-version's release exists with the `.exe` attached.
+version's release exists with the `.exe` attached (and the `.dmg`/`.zip`
+too, once 5b has run).
 
 ## 7. Get the update onto a running install
 
 - Already have Riftgate installed? Just leave it running (it checks for
   updates automatically) or reopen it — it'll prompt you to update.
-- Testing a totally fresh install instead? Download the `.exe` from the
-  Releases page above.
+- Testing a totally fresh install instead? Download the `.exe` (or, on
+  a Mac, the `.dmg`) from the Releases page above.
 
 ---
 

@@ -1,0 +1,43 @@
+name: Build Check
+
+# Builds Riftgate on both Windows and macOS from the same commit,
+# without publishing anything. This is a safety net for the shared
+# codebase / services/platform split: if a change to shared code (or
+# to main.js's platform-abstraction wiring) breaks the Mac build, this
+# catches it on every push instead of only when someone gets around to
+# testing on a real Mac. The repo is public, so macOS runner minutes
+# are free — no cost to running this on every push/PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Build (packaged, not published)
+        run: npx electron-builder --publish never
+        env:
+          # Never try to auto-discover/use a local signing identity in CI.
+          # Harmless either way right now since no cert secrets exist yet
+          # (see release-mac.yml for where those will go once Alfredo has
+          # an Apple Developer account) — this just keeps the Mac build
+          # from stalling on a signing prompt that can never be answered
+          # in a headless runner.
+          CSC_IDENTITY_AUTO_DISCOVERY: false

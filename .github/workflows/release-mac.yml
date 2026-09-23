@@ -1,0 +1,46 @@
+name: Publish macOS Release
+
+# Manually triggered: run this from the Actions tab (or `gh workflow run
+# "Publish macOS Release"`) after bumping package.json's version and
+# publishing the Windows build the usual way (npm run release, from
+# Alfredo's own machine — see RELEASE.md). This job builds the Mac
+# dmg/zip for that same version and uploads them into the matching
+# GitHub Release, so one release ends up with both platforms' installers
+# attached, whichever order the two builds happen in.
+#
+# Requires no secrets today beyond the token GitHub provides
+# automatically. See RELEASE.md for what gets added here once Alfredo
+# has an Apple Developer account and the app can actually be signed and
+# notarized — until then this produces an unsigned build, same as the
+# unsigned Windows installer already does.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Build and publish macOS artifacts
+        run: npx electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Once Alfredo has an Apple Developer account, add these repo
+          # secrets (Settings → Secrets and variables → Actions) and
+          # uncomment:
+          #
+          # CSC_LINK: ${{ secrets.MAC_CSC_LINK }}                       # base64-encoded .p12 certificate
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}       # that .p12's password
+          # APPLE_ID: ${{ secrets.APPLE_ID }}                           # Apple ID email, for notarization
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
