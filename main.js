@@ -1712,6 +1712,19 @@ const STEAM_GENRE_TAGS = [
     "Strategy", "Action", "Adventure", "RPG"
 ];
 
+// SteamSpy's community tagging also covers VR directly ("VR Only" and the
+// broader "VR" tag), which lets VR status be filled in for EVERY free
+// Steam game right away, from this same bulk tag fetch -- instead of only
+// ever learning it from checkSteamAppAvailability's per-appid appdetails
+// check, which is capped at MAX_STEAM_CHECKS_PER_REFRESH per refresh (see
+// its own comment above). On a free-to-play list running into the
+// thousands, that cap meant a newly-free VR title could sit with
+// vr: null -- and so be invisible to the VR row/filter entirely -- for
+// days or weeks until its individual turn came up. This tag-based guess
+// is only ever a stand-in: the real appdetails category (vrCache, once
+// populated) always takes priority over it below.
+const STEAM_VR_TAGS = ["VR Only", "VR"];
+
 // How long a Steam appid's "still available" verification is trusted
 // before fetchSteamFreeGames bothers re-checking it — see the availability
 // section below for why this exists (keeping the per-refresh check list
@@ -1807,17 +1820,28 @@ async function fetchSteamFreeGames(forceFullCheck) {
 
         const freeIds = new Set(stillListed.map((item) => String(item.appid)));
         const genreMap = {};
+        const vrTagMap = {};
 
-        // Best-effort genre categorization — allSettled means one slow or
-        // failing genre tag can never take down the others or the actual
-        // game list, it just leaves those specific games as "Other".
+        // Best-effort genre + VR categorization — allSettled means one slow
+        // or failing tag can only ever cost that one tag's labels, never
+        // the actual game list (a genre tag failing leaves those games as
+        // "Other"; a VR tag failing just leaves vr guessed as null until
+        // real verification catches up).
         try {
-            const genreResults = await Promise.allSettled(
-                STEAM_GENRE_TAGS.map((tag) =>
-                    httpsGetJsonPlain(`https://steamspy.com/api.php?request=tag&tag=${encodeURIComponent(tag)}`, 6000)
-                        .then((genreData) => ({ tag, genreData }))
+            const [genreResults, vrTagResults] = await Promise.all([
+                Promise.allSettled(
+                    STEAM_GENRE_TAGS.map((tag) =>
+                        httpsGetJsonPlain(`https://steamspy.com/api.php?request=tag&tag=${encodeURIComponent(tag)}`, 6000)
+                            .then((genreData) => ({ tag, genreData }))
+                    )
+                ),
+                Promise.allSettled(
+                    STEAM_VR_TAGS.map((tag) =>
+                        httpsGetJsonPlain(`https://steamspy.com/api.php?request=tag&tag=${encodeURIComponent(tag)}`, 6000)
+                            .then((vrData) => ({ tag, vrData }))
+                    )
                 )
-            );
+            ]);
 
             genreResults.forEach((result) => {
                 if (result.status !== "fulfilled") return;
@@ -1829,8 +1853,26 @@ async function fetchSteamFreeGames(forceFullCheck) {
                     }
                 });
             });
+
+            // STEAM_VR_TAGS is processed in order ("VR Only" before "VR"),
+            // so a title tagged both ways always ends up "native" — the
+            // more specific claim wins, matching categorizeSteamVrSupport's
+            // own "VR Only" > "VR Supported" priority for the real
+            // appdetails data this is standing in for.
+            vrTagResults.forEach((result) => {
+                if (result.status !== "fulfilled") return;
+                const { tag, vrData } = result.value;
+                const guessed = tag === "VR Only" ? "native" : "adapted";
+                Object.values(vrData || {}).forEach((item) => {
+                    const idStr = String(item.appid);
+                    if (!freeIds.has(idStr)) return;
+                    if (guessed === "native" || !vrTagMap[idStr]) {
+                        vrTagMap[idStr] = guessed;
+                    }
+                });
+            });
         } catch (err) {
-            console.error("[free-games] Steam genre lookup failed entirely:", err.message || err);
+            console.error("[free-games] Steam genre/VR-tag lookup failed entirely:", err.message || err);
         }
 
         // Verify each remaining game is still actually available on the
@@ -1898,7 +1940,11 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 url: `https://store.steampowered.com/app/${item.appid}`,
                 source: "Steam",
                 tags: [genreMap[String(item.appid)] || "Other"],
-                vr: null,
+                // No appdetails check has run yet on this first-run path —
+                // SteamSpy's own VR/"VR Only" community tags (see
+                // STEAM_VR_TAGS above) stand in as a best guess until a
+                // later refresh's real verification confirms it.
+                vr: vrTagMap[String(item.appid)] || null,
                 releaseDate: null,
                 // Steam's live search (this first-run-only path) doesn't
                 // return review counts the way the normal SteamSpy tag path
@@ -2051,8 +2097,11 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 // result above — a game not due for re-verification this
                 // refresh still keeps whatever VR status/release date was
                 // learned the last time it WAS checked, instead of
-                // resetting to "unknown" every run.
-                vr: steam.getSteamVr(vrCache[String(item.appid)]),
+                // resetting to "unknown" every run. A game that has NEVER
+                // been individually verified at all falls back to the
+                // SteamSpy tag-based guess (vrTagMap) instead of sitting on
+                // null indefinitely -- see STEAM_VR_TAGS above for why.
+                vr: steam.getSteamVr(vrCache[String(item.appid)]) || vrTagMap[String(item.appid)] || null,
                 releaseDate: steam.getSteamReleaseDate(vrCache[String(item.appid)]),
                 // SteamSpy's tag response already carries each game's
                 // positive/negative review counts — no extra request needed.
