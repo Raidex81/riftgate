@@ -797,7 +797,7 @@ function getCuratedAlwaysFreeGames() {
             id: "curated-metaquest-get-lost-in-nature-with-luke",
             name: "Get Lost In Nature With Luke",
             description: "A guided VR nature-walk relaxation experience.",
-            image: "covers/meta-quest/get-lost-in-nature-with-luke.jpg",
+            image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1601810/capsule_616x353.jpg",
             url: "https://www.google.com/search?q=Get+Lost+In+Nature+With+Luke+site%3Ameta.com",
             source: "Meta Quest",
             releaseDate: null,
@@ -832,7 +832,7 @@ function getCuratedAlwaysFreeGames() {
             id: "curated-metaquest-the-peoples-house",
             name: "The People's House",
             description: "An official VR tour of the White House with Barack and Michelle Obama.",
-            image: "covers/meta-quest/the-peoples-house.jpg",
+            image: "https://scontent.oculuscdn.com/t64.5771-25/12727894_863198817155340_2964746693850955776_n.png/the_peoples_house.png",
             url: "https://www.google.com/search?q=The+People's+House+site%3Ameta.com",
             source: "Meta Quest",
             releaseDate: null,
@@ -964,8 +964,19 @@ function getCuratedAlwaysFreeGames() {
             id: "curated-metaquest-introduction-to-virtual-reality",
             name: "Introduction to Virtual Reality",
             description: "A short onboarding VR experience introducing newcomers to what VR can do.",
-            image: "covers/meta-quest/introduction-to-virtual-reality.jpg",
+            image: "https://img.youtube.com/vi/MAqFQwvsce8/maxresdefault.jpg",
             url: "https://www.google.com/search?q=Introduction+to+Virtual+Reality+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Documentaries & Stories"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-the-under-presents",
+            name: "The Under Presents",
+            description: "An interactive VR theater experience from Tender Claws — step into a surreal traveling show with live, real-time storytelling alongside other players.",
+            image: "covers/meta-quest/the-under-presents.jpg",
+            url: "https://www.google.com/search?q=The+Under+Presents+site%3Ameta.com",
             source: "Meta Quest",
             releaseDate: null,
             tags: ["Documentaries & Stories"],
@@ -1023,7 +1034,7 @@ function getCuratedAlwaysFreeGames() {
             id: "curated-metaquest-open-brush",
             name: "Open Brush",
             description: "A free, open-source VR painting and 3D-sketching tool, the community-maintained successor to Google's Tilt Brush.",
-            image: "covers/meta-quest/open-brush.jpg",
+            image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1634870/capsule_616x353.jpg",
             url: "https://www.google.com/search?q=Open+Brush+site%3Ameta.com",
             source: "Meta Quest",
             releaseDate: null,
@@ -1245,6 +1256,17 @@ function getCuratedAlwaysFreeGames() {
             tags: ["Fitness & Wellness"],
             vr: "native"
         },
+        {
+            id: "curated-metaquest-zen-garden",
+            name: "Zen Garden",
+            description: "A calming VR meditation space — tend a tranquil garden and unwind at your own pace.",
+            image: "covers/meta-quest/zen-garden.jpg",
+            url: "https://www.google.com/search?q=Zen+Garden+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Fitness & Wellness"],
+            vr: "native"
+        },
 
         // --- Meta Quest: Action & Arcade Games ---
         {
@@ -1440,6 +1462,17 @@ function getCuratedAlwaysFreeGames() {
             description: "A cute, casual VR toy-box style app.",
             image: "covers/meta-quest/toy-with-funi.jpg",
             url: "https://www.google.com/search?q=Toy+with+Funi+site%3Ameta.com",
+            source: "Meta Quest",
+            releaseDate: null,
+            tags: ["Action & Arcade Games"],
+            vr: "native"
+        },
+        {
+            id: "curated-metaquest-brass-tactics-arena",
+            name: "Brass Tactics: Arena",
+            description: "The free multiplayer arena mode from Brass Tactics — a real-time tabletop tactics battle against other players.",
+            image: "covers/meta-quest/brass-tactics-arena.jpg",
+            url: "https://www.google.com/search?q=Brass+Tactics+Arena+site%3Ameta.com",
             source: "Meta Quest",
             releaseDate: null,
             tags: ["Action & Arcade Games"],
