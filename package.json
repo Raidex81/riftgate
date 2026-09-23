@@ -37,6 +37,7 @@
       "!.gitignore",
       "!README.md",
       "!ARCHITECTURE.md",
+      "!MAC_TESTING.md",
       "!screenshots{,/**/*}",
       "!build-installer.bat"
     ],

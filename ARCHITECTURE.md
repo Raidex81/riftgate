@@ -22,7 +22,7 @@ suggestions).
 │    window/app lifecycle,    steam.js      tvmaze.js         │
 │    ~163 ipcMain handlers,   books.js      github.js         │
 │    IPC validation, CSP,     content-filters.js              │
-│    local HTTP server)                                       │
+│    local HTTP server)       platform/ (windows.js, mac.js)  │
 │                                                               │
 │   Serves the UI over http://127.0.0.1:<random port>/         │
 └───────────────────────────┬───────────────────────────────────┘
@@ -71,6 +71,16 @@ everywhere so a stale cached response never masks a real update.
   `main.js` so each data source's logic can be read (and changed) on its
   own. `main.js` still owns caching, orchestration, and all IPC wiring —
   these modules only know how to call an API and shape its response.
+- `services/platform/` — the one place OS-specific code lives.
+  `index.js` picks `windows.js` or `mac.js` by `process.platform` at
+  require time; every OS-integration call in `main.js` (installed-app
+  detection, launching, uninstalling, process tracking, install
+  detection) goes through this module instead of branching inline.
+  Everything else in the app — UI, `services/*.js`, ebook handling,
+  settings — is a single shared codebase with zero platform branching,
+  so a change there applies to Windows and Mac identically. See
+  [Known limitations](#known-limitations) for the Mac side's testing
+  status.
 
 ## Electron architecture
 
@@ -273,6 +283,15 @@ no manual redownload needed after the first install.
 The installer is **not code-signed** — see
 [Known limitations](#known-limitations).
 
+**macOS** builds (dmg + zip, x64 and arm64) are configured the same way
+under `build.mac` in `package.json`, but built by GitHub Actions rather
+than locally — there's no Mac dev hardware in this project. A manually
+triggered workflow (`.github/workflows/release-mac.yml`) builds and
+publishes into the same GitHub Release the Windows build went to; a
+second workflow (`build-check.yml`) builds both platforms on every push
+without publishing, as a canary for changes that accidentally break the
+Mac side. See `RELEASE.md` for the actual release steps.
+
 ## Screenshots
 
 _(to be added)_
@@ -286,28 +305,50 @@ Reflects the active backlog, roughly in priority order:
   `vault/`, `auth/`, `system/`, alongside the existing `services/`)
   rather than one large file. The services extraction above is the first
   step of this, done; the IPC/window/domain split is not.
-- **Testing & CI** — no automated test suite yet; a GitHub Actions
-  pipeline (lint/build/smoke-test on push) is planned.
+- **Testing & CI** — a GitHub Actions build check now runs on every push
+  (see [Build & release process](#build--release-process)), but it only
+  proves the app *builds* on both platforms, not that it *works*; an
+  actual test suite (lint, unit tests, smoke tests) is still not
+  started.
 - **Error visibility** — structured error logging/reporting, beyond the
   existing description-diagnostic log.
 - **Product** — global search across sections, a proper "Surprise Me"
   experience, general UX polish.
-- **Code signing** — the installer isn't signed (see below); a
-  certificate has an ongoing cost, so this is on hold pending a decision
-  on whether it's worth it for a personal project at this stage.
+- **Code signing** — neither installer is signed (see below). Windows
+  is on hold pending a decision on whether a certificate's ongoing cost
+  is worth it for a personal project; Mac signing/notarization needs an
+  Apple Developer account (also a paid, recurring cost) before it can
+  even start — the CI groundwork for it (hardened runtime, entitlements,
+  where the secrets go) is already in place in
+  `.github/workflows/release-mac.yml`.
+- **Mac build verification** — `services/platform/mac.js` has been
+  syntax-checked and unit-tested against real filesystem fixtures, but
+  never run on actual macOS hardware (this project has none). It needs
+  a real-hardware pass before the Mac build should be trusted the way
+  the Windows side already is — see [Known limitations](#known-limitations)
+  and `MAC_TESTING.md` for the checklist.
 
 ## Known limitations
 
-- **Unsigned installer.** Windows SmartScreen shows a "protected your
-  PC" warning on first run. Fixable with a code-signing certificate
-  (real ongoing cost — not free, not one-time), currently not purchased.
+- **Unsigned installers.** Windows SmartScreen shows a "protected your
+  PC" warning on first run, and the Mac build needs a right-click →
+  Open the first time instead of a plain double-click. Both are fixable
+  with paid developer accounts/certificates (real ongoing cost, neither
+  currently purchased).
 - **No automated tests.** Correctness currently rests on manual
-  click-through testing per release (see `RELEASE.md`), not CI.
+  click-through testing per release (see `RELEASE.md`) — CI now builds
+  both platforms on every push, but that only catches build breakage,
+  not behavioral bugs.
 - **`main.js` is still large** (~7,200 lines) despite the services
   extraction — IPC wiring, window/app lifecycle, and per-feature logic
   are still interleaved in one file. See [Roadmap](#roadmap).
-- **Windows-only build target.** `package.json`'s `build.win` is the
-  only platform configured; no macOS/Linux builds exist.
+- **Mac build unverified on real hardware.** `services/platform/mac.js`
+  (Applications-folder scanning, process tracking via `ps`, launching
+  via `open -a`, uninstall via `shell.trashItem`, the install-detection
+  poller) was written and unit-tested without any Mac to actually run
+  it on. It needs a real-hardware pass before being trusted the way the
+  Windows side already is — see `MAC_TESTING.md` for exactly what to
+  check.
 - **Not open to external contributions.** Proprietary, all-rights-
   reserved (see [README.md](README.md)) — this is a deliberate choice,
   not an oversight, but worth stating plainly for anyone evaluating it
