@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage, protocol, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
-const { execFile } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
@@ -18,6 +17,7 @@ const {
     sendVerificationEmail,
     sendPasswordResetEmail
 } = require("./services/supabase");
+const platform = require("./services/platform");
 const {
     httpsGetJson,
     httpsGetJsonPlain,
@@ -476,142 +476,14 @@ function registerFreeGamesCoverCacheProtocol() {
 
 // --- Detecting installed games from Steam / Epic ---------------------------
 
-// Extremely small VDF (Valve's key-value format) value extractor — good
-// enough for the flat "key" "value" pairs used in libraryfolders.vdf and
-// appmanifest_*.acf, without needing a full VDF parser dependency.
-function extractVdfValue(content, key) {
-    const match = content.match(new RegExp(`"${key}"\\s*"([^"]*)"`, "i"));
-    return match ? match[1] : null;
-}
 
-function findSteamLibraryPaths() {
-    const candidates = [
-        "C:\\Program Files (x86)\\Steam",
-        "C:\\Program Files\\Steam"
-    ];
-
-    const steamRoot = candidates.find((p) => fs.existsSync(p));
-    if (!steamRoot) return [];
-
-    const libraryPaths = [path.join(steamRoot, "steamapps")];
-
-    const vdfPath = path.join(steamRoot, "steamapps", "libraryfolders.vdf");
-
-    try {
-        if (fs.existsSync(vdfPath)) {
-            const content = fs.readFileSync(vdfPath, "utf8");
-            const pathMatches = content.matchAll(/"path"\s*"([^"]*)"/gi);
-
-            for (const m of pathMatches) {
-                const libPath = path.join(m[1].replace(/\\\\/g, "\\"), "steamapps");
-                if (fs.existsSync(libPath) && !libraryPaths.includes(libPath)) {
-                    libraryPaths.push(libPath);
-                }
-            }
-        }
-    } catch (err) {
-        console.error("[import] failed to parse Steam libraryfolders.vdf:", err.message || err);
-    }
-
-    return libraryPaths;
-}
-
-function scanSteamGames() {
-    const games = [];
-
-    try {
-        for (const steamapps of findSteamLibraryPaths()) {
-            if (!fs.existsSync(steamapps)) continue;
-
-            const manifestFiles = fs.readdirSync(steamapps)
-                .filter((f) => /^appmanifest_\d+\.acf$/i.test(f));
-
-            for (const file of manifestFiles) {
-                try {
-                    const content = fs.readFileSync(path.join(steamapps, file), "utf8");
-                    const appid = extractVdfValue(content, "appid");
-                    const name = extractVdfValue(content, "name");
-
-                    if (appid && name) {
-                        games.push({
-                            name,
-                            path: `steam://rungameid/${appid}`,
-                            source: "Steam"
-                        });
-                    }
-                } catch (err) {
-                    // skip unreadable manifest, keep scanning the rest
-                }
-            }
-        }
-    } catch (err) {
-        console.error("[import] Steam scan failed:", err.message || err);
-    }
-
-    return games;
-}
-
-// A Steam-imported game's saved "path" is a steam://rungameid/<appid>
-// launch URL, not a real filesystem path (Steam manifests don't reliably
-// expose a usable .exe path) — so it can never be checked with
-// fs.existsSync the way every other entry is. The manifest file Steam
-// itself writes for an installed game (appmanifest_<appid>.acf, in
-// whichever library folder it's installed to) IS a real file on disk
-// though, and Steam deletes it the moment a game is uninstalled — so
-// that file's existence is what actually stands in for "is this Steam
-// game still installed" for check-missing-games below.
-function isSteamAppStillInstalled(appid) {
-    try {
-        for (const steamapps of findSteamLibraryPaths()) {
-            if (fs.existsSync(path.join(steamapps, `appmanifest_${appid}.acf`))) {
-                return true;
-            }
-        }
-        return false;
-    } catch (err) {
-        // Same caution as the rest of this feature: if the check itself
-        // fails (Steam not found, a permissions hiccup), never treat that
-        // as "uninstalled" and wrongly flag every Steam game at once.
-        return true;
-    }
-}
-
-function scanEpicGames() {
-    const games = [];
-    const manifestDir = "C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests";
-
-    try {
-        if (!fs.existsSync(manifestDir)) return games;
-
-        const itemFiles = fs.readdirSync(manifestDir)
-            .filter((f) => f.toLowerCase().endsWith(".item"));
-
-        for (const file of itemFiles) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(manifestDir, file), "utf8"));
-
-                if (data.DisplayName && data.InstallLocation && data.LaunchExecutable) {
-                    const exePath = path.join(data.InstallLocation, data.LaunchExecutable);
-
-                    if (fs.existsSync(exePath)) {
-                        games.push({
-                            name: data.DisplayName,
-                            path: exePath,
-                            source: "Epic Games"
-                        });
-                    }
-                }
-            } catch (err) {
-                // skip unreadable/malformed manifest, keep scanning the rest
-            }
-        }
-    } catch (err) {
-        console.error("[import] Epic scan failed:", err.message || err);
-    }
-
-    return games;
-}
-
+// Store-manifest scanning (Steam, Epic on Windows) and the generic
+// installed-apps sweep (Start Menu shortcuts on Windows, /Applications on
+// Mac) both live in services/platform/{windows,mac}.js now, behind
+// platform.scanStoreManifests() / platform.scanGenericApps() /
+// platform.isSteamAppStillInstalled() — this is the same logic that used
+// to be inline here, just split per-OS so a Mac build isn't stuck running
+// PowerShell/tasklist calls that don't exist on that platform.
 // Steam/Epic manifests only cover those two stores — anything installed
 // through a different launcher (Battle.net, Ubisoft Connect, GOG Galaxy,
 // EA App, Riot, Wargaming Game Center, Rockstar Games Launcher, ...) or as
@@ -629,8 +501,8 @@ function scanEpicGames() {
 // shortcut-only software is still fully discoverable, just through the
 // manual scan the user opens on their own rather than an unprompted popup.
 async function findAllInstalledCandidates() {
-    const storeGames = [...scanSteamGames(), ...scanEpicGames()];
-    const shortcutApps = await scanStartMenuShortcuts();
+    const storeGames = platform.scanStoreManifests();
+    const shortcutApps = await platform.scanGenericApps();
 
     const combined = [...storeGames, ...shortcutApps];
 
@@ -677,7 +549,7 @@ ipcMain.handle("scan-new-games", async () => {
         }
         const dismissedSet = new Set(dismissed);
 
-        const found = [...scanSteamGames(), ...scanEpicGames()];
+        const found = platform.scanStoreManifests();
 
         return found.filter((g) => !existingPaths.has(g.path) && !dismissedSet.has(g.path));
 
@@ -687,87 +559,8 @@ ipcMain.handle("scan-new-games", async () => {
     }
 });
 
-// Finds installed desktop apps/games via Start Menu shortcuts (.lnk) —
-// this covers everything scanSteamGames/scanEpicGames miss (Battle.net,
-// Ubisoft Connect, GOG Galaxy, Origin/EA App titles, and regular desktop
-// software), since virtually every Windows installer creates one of
-// these. Resolves shortcut targets in a single PowerShell pass rather
-// than one process per shortcut, for speed.
-function scanStartMenuShortcuts() {
-    return new Promise((resolve) => {
-        const psScript = [
-            '$ErrorActionPreference = "SilentlyContinue"',
-            '$shell = New-Object -ComObject WScript.Shell',
-            '$dirs = @(',
-            '    "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",',
-            '    "$env:AppData\\Microsoft\\Windows\\Start Menu\\Programs"',
-            ')',
-            '$skipWords = @("uninstall","read me","readme","help","website","license","support","changelog","documentation","faq","setup","install")',
-            '$results = @()',
-            'foreach ($dir in $dirs) {',
-            '    if (-not (Test-Path $dir)) { continue }',
-            '    Get-ChildItem -Path $dir -Filter *.lnk -Recurse | ForEach-Object {',
-            '        $nameLower = $_.BaseName.ToLower()',
-            '        $skip = $false',
-            '        foreach ($w in $skipWords) { if ($nameLower.Contains($w)) { $skip = $true } }',
-            '        if ($skip) { return }',
-            '        try {',
-            '            $sc = $shell.CreateShortcut($_.FullName)',
-            '            $target = $sc.TargetPath',
-            '            if ($target -and $target.ToLower().EndsWith(".exe") -and (Test-Path $target)) {',
-            '                $results += [PSCustomObject]@{ name = $_.BaseName; path = $target }',
-            '            }',
-            '        } catch {}',
-            '    }',
-            '}',
-            '$results | ConvertTo-Json -Compress'
-        ].join("\n");
 
-        execFile(
-            "powershell",
-            ["-NoProfile", "-NonInteractive", "-Command", psScript],
-            { timeout: 20000, maxBuffer: 10 * 1024 * 1024 },
-            (error, stdout) => {
-                if (error || !stdout) {
-                    if (error) console.error("[import] shortcut scan failed:", error.message || error);
-                    resolve([]);
-                    return;
-                }
-                try {
-                    let parsed = JSON.parse(stdout);
-                    if (!Array.isArray(parsed)) parsed = parsed ? [parsed] : [];
-                    const seen = new Set();
-                    const deduped = [];
-                    for (const item of parsed) {
-                        if (!item || !item.name || !item.path) continue;
-                        // Keyed by path+name, not path alone: every game
-                        // installed through a launcher (Battle.net,
-                        // Ubisoft Connect, GOG Galaxy, EA App, ...) has a
-                        // Start Menu shortcut whose TargetPath is that
-                        // shared launcher .exe, not a path unique to the
-                        // game itself — e.g. every Battle.net title
-                        // (Diablo, Overwatch, WoW, ...) resolves to the
-                        // same "Battle.net.exe". Deduping by path alone
-                        // silently collapsed all of them down to whichever
-                        // one happened to be scanned first, which is why
-                        // titles like Diablo never turned up even though
-                        // their shortcut was right there.
-                        const key = String(item.path).toLowerCase() + "|" + String(item.name).toLowerCase();
-                        if (seen.has(key)) continue;
-                        seen.add(key);
-                        deduped.push({ name: item.name, path: item.path, source: "Detected" });
-                    }
-                    resolve(deduped);
-                } catch (err) {
-                    console.error("[import] shortcut scan JSON parse failed:", err.message || err);
-                    resolve([]);
-                }
-            }
-        );
-    });
-}
-
-// A Start Menu shortcut alone can't tell a game from any other desktop
+// A Start Menu shortcut (Windows) / .app bundle (Mac) alone can't tell a game from any other desktop
 // software — that's exactly why every shortcut-only find (GOG Galaxy,
 // Battle.net, Ubisoft Connect, itch.io, a standalone indie install, ...)
 // used to get lumped in as a plain "app" here, with only Steam/Epic
@@ -1531,17 +1324,7 @@ ipcMain.handle("open-external", async (event, url) => {
 // shortcut dragged in from the desktop/Start Menu works the same as
 // dragging the actual .exe. Non-shortcut paths pass through unchanged.
 ipcMain.handle("resolve-shortcut", async (event, filePath) => {
-    if (!filePath.toLowerCase().endsWith(".lnk")) {
-        return filePath;
-    }
-
-    try {
-        const shortcut = shell.readShortcutLink(filePath);
-        return shortcut.target || filePath;
-    } catch (err) {
-        console.error("[shortcut] failed to resolve .lnk:", err.message || err);
-        return filePath;
-    }
+    return platform.resolveShortcut(filePath);
 });
 
 
@@ -1685,28 +1468,7 @@ ipcMain.handle("get-show-meta", async (event, showId) => {
 // this is what fixes wrong covers/descriptions/trailers caused by using
 // just the filename.
 ipcMain.handle("get-exe-description", async (event, exePath) => {
-    return new Promise((resolve) => {
-        // The path never gets interpolated into the PowerShell command
-        // string — it's passed through an environment variable and read
-        // back with $env:, so there's no escaping to get right and no
-        // injection surface regardless of what characters the path
-        // contains (quotes, $(...), backticks, etc. all included).
-        const psCommand = "(Get-Item -LiteralPath $env:RIFTGATE_EXE_PATH).VersionInfo.FileDescription";
-
-        execFile(
-            "powershell",
-            ["-NoProfile", "-NonInteractive", "-Command", psCommand],
-            { timeout: 5000, env: { ...process.env, RIFTGATE_EXE_PATH: exePath } },
-            (error, stdout) => {
-                if (error) {
-                    resolve(null);
-                    return;
-                }
-                const desc = stdout.trim();
-                resolve(desc || null);
-            }
-        );
-    });
+    return platform.getExeDescription(exePath);
 });
 
 // MyMemory is a free, public, keyless translation API — used only for
@@ -3897,167 +3659,20 @@ ipcMain.handle("select-exe", async () => {
     return result.filePaths[0];
 });
 
-// Checks whether any process with the given image name (e.g. "BF6.exe")
-// is currently running, using Windows' tasklist. Used instead of watching
-// the initially-spawned process directly, since many games/launchers spawn
-// a short-lived bootstrapper that exits immediately while the real app
-// keeps running (Steam, Battle.net, and anti-cheat wrappers all do this).
-function isProcessRunning(imageName) {
-    return new Promise((resolve) => {
-        execFile(
-            "tasklist",
-            ["/FI", `IMAGENAME eq ${imageName}`, "/FO", "CSV", "/NH"],
-            (error, stdout) => {
-                if (error) {
-                    resolve(false);
-                    return;
-                }
-                resolve(stdout.toLowerCase().includes(imageName.toLowerCase()));
-            }
-        );
-    });
-}
-
-// --- Detecting a freshly-installed app/game --------------------------------
-// Watches for any running process whose name looks like an installer
-// ("setup", "install"), and once it exits, checks whether any shortcut
-// appeared on the Desktop or in the Start Menu more recently than the
-// installer started — a strong signal something just got installed.
-const INSTALLER_NAME_PATTERNS = [/setup/i, /install/i];
-let watchedInstallers = {}; // { pid: { name, startTime } }
-
-function getAllProcesses() {
-    return new Promise((resolve) => {
-        execFile("tasklist", ["/FO", "CSV", "/NH"], (error, stdout) => {
-            if (error) {
-                resolve([]);
-                return;
-            }
-            // CSV columns: "Image Name","PID","Session Name","Session#","Mem Usage"
-            const processes = stdout
-                .split("\n")
-                .map((line) => {
-                    const match = line.match(/^"([^"]+)","(\d+)"/);
-                    return match ? { name: match[1], pid: match[2] } : null;
-                })
-                .filter(Boolean);
-            resolve(processes);
-        });
-    });
-}
-
-function scanForNewShortcuts(sinceTimestamp) {
-    const locations = [
-        app.getPath("desktop"),
-        process.env.APPDATA ? path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs") : null,
-        process.env.ProgramData ? path.join(process.env.ProgramData, "Microsoft", "Windows", "Start Menu", "Programs") : null
-    ].filter(Boolean);
-
-    const foundShortcuts = [];
-
-    for (const dir of locations) {
-        if (!fs.existsSync(dir)) continue;
-
-        try {
-            const scan = (folder, depth) => {
-                if (depth > 2) return; // avoid runaway recursion into deep subfolders
-                let entries;
-                try {
-                    entries = fs.readdirSync(folder, { withFileTypes: true });
-                } catch (err) {
-                    return; // some Start Menu subfolders can be permission-restricted
-                }
-                for (const entry of entries) {
-                    const fullPath = path.join(folder, entry.name);
-                    if (entry.isDirectory()) {
-                        scan(fullPath, depth + 1);
-                    } else if (entry.name.toLowerCase().endsWith(".lnk")) {
-                        try {
-                            const stat = fs.statSync(fullPath);
-                            if (stat.mtimeMs > sinceTimestamp) {
-                                foundShortcuts.push({ path: fullPath, name: entry.name.replace(/\.lnk$/i, "") });
-                            }
-                        } catch (err) {
-                            // skip unreadable shortcut
-                        }
-                    }
-                }
-            };
-            scan(dir, 0);
-        } catch (err) {
-            console.error("[installer-detect] scan failed for", dir, err.message || err);
+// Process tracking (isProcessRunning/getAllProcesses) and the
+// freshly-installed-app watcher now live in services/platform/{windows,mac}.js
+// behind platform.isProcessRunning() and platform.startInstallWatcher() — same
+// tasklist-based behavior on Windows, a from-scratch /Applications-diffing
+// approach on Mac (most Mac installs have no persistent "setup.exe"-like
+// process to watch for the way Windows installers do).
+platform.startInstallWatcher(
+    () => GAMES_FILE,
+    (candidates) => {
+        if (win && !win.isDestroyed()) {
+            win.webContents.send("new-install-detected", candidates);
         }
     }
-
-    if (foundShortcuts.length === 0) return;
-
-    // An installer very often creates BOTH a Desktop shortcut and a Start
-    // Menu shortcut for the same app — resolving each to its real target
-    // and deduping here means that only shows up as one prompt, not two.
-    const seenTargets = new Set();
-    const candidates = [];
-
-    // Also skip anything already in the library, so a game added earlier
-    // (manually, or from a previous install-detection prompt) never gets
-    // asked about again.
-    let existingPaths = new Set();
-    try {
-        const games = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8"));
-        existingPaths = new Set(games.map((g) => (g.path || "").toLowerCase()));
-    } catch (err) {
-        // if this fails, just proceed without the extra check
-    }
-
-    for (const item of foundShortcuts) {
-        try {
-            const shortcut = shell.readShortcutLink(item.path);
-            const target = shortcut.target;
-            if (!target) continue;
-            const key = target.toLowerCase();
-            if (seenTargets.has(key) || existingPaths.has(key)) continue;
-            seenTargets.add(key);
-            candidates.push({ path: target, name: item.name });
-        } catch (err) {
-            // unreadable shortcut, skip
-        }
-    }
-
-    if (candidates.length > 0 && win && !win.isDestroyed()) {
-        console.log(`[installer-detect] Found ${candidates.length} new install(s) after installer closed.`);
-        win.webContents.send("new-install-detected", candidates);
-    }
-}
-
-async function pollForInstallers() {
-    const processes = await getAllProcesses();
-    const currentPids = new Set(processes.map((p) => p.pid));
-
-    processes.forEach((proc) => {
-        // Riftgate's own auto-update installer must never be mistaken for
-        // a new game/app being installed.
-        if (proc.name.toLowerCase().includes("riftgate")) return;
-
-        const looksLikeInstaller = INSTALLER_NAME_PATTERNS.some((pattern) => pattern.test(proc.name));
-        if (looksLikeInstaller && !watchedInstallers[proc.pid]) {
-            watchedInstallers[proc.pid] = { name: proc.name, startTime: Date.now() };
-            console.log(`[installer-detect] Watching installer process: ${proc.name} (PID ${proc.pid})`);
-        }
-    });
-
-    // Tracking by PID (not just name) means two different installers that
-    // happen to share a generic name like "setup.exe" are still tracked
-    // and resolved independently, instead of one overwriting the other.
-    for (const pid of Object.keys(watchedInstallers)) {
-        if (!currentPids.has(pid)) {
-            const { name, startTime } = watchedInstallers[pid];
-            delete watchedInstallers[pid];
-            console.log(`[installer-detect] ${name} (PID ${pid}) exited — scanning for new shortcuts...`);
-            scanForNewShortcuts(startTime);
-        }
-    }
-}
-
-setInterval(pollForInstallers, 5000);
+);
 
 ipcMain.handle("launch-app", async (event, exePath) => {
 
@@ -4076,9 +3691,9 @@ ipcMain.handle("launch-app", async (event, exePath) => {
         shell.openExternal(exePath);
     } else {
 
-        const imageName = path.basename(exePath);
+        const imageName = await platform.getLaunchImageName(exePath);
 
-        execFile(exePath, (error) => {
+        platform.spawnApp(exePath, (error) => {
             if (error) {
                 console.error(error);
             }
@@ -4101,7 +3716,7 @@ ipcMain.handle("launch-app", async (event, exePath) => {
                     return;
                 }
 
-                const stillRunning = await isProcessRunning(imageName);
+                const stillRunning = await platform.isProcessRunning(imageName);
 
                 if (stillRunning) {
                     missCount = 0;
@@ -5972,38 +5587,10 @@ ipcMain.handle("download-free-ebook", async (event, book) => {
 // filesystem — anything that no longer exists is very likely uninstalled
 // (or moved), and the user is asked whether to clean it up rather than
 // having it silently removed or left as a permanently broken entry.
-// Many Electron-based apps (Discord, Slack, VS Code, and others) use a
-// versioned-folder auto-update scheme: <parent>\app-X.Y.Z\<AppName>.exe.
-// When the app updates itself, it creates a new version folder and the
-// old one — which Riftgate's saved path points to — stops existing, so
-// the app looks "removed" even though it's still installed, just at a
-// new version folder. This checks specifically for that pattern before
-// giving up, so an update doesn't get mistaken for an uninstall.
-function findRelocatedVersionedApp(originalPath) {
-    try {
-        const dir = path.dirname(originalPath);
-        const exeName = path.basename(originalPath);
-        const dirName = path.basename(dir);
-
-        if (!/^app-[\d.]+$/i.test(dirName)) return null;
-
-        const parentDir = path.dirname(dir);
-        if (!fs.existsSync(parentDir)) return null;
-
-        const siblingFolders = fs.readdirSync(parentDir)
-            .filter((name) => /^app-[\d.]+$/i.test(name) && name !== dirName);
-
-        for (const folder of siblingFolders) {
-            const candidatePath = path.join(parentDir, folder, exeName);
-            if (fs.existsSync(candidatePath)) {
-                return candidatePath;
-            }
-        }
-        return null;
-    } catch (err) {
-        return null;
-    }
-}
+// The versioned-folder-relocation check (Discord/Slack/VS-Code-style
+// self-update layouts) now lives in services/platform/windows.js as
+// platform.findRelocatedApp() — Mac apps don't use this update scheme, so
+// mac.js's version is a no-op that always returns null.
 
 ipcMain.handle("check-missing-games", async () => {
     if (!fs.existsSync(GAMES_FILE)) return [];
@@ -6018,14 +5605,14 @@ ipcMain.handle("check-missing-games", async () => {
 
             // Steam-imported games are saved as a steam://rungameid/<appid>
             // launch URL rather than a real filesystem path, so they need
-            // their own check — see isSteamAppStillInstalled above. Every
+            // their own check — see platform.isSteamAppStillInstalled above. Every
             // other "://" path (any launcher protocol besides Steam's)
             // still isn't a real filesystem path either, but there's no
             // equivalent manifest to check it against, so — same as
             // before — it's left alone rather than risk a false "missing".
             const steamMatch = g.path.match(/^steam:\/\/rungameid\/(\d+)$/i);
             if (steamMatch) {
-                if (!isSteamAppStillInstalled(steamMatch[1])) {
+                if (!platform.isSteamAppStillInstalled(steamMatch[1])) {
                     genuinelyMissing.push({ path: g.path, name: g.name });
                 }
                 continue;
@@ -6033,7 +5620,7 @@ ipcMain.handle("check-missing-games", async () => {
 
             if (g.path.includes("://") || fs.existsSync(g.path)) continue;
 
-            const relocatedPath = findRelocatedVersionedApp(g.path);
+            const relocatedPath = platform.findRelocatedApp(g.path);
             if (relocatedPath) {
                 g.path = relocatedPath;
                 relocated = true;
@@ -6084,145 +5671,12 @@ ipcMain.handle("remove-game", async (event, gamePath) => {
     return true;
 });
 
-// --- Real uninstall (Windows registry) -------------------------------------
-// "Remove" above only removes the entry from Riftgate's own list — it never
-// touched the actual installed program. This looks up the same uninstaller
-// Control Panel / Settings would run (from the registry's Uninstall keys)
-// and launches it directly, rather than deleting any files ourselves.
-const UNINSTALL_REGISTRY_HIVES = [
-    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
-    "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
-    "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall"
-];
-
-function queryUninstallHive(hivePath) {
-    return new Promise((resolve) => {
-        execFile("reg", ["query", hivePath, "/s"], { maxBuffer: 1024 * 1024 * 20 }, (error, stdout) => {
-            if (error || !stdout) {
-                resolve([]);
-                return;
-            }
-            resolve(parseUninstallRegistryOutput(stdout));
-        });
-    });
-}
-
-function parseUninstallRegistryOutput(stdout) {
-    const entries = [];
-    const blocks = stdout.split(/\r?\n\r?\n/).map((b) => b.trim()).filter(Boolean);
-
-    blocks.forEach((block) => {
-        const lines = block.split(/\r?\n/);
-        const keyLine = lines[0].trim();
-        if (!keyLine.startsWith("HKEY_")) return;
-
-        const entry = {};
-        for (let i = 1; i < lines.length; i++) {
-            const match = /^\s{2,}(\S.*?)\s{2,}(REG_[A-Z_]+)\s{2,}(.*)$/.exec(lines[i]);
-            if (!match) continue;
-            entry[match[1]] = match[3].trim();
-        }
-        if (entry.DisplayName) entries.push(entry);
-    });
-
-    return entries;
-}
-
-async function queryAllUninstallEntries() {
-    const results = await Promise.all(UNINSTALL_REGISTRY_HIVES.map(queryUninstallHive));
-    return results.flat();
-}
-
-// Splits a registry UninstallString ("C:\Path To\uninst.exe" /flag, or a
-// bare MsiExec.exe /X{GUID} call) into an executable and its arguments,
-// respecting a quoted executable path.
-function parseUninstallCommand(cmd) {
-    if (!cmd) return null;
-    const trimmed = cmd.trim();
-
-    if (trimmed.startsWith('"')) {
-        const closingQuote = trimmed.indexOf('"', 1);
-        if (closingQuote === -1) return { exe: trimmed.slice(1), args: [] };
-        const exe = trimmed.slice(1, closingQuote);
-        const rest = trimmed.slice(closingQuote + 1).trim();
-        return { exe, args: rest ? rest.split(/\s+/) : [] };
-    }
-
-    const parts = trimmed.split(/\s+/);
-    return { exe: parts[0], args: parts.slice(1) };
-}
-
-// Tries to find the registry Uninstall entry for an installed program,
-// preferring an exact install-folder match over a name-based guess.
-async function findUninstallEntryForGame(gamePath, gameName) {
-    const entries = await queryAllUninstallEntries();
-    const gameDir = path.dirname(gamePath).replace(/\\+$/, "").toLowerCase();
-
-    let match = entries.find((e) => {
-        if (!e.InstallLocation) return false;
-        const loc = e.InstallLocation.replace(/\\+$/, "").toLowerCase();
-        return loc && (gameDir === loc || gameDir.startsWith(loc + "\\"));
-    });
-
-    let confidence = "high";
-
-    if (!match) {
-        match = entries.find((e) => {
-            const ref = (e.UninstallString || e.DisplayIcon || "").toLowerCase();
-            return ref.includes(gameDir);
-        });
-    }
-
-    if (!match && gameName) {
-        const normalizedName = gameName.toLowerCase().trim();
-        match = entries.find((e) => {
-            const displayName = (e.DisplayName || "").toLowerCase().trim();
-            return displayName && (displayName === normalizedName || displayName.includes(normalizedName) || normalizedName.includes(displayName));
-        });
-        confidence = "low";
-    }
-
-    if (!match || !match.UninstallString) return null;
-
-    return {
-        displayName: match.DisplayName,
-        uninstallString: match.UninstallString,
-        confidence
-    };
-}
+// Real uninstall (registry lookup on Windows, shell.trashItem on Mac) now
+// lives in services/platform/{windows,mac}.js as platform.uninstallApp().
 
 ipcMain.handle("uninstall-game", async (event, { path: gamePath, name: gameName }) => {
     try {
-        const found = await findUninstallEntryForGame(gamePath, gameName);
-
-        if (!found) {
-            return {
-                success: false,
-                reason: "not_found",
-                error: "Couldn't find an uninstaller for this in Windows' installed-programs list (common for portable apps or manually-added entries). You can still remove it from Riftgate's list, or uninstall it yourself from Windows Settings."
-            };
-        }
-
-        const command = parseUninstallCommand(found.uninstallString);
-        if (!command || !command.exe) {
-            return {
-                success: false,
-                reason: "unparseable",
-                error: "Found an uninstaller entry, but couldn't understand how to run it."
-            };
-        }
-
-        execFile(command.exe, command.args, (error) => {
-            if (error) {
-                console.error("[uninstall] uninstaller process error:", error.message || error);
-            }
-        });
-
-        return {
-            success: true,
-            displayName: found.displayName,
-            confidence: found.confidence
-        };
+        return await platform.uninstallApp(gamePath, gameName);
     } catch (err) {
         console.error("[uninstall] uninstall-game failed:", err.message || err);
         return { success: false, reason: "error", error: "Something went wrong looking up the uninstaller." };
