@@ -47,6 +47,31 @@ async function fetchEpicFreeGames() {
             return false;
         }
 
+        // Epic's productSlug is often empty or stale on newer giveaways, and
+        // urlSlug is frequently an internal id rather than a page name — both
+        // produced "Page Not Found" links. The page slug Epic's own store
+        // uses lives in offerMappings / catalogNs.mappings (pageType
+        // "productHome"); the older fields are only a fallback, and if
+        // nothing usable exists the link goes to Epic's free-games page.
+        function epicStorePageUrl(el) {
+            const clean = (slug) => (typeof slug === "string" ? slug.trim().replace(/\/home$/, "") : "");
+            const fromMappings = (list) => {
+                for (const m of Array.isArray(list) ? list : []) {
+                    if (m && m.pageSlug && (!m.pageType || m.pageType === "productHome")) return clean(m.pageSlug);
+                }
+                return "";
+            };
+            const productSlug = el.productSlug && el.productSlug !== "[]" ? clean(el.productSlug) : "";
+            const urlSlug = clean(el.urlSlug);
+            const slug = fromMappings(el.offerMappings)
+                || fromMappings(el.catalogNs && el.catalogNs.mappings)
+                || productSlug
+                || (/^[0-9a-f]{32}$/i.test(urlSlug) ? "" : urlSlug);
+            return slug
+                ? `https://store.epicgames.com/en-US/p/${slug}`
+                : "https://store.epicgames.com/en-US/free-games";
+        }
+
         return elements
             .filter(isCurrentlyFree)
             .map((el) => {
@@ -61,7 +86,7 @@ async function fetchEpicFreeGames() {
                     name: el.title,
                     description: el.description || null,
                     image: image ? image.url : null,
-                    url: `https://store.epicgames.com/en-US/p/${(el.productSlug || el.urlSlug || "").replace(/\/home$/, "")}`,
+                    url: epicStorePageUrl(el),
                     source: "Epic Games",
                     tags: tagNames,
                     // Epic's own tag list occasionally includes "VR" outright
