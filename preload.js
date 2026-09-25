@@ -126,6 +126,7 @@ const INVOKABLE_CHANNELS = new Set([
     "launch-ebook",
     "load-games",
     "load-login-session",
+    "redeem-login-session",
     "load-settings",
     "login-needs-password-setup",
     "mark-ebook-opened",

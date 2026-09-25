@@ -8964,7 +8964,24 @@ async function ensureLoggedIn() {
 async function tryRestoreSession() {
     const saved = await window.riftgate.invoke("load-login-session");
 
-    if (saved && saved.username === settings.username) {
+    if (saved && saved.username === settings.username && saved.token) {
+        const redeemed = await window.riftgate.invoke("redeem-login-session", { username: saved.username, token: saved.token });
+        if (redeemed.success && redeemed.valid) {
+            // Logged in without the password ever touching disk. The password
+            // is asked for once, the first time The Vault or an admin action
+            // needs it this launch (see getSessionPassword).
+            await restoreLoginWithoutPassword();
+            return;
+        }
+        if (redeemed.success) {
+            // The server said no (logged out elsewhere, password reset, expired).
+            await window.riftgate.invoke("clear-login-session");
+        }
+        updateAdminUiVisibility();
+        return;
+    }
+
+    if (saved && saved.username === settings.username && saved.password) {
         const verify = await window.riftgate.invoke("verify-login", { username: saved.username, password: saved.password });
         if (verify.success && verify.valid) {
             await completeLogin(saved.password);
@@ -8992,6 +9009,7 @@ async function tryRestoreSession() {
 async function performLogout() {
     adminPasswordCache = null;
     vaultPasswordCache = null;
+    settleSessionPasswordWaiters(null);
     vaultUnlockedThisSession = false;
     isAdminMode = false;
     isSuperAdmin = false;
@@ -9077,7 +9095,7 @@ exportSuggestionsBtn.addEventListener("click", async () => {
     exportSuggestionsBtn.disabled = true;
     const result = await window.riftgate.invoke("export-suggestions-txt", {
         username: settings.username,
-        password: adminPasswordCache
+        password: await getSessionPassword()
     });
     exportSuggestionsBtn.disabled = false;
 
@@ -9288,7 +9306,7 @@ function attachAdminRemoveButton(card, section, itemKey, itemName) {
         btn.disabled = true;
         const result = await window.riftgate.invoke("admin-remove-item", {
             username: settings.username,
-            password: adminPasswordCache,
+            password: await getSessionPassword(),
             section,
             itemKey: String(itemKey),
             itemName
@@ -9506,7 +9524,7 @@ async function loadSuggestionsList() {
                 delBtn.textContent = "🗑️";
                 delBtn.title = "Delete this reply";
                 delBtn.addEventListener("click", async () => {
-                    const res = await window.riftgate.invoke("delete-reply", { username: settings.username, password: adminPasswordCache, id: reply.id });
+                    const res = await window.riftgate.invoke("delete-reply", { username: settings.username, password: await getSessionPassword(), id: reply.id });
                     if (res.success && res.deleted) loadSuggestionsList();
                 });
                 replyEl.appendChild(delBtn);
@@ -9531,7 +9549,7 @@ async function loadSuggestionsList() {
                 thankBtn.disabled = true;
                 const res = await window.riftgate.invoke("add-admin-reply", {
                     username: settings.username,
-                    password: adminPasswordCache,
+                    password: await getSessionPassword(),
                     suggestionId: s.id,
                     text: THANK_YOU_MESSAGE
                 });
@@ -9546,7 +9564,7 @@ async function loadSuggestionsList() {
             deleteBtn.className = "suggestion-delete-btn";
             deleteBtn.textContent = "🗑️ Delete";
             deleteBtn.addEventListener("click", async () => {
-                const res = await window.riftgate.invoke("delete-suggestion", { username: settings.username, password: adminPasswordCache, id: s.id });
+                const res = await window.riftgate.invoke("delete-suggestion", { username: settings.username, password: await getSessionPassword(), id: s.id });
                 if (res.success && res.deleted) loadSuggestionsList();
             });
 
@@ -9562,7 +9580,7 @@ async function loadSuggestionsList() {
                 if (text.length < 2) return;
                 const res = await window.riftgate.invoke("add-admin-reply", {
                     username: settings.username,
-                    password: adminPasswordCache,
+                    password: await getSessionPassword(),
                     suggestionId: s.id,
                     text
                 });
@@ -9666,11 +9684,11 @@ async function loadReviewSuggestionsList() {
         applyBtn.addEventListener("click", async () => {
             applyBtn.disabled = true;
             rejectBtn.disabled = true;
-            const res = await window.riftgate.invoke("apply-suggestion", { username: settings.username, password: adminPasswordCache, id: s.id });
+            const res = await window.riftgate.invoke("apply-suggestion", { username: settings.username, password: await getSessionPassword(), id: s.id });
             if (res.success && res.applied) {
                 await window.riftgate.invoke("add-admin-reply", {
                     username: settings.username,
-                    password: adminPasswordCache,
+                    password: await getSessionPassword(),
                     suggestionId: s.id,
                     text: SUGGESTION_APPLIED_REPLY
                 });
@@ -9689,11 +9707,11 @@ async function loadReviewSuggestionsList() {
         rejectBtn.addEventListener("click", async () => {
             applyBtn.disabled = true;
             rejectBtn.disabled = true;
-            const res = await window.riftgate.invoke("reject-suggestion", { username: settings.username, password: adminPasswordCache, id: s.id });
+            const res = await window.riftgate.invoke("reject-suggestion", { username: settings.username, password: await getSessionPassword(), id: s.id });
             if (res.success && res.rejected) {
                 await window.riftgate.invoke("add-admin-reply", {
                     username: settings.username,
-                    password: adminPasswordCache,
+                    password: await getSessionPassword(),
                     suggestionId: s.id,
                     text: SUGGESTION_REJECTED_REPLY
                 });
@@ -9977,7 +9995,7 @@ function renderAdminList() {
             makeAdminBtn.addEventListener("click", async () => {
                 const res = await window.riftgate.invoke("super-add-admin", {
                     superUsername: settings.username,
-                    superPassword: adminPasswordCache,
+                    superPassword: await getSessionPassword(),
                     newUsername: entry.username,
                     makeSuper: false
                 });
@@ -9995,7 +10013,7 @@ function renderAdminList() {
                 makeSuperBtn.addEventListener("click", async () => {
                     const res = await window.riftgate.invoke("super-add-admin", {
                         superUsername: settings.username,
-                        superPassword: adminPasswordCache,
+                        superPassword: await getSessionPassword(),
                         newUsername: entry.username,
                         makeSuper: true
                     });
@@ -10013,7 +10031,7 @@ function renderAdminList() {
             resetBtn.addEventListener("click", async () => {
                 const res = await window.riftgate.invoke("super-trigger-password-reset", {
                     superUsername: settings.username,
-                    superPassword: adminPasswordCache,
+                    superPassword: await getSessionPassword(),
                     targetUsername: entry.username
                 });
                 adminManageError.textContent = res.success && res.triggered
@@ -10032,7 +10050,7 @@ function renderAdminList() {
                 roleBtn.addEventListener("click", async () => {
                     const res = await window.riftgate.invoke("super-set-role", {
                         superUsername: settings.username,
-                        superPassword: adminPasswordCache,
+                        superPassword: await getSessionPassword(),
                         targetUsername: entry.username,
                         makeSuper: !entry.isSuperAdmin
                     });
@@ -10052,7 +10070,7 @@ function renderAdminList() {
                 removeBtn.addEventListener("click", async () => {
                     const res = await window.riftgate.invoke("super-remove-admin", {
                         superUsername: settings.username,
-                        superPassword: adminPasswordCache,
+                        superPassword: await getSessionPassword(),
                         targetUsername: entry.username
                     });
                     if (res.success && res.removed) {
@@ -10857,7 +10875,7 @@ async function deleteCommunityApp(app) {
 
     const result = await window.riftgate.invoke("delete-community-app", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache,
+        adminPassword: await getSessionPassword(),
         appId: app.id
     });
 
@@ -10900,7 +10918,7 @@ document.getElementById("addAppConfirmBtn").addEventListener("click", async () =
 
     const result = await window.riftgate.invoke("add-community-app", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache,
+        adminPassword: await getSessionPassword(),
         name,
         url,
         author,
@@ -10945,7 +10963,7 @@ document.getElementById("editAppDescriptionConfirmBtn").addEventListener("click"
 
     const result = await window.riftgate.invoke("update-community-app-details", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache,
+        adminPassword: await getSessionPassword(),
         appId: editingApp.id,
         author,
         description
@@ -11116,7 +11134,7 @@ async function showVaultImagePreview(file, anchorEl) {
     let url = vaultPreviewUrlCache[file.storage_path];
 
     if (!url) {
-        const result = await window.riftgate.invoke("get-shared-file-preview-url", { username: settings.username, password: vaultPasswordCache, storagePath: file.storage_path });
+        const result = await window.riftgate.invoke("get-shared-file-preview-url", { username: settings.username, password: await getSessionPassword(), storagePath: file.storage_path });
         if (!result.success) return;
         url = result.url;
         vaultPreviewUrlCache[file.storage_path] = url;
@@ -11194,7 +11212,7 @@ function buildSharedFileItem(file) {
     downloadBtn.textContent = "⬇️ Download";
     downloadBtn.addEventListener("click", async () => {
         downloadBtn.disabled = true;
-        const result = await window.riftgate.invoke("download-shared-file", { username: settings.username, password: vaultPasswordCache, storagePath: file.storage_path, filename: file.filename });
+        const result = await window.riftgate.invoke("download-shared-file", { username: settings.username, password: await getSessionPassword(), storagePath: file.storage_path, filename: file.filename });
         downloadBtn.disabled = false;
         if (!result.canceled && !result.success) {
             showCustomAlert(result.error || "Download failed.");
@@ -11225,8 +11243,8 @@ function buildSharedFileItem(file) {
                 username: settings.username,
                 fileId: file.id,
                 storagePath: file.storage_path,
-                adminPassword: isOwner ? null : adminPasswordCache,
-                password: isOwner ? vaultPasswordCache : null
+                adminPassword: isOwner ? null : await getSessionPassword(),
+                password: isOwner ? await getSessionPassword() : null
             });
             if (result) {
                 renderSharedFiles();
@@ -11256,7 +11274,7 @@ async function renderSharedFiles() {
     const emptyEl = document.getElementById("sharedFilesEmptyState");
     const noResultsEl = document.getElementById("vaultFilesNoResults");
 
-    const result = await window.riftgate.invoke("get-shared-files", { username: settings.username, password: vaultPasswordCache });
+    const result = await window.riftgate.invoke("get-shared-files", { username: settings.username, password: await getSessionPassword() });
     vaultFilesCache = result.success ? result.files : [];
 
     if (!result.success || vaultFilesCache.length === 0) {
@@ -11379,8 +11397,8 @@ function buildSharedLinkItem(link) {
             const result = await window.riftgate.invoke("delete-shared-link", {
                 username: settings.username,
                 linkId: link.id,
-                adminPassword: isPoster ? null : adminPasswordCache,
-                password: isPoster ? vaultPasswordCache : null
+                adminPassword: isPoster ? null : await getSessionPassword(),
+                password: isPoster ? await getSessionPassword() : null
             });
             if (result) {
                 renderSharedLinks();
@@ -11409,7 +11427,7 @@ async function renderSharedLinks() {
     const emptyEl = document.getElementById("sharedLinksEmptyState");
     const noResultsEl = document.getElementById("vaultLinksNoResults");
 
-    const result = await window.riftgate.invoke("get-shared-links", { username: settings.username, password: vaultPasswordCache });
+    const result = await window.riftgate.invoke("get-shared-links", { username: settings.username, password: await getSessionPassword() });
     vaultLinksCache = result.success ? result.links : [];
 
     if (!result.success || vaultLinksCache.length === 0) {
@@ -11488,7 +11506,7 @@ document.getElementById("postLinkConfirmBtn").addEventListener("click", async ()
 
     const result = await window.riftgate.invoke("add-shared-link", {
         username: settings.username,
-        password: vaultPasswordCache,
+        password: await getSessionPassword(),
         url,
         description: description || null
     });
@@ -11565,8 +11583,8 @@ async function finishLoadingSharedFolder() {
 
     // Quietly clears anything that expired since the last check — no
     // need to wait for or react to the result here.
-    window.riftgate.invoke("cleanup-expired-shared-files", { username: settings.username, password: vaultPasswordCache });
-    window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: vaultPasswordCache });
+    window.riftgate.invoke("cleanup-expired-shared-files", { username: settings.username, password: await getSessionPassword() });
+    window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: await getSessionPassword() });
 }
 
 // --- Unified login (setup + sign-in) ---------------------------------
@@ -11576,15 +11594,53 @@ async function finishLoadingSharedFolder() {
 // automatically in completeLogin() below — nothing else in the app asks
 // for a password again this session.
 
-function openVaultLoginModal() {
+// mode "confirm": already logged in (restored from a saved session), and an
+// admin/Vault action needs the password once for this launch.
+function openVaultLoginModal(mode) {
+    const modal = document.getElementById("vaultLoginModal");
+    const title = modal.querySelector("h3");
+    const intro = modal.querySelector("p");
+    if (mode === "confirm") {
+        title.textContent = "🔒 Confirm it's you";
+        intro.textContent = "Enter your password once to use The Vault and admin tools until you close Riftgate.";
+    } else {
+        title.textContent = "🔒 Riftgate Login";
+        intro.textContent = "Enter your password to continue.";
+    }
     document.getElementById("vaultPasswordInput").value = "";
     document.getElementById("vaultLoginError").textContent = "";
-    document.getElementById("vaultLoginModal").classList.add("active");
+    modal.classList.add("active");
     document.getElementById("vaultPasswordInput").focus();
 }
 
 function closeVaultLoginModal() {
     document.getElementById("vaultLoginModal").classList.remove("active");
+    // Closed without a password (Cancel) — anything waiting gets null.
+    settleSessionPasswordWaiters(null);
+}
+
+// Everything that needs the account password (The Vault, admin actions,
+// email settings) asks for it through here. After a login it's already in
+// memory; after a session restored from a saved token it's asked for once,
+// then kept in memory until Riftgate closes. Resolves to null if the user
+// cancels or isn't logged in.
+let sessionPasswordWaiters = [];
+
+function getSessionPassword() {
+    if (adminPasswordCache) return Promise.resolve(adminPasswordCache);
+    if (!isLoggedIn) return Promise.resolve(null);
+    return new Promise((resolve) => {
+        sessionPasswordWaiters.push(resolve);
+        if (!document.getElementById("vaultLoginModal").classList.contains("active")) {
+            openVaultLoginModal("confirm");
+        }
+    });
+}
+
+function settleSessionPasswordWaiters(value) {
+    const waiters = sessionPasswordWaiters;
+    sessionPasswordWaiters = [];
+    waiters.forEach((resolve) => resolve(value));
 }
 
 // Runs after any successful login or first-time password setup —
@@ -11595,13 +11651,28 @@ function closeVaultLoginModal() {
 async function completeLogin(password) {
     adminPasswordCache = password;
     vaultPasswordCache = password;
-    vaultUnlockedThisSession = true;
-    isLoggedIn = true;
 
     // Persist so the next launch stays logged in without asking again —
     // only an explicit Log Out (or a server-side password reset) clears
-    // this. Fire-and-forget: nothing here should block the login itself.
+    // this. The main process turns the password into a revocable session
+    // token before anything is written to disk. Fire-and-forget: nothing
+    // here should block the login itself.
     window.riftgate.invoke("save-login-session", { username: settings.username, password });
+
+    await finishLoginSetup();
+}
+
+// Session restored from a saved token: same logged-in state as a normal
+// login, but no password in memory yet.
+async function restoreLoginWithoutPassword() {
+    adminPasswordCache = null;
+    vaultPasswordCache = null;
+    await finishLoginSetup();
+}
+
+async function finishLoginSetup() {
+    vaultUnlockedThisSession = true;
+    isLoggedIn = true;
 
     const adminCheck = await window.riftgate.invoke("admin-account-exists", settings.username);
     if (adminCheck.success && adminCheck.exists) {
@@ -11644,6 +11715,16 @@ async function attemptVaultLogin() {
     }
     if (!verify.valid) {
         errorEl.textContent = "Incorrect password.";
+        return;
+    }
+
+    if (isLoggedIn && sessionPasswordWaiters.length > 0) {
+        // Confirming the password for an already-restored session.
+        adminPasswordCache = password;
+        vaultPasswordCache = password;
+        settleSessionPasswordWaiters(password);
+        closeVaultLoginModal();
+        refreshEmailReminderVisibility();
         return;
     }
 
@@ -11866,7 +11947,8 @@ document.getElementById("emailVerifySubmitBtn").addEventListener("click", async 
         errorEl.textContent = "Enter a valid email address.";
         return;
     }
-    if (!vaultPasswordCache) {
+    const password = await getSessionPassword();
+    if (!password) {
         errorEl.textContent = "You need to be logged in to do this.";
         return;
     }
@@ -11875,7 +11957,7 @@ document.getElementById("emailVerifySubmitBtn").addEventListener("click", async 
     errorEl.textContent = "";
     const result = await window.riftgate.invoke("request-email-verification", {
         username: settings.username,
-        password: vaultPasswordCache,
+        password,
         email
     });
     submitBtn.disabled = false;
@@ -11891,8 +11973,9 @@ document.getElementById("emailVerifySubmitBtn").addEventListener("click", async 
 });
 
 document.getElementById("emailReminderBtn").addEventListener("click", async () => {
-    if (!vaultPasswordCache) return;
-    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password: vaultPasswordCache });
+    const password = await getSessionPassword();
+    if (!password) return;
+    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password });
     if (status.success && status.email) {
         openEmailVerifyModal("resend", status.email, status.sentAt);
     } else {
@@ -11909,7 +11992,7 @@ async function refreshEmailReminderVisibility() {
         btn.style.display = "none";
         return;
     }
-    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password: vaultPasswordCache });
+    const status = await window.riftgate.invoke("get-email-verification-status", { username: settings.username, password: await getSessionPassword() });
     btn.style.display = (status.success && !status.verified) ? "" : "none";
 }
 
@@ -11945,7 +12028,7 @@ document.getElementById("uploadShareConfirmBtn").addEventListener("click", async
 
     const result = await window.riftgate.invoke("upload-shared-file", {
         username: settings.username,
-        password: vaultPasswordCache,
+        password: await getSessionPassword(),
         description: description || null,
         expiresHours: selectedShareExpiryHours
     });
@@ -11971,7 +12054,7 @@ async function loadAllowlistPanel() {
 
     const result = await window.riftgate.invoke("get-share-allowlist", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache
+        adminPassword: await getSessionPassword()
     });
 
     if (!result.success) {
@@ -12000,7 +12083,7 @@ async function loadAllowlistPanel() {
             if (!await showCustomConfirm(`Remove ${entry.username} from the allowlist?`)) return;
             const removeResult = await window.riftgate.invoke("remove-from-share-allowlist", {
                 adminUsername: settings.username,
-                adminPassword: adminPasswordCache,
+                adminPassword: await getSessionPassword(),
                 targetUsername: entry.username
             });
             if (removeResult.success) {
@@ -12021,7 +12104,7 @@ async function loadAccessRequestsPanel() {
 
     const result = await window.riftgate.invoke("get-share-access-requests", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache
+        adminPassword: await getSessionPassword()
     });
 
     if (!result.success) {
@@ -12055,7 +12138,7 @@ async function loadAccessRequestsPanel() {
         approveBtn.addEventListener("click", async () => {
             const approveResult = await window.riftgate.invoke("approve-share-access-request", {
                 adminUsername: settings.username,
-                adminPassword: adminPasswordCache,
+                adminPassword: await getSessionPassword(),
                 targetUsername: entry.username
             });
             if (approveResult.success) {
@@ -12074,7 +12157,7 @@ async function loadAccessRequestsPanel() {
             if (!await showCustomConfirm(`Deny ${entry.username}'s request for Vault access?`)) return;
             const denyResult = await window.riftgate.invoke("deny-share-access-request", {
                 adminUsername: settings.username,
-                adminPassword: adminPasswordCache,
+                adminPassword: await getSessionPassword(),
                 targetUsername: entry.username
             });
             if (denyResult.success) {
@@ -12108,11 +12191,11 @@ document.getElementById("cleanVaultNowBtn").addEventListener("click", async () =
     const [filesResult, linksResult] = await Promise.all([
         window.riftgate.invoke("force-clean-shared-folder", {
             adminUsername: settings.username,
-            adminPassword: adminPasswordCache
+            adminPassword: await getSessionPassword()
         }),
         window.riftgate.invoke("force-clean-shared-links", {
             adminUsername: settings.username,
-            adminPassword: adminPasswordCache
+            adminPassword: await getSessionPassword()
         })
     ]);
 
@@ -12140,7 +12223,7 @@ document.getElementById("allowlistAddBtn").addEventListener("click", async () =>
     // should clear it too rather than leaving a stale request behind.
     const result = await window.riftgate.invoke("add-to-share-allowlist", {
         adminUsername: settings.username,
-        adminPassword: adminPasswordCache,
+        adminPassword: await getSessionPassword(),
         targetUsername: username
     });
 
@@ -12211,7 +12294,7 @@ async function init() {
     // Shared Folder section for a while — only runs if this install is
     // actually allowlisted, so it's a no-op for everyone else.
     setInterval(() => {
-        if (isLoggedIn) {
+        if (isLoggedIn && vaultPasswordCache) {
             window.riftgate.invoke("cleanup-expired-shared-files", { username: settings.username, password: vaultPasswordCache });
             window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: vaultPasswordCache });
         }

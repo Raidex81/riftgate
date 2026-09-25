@@ -5769,24 +5769,89 @@ ipcMain.handle("save-settings", async (event, partialSettings) => {
 // --- Persistent login session --------------------------------------------
 // Keeps the user logged in across app restarts — a password is only asked
 // for again after an explicit Log Out, not just because the app was closed
-// and reopened. Encrypted at rest with Electron's safeStorage (OS-level —
-// DPAPI on Windows). If OS-level encryption isn't available on this
-// machine/profile, the session is simply not persisted at all rather than
-// falling back to writing the password in plain text — the user just has
-// to log in again next launch on that one machine, which is a much smaller
-// cost than a recoverable plaintext password sitting on disk.
+// and reopened. The file is encrypted at rest with Electron's safeStorage
+// (OS-level — DPAPI on Windows); if that isn't available on this machine the
+// session is simply not persisted.
+//
+// On a backend that supports login sessions (get_backend_info
+// schema_version >= 5) the file holds only a random session token that the
+// server can revoke — never the password. Older backends still get the
+// previous behaviour (the password itself, encrypted), and a password saved
+// by an older app version is exchanged for a token the first time it's read.
+const SESSION_TOKEN_MIN_SCHEMA = 5;
+const DEVICE_BOUND_PASSWORD_MIN_SCHEMA = 3;
+
+let cachedBackendInfo = null;
+
+// Asks the server which hardened features it has. A server that predates the
+// check (404) or can't be reached counts as version 0 — and isn't cached, so
+// the next call asks again.
+async function getBackendSchemaVersion() {
+    if (cachedBackendInfo) return cachedBackendInfo.schema_version || 0;
+    const r = await callAdminRpc("get_backend_info", {});
+    if (r.success && r.result && typeof r.result === "object") {
+        cachedBackendInfo = r.result;
+        return cachedBackendInfo.schema_version || 0;
+    }
+    return 0;
+}
+
+function readSessionFile() {
+    if (!fs.existsSync(SESSION_FILE) || !safeStorage.isEncryptionAvailable()) return null;
+    try {
+        const parsed = JSON.parse(safeStorage.decryptString(fs.readFileSync(SESSION_FILE)));
+        return parsed && parsed.username ? parsed : null;
+    } catch (err) {
+        // Corrupt, left over in plain text by an old version, or encrypted by
+        // another Windows user profile — same as having no session.
+        return null;
+    }
+}
+
+function writeSessionFile(payload) {
+    fs.writeFileSync(SESSION_FILE, safeStorage.encryptString(JSON.stringify(payload)));
+}
+
+function deleteSessionFile() {
+    if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+}
+
+async function createServerSession(username, password) {
+    const r = await callAdminRpc("create_login_session", { input_username: username, input_password: password });
+    if (r.success && r.result && r.result.success && typeof r.result.token === "string") {
+        return { ok: true, token: r.result.token };
+    }
+    // reachable-but-refused vs. network failure matters to the caller
+    return { ok: false, refused: r.success };
+}
+
+function revokeServerSession(username, token) {
+    // Best effort — an unreachable server just means the token expires on its own.
+    return callAdminRpc("revoke_login_session", { input_username: username, input_token: token }).catch(() => null);
+}
+
 ipcMain.handle("save-login-session", async (event, { username, password }) => {
     try {
         if (!safeStorage.isEncryptionAvailable()) {
-            // Clean up any session file a previous version of the app may
-            // have left behind in plain text.
-            if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+            deleteSessionFile();
             console.warn("[session] OS-level encryption unavailable — not persisting login session.");
             return { success: false, reason: "encryption_unavailable" };
         }
 
-        const payload = JSON.stringify({ username, password });
-        fs.writeFileSync(SESSION_FILE, safeStorage.encryptString(payload));
+        if (await getBackendSchemaVersion() >= SESSION_TOKEN_MIN_SCHEMA) {
+            const created = await createServerSession(username, password);
+            if (!created.ok) {
+                // Never fall back to storing the password on a backend that
+                // supports tokens — the user just logs in again next launch.
+                return { success: false, reason: "session_unavailable" };
+            }
+            const previous = readSessionFile();
+            if (previous && previous.token) revokeServerSession(previous.username, previous.token);
+            writeSessionFile({ username, token: created.token });
+            return { success: true };
+        }
+
+        writeSessionFile({ username, password });
         return { success: true };
     } catch (err) {
         console.error("[session] Failed to save login session:", err.message || err);
@@ -5794,34 +5859,62 @@ ipcMain.handle("save-login-session", async (event, { username, password }) => {
     }
 });
 
+// Returns { username, token } (current backends), { username, password }
+// (legacy backends only), or null.
 ipcMain.handle("load-login-session", async () => {
-    if (!fs.existsSync(SESSION_FILE)) return null;
-    if (!safeStorage.isEncryptionAvailable()) return null;
+    const saved = readSessionFile();
+    if (!saved) return null;
+    if (typeof saved.token === "string") return { username: saved.username, token: saved.token };
+    if (typeof saved.password !== "string") return null;
 
+    if (await getBackendSchemaVersion() < SESSION_TOKEN_MIN_SCHEMA) {
+        return { username: saved.username, password: saved.password };
+    }
+
+    // Saved by an older app version: swap the password for a token so it no
+    // longer sits on disk at all.
     try {
-        const raw = fs.readFileSync(SESSION_FILE);
-        const payload = safeStorage.decryptString(raw);
-        const parsed = JSON.parse(payload);
-        if (!parsed || !parsed.username || !parsed.password) return null;
-        return parsed;
+        const created = await createServerSession(saved.username, saved.password);
+        if (created.ok) {
+            writeSessionFile({ username: saved.username, token: created.token });
+            return { username: saved.username, token: created.token };
+        }
+        if (created.refused) deleteSessionFile(); // wrong/changed password — drop it
+        return null;
     } catch (err) {
-        // Corrupt file, a leftover plaintext file from an older version, or
-        // encrypted on a machine/user profile that can no longer decrypt it
-        // — treat exactly like "no saved session" rather than erroring the
-        // whole app out.
+        console.error("[session] Failed to upgrade saved session:", err.message || err);
         return null;
     }
 });
 
+ipcMain.handle("redeem-login-session", async (event, { username, token }) => {
+    if (typeof username !== "string" || typeof token !== "string") return { success: false };
+    const r = await callAdminRpc("redeem_login_session", { input_username: username, input_token: token });
+    if (!r.success) return r;
+    return { success: true, valid: r.result === true };
+});
+
 ipcMain.handle("clear-login-session", async () => {
     try {
-        if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+        const saved = readSessionFile();
+        if (saved && typeof saved.token === "string") await revokeServerSession(saved.username, saved.token);
+        deleteSessionFile();
         return { success: true };
     } catch (err) {
         console.error("[session] Failed to clear login session:", err.message || err);
         return { success: false };
     }
 });
+
+// This install's own device id (see get-device-id below), or null.
+function readDeviceIdSync() {
+    try {
+        const current = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
+        return typeof current.deviceId === "string" ? current.deviceId : null;
+    } catch (err) {
+        return null;
+    }
+}
 
 // A random ID generated once and stored locally, never tied to any
 // personal information — this is what makes a username "belong" to a
@@ -6162,7 +6255,14 @@ ipcMain.handle("verify-login", async (event, { username, password }) => {
 });
 
 ipcMain.handle("set-own-login-password", async (event, { username, newPassword }) => {
-    const r = await callAdminRpc("set_own_login_password", { input_username: username, new_password: newPassword });
+    // Newer backends only accept a first-time password from the device that
+    // registered the username; older ones take just the username.
+    const deviceId = readDeviceIdSync();
+    const params = { input_username: username, new_password: newPassword };
+    if (deviceId && await getBackendSchemaVersion() >= DEVICE_BOUND_PASSWORD_MIN_SCHEMA) {
+        params.input_device_id = deviceId;
+    }
+    const r = await callAdminRpc("set_own_login_password", params);
     if (!r.success) return r;
     return { success: true, changed: r.result === true };
 });
