@@ -2244,6 +2244,13 @@ const freeGamesPlatformRefreshPromises = new Map();
 // user isn't even looking at right now. Everything already cached for
 // every OTHER platform is left completely untouched: no re-fetch, no
 // re-verification, and nothing disappears from it even if this pass fails.
+// A game a dedicated store feed already lists shouldn't come back a second
+// time from CheapShark's deals feed (same rule the full refresh applies).
+function withoutCheapSharkDuplicates(cheapSharkGames, dedicatedGames) {
+    const dedicatedNames = new Set(dedicatedGames.map((g) => normalizeGameName(g.name)));
+    return cheapSharkGames.filter((g) => !dedicatedNames.has(normalizeGameName(g.name)));
+}
+
 async function runFreeGamesRefreshForPlatform(platform) {
     const cached = loadDataCache("cache-free-games.json") || [];
 
@@ -2262,7 +2269,7 @@ async function runFreeGamesRefreshForPlatform(platform) {
             freshLive = [...itchVr, ...gamerPower.filter((g) => g.vr)];
         } else if (platform === "Steam") {
             const [steam, cheapSharkFree] = await Promise.all([fetchSteamFreeGames(true), fetchCheapSharkFreeGames()]);
-            freshLive = [...steam, ...cheapSharkFree.filter((g) => g.source === "Steam")];
+            freshLive = [...steam, ...withoutCheapSharkDuplicates(cheapSharkFree.filter((g) => g.source === "Steam"), steam)];
         } else if (platform === "Epic Games") {
             // CheapShark's general deals feed catches indie-run 100%-off
             // promos on the Epic store that Epic's own dedicated
@@ -2271,10 +2278,10 @@ async function runFreeGamesRefreshForPlatform(platform) {
             // free game" slot. Without this, a scoped refresh here would
             // silently be narrower than a full all-platforms refresh.
             const [epic, cheapSharkFree] = await Promise.all([fetchEpicFreeGames(), fetchCheapSharkFreeGames()]);
-            freshLive = [...epic, ...cheapSharkFree.filter((g) => g.source === "Epic Games")];
+            freshLive = [...epic, ...withoutCheapSharkDuplicates(cheapSharkFree.filter((g) => g.source === "Epic Games"), epic)];
         } else if (platform === "GOG") {
             const [gog, cheapSharkFree] = await Promise.all([fetchGogFreeGames(), fetchCheapSharkFreeGames()]);
-            freshLive = [...gog, ...cheapSharkFree.filter((g) => g.source === "GOG")];
+            freshLive = [...gog, ...withoutCheapSharkDuplicates(cheapSharkFree.filter((g) => g.source === "GOG"), gog)];
         } else if (platform === "itch.io") {
             const [general, vr] = await Promise.all([fetchItchFreeGames(), fetchItchVrFreeGames()]);
             const generalIds = new Set(general.map((g) => g.id));
@@ -2294,9 +2301,10 @@ async function runFreeGamesRefreshForPlatform(platform) {
             // from it, so an empty freshLive here would delete them, not
             // just fail to update them).
             const [gamerPower, cheapSharkFree] = await Promise.all([fetchGamerPowerFreeGames(), fetchCheapSharkFreeGames()]);
+            const gamerPowerForPlatform = gamerPower.filter((g) => g.source === platform);
             freshLive = [
-                ...gamerPower.filter((g) => g.source === platform),
-                ...cheapSharkFree.filter((g) => g.source === platform)
+                ...gamerPowerForPlatform,
+                ...withoutCheapSharkDuplicates(cheapSharkFree.filter((g) => g.source === platform), gamerPowerForPlatform)
             ];
         }
     } catch (err) {
