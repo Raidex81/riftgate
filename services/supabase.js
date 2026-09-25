@@ -286,6 +286,19 @@ async function sendVerificationEmail(username, email, token) {
 // which belongs inside the trusted app rather than on a bare web page).
 // Only ever called right after the request_password_reset RPC has
 // already decided a code should be issued for this account.
+// Calls one of this project's Edge Functions with the public key and returns
+// { statusCode, parsed } (parsed is null if the body isn't JSON).
+async function callEdgeFunction(name, body) {
+    const { statusCode, body: raw } = await httpsPostJson(
+        `${SUPABASE_URL}/functions/v1/${name}`,
+        { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        body
+    );
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (err) { /* not JSON */ }
+    return { statusCode, parsed };
+}
+
 async function sendPasswordResetEmail(username, email, code) {
     try {
         const { statusCode, body } = await httpsPostJson(
@@ -313,5 +326,6 @@ module.exports = {
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,
     sendVerificationEmail,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    callEdgeFunction
 };

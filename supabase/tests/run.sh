@@ -1,4 +1,4 @@
-# Local test for migrations 0001-0005 against a throwaway Postgres 16 with pgcrypto.
+# Local test for migrations 0001-0006 against a throwaway Postgres 16 with pgcrypto.
 # Usage (from repo root): PGHOST=/tmp PGPORT=5433 bash supabase/tests/run.sh   (never point it at production)
 set -e
 P="psql -h /tmp -p 5433 -U postgres -v ON_ERROR_STOP=1 -q"
@@ -17,3 +17,5 @@ $P -d rgtest -f supabase/migrations/20260925000400_profile_rpcs.sql
 $P -d rgtest -f supabase/tests/test_0004.sql
 $P -d rgtest -f supabase/migrations/20260925000500_login_sessions.sql
 $P -d rgtest -f supabase/tests/test_0005.sql
+$P -d rgtest -f supabase/migrations/20260925000600_account_email_server_side.sql
+$P -d rgtest -f supabase/tests/test_0006.sql

@@ -15,7 +15,8 @@ const {
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,
     sendVerificationEmail,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    callEdgeFunction
 } = require("./services/supabase");
 const platform = require("./services/platform");
 
@@ -5798,6 +5799,7 @@ ipcMain.handle("save-settings", async (event, partialSettings) => {
 // previous behaviour (the password itself, encrypted), and a password saved
 // by an older app version is exchanged for a token the first time it's read.
 const SESSION_TOKEN_MIN_SCHEMA = 5;
+const SERVER_SIDE_EMAIL_MIN_SCHEMA = 6;
 const DEVICE_BOUND_PASSWORD_MIN_SCHEMA = 3;
 
 let cachedBackendInfo = null;
@@ -6301,6 +6303,23 @@ ipcMain.handle("request-email-verification", async (event, { username, password,
     // Resend's own test-mode sender restriction) are case-sensitive about
     // an exact match.
     const normalizedEmail = email ? email.trim().toLowerCase() : null;
+
+    // Newer backends create and email the link server-side; the token never
+    // reaches this app.
+    if (await getBackendSchemaVersion() >= SERVER_SIDE_EMAIL_MIN_SCHEMA) {
+        try {
+            const { statusCode, parsed } = await callEdgeFunction("account-email", {
+                action: "verify-email", username, password, email: normalizedEmail
+            });
+            if (statusCode === 429) return { success: false, error: "Too many requests — try again in a few minutes." };
+            if (parsed && parsed.success) return { success: true, email: parsed.email };
+            return { success: false, error: (parsed && parsed.error) || "Couldn't send the verification email — try again in a moment." };
+        } catch (err) {
+            console.error("[email] account-email verify-email failed:", err.message || err);
+            return { success: false, error: "Couldn't reach the server — check your connection and try again." };
+        }
+    }
+
     const r = await callAdminRpc("request_email_verification", {
         input_username: username,
         input_password: password,
@@ -6344,6 +6363,17 @@ ipcMain.handle("get-email-verification-status", async (event, { username, passwo
 // registered. A code is only ever actually emailed when the RPC handed
 // one back.
 ipcMain.handle("request-password-reset", async (event, { username }) => {
+    // Newer backends generate and email the code server-side (account-email
+    // Edge Function); the answer is the same generic success either way.
+    if (await getBackendSchemaVersion() >= SERVER_SIDE_EMAIL_MIN_SCHEMA) {
+        try {
+            await callEdgeFunction("account-email", { action: "password-reset", username });
+        } catch (err) {
+            console.error("[password-reset] account-email failed:", err.message || err);
+        }
+        return { success: true };
+    }
+
     const r = await callAdminRpc("request_password_reset", { input_username: username });
     if (!r.success) return { success: true };
 
