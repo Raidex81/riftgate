@@ -109,3 +109,7 @@ BEGIN
     DELETE FROM admins WHERE username = target_username;
     RETURN true;
 END; $function$;
+create or replace function public.set_own_date_of_birth(input_username text, new_dob date) returns boolean language sql security definer set search_path to 'public','extensions' as $$
+  update public.usernames set date_of_birth = new_dob where username = input_username returning true; $$;
+create or replace function public.set_own_mature_content_preference(input_username text, new_value boolean) returns boolean language sql security definer set search_path to 'public','extensions' as $$
+  update public.usernames set show_mature_content = new_value where username = input_username returning true; $$;
