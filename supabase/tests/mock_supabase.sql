@@ -71,3 +71,41 @@ create or replace function public.request_password_reset(input_username text) re
 create or replace function public.confirm_password_reset(input_username text, input_code text, input_new_password text) returns jsonb language sql as $$ select '{}'::jsonb $$;
 create or replace function public.super_trigger_password_reset(super_username text, super_password text, target_username text) returns boolean language sql as $$ select false $$;
 create or replace function public.set_own_admin_password(input_username text, new_password text) returns boolean language sql as $$ select false $$;
+-- functions 0003 rewrites (production bodies, from _private/audit/2-functions.sql)
+create or replace function public.add_admin_reply(input_username text, input_password text, target_suggestion_id uuid, reply_text text)
+ returns boolean language plpgsql security definer as $function$
+declare stored_hash text;
+begin
+  select password_hash into stored_hash from admins where username = input_username;
+  if stored_hash is null or stored_hash != crypt(input_password, stored_hash) then return false; end if;
+  insert into suggestion_replies (suggestion_id, reply_text) values (target_suggestion_id, reply_text);
+  return true;
+end; $function$;
+create or replace function public.delete_reply(input_username text, input_password text, target_id uuid)
+ returns boolean language plpgsql security definer as $function$
+declare stored_hash text;
+begin
+  select password_hash into stored_hash from admins where username = input_username;
+  if stored_hash is null or stored_hash != crypt(input_password, stored_hash) then return false; end if;
+  delete from suggestion_replies where id = target_id;
+  return true;
+end; $function$;
+create or replace function public.delete_suggestion(input_username text, input_password text, target_id uuid)
+ returns boolean language plpgsql security definer as $function$
+declare stored_hash text;
+begin
+  select password_hash into stored_hash from admins where username = input_username;
+  if stored_hash is null or stored_hash != crypt(input_password, stored_hash) then return false; end if;
+  delete from suggestions where id = target_id;
+  return true;
+end; $function$;
+create or replace function public.super_remove_admin(super_username text, super_password text, target_username text)
+ returns boolean language plpgsql security definer as $function$
+DECLARE v_is_admin BOOLEAN;
+BEGIN
+    IF target_username = 'Raidex_Adm' THEN RETURN false; END IF;
+    SELECT verify_admin_login(super_username, super_password) INTO v_is_admin;
+    IF NOT v_is_admin THEN RETURN false; END IF;
+    DELETE FROM admins WHERE username = target_username;
+    RETURN true;
+END; $function$;
