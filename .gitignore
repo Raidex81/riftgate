@@ -15,3 +15,15 @@ Thumbs.db
 *.bak-*
 _to_delete/
 strix_runs/
+
+# Private working notes and local audit data — never published
+.refactor/
+_private/
+
+# Test/coverage output and local environment files
+test-results/
+playwright-report/
+coverage/
+*.log
+.env*
+.venv/
