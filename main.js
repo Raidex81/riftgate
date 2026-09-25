@@ -18,6 +18,34 @@ const {
     sendPasswordResetEmail
 } = require("./services/supabase");
 const platform = require("./services/platform");
+
+// Only one Riftgate may run at a time: two copies would read and rewrite
+// the same library/settings files underneath each other. A second launch
+// just brings the existing window forward (see "second-instance" below).
+if (!app.requestSingleInstanceLock()) {
+    app.exit(0);
+}
+
+// The window only ever shows Riftgate's own page. Anything that tries to
+// navigate it elsewhere (a stray link, injected markup) is blocked, and
+// new-window requests (target=_blank, window.open — e.g. "Watch on YouTube"
+// inside a trailer) open in the user's browser instead, https only.
+function isAppPageUrl(url) {
+    return localServerPort !== null && typeof url === "string"
+        && url.startsWith(`http://127.0.0.1:${localServerPort}/`);
+}
+
+app.on("web-contents-created", (event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\//i.test(url)) shell.openExternal(url);
+        return { action: "deny" };
+    });
+    const blockOffAppNavigation = (navEvent, url) => {
+        if (!isAppPageUrl(url)) navEvent.preventDefault();
+    };
+    contents.on("will-navigate", blockOffAppNavigation);
+    contents.on("will-redirect", blockOffAppNavigation);
+});
 const {
     httpsGetJson,
     httpsGetJsonPlain,
@@ -1250,7 +1278,10 @@ ipcMain.handle("set-run-in-background", async (event, enabled) => {
 // running — the static .exe file's own icon (what you see in Explorer
 // before launching it) is baked into the binary at build time and can't
 // be rewritten by the app itself.
+const THEME_ICON_NAMES = new Set(["riftgate", "cyberpunk", "emerald", "crimson", "ocean", "gold", "red", "frost", "venom"]);
+
 ipcMain.handle("set-app-icon", async (event, themeName) => {
+    if (!THEME_ICON_NAMES.has(themeName)) return false;
     try {
         const iconPath = resolveIconPath(`${themeName}.ico`);
         if (fs.existsSync(iconPath) && win && !win.isDestroyed()) {
@@ -3596,61 +3627,11 @@ ipcMain.handle("get-upcoming-game-details", async (event, rawgId) => {
     }
 });
 
-// Tries common mod-folder naming conventions relative to a game's install
-// directory. Covers the most frequent patterns without needing per-game
-// knowledge; returns the first real match, or null if nothing was found.
-ipcMain.handle("find-mods-folder", async (event, exePath) => {
-
-    const exeDir = path.dirname(exePath);
-
-    const candidates = [
-        path.join(exeDir, "Mods"),
-        path.join(exeDir, "mods"),
-        path.join(exeDir, "Data", "Mods"),
-        path.join(exeDir, "..", "Mods"),
-        path.join(exeDir, "..", "mods"),
-        path.join(exeDir, "..", "..", "Mods"),
-        path.join(exeDir, "..", "..", "mods")
-    ];
-
-    for (const candidate of candidates) {
-        try {
-            if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-                return candidate;
-            }
-        } catch (err) {
-            // ignore and keep checking other candidates
-        }
-    }
-
-    return null;
-});
-
-ipcMain.handle("select-mods-folder", async (event, exePath) => {
-
-    const result = await dialog.showOpenDialog(win, {
-        title: "Choose (or create) the mods folder for this game",
-        defaultPath: path.dirname(exePath),
-        properties: ["openDirectory", "createDirectory"]
-    });
-
-    if (result.canceled || result.filePaths.length === 0) {
-        return null;
-    }
-
-    return result.filePaths[0];
-});
-
-ipcMain.handle("open-mods-folder", async (event, folderPath) => {
-    shell.openPath(folderPath);
-    return true;
-});
-
 ipcMain.handle("select-exe", async () => {
     const result = await dialog.showOpenDialog(win, {
         properties: ["openFile"],
         filters: [
-            { name: "Applications", extensions: ["exe"] }
+            { name: "Applications", extensions: [process.platform === "darwin" ? "app" : "exe"] }
         ]
     });
 
@@ -3674,7 +3655,31 @@ platform.startInstallWatcher(
     }
 );
 
+// Launcher links the importers actually produce. Anything else with "://" is refused.
+const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];
+
+function isInLibrary(targetPath) {
+    try {
+        const games = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8"));
+        return Array.isArray(games) && games.some((g) => g && g.path === targetPath);
+    } catch (err) {
+        return false;
+    }
+}
+
 ipcMain.handle("launch-app", async (event, exePath) => {
+    // Only things the user has in their library can be launched, and link-style
+    // entries only for known game launchers.
+    if (typeof exePath !== "string" || !exePath || !isInLibrary(exePath)) {
+        return { started: false, error: "not_in_library" };
+    }
+    if (exePath.includes("://")) {
+        let scheme = "";
+        try { scheme = new URL(exePath).protocol.toLowerCase(); } catch (err) { /* malformed */ }
+        if (!ALLOWED_LAUNCH_URI_SCHEMES.includes(scheme)) {
+            return { started: false, error: "unsupported_link" };
+        }
+    }
 
     if (runningProcesses.has(exePath)) {
         return { started: true, alreadyRunning: true, launches: null };
@@ -4790,17 +4795,6 @@ ipcMain.handle("open-dropzone-folder", async () => {
     return true;
 });
 
-// So the description diagnostic log can actually be found and opened
-// without needing to know or type the userData path by hand.
-ipcMain.handle("open-description-diagnostic-log", async () => {
-    const logPath = path.join(app.getPath("userData"), "description-diagnostic-log.txt");
-    if (!fs.existsSync(logPath)) {
-        fs.writeFileSync(logPath, "No diagnostic entries yet — reopen Reading Room to run the check.");
-    }
-    shell.openPath(logPath);
-    return true;
-});
-
 ipcMain.handle("get-ebooks", async () => {
     if (!fs.existsSync(EBOOKS_FILE)) return [];
     try {
@@ -5075,7 +5069,24 @@ ipcMain.handle("remove-ebook", async (event, ebookPath) => {
 // Opens the file with whatever the user's system already has set as the
 // default handler for EPUB/PDF — matches the rest of Riftgate's
 // "launcher, not a player" approach rather than rendering books in-app.
+const EBOOK_OPEN_EXTENSIONS = new Set([".epub", ".pdf"]);
+
 ipcMain.handle("launch-ebook", async (event, ebookPath) => {
+    // shell.openPath runs whatever it's given (including .exe), so only open
+    // e-book files that are actually in the user's library.
+    if (typeof ebookPath !== "string" || !EBOOK_OPEN_EXTENSIONS.has(path.extname(ebookPath).toLowerCase())) {
+        return { success: false, error: "Not an e-book file." };
+    }
+    let inLibrary = false;
+    try {
+        const ebooks = JSON.parse(fs.readFileSync(EBOOKS_FILE, "utf8"));
+        inLibrary = Array.isArray(ebooks) && ebooks.some((b) => b && b.path === ebookPath);
+    } catch (err) {
+        inLibrary = false;
+    }
+    if (!inLibrary) {
+        return { success: false, error: "This book isn't in your library." };
+    }
     if (!fs.existsSync(ebookPath)) {
         return { success: false, error: "File not found." };
     }
@@ -7184,6 +7195,14 @@ ipcMain.handle("quit-and-install-update", async () => {
     autoUpdater.quitAndInstall(true, true);
 });
 
+app.on("second-instance", () => {
+    if (win && !win.isDestroyed()) {
+        if (win.isMinimized()) win.restore();
+        win.show();
+        win.focus();
+    }
+});
+
 app.whenReady().then(async () => {
     // Content-Security-Policy, applied at the network layer (not a <meta>
     // tag) so it can't be bypassed by anything that gets injected into the
@@ -7309,16 +7328,18 @@ app.whenReady().then(async () => {
         checkForUpdatesWithRetry(1);
     }, 15000);
 
-    // Checks as often as GitHub's unauthenticated API allows without
-    // going over: 60 requests per hour per machine, divided evenly
-    // across the hour = one check every 60 seconds. The existing
-    // "update-available" / "update-not-available" handling in the
-    // renderer already does exactly what's wanted here with zero changes
-    // needed there: it only pops the update dialog when a newer version
-    // is actually found (see ipcRenderer.on("update-available") in
-    // renderer.js) and otherwise stays completely silent for anything
-    // that isn't a manual "Check for Updates" click.
-    setInterval(() => checkForUpdatesWithRetry(1), 60 * 1000);
+    // Re-checks every 4 hours (plus a random 0-30 min so installs don't all
+    // hit GitHub at the same moment), so a session left open for days still
+    // picks up a new release. The manual "Check for Updates" button is
+    // unaffected and checks immediately.
+    const scheduleNextUpdateCheck = () => {
+        const delay = 4 * 60 * 60 * 1000 + Math.floor(Math.random() * 30 * 60 * 1000);
+        setTimeout(() => {
+            checkForUpdatesWithRetry(1);
+            scheduleNextUpdateCheck();
+        }, delay);
+    };
+    scheduleNextUpdateCheck();
 });
 
 
