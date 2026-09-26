@@ -1213,7 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.6.2": [
-        "Fixed: cards in the same row (Upcoming Games and every other sideways-scrolling row) are now always the same height, whatever extra info a card shows"
+        "Fixed: cards on the same line are now always the same height — in Installed, the other card grids, Upcoming Games and every sideways-scrolling row — whatever extra info a card shows"
     ],
     "1.6.1": [
         "Changed: a new, slimmer header banner that follows your chosen theme's colors (light mode included), replacing the tall video banner",

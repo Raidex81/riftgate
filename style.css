@@ -512,7 +512,11 @@ input{
        windows/monitors instead of leaving it unused. */
     grid-template-columns:repeat(auto-fill, minmax(170px, 230px));
     justify-content:start;
-    align-items:start;
+    /* Cards on the same line take the height of the tallest one (e.g. an
+       Installed game with a playtime line), with the buttons pinned to
+       the bottom by .card-footer's margin-top:auto — same as the
+       sideways-scrolling rows. */
+    align-items:stretch;
     gap:18px;
     padding:0 0 12px;
 }
