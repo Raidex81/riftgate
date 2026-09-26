@@ -1231,6 +1231,7 @@ const CHANGELOG = {
         "Fixed: the email-confirmation page showed raw code and garbled symbols instead of a readable message",
         "Fixed: Epic's \"Get It Free\" button could open a page that doesn't exist",
         "Fixed: some free games appeared twice after a store refreshed on its own",
+        "Changed: Free Games rows now show a platform's full list, most popular first (new sort option, now the default), and VR gets its own row with every VR game from any store instead of a single stray card",
         "Changed: new-install detection now compares your Desktop and Start Menu shortcuts shortly after launch and then hourly, so it also notices programs installed while Riftgate was closed",
         "Changed: update checks now run every few hours instead of constantly",
         "Security: only one copy of Riftgate runs at a time, web links always open in your browser, and launching or opening files is limited to items in your library",
@@ -4927,7 +4928,7 @@ freeGamesClearBtn.addEventListener("click", () => {
     freeGamesSearchInput.value = "";
     freeGamesPlatformSelect.value = "all";
     freeGamesCategorySelect.value = "all";
-    freeGamesSortSelect.value = "newest";
+    freeGamesSortSelect.value = "popular";
     updateFreeGamesGenreOptions();
     renderFreeGames();
 });
@@ -5097,9 +5098,34 @@ function updateFreeGamesGenreOptions() {
 // its whole point). "platform" only orders WITHIN a platform's own row by
 // name; which platforms get grouped, and in what order, is handled by the
 // caller.
+// A rough 0–100 "how popular is this" score, built from whatever real
+// signal each source offers: Steam's review count (plus its rating),
+// itch.io's own popularity-ordered listing position, and the curated
+// lists' fixed scores. Live Epic/GOG/GamerPower giveaways are headline
+// promos but carry no numbers, so they get a middling score.
+function freeGamePopularity(g) {
+    if (typeof g.reviewCount === "number" && g.reviewCount > 0) {
+        const base = Math.min(100, 20 * Math.log10(g.reviewCount));
+        const ratingNudge = typeof g.rating === "number" ? (g.rating - 70) / 10 : 0;
+        return base + ratingNudge;
+    }
+    if (typeof g.popularityRank === "number") return Math.max(20, 55 - g.popularityRank * 0.5);
+    if (typeof g.popularity === "number") return g.popularity;
+    if (g.source === "Epic Games" || g.source === "GOG") return 50;
+    if (g.source === "Steam") return 25;
+    return 30;
+}
+
 function sortFreeGames(list, sortBy) {
     const arr = [...list];
     switch (sortBy) {
+        case "popular":
+            return arr.sort((a, b) => {
+                const aHasImg = a.image ? 0 : 1;
+                const bHasImg = b.image ? 0 : 1;
+                if (aHasImg !== bHasImg) return aHasImg - bHasImg;
+                return (freeGamePopularity(b) - freeGamePopularity(a)) || ((b.firstSeenAt || 0) - (a.firstSeenAt || 0));
+            });
         case "az":
             return arr.sort((a, b) => a.name.localeCompare(b.name));
         case "za":
@@ -5502,11 +5528,10 @@ function renderFreeGames() {
     ]);
     const isCuratedPlatform = (g) => g.alwaysFree || CURATED_ONLY_PLATFORMS.has(g.source);
     const newlyAdded = sortFreeGames(filtered.filter((g) => !isCuratedPlatform(g) && (g.firstSeenAt || 0) > oneWeekAgo), "newest");
-    const rest = sortFreeGames(filtered.filter((g) => isCuratedPlatform(g) || (g.firstSeenAt || 0) <= oneWeekAgo), sortBy);
 
     // Only needed when BOTH zones have something to show — otherwise
     // there's only one list on screen and no ambiguity to clear up.
-    browseHeading.style.display = (newlyAdded.length > 0 && rest.length > 0) ? "" : "none";
+    browseHeading.style.display = newlyAdded.length > 0 ? "" : "none";
 
     if (newlyAdded.length > 0) {
         // One single row mixing every platform together, most recently
@@ -5523,11 +5548,26 @@ function renderFreeGames() {
     // with more than FREE_GAMES_PREVIEW_CAP games (Steam, typically) get a
     // capped preview + "View all" button instead of a scrollable carousel —
     // scrolling through hundreds of games with arrows isn't practical.
+    //
+    // Every platform row lists ALL of that platform's matching games, new
+    // ones included — leaving this week's additions out (they're also in
+    // Newly Added above) used to shrink a mostly-new platform's row to one
+    // or two cards while its own tab showed dozens. Rows follow the sort
+    // control, which defaults to Most Popular.
+    //
+    // VR gets its own row too, built the same way as the VR tab: every
+    // native/adapted VR game from any platform (a stray GamerPower entry
+    // whose store is literally "VR" is folded in rather than getting a
+    // separate one-card row).
     const byPlatform = {};
-    rest.forEach((g) => {
+    const rowSorted = sortFreeGames(filtered, sortBy);
+    rowSorted.forEach((g) => {
+        if (g.source === "VR") return;
         if (!byPlatform[g.source]) byPlatform[g.source] = [];
         byPlatform[g.source].push(g);
     });
+    const vrGames = rowSorted.filter((g) => g.vr || g.source === "VR");
+    if (vrGames.length > 0) byPlatform.VR = vrGames;
 
     let platformNames = Object.keys(byPlatform);
     if (sortBy === "platform") {

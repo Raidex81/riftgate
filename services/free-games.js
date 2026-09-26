@@ -280,7 +280,11 @@ async function fetchItchFreeGamesFromPage(url, vr) {
                 url: gameUrl,
                 source: "itch.io",
                 tags: [],
-                vr: vr || null
+                vr: vr || null,
+                // Position on itch.io's own listing, which is ordered by
+                // popularity — 0 is the most popular (see freeGamePopularity
+                // in renderer.js).
+                popularityRank: games.length
             });
         }
 
@@ -1505,7 +1509,11 @@ function getCuratedAlwaysFreeGames() {
         }
     ].map((entry) => ({
         ...entry,
-        popularity: CURATED_ALWAYS_FREE_POPULARITY,
+        // Meta Quest's curated list is mostly small free experiences
+        // (museums, demos, tools), not the household-name titles the flat
+        // score above describes — so they sit in the middle instead of
+        // outranking genuinely popular VR games in a popularity sort.
+        popularity: entry.source === "Meta Quest" ? 40 : CURATED_ALWAYS_FREE_POPULARITY,
         // These titles are permanently free, not a rotating promo — they
         // never "age out" of being free the way a limited-time Epic/Steam
         // giveaway does, so treating them as newly-discovered content for

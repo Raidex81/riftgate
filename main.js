@@ -1999,7 +1999,10 @@ async function fetchSteamFreeGames(forceFullCheck) {
                 // platforms don't expose per-title review data at all), so
                 // this stays null for everything else and the badge just
                 // doesn't render there — see steam.computeSteamSpyRating.
-                rating: steam.computeSteamSpyRating(item)
+                rating: steam.computeSteamSpyRating(item),
+                // Total review count — the popularity signal used to rank
+                // Free Games rows (see freeGamePopularity in renderer.js).
+                reviewCount: ((Number(item.positive) || 0) + (Number(item.negative) || 0)) || null
             }));
     } catch (err) {
         console.error("[free-games] SteamSpy fetch failed:", err.message || err);
