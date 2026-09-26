@@ -8,9 +8,7 @@ const crypto = require("crypto");
 const AdmZip = require("adm-zip");
 const {
     supabaseRequest,
-    supabaseStorageUpload,
-    supabaseStorageSignedUrl,
-    supabaseStorageDelete,
+    supabaseSignedUpload,
     callAdminRpc,
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,
@@ -6512,6 +6510,30 @@ ipcMain.handle("get-shared-files", async (event, { username, password }) => {
     return { success: true, files: Array.isArray(result.result) ? result.result : [] };
 });
 
+// Every Vault file transfer goes through the "vault" Edge Function (backend
+// schema 7+): the storage bucket is private with no public rules, so the app
+// can't touch it directly. The function checks the password, then hands back
+// short-lived signed upload/download links.
+const VAULT_FUNCTION_MIN_SCHEMA = 7;
+const VAULT_NEEDS_SERVER_UPDATE = "The Vault is being upgraded — file sharing will be back shortly.";
+
+async function callVault(action, params) {
+    if (await getBackendSchemaVersion() < VAULT_FUNCTION_MIN_SCHEMA) {
+        return { success: false, error: VAULT_NEEDS_SERVER_UPDATE };
+    }
+    try {
+        const { statusCode, parsed } = await callEdgeFunction("vault", { action, ...params });
+        if (parsed && typeof parsed === "object") {
+            if (parsed.success) return parsed;
+            return { ...parsed, success: false, error: parsed.error || `The Vault couldn't do that (status ${statusCode}).` };
+        }
+        return { success: false, error: `The Vault couldn't do that (status ${statusCode}).` };
+    } catch (err) {
+        console.error(`[vault] ${action} failed:`, err.message || err);
+        return { success: false, error: "Couldn't reach the server — check your connection and try again." };
+    }
+}
+
 ipcMain.handle("upload-shared-file", async (event, { username, password, description, expiresHours }) => {
     const picked = await dialog.showOpenDialog(win, {
         title: "Choose a file to share",
@@ -6526,10 +6548,8 @@ ipcMain.handle("upload-shared-file", async (event, { username, password, descrip
     const originalName = path.basename(filePath);
 
     try {
-        // Supabase's free tier hard-caps every upload at 50MB, with no
-        // way to configure around it — checking this upfront gives a
-        // clear, specific reason immediately, instead of only finding
-        // out after the upload attempt fails.
+        // Supabase's free tier hard-caps every upload at 50MB — checking this
+        // upfront gives a clear reason immediately instead of a failed upload.
         const stats = fs.statSync(filePath);
         const fileSizeMb = stats.size / (1024 * 1024);
         if (fileSizeMb > 50) {
@@ -6539,15 +6559,12 @@ ipcMain.handle("upload-shared-file", async (event, { username, password, descrip
             };
         }
 
-        const fileBuffer = fs.readFileSync(filePath);
-        const storagePath = `${crypto.randomUUID()}-${safeFileName(originalName)}`;
+        const start = await callVault("upload-start", { username, password, filename: originalName, size: stats.size });
+        if (!start.success) return { success: false, error: start.error };
 
-        const uploadResult = await supabaseStorageUpload(storagePath, fileBuffer);
-        if (uploadResult.statusCode !== 200) {
-            // Surface the real reason instead of a generic message — this
-            // is the one part of the whole feature I genuinely couldn't
-            // verify without live testing, so seeing the actual Supabase
-            // response is what actually diagnoses it instead of guessing.
+        const fileBuffer = fs.readFileSync(filePath);
+        const uploadResult = await supabaseSignedUpload(start.uploadUrl, fileBuffer);
+        if (uploadResult.statusCode < 200 || uploadResult.statusCode >= 300) {
             console.error(`[share] upload failed — status ${uploadResult.statusCode}:`, uploadResult.body);
             let detail = uploadResult.body;
             try {
@@ -6559,65 +6576,35 @@ ipcMain.handle("upload-shared-file", async (event, { username, password, descrip
             return { success: false, error: `Upload failed (${uploadResult.statusCode}): ${detail}` };
         }
 
-        const metaResult = await callAdminRpc("add_shared_file", {
-            p_username: username,
-            p_filename: originalName,
-            p_storage_path: storagePath,
-            p_file_size: fileBuffer.length,
-            p_description: description || null,
-            p_expires_hours: expiresHours,
-            p_password: password || null
+        const finish = await callVault("upload-finish", {
+            username,
+            password,
+            storagePath: start.storagePath,
+            filename: originalName,
+            description: description || "",
+            expiresHours
         });
-
-        if (!metaResult.success) {
-            return { success: false, error: metaResult.error || "Couldn't record the shared file — you may not be on the allowlist." };
+        if (!finish.success) {
+            return { success: false, error: finish.error || "Couldn't record the shared file — you may not be on the allowlist." };
         }
-
-        return { success: true, file: metaResult.result };
+        return { success: true, file: finish.file };
     } catch (err) {
         console.error("[share] upload failed:", err.message || err);
         return { success: false, error: "Something went wrong reading or uploading that file." };
     }
 });
 
-// Every other Vault handler (get-shared-files, delete-shared-file, etc.)
-// re-checks the Vault password against the database on every call — these
-// two didn't: they took a bare storagePath and handed back a real signed
-// download URL with no credential check at all, relying only on the
-// caller already having gone through the password-gated get-shared-files
-// call to learn a storagePath in the first place. That's not a check,
-// it's an assumption — anything able to reach this IPC channel (e.g. a
-// future XSS, or just a guessed/leaked storage path) could pull a file
-// straight out of the Vault with no password at all. This re-verifies the
-// password by re-running get_shared_files (the same RPC the file list
-// itself uses to authenticate) and confirming the requested storagePath
-// is actually in that authorized user's own result set before signing
-// anything.
-async function isAuthorizedForSharedFile(username, password, storagePath) {
-    const result = await callAdminRpc("get_shared_files", { p_username: username, p_password: password || null });
-    if (!result.success || !Array.isArray(result.result)) return false;
-    return result.result.some((file) => file.storage_path === storagePath);
-}
-
-// Just the signed URL, no save dialog — used for hover-preview of image
-// files, as opposed to download-shared-file which is the full
-// "pick where to save it" flow.
+// Just the signed URL, no save dialog — used for hover-preview of image files.
+// The Edge Function re-checks the password and that the file is in the Vault.
 ipcMain.handle("get-shared-file-preview-url", async (event, { username, password, storagePath }) => {
-    try {
-        if (!(await isAuthorizedForSharedFile(username, password, storagePath))) {
-            return { success: false, error: "Not authorized for that file." };
-        }
-        const { url, error } = await supabaseStorageSignedUrl(storagePath, 3600);
-        return url ? { success: true, url } : { success: false, error };
-    } catch (err) {
-        return { success: false, error: err.message || String(err) };
-    }
+    const result = await callVault("download-url", { username, password, storagePath, expiresIn: 3600 });
+    return result.success ? { success: true, url: result.url } : { success: false, error: result.error };
 });
 
 ipcMain.handle("download-shared-file", async (event, { username, password, storagePath, filename }) => {
-    if (!(await isAuthorizedForSharedFile(username, password, storagePath))) {
-        return { success: false, error: "Not authorized for that file." };
-    }
+    // Ask for the link first, so an unauthorized request never opens a save dialog.
+    const link = await callVault("download-url", { username, password, storagePath });
+    if (!link.success) return { success: false, error: link.error || "Not authorized for that file." };
 
     const saveResult = await dialog.showSaveDialog(win, {
         title: "Save shared file",
@@ -6629,15 +6616,14 @@ ipcMain.handle("download-shared-file", async (event, { username, password, stora
     }
 
     try {
-        const { url: signedUrl, error: signError } = await supabaseStorageSignedUrl(storagePath);
-        if (!signedUrl) {
-            console.error("[share] couldn't get signed URL for download:", signError);
-            return { success: false, error: `Couldn't generate a download link: ${signError || "unknown error"}` };
-        }
+        // The first link may have expired while the save dialog was open.
+        const fresh = await callVault("download-url", { username, password, storagePath });
+        if (!fresh.success) return { success: false, error: `Couldn't generate a download link: ${fresh.error || "unknown error"}` };
 
         const fileBuffer = await new Promise((resolve, reject) => {
-            https.get(signedUrl, (res) => {
+            https.get(fresh.url, (res) => {
                 if (res.statusCode !== 200) {
+                    res.resume();
                     reject(new Error(`Download failed with status ${res.statusCode}`));
                     return;
                 }
@@ -6655,70 +6641,27 @@ ipcMain.handle("download-shared-file", async (event, { username, password, stora
     }
 });
 
-ipcMain.handle("delete-shared-file", async (event, { username, fileId, storagePath, adminPassword, password }) => {
-    const result = await callAdminRpc("delete_shared_file", {
-        p_username: username,
-        p_file_id: fileId,
-        p_admin_password: adminPassword || null,
-        p_password: password || null
+// The Edge Function deletes the Vault entry and its stored file together.
+ipcMain.handle("delete-shared-file", async (event, { username, fileId, adminPassword, password }) => {
+    const result = await callVault("delete", {
+        username,
+        password: password || adminPassword || "",
+        adminPassword: adminPassword || null,
+        fileId
     });
-
-    const deleted = result.success ? !!result.result : false;
-
-    // The metadata row is the source of truth for whether this
-    // succeeded — if it did, also remove the actual file from storage
-    // so deleted shares don't just sit there as orphaned data forever.
-    if (deleted && storagePath) {
-        try {
-            await supabaseStorageDelete(storagePath);
-        } catch (err) {
-            console.error("[share] storage cleanup after delete failed:", err.message || err);
-        }
-    }
-
-    return deleted;
+    return !!result.success;
 });
 
-// Removes every expired share's metadata row, then deletes each one's
-// actual file from storage — the RPC below only handles the metadata
-// side (returning what it deleted), so the storage cleanup happens
-// here in the app. Any allowlisted user's Riftgate can safely trigger
-// this; it's called periodically rather than needing a dedicated
-// server to run on a schedule.
+// Removes expired shares (entry + stored file). Any allowlisted user's
+// Riftgate triggers this periodically — there's no scheduled server job.
 ipcMain.handle("cleanup-expired-shared-files", async (event, { username, password }) => {
-    const result = await callAdminRpc("cleanup_expired_shared_files", { p_username: username, p_password: password || null });
-    if (!result.success || !Array.isArray(result.result)) return { success: false, cleaned: 0 };
-
-    for (const file of result.result) {
-        try {
-            await supabaseStorageDelete(file.storage_path);
-        } catch (err) {
-            console.error("[share] expired file storage cleanup failed:", err.message || err);
-        }
-    }
-
-    return { success: true, cleaned: result.result.length };
+    const result = await callVault("cleanup-expired", { username, password });
+    return result.success ? { success: true, cleaned: result.cleaned || 0 } : { success: false, cleaned: 0 };
 });
 
 ipcMain.handle("force-clean-shared-folder", async (event, { adminUsername, adminPassword }) => {
-    const result = await callAdminRpc("force_clean_shared_folder", {
-        p_admin_username: adminUsername,
-        p_admin_password: adminPassword
-    });
-
-    if (!result.success || !Array.isArray(result.result)) {
-        return { success: false, error: result.error };
-    }
-
-    for (const file of result.result) {
-        try {
-            await supabaseStorageDelete(file.storage_path);
-        } catch (err) {
-            console.error("[share] force-clean storage cleanup failed:", err.message || err);
-        }
-    }
-
-    return { success: true, cleaned: result.result.length };
+    const result = await callVault("force-clean", { username: adminUsername, password: adminPassword });
+    return result.success ? { success: true, cleaned: result.cleaned || 0 } : { success: false, error: result.error };
 });
 
 // --- Shared links (WeTransfer etc., for files over the 50MB cap) ------

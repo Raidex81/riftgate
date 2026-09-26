@@ -19,3 +19,5 @@ $P -d rgtest -f supabase/migrations/20260925000500_login_sessions.sql
 $P -d rgtest -f supabase/tests/test_0005.sql
 $P -d rgtest -f supabase/migrations/20260925000600_account_email_server_side.sql
 $P -d rgtest -f supabase/tests/test_0006.sql
+$P -d rgtest -f supabase/migrations/20260926000700_vault_function.sql
+$P -d rgtest -f supabase/tests/test_0007.sql

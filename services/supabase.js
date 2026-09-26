@@ -52,117 +52,32 @@ function supabaseRequest(pathAndQuery, method, body) {
     });
 }
 
-// Supabase Storage uses a different API shape than the JSON REST calls
-// above (binary upload bodies, a signed-URL endpoint) — these two
-// helpers handle that, used specifically for the private shared folder
-// feature.
-function supabaseStorageUpload(storagePath, fileBuffer, contentType) {
+// Vault files live in a private bucket; the "vault" Edge Function hands out a
+// short-lived signed upload URL and this PUTs the file to it.
+function supabaseSignedUpload(uploadUrl, fileBuffer) {
     return new Promise((resolve, reject) => {
-        const url = new URL(`${SUPABASE_URL}/storage/v1/object/riftgate-shares/${storagePath}`);
-
+        const url = new URL(uploadUrl);
+        if (url.origin !== new URL(SUPABASE_URL).origin || !url.pathname.startsWith("/storage/v1/object/upload/sign/")) {
+            reject(new Error("Unexpected upload URL"));
+            return;
+        }
         const req = https.request(url, {
-            method: "POST",
+            method: "PUT",
             headers: {
                 "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`,
-                "Content-Type": contentType || "application/octet-stream",
-                "Content-Length": fileBuffer.length
+                "Content-Type": "application/octet-stream",
+                "Content-Length": fileBuffer.length,
+                "x-upsert": "false"
             }
         }, (res) => {
             let raw = "";
             res.on("data", (chunk) => raw += chunk);
-            res.on("end", () => {
-                resolve({ statusCode: res.statusCode, body: raw });
-            });
+            res.on("end", () => resolve({ statusCode: res.statusCode, body: raw }));
         });
 
         req.on("error", reject);
-        req.setTimeout(60000, () => req.destroy(new Error("Upload timed out")));
+        req.setTimeout(120000, () => req.destroy(new Error("Upload timed out")));
         req.write(fileBuffer);
-        req.end();
-    });
-}
-
-// Resolves to { url, error } rather than just a bare URL/null — every
-// failure used to collapse into the same generic "couldn't generate a
-// link" message with nothing to actually diagnose it by (expired/missing
-// storage object, an RLS/policy rejection, a bad path, a network error
-// all looked identical). Now the real reason from Supabase's response
-// flows all the way up to the dialog the user actually sees, the same
-// way upload failures already surface their real reason instead of a
-// generic one.
-function supabaseStorageSignedUrl(storagePath, expiresInSeconds) {
-    return new Promise((resolve) => {
-        const url = new URL(`${SUPABASE_URL}/storage/v1/object/sign/riftgate-shares/${storagePath}`);
-        const payload = JSON.stringify({ expiresIn: expiresInSeconds || 300 });
-
-        const req = https.request(url, {
-            method: "POST",
-            headers: {
-                "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`,
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(payload)
-            }
-        }, (res) => {
-            let raw = "";
-            res.on("data", (chunk) => raw += chunk);
-            res.on("end", () => {
-                if (res.statusCode !== 200) {
-                    let detail = raw;
-                    try {
-                        const parsed = JSON.parse(raw);
-                        detail = parsed.message || parsed.error || raw;
-                    } catch (err) {
-                        // body wasn't JSON — use it raw
-                    }
-                    console.error(`[share] signed URL request failed — status ${res.statusCode}:`, raw);
-                    resolve({ url: null, error: `(${res.statusCode}) ${detail}` });
-                    return;
-                }
-
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (parsed.signedURL) {
-                        resolve({ url: `${SUPABASE_URL}/storage/v1${parsed.signedURL}`, error: null });
-                    } else {
-                        console.error("[share] signed URL response had no signedURL field:", raw);
-                        resolve({ url: null, error: "Storage didn't return a signed URL." });
-                    }
-                } catch (err) {
-                    console.error("[share] signed URL response wasn't valid JSON:", raw);
-                    resolve({ url: null, error: "Unexpected response from storage." });
-                }
-            });
-        });
-
-        req.on("error", (err) => {
-            console.error("[share] signed URL request errored:", err.message || err);
-            resolve({ url: null, error: err.message || String(err) });
-        });
-        req.setTimeout(10000, () => req.destroy(new Error("Signed URL request timed out")));
-        req.write(payload);
-        req.end();
-    });
-}
-
-function supabaseStorageDelete(storagePath) {
-    return new Promise((resolve, reject) => {
-        const url = new URL(`${SUPABASE_URL}/storage/v1/object/riftgate-shares/${storagePath}`);
-
-        const req = https.request(url, {
-            method: "DELETE",
-            headers: {
-                "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`
-            }
-        }, (res) => {
-            res.on("data", () => {});
-            res.on("end", () => resolve(res.statusCode));
-        });
-
-        req.on("error", reject);
-        req.setTimeout(10000, () => req.destroy(new Error("Delete request timed out")));
         req.end();
     });
 }
@@ -319,9 +234,7 @@ async function sendPasswordResetEmail(username, email, code) {
 
 module.exports = {
     supabaseRequest,
-    supabaseStorageUpload,
-    supabaseStorageSignedUrl,
-    supabaseStorageDelete,
+    supabaseSignedUpload,
     callAdminRpc,
     mediaProxyGetJson,
     mediaProxyGetJsonPlain,

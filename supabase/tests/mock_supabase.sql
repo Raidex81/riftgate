@@ -114,3 +114,38 @@ create or replace function public.set_own_date_of_birth(input_username text, new
 create or replace function public.set_own_mature_content_preference(input_username text, new_value boolean) returns boolean language sql security definer set search_path to 'public','extensions' as $$
   update public.usernames set show_mature_content = new_value where username = input_username returning true; $$;
 create or replace function public.get_own_email_status(input_username text, input_password text) returns jsonb language sql as $$ select '{}'::jsonb $$;
+-- Vault pieces used by 0007 (production bodies, from _private/audit/2-functions.sql)
+alter table storage.objects add column metadata jsonb, add column created_at timestamptz default now();
+create table storage.buckets (id text primary key, name text, public boolean default false, file_size_limit bigint);
+insert into storage.buckets (id, name, public) values ('riftgate-shares', 'riftgate-shares', false);
+create or replace function public.delete_shared_file(p_username text, p_file_id bigint, p_admin_password text default null::text, p_password text default null::text)
+ returns boolean language plpgsql security definer set search_path to 'public', 'extensions' as $function$
+declare v_uploader text; v_is_admin boolean := false; v_owner_verified boolean := false;
+begin
+    select uploader_username into v_uploader from shared_files where id = p_file_id;
+    if v_uploader is null then return false; end if;
+    if v_uploader = p_username then
+        select verify_login(p_username, p_password) into v_owner_verified;
+        if v_owner_verified then delete from shared_files where id = p_file_id; return true; end if;
+    end if;
+    if p_admin_password is not null then
+        select verify_admin_login(p_username, p_admin_password) into v_is_admin;
+        if v_is_admin then delete from shared_files where id = p_file_id; return true; end if;
+    end if;
+    return false;
+end; $function$;
+create or replace function public.cleanup_expired_shared_files(p_username text, p_password text default null::text)
+ returns setof shared_files language plpgsql security definer as $function$
+begin
+    if not check_share_access(p_username, p_password) then raise exception 'Not authorized'; end if;
+    return query delete from shared_files where expires_at <= now() returning *;
+end; $function$;
+create or replace function public.add_shared_file(p_username text, p_filename text, p_storage_path text, p_file_size bigint, p_description text, p_expires_hours integer, p_password text default null::text)
+ returns shared_files language plpgsql security definer as $function$
+declare v_row shared_files;
+begin
+    if not check_share_access(p_username, p_password) then raise exception 'Not authorized'; end if;
+    insert into shared_files (filename, storage_path, file_size, description, uploader_username, expires_at)
+    values (p_filename, p_storage_path, p_file_size, p_description, p_username, now() + (p_expires_hours || ' hours')::interval) returning * into v_row;
+    return v_row;
+end; $function$;
