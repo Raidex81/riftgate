@@ -53,6 +53,8 @@ Quick pass on what changed this round (v1.7.1):
   show exactly two full lines of cards. Make the window wider: more
   cards appear, no empty space at the end of a line. Make it narrower:
   the extra cards hide, still two full lines.
+- **Store rows** — Newly Added, Most Popular and Recommended behave the
+  same way: always two full lines at any window width.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

@@ -1213,7 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.7.1": [
-        "Changed: Free Games' platform previews (Steam, GOG, itch.io…) always show exactly two full lines of cards — a wider window shows more games instead of leaving empty space, a narrower one hides the ones that don't fit"
+        "Changed: Free Games' platform previews (Steam, GOG, itch.io…) and Store's Newly Added, Most Popular and Recommended rows always show exactly two full lines of cards — a wider window shows more instead of leaving empty space, a narrower one hides the ones that don't fit"
     ],
     "1.7.0": [
         "New: a \"See all\" button on Upcoming Games, Upcoming Movies, New Series, New Anime, In Theaters and every streaming service row opens the complete list in a large panel, with search and sorting",
@@ -10943,21 +10943,21 @@ function buildStoreSpotlightSection(container, headingText, items) {
 // and then shows exactly enough of them to fill its last line of cards,
 // so a row never ends with empty slots (see fitStoreSpotlightToFullRows).
 const STORE_NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
-const STORE_SPOTLIGHT_CAP = 12;
+const STORE_SPOTLIGHT_ROWS = 2;
 const STORE_SPOTLIGHT_POOL = 48;
 
-// Shows as many cards as fill whole lines at the current window width:
-// about STORE_SPOTLIGHT_CAP cards, rounded up to the end of the line. If
-// the pool runs out before that, the half-empty last line is dropped
-// instead (unless the row has less than one line to begin with).
+// Shows exactly STORE_SPOTLIGHT_ROWS full lines of cards at the current
+// window width, same as Free Games' platform previews: a wider window
+// reveals more deals from the pool, a narrower one hides the ones that no
+// longer fit. If the pool runs out before that, the half-empty last line
+// is dropped instead (unless the row has less than one line to begin with).
 function fitStoreSpotlightToFullRows(grid) {
     const cards = Array.from(grid.children);
     if (cards.length === 0) return;
     const tracks = getComputedStyle(grid).gridTemplateColumns;
     const columns = tracks && tracks !== "none" ? tracks.split(" ").filter(Boolean).length : 0;
     if (columns < 1) return; // not laid out yet (tab hidden) -- the observer re-runs this
-    const lines = Math.max(1, Math.ceil(STORE_SPOTLIGHT_CAP / columns));
-    let show = Math.min(cards.length, lines * columns);
+    let show = Math.min(cards.length, STORE_SPOTLIGHT_ROWS * columns);
     if (show > columns && show % columns !== 0) show -= show % columns;
     cards.forEach((card, i) => { card.style.display = i < show ? "" : "none"; });
     const h2 = grid.parentElement && grid.parentElement.querySelector(".theatre-block-header h2");
