@@ -395,6 +395,33 @@ _(to be added)_
 
 Reflects the active backlog, roughly in priority order:
 
+- **Split `renderer.js` (next major architecture project)** — ~12,700
+  lines in one file, organised only by `// --- Section ---` comment
+  headers (about 47 of them). Target layout:
+
+  ```
+  renderer/
+   ├── core/        state.js, ipc.js, dom-helpers.js, navigation.js
+   ├── cards.js     shared card builders + cover fallbacks
+   ├── library.js   Installed
+   ├── free-games.js
+   ├── store.js
+   ├── theatre.js
+   ├── reading-room.js
+   ├── applications.js
+   ├── vault.js
+   ├── auth.js      login, sessions, admin tools
+   ├── settings.js  options, themes, age gate, language
+   └── surprise-me.js
+  ```
+
+  Planned in three steps so nothing breaks along the way: (1) a smoke
+  test that launches the app, opens every section and fails on any
+  console error, run in CI; (2) a purely mechanical move of each section
+  into its own file, loaded in the same order as plain scripts so shared
+  variables keep working, one section per commit; (3) only then, turn
+  the files into ES modules with explicit imports and replace the shared
+  globals with a small state module.
 - **Architecture** — split `main.js`'s remaining ~7,400 lines by
   subsystem (`ipc/`, `windows/`, `games/`, `free-games/`, `media/`,
   `vault/`, `auth/`, `system/`, alongside the existing `services/`)
