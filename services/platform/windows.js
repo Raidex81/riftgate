@@ -373,7 +373,10 @@ function readShortcutSnapshot(file) {
 
 function checkForNewInstalls(getGamesFilePath, onDetected) {
     const gamesFile = getGamesFilePath();
-    if (!gamesFile) return;
+    if (!gamesFile) {
+        console.log("[installer-detect] Skipped: library file not ready yet.");
+        return;
+    }
     const snapshotFile = path.join(path.dirname(gamesFile), SHORTCUT_SNAPSHOT_FILE);
 
     const current = collectShortcutTargets();
@@ -416,7 +419,8 @@ function startInstallWatcher(getGamesFilePath, onDetected) {
             console.error("[installer-detect] check failed:", err.message || err);
         }
     };
-    setTimeout(run, 60 * 1000);   // shortly after launch (catches installs made while closed)
+    console.log("[installer-detect] Watching Desktop/Start Menu shortcuts (first check in 20 s, then hourly).");
+    setTimeout(run, 20 * 1000);   // shortly after launch (catches installs made while closed)
     setInterval(run, 3600000);    // then once an hour
 }
 
