@@ -223,6 +223,116 @@ body{
 }
 
 
+/* --- Decorative layer: portal rings, drifting shards, sparks --------- */
+.hero-deco{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    overflow:hidden;
+}
+
+/* Portal: concentric rings on the right, partly cut off by the edge. */
+.hero-portal{
+    position:absolute;
+    right:6%;
+    top:50%;
+    width:300px;
+    height:300px;
+    transform:translateY(-50%);
+    border-radius:50%;
+    background:
+        radial-gradient(circle, color-mix(in srgb, var(--accent-2) 30%, transparent) 0 6%, transparent 32%),
+        repeating-radial-gradient(circle, transparent 0 22px, color-mix(in srgb, var(--accent-1) 28%, transparent) 22px 23.5px, transparent 23.5px 38px);
+    -webkit-mask-image:radial-gradient(circle, #000 35%, transparent 70%);
+    mask-image:radial-gradient(circle, #000 35%, transparent 70%);
+    animation:heroPortalSpin 60s linear infinite;
+}
+
+.hero-portal::before,
+.hero-portal::after{
+    content:"";
+    position:absolute;
+    inset:18%;
+    border-radius:50%;
+    border:2px solid transparent;
+    border-top-color:color-mix(in srgb, var(--accent-2) 70%, transparent);
+    border-right-color:color-mix(in srgb, var(--accent-1) 40%, transparent);
+    filter:drop-shadow(0 0 6px var(--accent-2));
+}
+
+.hero-portal::after{
+    inset:32%;
+    border-top-color:transparent;
+    border-bottom-color:color-mix(in srgb, var(--accent-1) 75%, transparent);
+    border-left-color:color-mix(in srgb, var(--accent-2) 35%, transparent);
+    filter:drop-shadow(0 0 6px var(--accent-1));
+    animation:heroPortalSpin 18s linear infinite reverse;
+}
+
+@keyframes heroPortalSpin{ to{ transform:translateY(-50%) rotate(360deg); } }
+.hero-portal::after{ animation-name:heroRingSpin; }
+@keyframes heroRingSpin{ to{ transform:rotate(-360deg); } }
+
+/* Energy streaks sweeping from the logo side toward the portal. */
+.hero-streak{
+    position:absolute;
+    height:1.5px;
+    border-radius:2px;
+    background:linear-gradient(90deg, transparent, var(--accent-1) 40%, var(--accent-2) 70%, transparent);
+    opacity:.55;
+    filter:drop-shadow(0 0 4px var(--accent-2));
+}
+.hero-streak.s1{ left:34%; right:8%; top:30%; transform:rotate(-2deg); }
+.hero-streak.s2{ left:42%; right:14%; top:68%; transform:rotate(1.5deg); opacity:.4; }
+.hero-streak.s3{ left:55%; right:4%; top:50%; opacity:.3; }
+
+/* Crystal shards floating around the portal. */
+.hero-shard{
+    position:absolute;
+    background:linear-gradient(135deg, color-mix(in srgb, var(--accent-1) 85%, #fff 15%), color-mix(in srgb, var(--accent-2) 60%, transparent));
+    clip-path:polygon(50% 0, 100% 38%, 72% 100%, 22% 88%, 0 30%);
+    opacity:.75;
+    filter:drop-shadow(0 0 6px var(--accent-1));
+    animation:heroShardFloat 9s ease-in-out infinite;
+}
+.hero-shard.a{ width:22px; height:30px; right:31%; top:16%; transform:rotate(-18deg); }
+.hero-shard.b{ width:14px; height:19px; right:24%; top:66%; transform:rotate(24deg); animation-delay:-3s; opacity:.6; }
+.hero-shard.c{ width:28px; height:36px; right:3%; top:12%; transform:rotate(12deg); animation-delay:-5s; }
+.hero-shard.d{ width:12px; height:16px; right:45%; top:60%; transform:rotate(-30deg); animation-delay:-1.5s; opacity:.45; }
+.hero-shard.e{ width:17px; height:23px; right:14%; top:70%; transform:rotate(40deg); animation-delay:-6.5s; opacity:.55; }
+
+@keyframes heroShardFloat{
+    0%, 100%{ translate:0 0; }
+    50%{ translate:0 -6px; }
+}
+
+/* Sparks: tiny twinkling points of light. */
+.hero-sparks{
+    position:absolute;
+    inset:0;
+    background-image:
+        radial-gradient(1.5px 1.5px at 38% 22%, #fff, transparent),
+        radial-gradient(1px 1px at 47% 80%, #fff, transparent),
+        radial-gradient(1.5px 1.5px at 58% 35%, var(--accent-2), transparent),
+        radial-gradient(1px 1px at 63% 74%, #fff, transparent),
+        radial-gradient(2px 2px at 71% 18%, var(--accent-1), transparent),
+        radial-gradient(1px 1px at 79% 58%, #fff, transparent),
+        radial-gradient(1.5px 1.5px at 86% 28%, #fff, transparent),
+        radial-gradient(1px 1px at 92% 84%, var(--accent-2), transparent),
+        radial-gradient(1px 1px at 97% 44%, #fff, transparent),
+        radial-gradient(1px 1px at 30% 70%, #fff, transparent);
+    opacity:.8;
+    animation:heroTwinkle 4s ease-in-out infinite alternate;
+}
+@keyframes heroTwinkle{ from{ opacity:.35; } to{ opacity:.9; } }
+
+body.light-theme .hero-sparks{ opacity:.25; animation:none; }
+
+@media (prefers-reduced-motion:reduce){
+    .hero-portal, .hero-portal::after, .hero-shard, .hero-sparks{ animation:none; }
+}
+
+
 .topbar{
     display:flex;
     justify-content:flex-end;
