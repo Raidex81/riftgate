@@ -1212,6 +1212,12 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.6.3": [
+        "Changed: Upcoming Movies is now a single sideways-scrolling row, like the other rows, and shows more upcoming films instead of leaving empty space on wide screens",
+        "Fixed: Free Games was missing itch.io's free VR games — itch.io moved that page, and Riftgate now follows it",
+        "Fixed (Mac): Riftgate's icon now shows in the menu bar, and clicking the Dock icon brings the window back after \"Minimize to Background\"",
+        "Fixed: removed a leftover font download that was being blocked on every launch"
+    ],
     "1.6.2": [
         "Changed: cancelling the password prompt when opening The Vault no longer brings it straight back — the Vault shows an Unlock button instead, and asks again only if you click it or come back to The Vault later",
         "New: books in My Library that have no cover of their own now get their real published cover looked up online (Open Library, then Google Books)",

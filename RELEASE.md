@@ -47,15 +47,15 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.6.2):
+Quick pass on what changed this round (v1.6.3):
 
-- **Card heights** — in Installed, Free Games, Reading Room, Upcoming
-  Games and every other row or grid, cards on the same line end at the
-  same height, with the buttons lined up.
-- **My Library covers** — a book without a cover of its own gets its real
-  cover from Open Library / Google Books within a few seconds.
-- **The Vault** — cancel the password prompt: it stays closed and an
-  Unlock button appears; coming back to The Vault later asks again.
+- **Upcoming Movies** (New tab) — one line that scrolls sideways with the
+  arrows, filled edge to edge on any screen width, with more films than
+  before.
+- **Free Games → VR** — itch.io games appear in the VR row again.
+- **Mac** — run **Actions → Mac Smoke Test** with version `main` before
+  releasing: the menu-bar icon, theme icon and itch.io VR checks must all
+  pass. After release, run it again with the new version number.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.
