@@ -1232,6 +1232,7 @@ const CHANGELOG = {
         "Fixed: Epic's \"Get It Free\" button could open a page that doesn't exist",
         "Fixed: some free games appeared twice after a store refreshed on its own",
         "Changed: Free Games rows now show a platform's full list, most popular first (new sort option, now the default), and VR gets its own row with the VR games from the PC stores (Meta Quest keeps its own row) instead of a single stray card",
+        "Fixed: a cover could show up as an empty black box when the portrait artwork found online for it was blank or see-through — the original cover is kept instead",
         "Changed: new-install detection now compares your Desktop and Start Menu shortcuts shortly after launch and then hourly, so it also notices programs installed while Riftgate was closed",
         "Changed: update checks now run every few hours instead of constantly",
         "Security: only one copy of Riftgate runs at a time, web links always open in your browser, and launching or opening files is limited to items in your library",
@@ -4773,10 +4774,54 @@ async function fetchVerticalCoverReplacement(img, itemName) {
 // Upcoming Games, Related items, streaming-provider rows) -- these just
 // leave a mismatched card alone today if the cover turns out sideways, so
 // there's nothing to fall back to here beyond trying the replacement.
+// Some online "vertical covers" turn out to be a logo on a transparent
+// background, or an almost entirely black image — on a dark card either one
+// just looks like an empty black box. Samples a thumbnail of the loaded
+// image; true means "don't use this one".
+function looksLikeBlankCover(img) {
+    try {
+        const w = 24, h = 36;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let opaque = 0;
+        let brightness = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] > 32) {
+                opaque++;
+                brightness += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+            }
+        }
+        if (opaque < w * h * 0.5) return true;
+        return brightness / opaque < 14;
+    } catch (err) {
+        return false; // can't inspect it (e.g. cross-origin) — keep it
+    }
+}
+
 function watchForLandscapeCover(img, itemName) {
     const check = async () => {
+        const original = img.currentSrc || img.src;
         const replacement = await fetchVerticalCoverReplacement(img, itemName);
-        if (replacement) img.src = replacement;
+        if (!replacement) return;
+        // If the replacement fails to load or comes out blank, go back to
+        // the original (landscape) cover rather than showing nothing.
+        const revert = () => {
+            img.removeEventListener("load", verify);
+            img.removeEventListener("error", revert);
+            if (original) img.src = original;
+        };
+        const verify = () => {
+            img.removeEventListener("load", verify);
+            img.removeEventListener("error", revert);
+            if (looksLikeBlankCover(img) && original) img.src = original;
+        };
+        img.addEventListener("load", verify);
+        img.addEventListener("error", revert);
+        img.src = replacement;
     };
     img.addEventListener("load", check);
     // Mirrors the requestAnimationFrame fallback below -- "load" doesn't
