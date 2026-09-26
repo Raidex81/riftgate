@@ -1212,6 +1212,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.6.2": [
+        "Fixed: cards in the same row (Upcoming Games and every other sideways-scrolling row) are now always the same height, whatever extra info a card shows"
+    ],
     "1.6.1": [
         "Changed: a new, slimmer header banner that follows your chosen theme's colors (light mode included), replacing the tall video banner",
         "Changed: Store's Newly Added, Most Popular and Recommended rows now always end on a full line of cards instead of leaving empty spaces",
