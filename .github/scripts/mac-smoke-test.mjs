@@ -179,6 +179,26 @@ async function main() {
     );
   }
 
+  // 3b. "See all" panels (1.7.0+): each should load real items.
+  const hasSeeAll = await page.evaluate(() => typeof openSeeAll === "function");
+  if (hasSeeAll) {
+    for (const kind of ["upcoming-movies", "upcoming-games", "new-series", "new-anime", "now-playing", "itch"]) {
+      await page.evaluate((k) => openSeeAll(k), kind);
+      let info = { cards: 0, count: "" };
+      for (let i = 0; i < 30; i++) {
+        await sleep(1000);
+        info = await page.evaluate(() => ({
+          cards: document.querySelectorAll("#seeAllGrid .game-card").length,
+          count: document.getElementById("seeAllCount").textContent
+        }));
+        if (info.cards > 0 && !/Loading/.test(info.count)) break;
+      }
+      await page.screenshot({ path: path.join(OUT, `see-all-${kind}.png`) });
+      record(`See all: ${kind}`, info.cards > 0, `${info.cards} cards — ${info.count}`);
+      await page.evaluate(() => closeSeeAll());
+    }
+  }
+
   // 4. Theme switch — the header should follow each theme's colours.
   await page.evaluate((s) => switchSection(s), "installed");
   await sleep(2000);

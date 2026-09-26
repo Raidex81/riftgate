@@ -107,18 +107,26 @@ async function fetchEpicFreeGames() {
 // previously appears to have stopped returning results reliably.
 async function fetchGogFreeGames() {
     try {
-        const data = await httpsGetJsonPlain(
-            "https://catalog.gog.com/v1/catalog?limit=48&order=desc:trending&productType=in:game&price=between:0,0&countryCode=US&locale=en-US&currencyCode=USD",
-            10000
-        );
-
-        const products = data.products || [];
+        // Every page, not just the first 48: GOG lists 400+ free games.
+        const products = [];
+        const MAX_PAGES = 20;
+        for (let page = 1; page <= MAX_PAGES; page++) {
+            const data = await httpsGetJsonPlain(
+                `https://catalog.gog.com/v1/catalog?limit=48&order=desc:trending&productType=in:game&price=between:0,0&countryCode=US&locale=en-US&currencyCode=USD&page=${page}`,
+                10000
+            );
+            products.push(...(data.products || []));
+            if (!data.pages || page >= data.pages || !(data.products || []).length) break;
+        }
 
         // Defensive price check, same reasoning as Steam's — only exclude
         // an item if we can positively confirm it's NOT free, since we
         // can't be fully certain of GOG's exact field shape without live
         // testing; anything ambiguous is kept rather than dropped.
+        const seenIds = new Set();
         const genuinelyFree = products.filter((p) => {
+            if (seenIds.has(p.id)) return false;
+            seenIds.add(p.id);
             const amount = p.price && p.price.final && p.price.final.amount;
             if (amount === undefined) return true;
             return parseFloat(amount) === 0;

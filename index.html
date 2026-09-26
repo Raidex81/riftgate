@@ -1317,6 +1317,7 @@
         <div class="theatre-block">
             <div class="theatre-block-header">
                 <h2>🎬 In Theaters</h2>
+                <button type="button" class="see-all-btn" data-see-all="now-playing">See all →</button>
             </div>
             <input type="text" id="moviesFilterInput" class="subsection-filter" placeholder="Filter movies by name...">
             <div id="moviesGrid" class="games-grid browse-grid"></div>
@@ -1360,6 +1361,7 @@
         <div class="theatre-block" data-block="upcoming-games">
             <div class="theatre-block-header">
                 <h2>🎮 Upcoming Games</h2>
+                <button type="button" class="see-all-btn" data-see-all="upcoming-games">See all →</button>
             </div>
             <div class="hscroll-row">
                 <button class="carousel-arrow carousel-arrow-left" id="upcomingGamesLeftArrow" aria-label="Scroll left">‹</button>
@@ -1371,6 +1373,7 @@
         <div class="theatre-block" data-block="upcoming-movies">
             <div class="theatre-block-header">
                 <h2>🎬 Upcoming Movies</h2>
+                <button type="button" class="see-all-btn" data-see-all="upcoming-movies">See all →</button>
             </div>
             <div class="hscroll-row">
                 <button class="carousel-arrow carousel-arrow-left" id="upcomingMoviesLeftArrow" aria-label="Scroll left">‹</button>
@@ -1382,6 +1385,7 @@
         <div class="theatre-block" data-block="new-series">
             <div class="theatre-block-header">
                 <h2>📺 New Series</h2>
+                <button type="button" class="see-all-btn" data-see-all="new-series">See all →</button>
                 <input type="text" id="newShowsFilterInput" class="subsection-filter" placeholder="Filter by show name...">
             </div>
             <div class="hscroll-row">
@@ -1400,6 +1404,7 @@
         <div class="theatre-block" data-block="new-anime">
             <div class="theatre-block-header">
                 <h2>🎌 New Anime</h2>
+                <button type="button" class="see-all-btn" data-see-all="new-anime">See all →</button>
                 <input type="text" id="newAnimeFilterInput" class="subsection-filter" placeholder="Filter by title...">
             </div>
             <div class="hscroll-row">
@@ -1572,6 +1577,30 @@
 
     <div class="bottom-bar">
         <div id="bottomBarVersion" class="bottom-bar-version"></div>
+    </div>
+
+    <!-- "See all" panel: the complete list behind a capped row (see
+         openSeeAll in renderer.js). Sits below .modal-overlay (z-index
+         999), so a card's detail window or trailer opens on top of it. -->
+    <div id="seeAllOverlay" class="see-all-overlay" hidden>
+        <div class="see-all-panel" role="dialog" aria-modal="true" aria-labelledby="seeAllTitle">
+            <div class="see-all-header">
+                <div class="see-all-heading">
+                    <h2 id="seeAllTitle"></h2>
+                    <p id="seeAllSubtitle" class="see-all-subtitle"></p>
+                </div>
+                <button type="button" id="seeAllCloseBtn" class="see-all-close" aria-label="Close">✕</button>
+            </div>
+            <div class="see-all-controls">
+                <input type="text" id="seeAllSearch" class="subsection-filter" placeholder="Search this list..." aria-label="Search this list">
+                <select id="seeAllSort" aria-label="Sort"></select>
+                <span id="seeAllCount" class="see-all-count" aria-live="polite"></span>
+            </div>
+            <div id="seeAllScroll" class="see-all-scroll">
+                <div id="seeAllGrid" class="games-grid browse-grid see-all-grid"></div>
+                <p id="seeAllStatus" class="see-all-status"></p>
+            </div>
+        </div>
     </div>
 
     <div class="modal-overlay" id="theaterModal">

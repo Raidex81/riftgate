@@ -1212,6 +1212,12 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.7.0": [
+        "New: a \"See all\" button on Upcoming Games, Upcoming Movies, New Series, New Anime, In Theaters and every streaming service row opens the complete list in a large panel, with search and sorting",
+        "New: Upcoming Movies covers every film coming to cinemas in your region over the next 12 months, not just the next 3 weeks — the row shows the most popular, See all shows every one",
+        "New: Upcoming Games' full list covers every game with a release date in the next 12 months",
+        "Changed: Free Games now lists every free GOG game (400+) instead of only the first 48, and itch.io's \"View all\" opens its full list, loading more as you scroll"
+    ],
     "1.6.3": [
         "Changed: Upcoming Movies is now a single sideways-scrolling row, like the other rows, and shows more upcoming films instead of leaving empty space on wide screens",
         "Fixed: Free Games was missing itch.io's free VR games — itch.io moved that page, and Riftgate now follows it",
@@ -5398,8 +5404,14 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
     const viewAllBtn = document.createElement("button");
     viewAllBtn.type = "button";
     viewAllBtn.className = "free-games-view-all-btn";
-    viewAllBtn.textContent = `View all ${items.length} →`;
+    viewAllBtn.textContent = platformName === "itch.io" ? "View all on itch.io →" : `View all ${items.length} →`;
     viewAllBtn.addEventListener("click", () => {
+        // itch.io has well over a million free games; Riftgate keeps its
+        // first page, and the full list opens in the "See all" panel.
+        if (platformName === "itch.io") {
+            openSeeAll("itch");
+            return;
+        }
         freeGamesPlatformSelect.value = platformName;
         updateFreeGamesGenreOptions();
         renderFreeGames();
@@ -7855,6 +7867,7 @@ async function loadStreamingProviders() {
         // the name goes through a text node and the logo is only ever
         // assigned as a real <img>.src, never interpolated into markup.
         const heading = block.querySelector(".theatre-block-header h2");
+        block.querySelector(".theatre-block-header").appendChild(makeSeeAllButton("provider", { providerName: provider.name }));
         if (provider.logo) {
             const logoImg = document.createElement("img");
             logoImg.src = provider.logo;
@@ -8462,7 +8475,7 @@ function renderUpcomingMovies() {
     grid.innerHTML = "";
     const sortedUpcomingMovies = sortNoCoverLast(visible, "poster");
     sortedUpcomingMovies.forEach((movie) => grid.appendChild(buildMovieCard(movie, true, sortedUpcomingMovies)));
-    fitHscrollTrack(grid, 210, 18);
+    fitHscrollTrack(grid, 210, 14);
 }
 
 async function loadUpcomingMovies() {
@@ -8483,6 +8496,101 @@ async function loadUpcomingMovies() {
 let newShowsCache = [];
 const newShowsFilterInput = document.getElementById("newShowsFilterInput");
 
+// One New Series / New Anime card (also used by the "See all" panel).
+function buildNewShowCard(show, navList) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+    // show.name/description come from TMDB's own listing data —
+    // untrusted third-party content, so both go through textContent.
+    card.innerHTML = `
+        <div class="cover-wrap">
+            <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+            <span class="media-rating-badge" hidden></span>
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
+        </div>
+        <div class="game-info">
+            <h3></h3>
+            <p class="game-playtime">📅 First aired ${show.firstAirDate || "unknown"}</p>
+            <p class="game-desc"></p>
+            <div class="card-footer">
+                <button class="launchBtn addToShowsBtn">➕ Add to My Shows</button>
+            </div>
+        </div>
+    `;
+
+    card.querySelector(".cover-img").alt = show.name;
+    watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
+    card.querySelector(".game-info h3").textContent = show.name;
+    card.querySelector(".game-desc").textContent = show.description || "No description available.";
+
+    // New Series comes from TMDB's /discover/tv (unlike My Shows/Recently
+    // Released, which use TVMaze via applyShowMeta) — same rating source
+    // as Upcoming/Now Playing movies, so it gets the same TMDB attribution.
+    if (typeof show.rating === "number") {
+        const newShowRatingBadge = card.querySelector(".media-rating-badge");
+        newShowRatingBadge.textContent = `★ ${show.rating.toFixed(1)}`;
+        newShowRatingBadge.title = "Rating via TMDB";
+        newShowRatingBadge.hidden = false;
+    }
+
+    const newShowDescEl = card.querySelector(".game-desc");
+    newShowDescEl.style.cursor = "pointer";
+    newShowDescEl.addEventListener("click", () => {
+        openGameDetailModal(show, "show", navList);
+    });
+
+    const newShowCoverImgEl = card.querySelector(".cover-img");
+    newShowCoverImgEl.style.cursor = "pointer";
+    newShowCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", navList));
+
+    let newShowTrailerId;
+
+    async function fetchNewShowTrailerOnce() {
+        if (newShowTrailerId === undefined || newShowTrailerId === null) {
+            newShowTrailerId = await window.riftgate.invoke("get-tv-show-trailer", show.id);
+        }
+        return newShowTrailerId;
+    }
+
+    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const trailerId = await fetchNewShowTrailerOnce();
+        if (trailerId) {
+            openTheaterMode(trailerId);
+        } else {
+            showCustomAlert("No trailer could be found for this title.");
+        }
+    });
+
+    card.querySelector(".soundToggle").addEventListener("click", (event) => {
+        event.stopPropagation();
+        soundEnabled = !soundEnabled;
+        updateAllSoundToggles();
+        applySoundToAllFrames();
+    });
+
+    // My Shows tracking runs on TVMaze IDs, but this feed comes from
+    // TMDB — resolve the matching TVMaze entry by name before adding.
+    card.querySelector(".addToShowsBtn").addEventListener("click", async (event) => {
+        const results = await window.riftgate.invoke("search-tv-shows", show.name);
+
+        if (!results || results.length === 0) {
+            showCustomAlert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
+            return;
+        }
+
+        await window.riftgate.invoke("add-to-watchlist", results[0]);
+        event.target.textContent = "✅ Added";
+        event.target.disabled = true;
+        loadRecentEpisodes();
+    });
+
+    attachAdminRemoveButton(card, "show", show.id, show.name);
+
+    return card;
+}
+
 function renderNewShows() {
     const grid = document.getElementById("newShowsGrid");
     const filterTerm = newShowsFilterInput.value.trim().toLowerCase();
@@ -8502,99 +8610,7 @@ function renderNewShows() {
     grid.innerHTML = "";
 
     const sortedNewShows = sortNoCoverLast(filtered, "image");
-    sortedNewShows.forEach((show) => {
-        const card = document.createElement("div");
-        card.className = "game-card";
-        // show.name/description come from TMDB's own listing data —
-        // untrusted third-party content, so both go through textContent.
-        card.innerHTML = `
-            <div class="cover-wrap">
-                <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
-                <span class="media-rating-badge" hidden></span>
-                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
-            </div>
-            <div class="game-info">
-                <h3></h3>
-                <p class="game-playtime">📅 First aired ${show.firstAirDate || "unknown"}</p>
-                <p class="game-desc"></p>
-                <div class="card-footer">
-                    <button class="launchBtn addToShowsBtn">➕ Add to My Shows</button>
-                </div>
-            </div>
-        `;
-
-        card.querySelector(".cover-img").alt = show.name;
-        watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
-        card.querySelector(".game-info h3").textContent = show.name;
-        card.querySelector(".game-desc").textContent = show.description || "No description available.";
-
-        // New Series comes from TMDB's /discover/tv (unlike My Shows/Recently
-        // Released, which use TVMaze via applyShowMeta) — same rating source
-        // as Upcoming/Now Playing movies, so it gets the same TMDB attribution.
-        if (typeof show.rating === "number") {
-            const newShowRatingBadge = card.querySelector(".media-rating-badge");
-            newShowRatingBadge.textContent = `★ ${show.rating.toFixed(1)}`;
-            newShowRatingBadge.title = "Rating via TMDB";
-            newShowRatingBadge.hidden = false;
-        }
-
-        const newShowDescEl = card.querySelector(".game-desc");
-        newShowDescEl.style.cursor = "pointer";
-        newShowDescEl.addEventListener("click", () => {
-            openGameDetailModal(show, "show", sortedNewShows);
-        });
-
-        const newShowCoverImgEl = card.querySelector(".cover-img");
-        newShowCoverImgEl.style.cursor = "pointer";
-        newShowCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", sortedNewShows));
-
-        let newShowTrailerId;
-
-        async function fetchNewShowTrailerOnce() {
-            if (newShowTrailerId === undefined || newShowTrailerId === null) {
-                newShowTrailerId = await window.riftgate.invoke("get-tv-show-trailer", show.id);
-            }
-            return newShowTrailerId;
-        }
-
-        card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
-            event.stopPropagation();
-            const trailerId = await fetchNewShowTrailerOnce();
-            if (trailerId) {
-                openTheaterMode(trailerId);
-            } else {
-                showCustomAlert("No trailer could be found for this title.");
-            }
-        });
-
-        card.querySelector(".soundToggle").addEventListener("click", (event) => {
-            event.stopPropagation();
-            soundEnabled = !soundEnabled;
-            updateAllSoundToggles();
-            applySoundToAllFrames();
-        });
-
-        // My Shows tracking runs on TVMaze IDs, but this feed comes from
-        // TMDB — resolve the matching TVMaze entry by name before adding.
-        card.querySelector(".addToShowsBtn").addEventListener("click", async (event) => {
-            const results = await window.riftgate.invoke("search-tv-shows", show.name);
-
-            if (!results || results.length === 0) {
-                showCustomAlert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
-                return;
-            }
-
-            await window.riftgate.invoke("add-to-watchlist", results[0]);
-            event.target.textContent = "✅ Added";
-            event.target.disabled = true;
-            loadRecentEpisodes();
-        });
-
-        attachAdminRemoveButton(card, "show", show.id, show.name);
-
-        grid.appendChild(card);
-    });
+    sortedNewShows.forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewShows)));
 
     fitHscrollTrack(grid, 210, 14);
 }
@@ -8645,98 +8661,7 @@ function renderNewAnime() {
     grid.innerHTML = "";
 
     const sortedNewAnime = sortNoCoverLast(filtered, "image");
-    sortedNewAnime.forEach((show) => {
-        const card = document.createElement("div");
-        card.className = "game-card";
-        // show.name/description come from TMDB's own listing data --
-        // untrusted third-party content, so both go through textContent.
-        card.innerHTML = `
-            <div class="cover-wrap">
-                <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
-                <span class="media-rating-badge" hidden></span>
-                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
-            </div>
-            <div class="game-info">
-                <h3></h3>
-                <p class="game-playtime">📅 First aired ${show.firstAirDate || "unknown"}</p>
-                <p class="game-desc"></p>
-                <div class="card-footer">
-                    <button class="launchBtn addToShowsBtn">➕ Add to My Shows</button>
-                </div>
-            </div>
-        `;
-
-        card.querySelector(".cover-img").alt = show.name;
-        watchForLandscapeCover(card.querySelector(".cover-img"), show.name);
-        card.querySelector(".game-info h3").textContent = show.name;
-        card.querySelector(".game-desc").textContent = show.description || "No description available.";
-
-        // Same TMDB /discover/tv rating source as New Series/Upcoming/Now
-        // Playing, so it gets the same TMDB attribution.
-        if (typeof show.rating === "number") {
-            const newAnimeRatingBadge = card.querySelector(".media-rating-badge");
-            newAnimeRatingBadge.textContent = `★ ${show.rating.toFixed(1)}`;
-            newAnimeRatingBadge.title = "Rating via TMDB";
-            newAnimeRatingBadge.hidden = false;
-        }
-
-        const newAnimeDescEl = card.querySelector(".game-desc");
-        newAnimeDescEl.style.cursor = "pointer";
-        newAnimeDescEl.addEventListener("click", () => {
-            openGameDetailModal(show, "show", sortedNewAnime);
-        });
-
-        const newAnimeCoverImgEl = card.querySelector(".cover-img");
-        newAnimeCoverImgEl.style.cursor = "pointer";
-        newAnimeCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", sortedNewAnime));
-
-        let newAnimeTrailerId;
-
-        async function fetchNewAnimeTrailerOnce() {
-            if (newAnimeTrailerId === undefined || newAnimeTrailerId === null) {
-                newAnimeTrailerId = await window.riftgate.invoke("get-tv-show-trailer", show.id);
-            }
-            return newAnimeTrailerId;
-        }
-
-        card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
-            event.stopPropagation();
-            const trailerId = await fetchNewAnimeTrailerOnce();
-            if (trailerId) {
-                openTheaterMode(trailerId);
-            } else {
-                showCustomAlert("No trailer could be found for this title.");
-            }
-        });
-
-        card.querySelector(".soundToggle").addEventListener("click", (event) => {
-            event.stopPropagation();
-            soundEnabled = !soundEnabled;
-            updateAllSoundToggles();
-            applySoundToAllFrames();
-        });
-
-        // My Shows tracking runs on TVMaze IDs, but this feed comes from
-        // TMDB -- resolve the matching TVMaze entry by name before adding.
-        card.querySelector(".addToShowsBtn").addEventListener("click", async (event) => {
-            const results = await window.riftgate.invoke("search-tv-shows", show.name);
-
-            if (!results || results.length === 0) {
-                showCustomAlert(`Couldn't find "${show.name}" in the TV tracking database yet.`);
-                return;
-            }
-
-            await window.riftgate.invoke("add-to-watchlist", results[0]);
-            event.target.textContent = "✅ Added";
-            event.target.disabled = true;
-            loadRecentEpisodes();
-        });
-
-        attachAdminRemoveButton(card, "show", show.id, show.name);
-
-        grid.appendChild(card);
-    });
+    sortedNewAnime.forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewAnime)));
 
     fitHscrollTrack(grid, 210, 14);
 }
@@ -8772,6 +8697,72 @@ async function preloadUpcomingGameDetails(games) {
     }
 }
 
+// One Upcoming Games card (also used by the "See all" panel).
+function buildUpcomingGameCard(game, navList) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+    // game.name comes from the upcoming-games API listing — untrusted
+    // third-party content, so it goes through textContent below.
+    card.innerHTML = `
+        <div class="cover-wrap">
+            <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
+            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
+            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
+        </div>
+        <div class="game-info">
+            <h3></h3>
+            ${game.releaseDate ? `<p class="game-playtime">📅 Releases ${game.releaseDate}</p>` : ""}
+            ${game.platforms && game.platforms.length ? `<p class="game-desc upcoming-game-platforms"></p>` : ""}
+        </div>
+    `;
+
+    card.querySelector(".cover-img").alt = game.name;
+    watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
+    card.querySelector(".game-info h3").textContent = game.name;
+    // Third-party platform names from RAWG — textContent, never innerHTML.
+    const platformsEl = card.querySelector(".upcoming-game-platforms");
+    if (platformsEl) platformsEl.textContent = `🖥️ ${game.platforms.join(", ")}`;
+
+    let upcomingTrailerId;
+
+    async function fetchUpcomingTrailerOnce() {
+        if (upcomingTrailerId === undefined || upcomingTrailerId === null) {
+            upcomingTrailerId = await window.riftgate.invoke("fetch-trailer", game.name, "game", game.description, game.id);
+        }
+        return upcomingTrailerId;
+    }
+
+    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const trailerId = await fetchUpcomingTrailerOnce();
+        if (trailerId) {
+            openTheaterMode(trailerId);
+        } else {
+            showCustomAlert("No trailer could be found for this title.");
+        }
+    });
+
+    card.querySelector(".soundToggle").addEventListener("click", (event) => {
+        event.stopPropagation();
+        soundEnabled = !soundEnabled;
+        updateAllSoundToggles();
+        applySoundToAllFrames();
+    });
+
+    // Clicking the card (rather than hovering it) opens the large detail
+    // window — cover + full description + platform/specs + buy, with
+    // related games further down. The card's own "More Info" button was
+    // removed since this does the same thing with one less click.
+    card.style.cursor = "pointer";
+    card.addEventListener("click", () => {
+        openGameDetailModal(game, "game", navList);
+    });
+
+    attachAdminRemoveButton(card, "game", game.id, game.name);
+
+    return card;
+}
+
 async function loadUpcomingGames() {
     const grid = document.getElementById("upcomingGamesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
@@ -8790,72 +8781,350 @@ async function loadUpcomingGames() {
     upcomingGamesCache = sortedGames;
     preloadUpcomingGameDetails(sortedGames);
 
-    sortedGames.forEach((game) => {
-        const card = document.createElement("div");
-        card.className = "game-card";
-        // game.name comes from the upcoming-games API listing — untrusted
-        // third-party content, so it goes through textContent below.
-        card.innerHTML = `
-            <div class="cover-wrap">
-                <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
-                <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-                <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
-            </div>
-            <div class="game-info">
-                <h3></h3>
-                ${game.releaseDate ? `<p class="game-playtime">📅 Releases ${game.releaseDate}</p>` : ""}
-                ${game.platforms && game.platforms.length ? `<p class="game-desc upcoming-game-platforms"></p>` : ""}
-            </div>
-        `;
-
-        card.querySelector(".cover-img").alt = game.name;
-        watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
-        card.querySelector(".game-info h3").textContent = game.name;
-        // Third-party platform names from RAWG — textContent, never innerHTML.
-        const platformsEl = card.querySelector(".upcoming-game-platforms");
-        if (platformsEl) platformsEl.textContent = `🖥️ ${game.platforms.join(", ")}`;
-
-        let upcomingTrailerId;
-
-        async function fetchUpcomingTrailerOnce() {
-            if (upcomingTrailerId === undefined || upcomingTrailerId === null) {
-                upcomingTrailerId = await window.riftgate.invoke("fetch-trailer", game.name, "game", game.description, game.id);
-            }
-            return upcomingTrailerId;
-        }
-
-        card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
-            event.stopPropagation();
-            const trailerId = await fetchUpcomingTrailerOnce();
-            if (trailerId) {
-                openTheaterMode(trailerId);
-            } else {
-                showCustomAlert("No trailer could be found for this title.");
-            }
-        });
-
-        card.querySelector(".soundToggle").addEventListener("click", (event) => {
-            event.stopPropagation();
-            soundEnabled = !soundEnabled;
-            updateAllSoundToggles();
-            applySoundToAllFrames();
-        });
-
-        // Clicking the card (rather than hovering it) opens the large detail
-        // window — cover + full description + platform/specs + buy, with
-        // related games further down. The card's own "More Info" button was
-        // removed since this does the same thing with one less click.
-        card.style.cursor = "pointer";
-        card.addEventListener("click", () => {
-            openGameDetailModal(game, "game", upcomingGamesCache);
-        });
-
-        attachAdminRemoveButton(card, "game", game.id, game.name);
-
-        grid.appendChild(card);
-    });
+    sortedGames.forEach((game) => grid.appendChild(buildUpcomingGameCard(game, upcomingGamesCache)));
 
     fitHscrollTrack(grid, 300, 14);
+}
+
+// --- "See all" panel ---------------------------------------------------------
+//
+// Rows on the New tab and in Theatre (and itch.io in Free Games) show a
+// capped selection. "See all" opens this panel, which pages through the
+// complete list from the same source (get-full-list in main.js). Lists of
+// up to SEE_ALL_AUTOLOAD_PAGES pages are loaded completely in the
+// background, so search and sort cover everything; longer ones (a
+// streaming service's whole catalog, itch.io's million-plus free games)
+// load the next page as you scroll.
+
+const SEE_ALL_AUTOLOAD_PAGES = 25;
+
+const SEE_ALL_KINDS = {
+    "upcoming-movies": {
+        title: () => "🎬 Upcoming Movies",
+        noun: "films",
+        subtitle: () => "Every film with a cinema release in your region over the next 12 months",
+        mediaType: () => "movie",
+        name: (it) => it.title,
+        date: (it) => it.releaseDate,
+        posters: true,
+        build: (it, list) => buildMovieCard(it, true, list)
+    },
+    "now-playing": {
+        title: () => "🎬 In Theaters",
+        noun: "films",
+        subtitle: () => "Everything showing in cinemas in your region right now",
+        mediaType: () => "movie",
+        name: (it) => it.title,
+        date: (it) => it.releaseDate,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildMovieCard(it, false, list)
+    },
+    "new-series": {
+        title: () => "📺 New Series",
+        noun: "series",
+        subtitle: () => "Every series that started in the last 90 days",
+        mediaType: () => "show",
+        name: (it) => it.name,
+        date: (it) => it.firstAirDate,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildNewShowCard(it, list)
+    },
+    "new-anime": {
+        title: () => "🎌 New Anime",
+        noun: "anime",
+        subtitle: () => "Every anime series that started in the last 90 days",
+        mediaType: () => "show",
+        name: (it) => it.name,
+        date: (it) => it.firstAirDate,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildNewShowCard(it, list)
+    },
+    "upcoming-games": {
+        title: () => "🎮 Upcoming Games",
+        noun: "games",
+        subtitle: () => "Every game with a release date in the next 12 months",
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: (it) => it.releaseDate,
+        posters: false,
+        build: (it, list) => buildUpcomingGameCard(it, list)
+    },
+    "provider": {
+        title: (ctx) => ctx.providerName,
+        noun: "titles",
+        subtitle: (ctx) => `Everything streaming on ${ctx.providerName} in your region, most popular first`,
+        mediaType: (it) => (it.mediaType === "movie" ? "movie" : "show"),
+        name: (it) => it.name,
+        date: (it) => it.releaseDate,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list, ctx) => buildStreamingProviderCard(it, ctx.providerName)
+    },
+    "itch": {
+        title: () => "🎨 itch.io — free games",
+        noun: "games",
+        subtitle: () => "itch.io's new & popular free games — well over a million, so more load as you scroll",
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: null,
+        posters: false,
+        build: (it, list) => buildFreeGameCard(it, list)
+    }
+};
+
+const seeAllOverlay = document.getElementById("seeAllOverlay");
+const seeAllGrid = document.getElementById("seeAllGrid");
+const seeAllSearch = document.getElementById("seeAllSearch");
+const seeAllSort = document.getElementById("seeAllSort");
+const seeAllStatus = document.getElementById("seeAllStatus");
+const seeAllScroll = document.getElementById("seeAllScroll");
+
+let seeAllState = null;
+
+function seeAllCountry() {
+    return (typeof movieCountrySelect !== "undefined" && movieCountrySelect.value) || settings.movieCountry || settings.country || "US";
+}
+
+function seeAllVisibleItems() {
+    const state = seeAllState;
+    const def = SEE_ALL_KINDS[state.kind];
+    let list = state.items.filter((it) => {
+        const type = def.mediaType(it);
+        if (isItemRemoved(type, it.id)) return false;
+        if (type !== "game" && !canSeeMatureContent() && isItemMature(type, it.id, it.isMature)) return false;
+        return true;
+    });
+    const term = seeAllSearch.value.trim().toLowerCase();
+    if (term) list = list.filter((it) => (def.name(it) || "").toLowerCase().includes(term));
+    const sortBy = seeAllSort.value;
+    if (sortBy === "name") {
+        list = [...list].sort((a, b) => (def.name(a) || "").localeCompare(def.name(b) || ""));
+    } else if ((sortBy === "date-asc" || sortBy === "date-desc") && def.date) {
+        const dir = sortBy === "date-asc" ? 1 : -1;
+        list = [...list].sort((a, b) => {
+            const da = def.date(a) || "";
+            const db = def.date(b) || "";
+            if (!da) return 1; // undated always last
+            if (!db) return -1;
+            return da.localeCompare(db) * dir;
+        });
+    }
+    return list;
+}
+
+function updateSeeAllStatus() {
+    const state = seeAllState;
+    if (!state) return;
+    const def = SEE_ALL_KINDS[state.kind];
+    const loaded = state.items.length;
+    const shown = state.visible.length;
+    let text;
+    if (state.error && loaded === 0) {
+        text = state.error;
+    } else if (state.loading && loaded === 0) {
+        text = "Loading…";
+    } else if (!state.hasMore) {
+        text = `${loaded.toLocaleString()} ${def.noun}${shown !== loaded ? ` — ${shown.toLocaleString()} match` : ""}`;
+    } else if (state.autoLoad) {
+        text = `Loading all ${def.noun}… ${loaded.toLocaleString()}${state.totalResults ? ` of about ${state.totalResults.toLocaleString()}` : ""}`;
+    } else {
+        text = `${loaded.toLocaleString()}${state.totalResults ? ` of ${state.totalResults.toLocaleString()}` : ""} ${def.noun} loaded — scroll down for more`;
+    }
+    if (state.error && loaded > 0) text += ` · ${state.error}`;
+    document.getElementById("seeAllCount").textContent = text;
+    seeAllStatus.textContent = state.hasMore && !state.autoLoad ? (state.loading ? "Loading more…" : "") : "";
+}
+
+function renderSeeAll() {
+    const state = seeAllState;
+    if (!state) return;
+    const def = SEE_ALL_KINDS[state.kind];
+    state.visible = seeAllVisibleItems();
+    seeAllGrid.innerHTML = "";
+    if (state.visible.length === 0 && !state.loading) {
+        seeAllGrid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${state.items.length ? "Nothing matches your search." : "Nothing to show right now."}</p>`;
+    }
+    const frag = document.createDocumentFragment();
+    state.visible.forEach((it) => appendSeeAllCard(frag, def, it, state));
+    seeAllGrid.appendChild(frag);
+    state.renderedCount = state.visible.length;
+    updateSeeAllStatus();
+}
+
+// One odd item from a third-party list must never stop the rest showing.
+function appendSeeAllCard(parent, def, item, state) {
+    try {
+        parent.appendChild(def.build(item, state.visible, state.ctx));
+    } catch (err) {
+        console.error("[see-all] couldn't build a card:", err);
+    }
+}
+
+// New page arrived: append instead of rebuilding when the order can't
+// change (no search, source order), so scrolling isn't disturbed.
+function renderSeeAllAppend() {
+    const state = seeAllState;
+    const def = SEE_ALL_KINDS[state.kind];
+    if (seeAllSearch.value.trim() || seeAllSort.value !== "default" || state.renderedCount === 0) {
+        renderSeeAll();
+        return;
+    }
+    const before = state.visible.length;
+    state.visible = seeAllVisibleItems();
+    const added = state.visible.slice(before);
+    const frag = document.createDocumentFragment();
+    added.forEach((it) => appendSeeAllCard(frag, def, it, state));
+    seeAllGrid.appendChild(frag);
+    state.renderedCount = state.visible.length;
+    updateSeeAllStatus();
+}
+
+async function loadSeeAllPage() {
+    const state = seeAllState;
+    if (!state || state.loading || !state.hasMore) return;
+    state.loading = true;
+    updateSeeAllStatus();
+    const token = state.token;
+    const result = await window.riftgate.invoke("get-full-list", {
+        kind: state.kind,
+        page: state.nextPage,
+        countryCode: seeAllCountry(),
+        providerName: state.ctx.providerName
+    });
+    if (!seeAllState || seeAllState.token !== token) return; // closed or reopened meanwhile
+    state.loading = false;
+
+    if (result && result.error) {
+        state.error = result.error;
+        state.failures = (state.failures || 0) + 1;
+        if (state.failures >= 3) state.hasMore = false;
+        updateSeeAllStatus();
+        if (state.hasMore) setTimeout(() => { if (seeAllState && seeAllState.token === token) loadSeeAllPage(); }, 2000);
+        return;
+    }
+    state.error = null;
+    state.failures = 0;
+
+    const known = new Set(state.items.map((it) => it.id));
+    const fresh = ((result && result.items) || []).filter((it) => it && !known.has(it.id));
+    state.items.push(...fresh);
+    if (result && typeof result.totalResults === "number") state.totalResults = result.totalResults;
+    const totalPages = (result && result.totalPages) || 0;
+    state.hasMore = state.nextPage < totalPages;
+    if (state.nextPage === 1) state.autoLoad = totalPages <= SEE_ALL_AUTOLOAD_PAGES;
+    state.nextPage += 1;
+
+    renderSeeAllAppend();
+
+    if (state.hasMore && state.autoLoad) {
+        setTimeout(() => { if (seeAllState && seeAllState.token === token) loadSeeAllPage(); }, 150);
+    } else if (state.hasMore) {
+        maybeLoadMoreSeeAll();
+    }
+}
+
+// Scroll-driven loading for the long lists: fetch the next page whenever
+// the bottom of the grid is within about two screens.
+function maybeLoadMoreSeeAll() {
+    const state = seeAllState;
+    if (!state || state.autoLoad || !state.hasMore || state.loading) return;
+    const remaining = seeAllScroll.scrollHeight - seeAllScroll.scrollTop - seeAllScroll.clientHeight;
+    if (remaining < seeAllScroll.clientHeight * 2) loadSeeAllPage();
+}
+
+seeAllScroll.addEventListener("scroll", maybeLoadMoreSeeAll, { passive: true });
+
+function openSeeAll(kind, ctx = {}) {
+    const def = SEE_ALL_KINDS[kind];
+    if (!def) return;
+    seeAllState = {
+        kind,
+        ctx,
+        items: [],
+        visible: [],
+        renderedCount: 0,
+        nextPage: 1,
+        hasMore: true,
+        autoLoad: true,
+        loading: false,
+        error: null,
+        totalResults: null,
+        token: Symbol(kind)
+    };
+    document.getElementById("seeAllTitle").textContent = def.title(ctx);
+    document.getElementById("seeAllSubtitle").textContent = def.subtitle(ctx);
+    seeAllSearch.value = "";
+    // Date sorting only where the list has dates; "soonest" reads better
+    // for upcoming lists, "newest" for things already out.
+    seeAllSort.innerHTML = "";
+    const options = [["default", kind === "upcoming-games" ? "Most anticipated" : "Most popular"]];
+    if (def.date) {
+        options.push(def.dateIsPast ? ["date-desc", "Newest first"] : ["date-asc", "Release date (soonest)"]);
+        options.push(def.dateIsPast ? ["date-asc", "Oldest first"] : ["date-desc", "Release date (latest)"]);
+    }
+    options.push(["name", "Name (A–Z)"]);
+    options.forEach(([value, label]) => {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = label;
+        seeAllSort.appendChild(opt);
+    });
+    seeAllGrid.classList.toggle("see-all-posters", !!def.posters);
+    seeAllGrid.innerHTML = "";
+    seeAllScroll.scrollTop = 0;
+    seeAllOverlay.hidden = false;
+    document.body.classList.add("see-all-open");
+    updateSeeAllStatus();
+    seeAllSearch.focus();
+    loadSeeAllPage();
+}
+
+function closeSeeAll() {
+    seeAllState = null;
+    seeAllOverlay.hidden = true;
+    document.body.classList.remove("see-all-open");
+    seeAllGrid.innerHTML = "";
+}
+
+let seeAllSearchTimer = null;
+seeAllSearch.addEventListener("input", () => {
+    clearTimeout(seeAllSearchTimer);
+    seeAllSearchTimer = setTimeout(renderSeeAll, 150);
+});
+seeAllSort.addEventListener("change", renderSeeAll);
+document.getElementById("seeAllCloseBtn").addEventListener("click", closeSeeAll);
+seeAllOverlay.addEventListener("click", (event) => {
+    if (event.target === seeAllOverlay) closeSeeAll();
+});
+// Capture phase, so this runs before a detail window's own Escape handler
+// closes it: Escape closes whatever is on top first, the panel next time.
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || seeAllOverlay.hidden) return;
+    if (document.querySelector(".modal-overlay.active")) return;
+    closeSeeAll();
+}, true);
+
+// Static "See all" buttons in index.html carry their list in data-see-all.
+document.querySelectorAll("[data-see-all]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openSeeAll(btn.dataset.seeAll);
+    });
+});
+
+function makeSeeAllButton(kind, ctx) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "see-all-btn";
+    btn.textContent = "See all →";
+    btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openSeeAll(kind, ctx);
+    });
+    return btn;
 }
 
 async function loadNewSection() {

@@ -64,6 +64,7 @@ const {
     fetchGamerPowerFreeGames,
     fetchItchFreeGames,
     fetchItchVrFreeGames,
+    fetchItchFreeGamesFromPage,
     getCuratedAlwaysFreeGames,
     fetchCuratedAlwaysFreeGames,
     normalizeGameName,
@@ -3383,58 +3384,257 @@ ipcMain.handle("search-watch-providers", async (event, { query, countryCode } = 
     }
 });
 
+// --- "See all" full lists -------------------------------------------------
+//
+// Rows on the New tab and in Theatre show a capped selection; their "See
+// all" button opens a panel that pages through the complete list from the
+// same source, one page per call. Every fetcher below returns
+// { items, page, totalPages, totalResults } (totalResults may be null when
+// the source doesn't say).
+
+const FULL_LIST_MAX_PAGE = 500; // TMDB refuses anything past page 500
+
+function isoDate(d) {
+    return d.toISOString().slice(0, 10);
+}
+
+function dedupeById(items) {
+    const seen = new Set();
+    return items.filter((it) => {
+        if (!it || seen.has(it.id)) return false;
+        seen.add(it.id);
+        return true;
+    });
+}
+
+async function mapTmdbMovieListing(m, tmdbLanguage) {
+    let poster = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null;
+    if (!poster) poster = await fetchFallbackPoster("movie", m.id, tmdbLanguage);
+    return {
+        id: m.id,
+        title: m.title,
+        description: m.overview,
+        poster,
+        releaseDate: m.release_date,
+        popularity: m.popularity || 0,
+        rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
+        isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
+    };
+}
+
+async function mapTmdbShowListing(s, tmdbLanguage) {
+    let image = s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : null;
+    if (!image) image = await fetchFallbackPoster("tv", s.id, tmdbLanguage);
+    return {
+        id: s.id,
+        name: s.name,
+        description: s.overview,
+        image,
+        firstAirDate: s.first_air_date,
+        popularity: s.popularity || 0,
+        rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
+        isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
+    };
+}
+
+function tmdbPageInfo(data, page) {
+    return {
+        page,
+        totalPages: Math.min(FULL_LIST_MAX_PAGE, data.total_pages || 1),
+        totalResults: typeof data.total_results === "number" ? data.total_results : null
+    };
+}
+
+// Every film with a cinema release in this country over the next 12
+// months, most popular first. TMDB applies the date window to the
+// country's own release dates; titles whose main release date is already
+// past (re-releases of old films, mostly) are left out.
+async function fetchUpcomingMoviesPage(countryCode, page) {
+    const today = new Date();
+    const yearOut = new Date(today);
+    yearOut.setFullYear(yearOut.getFullYear() + 1);
+    const data = await mediaProxyGetJsonPlain("tmdb", "/discover/movie", {
+        region: countryCode,
+        with_release_type: "2|3",
+        "release_date.gte": isoDate(today),
+        "release_date.lte": isoDate(yearOut),
+        sort_by: "popularity.desc",
+        language: "en-US",
+        page: String(page)
+    });
+    const todayStr = isoDate(today);
+    const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+    const results = (data.results || []).filter((m) => !m.release_date || m.release_date >= todayStr);
+    const items = await Promise.all(results.map((m) => mapTmdbMovieListing(m, tmdbLanguage)));
+    return { items, ...tmdbPageInfo(data, page) };
+}
+
+async function fetchNowPlayingPage(countryCode, page) {
+    const data = await mediaProxyGetJsonPlain("tmdb", "/movie/now_playing", {
+        region: countryCode,
+        language: "en-US",
+        page: String(page)
+    });
+    const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+    const items = await Promise.all((data.results || []).map((m) => mapTmdbMovieListing(m, tmdbLanguage)));
+    return { items, ...tmdbPageInfo(data, page) };
+}
+
+// New Series / New Anime: shows whose first season started in the last
+// ~90 days, most popular first (see get-new-tv-shows / get-new-anime).
+async function fetchNewShowsPage(countryCode, page, animeOnly) {
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const query = {
+        sort_by: "popularity.desc",
+        "first_air_date.gte": isoDate(ninetyDaysAgo),
+        "air_date.lte": isoDate(today),
+        "vote_count.gte": "5",
+        language: "en-US",
+        page: String(page)
+    };
+    if (animeOnly) {
+        query.with_genres = "16";
+        query.with_origin_country = "JP";
+    }
+    const data = await mediaProxyGetJsonPlain("tmdb", "/discover/tv", query);
+    const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+    let results = data.results || [];
+    if (animeOnly) results = results.filter((s) => !looksLikeSequelSeason(s.name));
+    const items = await Promise.all(results.map((s) => mapTmdbShowListing(s, tmdbLanguage)));
+    return { items, ...tmdbPageInfo(data, page) };
+}
+
+// Everything a streaming service carries in this country (films and
+// series together), most popular first.
+async function fetchProviderCatalogPage(providerName, countryCode, page) {
+    const [movieList, tvList] = await Promise.all([
+        getWatchProvidersList("movie", countryCode),
+        getWatchProvidersList("tv", countryCode)
+    ]);
+    const movieProvider = movieList.find((p) => p.name === providerName);
+    const tvProvider = tvList.find((p) => p.name === providerName);
+    if (!movieProvider && !tvProvider) return { items: [], page, totalPages: 0, totalResults: 0 };
+
+    const discover = (mediaType, provider) => provider
+        ? mediaProxyGetJsonPlain("tmdb", `/discover/${mediaType}`, {
+            sort_by: "popularity.desc",
+            watch_region: countryCode,
+            with_watch_providers: String(provider.id),
+            with_watch_monetization_types: "flatrate",
+            language: "en-US",
+            page: String(page)
+        })
+        : Promise.resolve({ results: [], total_pages: 0, total_results: 0 });
+
+    const [movieData, tvData] = await Promise.all([discover("movie", movieProvider), discover("tv", tvProvider)]);
+    const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
+    const items = await Promise.all([
+        ...(movieData.results || []).map((m) => mapProviderMovie(m, tmdbLanguage)),
+        ...(tvData.results || []).map((s) => mapProviderShow(s, tmdbLanguage))
+    ]);
+    items.sort((a, b) => b.popularity - a.popularity);
+    return {
+        items,
+        page,
+        totalPages: Math.min(FULL_LIST_MAX_PAGE, Math.max(movieData.total_pages || 0, tvData.total_pages || 0)),
+        totalResults: (movieData.total_results || 0) + (tvData.total_results || 0)
+    };
+}
+
+function mapRawgUpcomingGame(g) {
+    return {
+        id: `rawg-${g.id}`,
+        name: g.name,
+        image: g.background_image || null,
+        url: `https://rawg.io/games/${g.slug}`,
+        releaseDate: g.released || null,
+        platforms: (g.platforms || [])
+            .map((p) => p.platform && p.platform.name)
+            .filter(Boolean)
+    };
+}
+
+// Every game with a release date in the next 12 months that RAWG knows
+// about, most anticipated first.
+async function fetchUpcomingGamesPage(page) {
+    const PAGE_SIZE = 40;
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yearOut = new Date(today);
+    yearOut.setFullYear(yearOut.getFullYear() + 1);
+    const data = await mediaProxyGetJsonPlain("rawg", "/games", {
+        dates: `${isoDate(tomorrow)},${isoDate(yearOut)}`,
+        ordering: "-added",
+        page_size: String(PAGE_SIZE),
+        page: String(page)
+    });
+    const items = (data.results || [])
+        .filter((g) => !g.tba && (g.ratings_count || 0) < UPCOMING_GAMES_MAX_RATINGS_COUNT)
+        .map(mapRawgUpcomingGame);
+    const total = typeof data.count === "number" ? data.count : null;
+    return {
+        items,
+        page,
+        totalPages: total !== null ? Math.max(1, Math.ceil(total / PAGE_SIZE)) : (data.next ? page + 1 : page),
+        totalResults: total
+    };
+}
+
+// itch.io lists well over a million free games, so there is no "total
+// pages" to load up front; the panel keeps asking for the next page while
+// the user scrolls, the same way itch.io's own site does.
+async function fetchItchFreePage(page) {
+    const url = page > 1
+        ? `https://itch.io/games/new-and-popular/free?page=${page}`
+        : "https://itch.io/games/new-and-popular/free";
+    const items = await fetchItchFreeGamesFromPage(url, null);
+    return { items, page, totalPages: items.length > 0 ? page + 1 : page, totalResults: null };
+}
+
+const FULL_LIST_KINDS = new Set(["upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch"]);
+
+ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, providerName } = {}) => {
+    if (!FULL_LIST_KINDS.has(kind)) return { items: [], page: 1, totalPages: 0, totalResults: 0, error: "Unknown list" };
+    const pageNum = Math.max(1, Math.min(FULL_LIST_MAX_PAGE, parseInt(page, 10) || 1));
+    const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : "US";
+    try {
+        switch (kind) {
+            case "upcoming-movies": return await fetchUpcomingMoviesPage(cc, pageNum);
+            case "now-playing": return await fetchNowPlayingPage(cc, pageNum);
+            case "new-series": return await fetchNewShowsPage(cc, pageNum, false);
+            case "new-anime": return await fetchNewShowsPage(cc, pageNum, true);
+            case "upcoming-games": return await fetchUpcomingGamesPage(pageNum);
+            case "itch": return await fetchItchFreePage(pageNum);
+            case "provider":
+                if (typeof providerName !== "string" || providerName.length > 80) {
+                    return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
+                }
+                return await fetchProviderCatalogPage(providerName, cc, pageNum);
+        }
+    } catch (err) {
+        console.error(`[full-list] ${kind} page ${pageNum} failed:`, err.message || err);
+        return { items: [], page: pageNum, totalPages: pageNum, totalResults: null, error: "Couldn't load this page — try again in a moment." };
+    }
+    return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
+});
+
 // --- "NEW" section: upcoming movies, new TV shows, upcoming games ---------
 
 ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
     try {
-        // Same reasoning as now_playing above — English for the main
-        // listing (reliable titles/descriptions), with a targeted
-        // per-movie fallback for posters specifically when missing,
-        // rather than switching the whole request to another locale.
-        // Up to 3 pages (TMDB gives 20 per page): after dropping titles that
-        // are already out, one page alone often left only a dozen, which
-        // couldn't fill a single row on a wide screen.
-        const pages = [];
-        for (let page = 1; page <= 3; page++) {
-            const data = await mediaProxyGetJsonPlain("tmdb", "/movie/upcoming", {
-                region: countryCode,
-                language: "en-US",
-                page: String(page)
-            });
-            pages.push(...(data.results || []));
-            if (!data.total_pages || page >= data.total_pages) break;
+        // The row shows the most popular upcoming films (first 2 pages of
+        // the same list "See all" pages through). TMDB's own /movie/upcoming
+        // only covers the next ~3 weeks, which for smaller countries
+        // (Portugal: 12 films) was far from everything actually coming.
+        const items = [];
+        for (let page = 1; page <= 2; page++) {
+            const result = await fetchUpcomingMoviesPage(countryCode, page);
+            items.push(...result.items);
+            if (page >= result.totalPages) break;
         }
-        // TMDB's own "upcoming" endpoint is known to include movies that
-        // have already released in some regions/release-types, so we
-        // double-check against today's date instead of trusting it blindly.
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const seenIds = new Set();
-        const results = pages.filter((m) => {
-            if (!m || seenIds.has(m.id)) return false;
-            seenIds.add(m.id);
-            return !m.release_date || m.release_date >= todayStr;
-        });
-
-        const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
-        const mapped = await Promise.all(results.map(async (m) => {
-            let poster = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null;
-            if (!poster) {
-                poster = await fetchFallbackPoster("movie", m.id, tmdbLanguage);
-            }
-            return {
-                id: m.id,
-                title: m.title,
-                description: m.overview,
-                poster,
-                releaseDate: m.release_date,
-                popularity: m.popularity || 0,
-                rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
-                isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
-            };
-        }));
-
-        mapped.sort((a, b) => b.popularity - a.popularity);
-        return mapped;
+        return dedupeById(items);
     } catch (err) {
         console.error("[new] upcoming movies fetch failed:", err.message || err);
         return [];
