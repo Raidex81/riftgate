@@ -1212,6 +1212,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.7.1": [
+        "Changed: Free Games' platform previews (Steam, GOG, itch.io…) always show exactly two full lines of cards — a wider window shows more games instead of leaving empty space, a narrower one hides the ones that don't fit"
+    ],
     "1.7.0": [
         "New: a \"See all\" button on Upcoming Games, Upcoming Movies, New Series, New Anime, In Theaters and every streaming service row opens the complete list in a large panel, with search and sorting",
         "New: Upcoming Movies covers every film coming to cinemas in your region over the next 12 months, not just the next 3 weeks — the row shows the most popular, See all shows every one",
@@ -5082,6 +5085,32 @@ const PLATFORM_ICONS = {
 // carousel can reasonably be scrolled through by hand.
 const FREE_GAMES_PREVIEW_CAP = 20;
 
+// A preview row shows exactly two full lines of cards at the current
+// window width: a wider window reveals more of the platform's games, a
+// narrower one hides the ones that no longer fit. Cards are built from a
+// pool big enough for very wide screens and simply shown or hidden.
+const FREE_GAMES_PREVIEW_ROWS = 2;
+const FREE_GAMES_PREVIEW_POOL = 40;
+
+function fitFreeGamesPreviewToRows(grid) {
+    const cards = Array.from(grid.children);
+    if (cards.length === 0) return;
+    const tracks = getComputedStyle(grid).gridTemplateColumns;
+    const columns = tracks && tracks !== "none" ? tracks.split(" ").filter(Boolean).length : 0;
+    if (columns < 1) return; // not laid out yet (tab hidden) -- the observer re-runs this
+    let show = Math.min(cards.length, FREE_GAMES_PREVIEW_ROWS * columns);
+    // Not enough games for two full lines: drop the half-empty last one.
+    if (show > columns && show % columns !== 0) show -= show % columns;
+    cards.forEach((card, i) => { card.style.display = i < show ? "" : "none"; });
+}
+
+const freeGamesPreviewObserver = new ResizeObserver((entries) => {
+    entries.forEach((entry) => {
+        if (entry.target.isConnected) fitFreeGamesPreviewToRows(entry.target);
+        else freeGamesPreviewObserver.unobserve(entry.target);
+    });
+});
+
 // The platform dropdown's own options depend on what's actually in the
 // cache right now — new sources (GamerPower/itch.io, or whatever
 // GamerPower starts covering next) appear automatically instead of being
@@ -5398,8 +5427,10 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
 
     const grid = document.createElement("div");
     grid.className = "games-grid browse-grid";
-    items.slice(0, FREE_GAMES_PREVIEW_CAP).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
+    items.slice(0, FREE_GAMES_PREVIEW_POOL).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
     section.appendChild(grid);
+    freeGamesPreviewObserver.observe(grid);
+    fitFreeGamesPreviewToRows(grid);
 
     const viewAllBtn = document.createElement("button");
     viewAllBtn.type = "button";
@@ -5496,6 +5527,7 @@ function renderFreeGames() {
     }
 
     newRow.innerHTML = "";
+    restRow.querySelectorAll(".games-grid").forEach((g) => freeGamesPreviewObserver.unobserve(g));
     restRow.innerHTML = "";
     browseHeading.style.display = "none";
 

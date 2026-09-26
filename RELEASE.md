@@ -47,20 +47,12 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.7.0):
+Quick pass on what changed this round (v1.7.1):
 
-- **See all** — on the New tab (Upcoming Games, Upcoming Movies, New
-  Series, New Anime) and in Theatre (In Theaters, each streaming service
-  row), "See all →" opens a large panel with the complete list. Try the
-  search box and each sort option, open a card's details from inside the
-  panel, then press Esc twice (details close first, then the panel).
-- **Upcoming Movies** — the row now has more films for your region; the
-  full list covers the next 12 months.
-- **Streaming rows** — See all keeps loading more titles as you scroll.
-- **Free Games** — GOG shows 400+ games; itch.io's "View all on itch.io"
-  opens the panel and loads more as you scroll.
-- **Mac** — run **Actions → Mac Smoke Test** with version `main`: every
-  "See all" check must pass.
+- **Free Games previews** — the big platform rows (Steam, GOG, itch.io…)
+  show exactly two full lines of cards. Make the window wider: more
+  cards appear, no empty space at the end of a line. Make it narrower:
+  the extra cards hide, still two full lines.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.
