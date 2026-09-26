@@ -1222,6 +1222,21 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.6.0": [
+        "Security: Riftgate no longer keeps your password on disk — staying logged in now uses a session the server can revoke, and The Vault and admin tools ask for your password once per launch",
+        "Security: repeated wrong passwords now lock the account for a while, and stored passwords use stronger hashing",
+        "Security: password-reset codes and email-confirmation links are now created and emailed entirely by the server — they never pass through the app",
+        "Fixed: The Vault works again — uploads and downloads go through short-lived secure links, and admin \"Clean Now\" empties both files and links",
+        "Fixed: a Vault image preview could stay on screen after removing the file",
+        "Fixed: the email-confirmation page showed raw code and garbled symbols instead of a readable message",
+        "Fixed: Epic's \"Get It Free\" button could open a page that doesn't exist",
+        "Fixed: some free games appeared twice after a store refreshed on its own",
+        "Changed: new-install detection now compares your Desktop and Start Menu shortcuts shortly after launch and then hourly, so it also notices programs installed while Riftgate was closed",
+        "Changed: update checks now run every few hours instead of constantly",
+        "Security: only one copy of Riftgate runs at a time, web links always open in your browser, and launching or opening files is limited to items in your library",
+        "Security: cover images are only downloaded from the public internet, with size and time limits",
+        "Security: the installed app is locked against being used to run other code, and bundled components are updated to their latest fixed versions"
+    ],
     "1.5.2": [
         "New: a Region setting (Options → Region) — one country selector now drives Theatre showtimes and streaming availability, New tab's upcoming movies/shows, and Store's pricing and currency, replacing the separate pickers each used to have",
         "New: \"Forgot password?\" on the login screen — recover your account with an emailed reset code if you forget your password, no admin needed",

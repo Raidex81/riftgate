@@ -42,41 +42,28 @@ Runs the app straight from source — no installer needed:
 npm start
 ```
 
-Quick pass on what actually changed this round (v1.5.2):
+On Windows PowerShell, type `npm.cmd` instead of `npm` (plain `npm` can
+open a "Select an app" dialog instead of running).
 
-- **Region setting (new)** — go to Options → Region, change the country,
-  and confirm Theatre showtimes/streaming availability, New tab's
-  upcoming movies/shows, and Store's pricing and currency all update to
-  match.
-- **Forgot password (new)** — from the login prompt, click "Forgot
-  password?", confirm a reset code arrives by email (if the account has
-  a verified email on file), enter it with a new password, and confirm
-  it logs you in.
-- **Store seller labels (new)** — open Store and confirm each deal
-  card shows a seller-type label (official / key reseller / key
-  marketplace) with a working tooltip.
-- **Store/Free Games cover & trailer accuracy (fix)** — spot-check a
-  few Store and Free Games cards, especially any you remember being
-  wrong before, and confirm the cover art, title, and trailer all match
-  the actual game.
-- **Card sizing / cover frames (fix)** — scroll through Reading Room,
-  Free Games, Store, and book carousels and confirm every card in a row
-  is the same size, with no widened or landscape-shaped cards.
-- **Grid density (fix)** — turn on Options → compact Grid density and
-  confirm Installed shrinks to match every other carousel row, not just
-  itself.
-- **Carousel resize snapping (fix)** — scroll partway into a carousel
-  row (e.g. Upcoming Games), resize the window (or toggle the sidebar),
-  and confirm the row re-snaps cleanly instead of leaving a card cut in
-  half.
-- **New Anime filtering (fix)** — confirm New Anime shows genuinely new
-  series, not a returning show's new season.
-- **Window maximized on launch (change)** — close and reopen the app
-  and confirm it opens maximized to your screen instead of a small
-  fixed window.
-- **Changelog no longer auto-opens (change)** — update or relaunch and
-  confirm the 🔔 changelog modal does NOT pop open by itself; clicking
-  the bell still opens it.
+Quick pass on what actually changed this round (v1.6.0):
+
+- **Login stays signed in without a stored password** — log in, close
+  and reopen the app: you should still be logged in. Open The Vault or an
+  admin tool: it asks for your password once, then not again until you
+  restart.
+- **Forgot password / email confirmation** — both emails arrive (while
+  Riftgate still uses Resend's test sender they only reach the Resend
+  account owner's address); the confirmation link shows a plain
+  "Email confirmed!" page.
+- **The Vault (admins)** — upload a small image, hover to preview,
+  download it, remove it, then use **Clean Vault now**.
+- **Free Games** — covers load; Epic's "Get It Free" opens the real
+  store page; no duplicate entries.
+- **New-install detection** — about 20 seconds after launch, the
+  PowerShell window prints an `[installer-detect]` line. A new program
+  shortcut on the Desktop/Start Menu triggers the "New Install Detected"
+  popup (at launch, then hourly).
+- **Reading Room** — open an ebook; cover and title load.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
@@ -94,23 +81,29 @@ these changes on their own machine.
 
 ## 5. Build and publish the release
 
-This step needs a GitHub token that can publish releases to the repo,
-set as an environment variable named `GH_TOKEN`. If this machine hasn't
-been set up for that yet:
+Before publishing, make sure the Supabase side for this version is live
+(for v1.6.0: database migrations up to `20260926000800`, and the Edge
+Functions `account-email`, `verify-email` and `vault` — all already done).
 
-1. Go to https://github.com/settings/tokens → **Generate new token
-   (classic)** → check the **repo** scope → **Generate token** → copy it
-   (GitHub only shows it once).
-2. In PowerShell, save it for your Windows user account:
-   ```
-   setx GH_TOKEN "paste_your_token_here"
-   ```
-3. Close and reopen your terminal so it picks up the new variable.
+Publishing needs a GitHub token that can create releases on the repo.
+**Don't store it permanently** (no `setx`) — set it only for the
+PowerShell window you're releasing from, so it disappears when the
+window closes:
 
-Then, from inside `C:\Riftgate`:
+1. Go to https://github.com/settings/personal-access-tokens → **Generate
+   new token** (fine-grained) → Repository access: **only
+   Raidex81/Riftgate** → Permissions: **Contents: Read and write** →
+   set an expiry (e.g. 7 days) → **Generate** → copy it.
+2. In the PowerShell window you'll release from:
+   ```
+   $env:GH_TOKEN = Read-Host "Paste GitHub token"
+   ```
+   (paste it when asked — it won't be saved anywhere.)
+
+Then, from inside `C:\Riftgate`, in that same window:
 
 ```
-npm run release
+npm.cmd run release
 ```
 
 This builds the Windows installer and publishes it straight to a new
@@ -130,7 +123,7 @@ release):
    branch, which is what you want).
 3. Wait for it to finish (a few minutes — it's building a real dmg/zip
    on an actual macOS runner). It publishes straight into the same
-   GitHub Release `npm run release` created for the current
+   GitHub Release `npm.cmd run release` created for the current
    `package.json` version.
 
 No token setup needed for this one — it uses the token GitHub Actions
@@ -173,7 +166,7 @@ Since you're both pushing to the same `main` branch:
   rejected"), run `git pull` first — Git will usually merge it
   automatically. If it can't, it'll tell you exactly which file has a
   conflict to resolve by hand.
-- Only one of you should run `npm run release` for a given version —
+- Only one of you should run `npm.cmd run release` for a given version —
   agree who's doing it before you both build the same version.
 - Agree who bumps the version number in `package.json` for a given
   release, so you don't both bump it differently at the same time.
