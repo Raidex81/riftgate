@@ -1,0 +1,99 @@
+name: Mac Smoke Test
+
+# Manually triggered (Actions tab → "Mac Smoke Test" → Run workflow).
+# Tests the exact Mac files people download: fetches the .dmg from a
+# published GitHub Release, installs it the way a user would (mount the
+# .dmg, copy Riftgate.app into /Applications), launches it on a real Mac
+# and walks through every main section. Screenshots and a pass/fail report
+# are attached to the run as "mac-smoke-apple-silicon" / "mac-smoke-intel".
+# Nothing is built or published. The script is .github/scripts/mac-smoke-test.mjs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to test, e.g. 1.6.2 (leave blank for the latest release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            label: apple-silicon
+            dmg_suffix: "-arm64"
+          - runner: macos-15-intel
+            label: intel
+            dmg_suffix: ""
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Find the release
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          V="${INPUT_VERSION#v}"
+          if [ -z "$V" ]; then
+            TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          elif gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            TAG="v$V"
+          else
+            TAG="$V"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Testing release $TAG"
+
+      - name: Download the .dmg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.rel.outputs.tag }}
+          VERSION: ${{ steps.rel.outputs.version }}
+          SUFFIX: ${{ matrix.dmg_suffix }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "Riftgate-${VERSION}${SUFFIX}.dmg" --dir "$RUNNER_TEMP/dl"
+          ls -l "$RUNNER_TEMP/dl"
+
+      - name: Install like a user would
+        run: |
+          DMG=$(ls "$RUNNER_TEMP"/dl/*.dmg)
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/rg-dmg" "$DMG"
+          ls -la "$RUNNER_TEMP/rg-dmg"
+          cp -R "$RUNNER_TEMP/rg-dmg/Riftgate.app" /Applications/
+          hdiutil detach "$RUNNER_TEMP/rg-dmg"
+
+      - name: Launch and test
+        env:
+          APP_PATH: /Applications/Riftgate.app
+          OUT_DIR: ${{ github.workspace }}/smoke-results
+          EXPECTED_VERSION: ${{ steps.rel.outputs.version }}
+          LABEL: ${{ matrix.label }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke"
+          cp .github/scripts/mac-smoke-test.mjs "$RUNNER_TEMP/smoke/"
+          cd "$RUNNER_TEMP/smoke"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright-core@1
+          node mac-smoke-test.mjs
+
+      - name: Save screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-smoke-${{ matrix.label }}
+          path: smoke-results
+          if-no-files-found: warn

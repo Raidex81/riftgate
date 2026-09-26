@@ -9,6 +9,17 @@ checklist is for. Please work through it on real macOS hardware before
 treating the Mac build as trustworthy the way the Windows build already
 is, and report back anything that doesn't match what's described.
 
+## Automatic check (no Mac needed)
+
+Before (or instead of) hands-on testing, run **Actions → Mac Smoke Test →
+Run workflow** on GitHub. It downloads the published `.dmg` for both Apple
+chip and Intel Macs, installs it on GitHub's own Mac machines, launches
+Riftgate, visits every main section and switches themes. The result page
+shows a pass/fail table, and the screenshots are under **Artifacts** at the
+bottom of the run (`mac-smoke-apple-silicon`, `mac-smoke-intel`). It can't
+click through things like installs or uninstalls — the checklist below still
+covers those.
+
 Get the build from the [Releases page](https://github.com/Raidex81/Riftgate/releases/latest)
 — under **Assets**, download `Riftgate-<version>-arm64.dmg` for a Mac with
 an Apple chip (M1/M2/M3/M4…) or `Riftgate-<version>.dmg` for an Intel Mac
