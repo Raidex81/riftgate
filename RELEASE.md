@@ -47,15 +47,20 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.6.3):
+Quick pass on what changed this round (v1.7.0):
 
-- **Upcoming Movies** (New tab) — one line that scrolls sideways with the
-  arrows, filled edge to edge on any screen width, with more films than
-  before.
-- **Free Games → VR** — itch.io games appear in the VR row again.
-- **Mac** — run **Actions → Mac Smoke Test** with version `main` before
-  releasing: the menu-bar icon, theme icon and itch.io VR checks must all
-  pass. After release, run it again with the new version number.
+- **See all** — on the New tab (Upcoming Games, Upcoming Movies, New
+  Series, New Anime) and in Theatre (In Theaters, each streaming service
+  row), "See all →" opens a large panel with the complete list. Try the
+  search box and each sort option, open a card's details from inside the
+  panel, then press Esc twice (details close first, then the panel).
+- **Upcoming Movies** — the row now has more films for your region; the
+  full list covers the next 12 months.
+- **Streaming rows** — See all keeps loading more titles as you scroll.
+- **Free Games** — GOG shows 400+ games; itch.io's "View all on itch.io"
+  opens the panel and loads more as you scroll.
+- **Mac** — run **Actions → Mac Smoke Test** with version `main`: every
+  "See all" check must pass.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

@@ -65,8 +65,9 @@ they match the store you'd actually be buying from.
 ![Store](screenshots/store.png)
 
 **🎬 Theatre** — track TV series for new episodes (with ratings and a
-next-episode countdown), browse movies currently playing near you, and
-jump into a full-screen trailer preview.
+next-episode countdown), browse movies currently playing near you, see everything each
+streaming service carries in your region, and jump into a full-screen
+trailer preview.
 
 ![Theatre](screenshots/theatre.png)
 
@@ -83,7 +84,10 @@ search or sort by newest, most visited, name, or author.
 ![Applications](screenshots/applications.png)
 
 **🆕 New** — see what's newly released or coming soon across movies,
-series, and games, all in one feed.
+series, and games, all in one feed. Every row has a **See all** button
+that opens the complete list — every film coming to cinemas in your
+region over the next 12 months, every upcoming game, every new series
+and anime — with search and sorting.
 
 **🎲 Surprise Me** — can't decide? Spin the wheel.
 
