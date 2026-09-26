@@ -35,6 +35,10 @@ jobs:
         run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The Windows release is usually published first; without this,
+          # electron-builder silently skips uploading to a release that was
+          # published more than 2 hours ago.
+          EP_GH_IGNORE_TIME: "true"
           # Once Alfredo has an Apple Developer account, add these repo
           # secrets (Settings → Secrets and variables → Actions) and
           # uncomment:
