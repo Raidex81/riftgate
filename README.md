@@ -62,6 +62,8 @@ Metacritic), and a trailer preview, with quick links straight to each
 store to buy. Prices and currency follow your Region setting, so
 they match the store you'd actually be buying from.
 
+![Store](screenshots/store.png)
+
 **🎬 Theatre** — track TV series for new episodes (with ratings and a
 next-episode countdown), browse movies currently playing near you, and
 jump into a full-screen trailer preview.
