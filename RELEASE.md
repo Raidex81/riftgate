@@ -47,13 +47,15 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.6.1):
+Quick pass on what changed this round (v1.6.2):
 
-- **Header** — the new slim header (gem, RIFTGATE lettering, portal
-  artwork) shows at the top and follows the theme when you switch themes
-  in Options (light mode too).
-- **Store** — Newly Added, Most Popular and Recommended each end on a
-  full line of cards, and re-fill when you resize the window.
+- **Card heights** — in Installed, Free Games, Reading Room, Upcoming
+  Games and every other row or grid, cards on the same line end at the
+  same height, with the buttons lined up.
+- **My Library covers** — a book without a cover of its own gets its real
+  cover from Open Library / Google Books within a few seconds.
+- **The Vault** — cancel the password prompt: it stays closed and an
+  Unlock button appears; coming back to The Vault later asks again.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.
