@@ -3733,8 +3733,11 @@ ipcMain.handle("select-exe", async () => {
 });
 
 // Process tracking (isProcessRunning/getAllProcesses) and the
-// freshly-installed-app watcher now live in services/platform/{windows,mac}.js
-// behind platform.isProcessRunning() and platform.startInstallWatcher() — same
+// freshly-installed-app watcher live in services/platform/{windows,mac}.js
+// behind platform.isProcessRunning() and platform.startInstallWatcher().
+// Both platforms now compare snapshots once an hour: Desktop/Start Menu
+// shortcut targets on Windows, /Applications on Mac.
+platform.startInstallWatcher() — same
 // tasklist-based behavior on Windows, a from-scratch /Applications-diffing
 // approach on Mac (most Mac installs have no persistent "setup.exe"-like
 // process to watch for the way Windows installers do).

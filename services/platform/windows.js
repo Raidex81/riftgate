@@ -308,118 +308,115 @@ function spawnApp(exePath, onExit) {
 }
 
 // --- Detecting a freshly-installed app/game --------------------------------
-// Watches for any running process whose name looks like an installer
-// ("setup", "install"), and once it exits, checks whether any shortcut
-// appeared on the Desktop or in the Start Menu more recently than the
-// installer started — a strong signal something just got installed.
-const INSTALLER_NAME_PATTERNS = [/setup/i, /install/i];
-let watchedInstallers = {}; // { pid: { name, startTime } }
+// Once an hour (and once shortly after launch), list the programs that
+// Desktop and Start Menu shortcuts point to and compare with the previous
+// list. A shortcut to an .exe that wasn't there before is almost always a new
+// install. The list is saved next to games.json, so an install made while
+// Riftgate was closed is still noticed on the next launch. The very first run
+// only records a baseline, so an existing collection isn't reported as "new".
+// (This replaces watching for "setup"/"install" processes, which needed a
+// process list every few seconds to catch the installer finishing.)
+const SHORTCUT_SNAPSHOT_FILE = "shortcut-snapshot.json";
+const IGNORED_SHORTCUT_TARGET = /(^|\\)(unins[^\\]*|uninstall[^\\]*|setup[^\\]*|install[^\\]*)\.exe$/i;
 
-function scanForNewShortcuts(sinceTimestamp, gamesFilePath, onDetected) {
+function shortcutFolders() {
     const { app } = require("electron");
-    const locations = [
+    return [
         app.getPath("desktop"),
+        process.env.PUBLIC ? path.join(process.env.PUBLIC, "Desktop") : null,
         process.env.APPDATA ? path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs") : null,
         process.env.ProgramData ? path.join(process.env.ProgramData, "Microsoft", "Windows", "Start Menu", "Programs") : null
     ].filter(Boolean);
+}
 
-    const foundShortcuts = [];
-
-    for (const dir of locations) {
-        if (!fs.existsSync(dir)) continue;
-
+// Returns Map(lowercased target path -> { path, name }) for every shortcut
+// (up to two folders deep) that points at an existing .exe.
+function collectShortcutTargets() {
+    const targets = new Map();
+    const scan = (folder, depth) => {
+        if (depth > 2) return;
+        let entries;
         try {
-            const scan = (folder, depth) => {
-                if (depth > 2) return;
-                let entries;
-                try {
-                    entries = fs.readdirSync(folder, { withFileTypes: true });
-                } catch (err) {
-                    return;
-                }
-                for (const entry of entries) {
-                    const fullPath = path.join(folder, entry.name);
-                    if (entry.isDirectory()) {
-                        scan(fullPath, depth + 1);
-                    } else if (entry.name.toLowerCase().endsWith(".lnk")) {
-                        try {
-                            const stat = fs.statSync(fullPath);
-                            if (stat.mtimeMs > sinceTimestamp) {
-                                foundShortcuts.push({ path: fullPath, name: entry.name.replace(/\.lnk$/i, "") });
-                            }
-                        } catch (err) {
-                            // skip unreadable shortcut
-                        }
-                    }
-                }
-            };
-            scan(dir, 0);
+            entries = fs.readdirSync(folder, { withFileTypes: true });
         } catch (err) {
-            console.error("[installer-detect] scan failed for", dir, err.message || err);
+            return;
         }
+        for (const entry of entries) {
+            const fullPath = path.join(folder, entry.name);
+            if (entry.isDirectory()) {
+                scan(fullPath, depth + 1);
+            } else if (entry.name.toLowerCase().endsWith(".lnk")) {
+                try {
+                    const target = shell.readShortcutLink(fullPath).target;
+                    if (!target || !/\.exe$/i.test(target) || IGNORED_SHORTCUT_TARGET.test(target)) continue;
+                    const key = target.toLowerCase();
+                    if (targets.has(key) || !fs.existsSync(target)) continue;
+                    targets.set(key, { path: target, name: entry.name.replace(/\.lnk$/i, "") });
+                } catch (err) {
+                    // unreadable shortcut, skip
+                }
+            }
+        }
+    };
+    shortcutFolders().forEach((dir) => scan(dir, 0));
+    return targets;
+}
+
+function readShortcutSnapshot(file) {
+    try {
+        const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+        return Array.isArray(parsed) ? new Set(parsed.map((p) => String(p).toLowerCase())) : null;
+    } catch (err) {
+        return null;
     }
+}
 
-    if (foundShortcuts.length === 0) return;
+function checkForNewInstalls(getGamesFilePath, onDetected) {
+    const gamesFile = getGamesFilePath();
+    if (!gamesFile) return;
+    const snapshotFile = path.join(path.dirname(gamesFile), SHORTCUT_SNAPSHOT_FILE);
 
-    const seenTargets = new Set();
-    const candidates = [];
+    const current = collectShortcutTargets();
+    const previous = readShortcutSnapshot(snapshotFile);
+    try {
+        fs.writeFileSync(snapshotFile, JSON.stringify([...current.keys()]));
+    } catch (err) {
+        console.error("[installer-detect] couldn't save shortcut snapshot:", err.message || err);
+    }
+    if (previous === null) return; // first run: baseline only
 
     let existingPaths = new Set();
     try {
-        const games = JSON.parse(fs.readFileSync(gamesFilePath, "utf8"));
+        const games = JSON.parse(fs.readFileSync(gamesFile, "utf8"));
         existingPaths = new Set(games.map((g) => (g.path || "").toLowerCase()));
     } catch (err) {
         // if this fails, just proceed without the extra check
     }
 
-    for (const item of foundShortcuts) {
-        try {
-            const shortcut = shell.readShortcutLink(item.path);
-            const target = shortcut.target;
-            if (!target) continue;
-            const key = target.toLowerCase();
-            if (seenTargets.has(key) || existingPaths.has(key)) continue;
-            seenTargets.add(key);
-            candidates.push({ path: target, name: item.name });
-        } catch (err) {
-            // unreadable shortcut, skip
-        }
-    }
+    const candidates = [...current.entries()]
+        .filter(([key]) => !previous.has(key) && !existingPaths.has(key))
+        .map(([, item]) => item)
+        .filter((item) => !/riftgate/i.test(item.path));
 
     if (candidates.length > 0) {
-        console.log(`[installer-detect] Found ${candidates.length} new install(s) after installer closed.`);
+        console.log(`[installer-detect] Found ${candidates.length} new shortcut target(s).`);
         onDetected(candidates);
     }
 }
 
-// Starts the recurring watcher for newly-installed apps. Calls
-// onDetected(candidates) whenever it finds some. gamesFilePath is a
-// function returning the current GAMES_FILE path (it's set at startup,
-// after this module is first used).
+// Starts the recurring check for newly-installed apps. Calls
+// onDetected(candidates) whenever it finds some. getGamesFilePath returns the
+// current GAMES_FILE path (set at startup, after this module is loaded).
 function startInstallWatcher(getGamesFilePath, onDetected) {
-    setInterval(async () => {
-        const processes = await getAllProcesses();
-        const currentPids = new Set(processes.map((p) => p.pid));
-
-        processes.forEach((proc) => {
-            if (proc.name.toLowerCase().includes("riftgate")) return;
-
-            const looksLikeInstaller = INSTALLER_NAME_PATTERNS.some((pattern) => pattern.test(proc.name));
-            if (looksLikeInstaller && !watchedInstallers[proc.pid]) {
-                watchedInstallers[proc.pid] = { name: proc.name, startTime: Date.now() };
-                console.log(`[installer-detect] Watching installer process: ${proc.name} (PID ${proc.pid})`);
-            }
-        });
-
-        for (const pid of Object.keys(watchedInstallers)) {
-            if (!currentPids.has(pid)) {
-                const { name, startTime } = watchedInstallers[pid];
-                delete watchedInstallers[pid];
-                console.log(`[installer-detect] ${name} (PID ${pid}) exited — scanning for new shortcuts...`);
-                scanForNewShortcuts(startTime, getGamesFilePath(), onDetected);
-            }
+    const run = () => {
+        try {
+            checkForNewInstalls(getGamesFilePath, onDetected);
+        } catch (err) {
+            console.error("[installer-detect] check failed:", err.message || err);
         }
-    }, 3600000); // once an hour — was every 5s, way more often than a "new install" check needs
+    };
+    setTimeout(run, 60 * 1000);   // shortly after launch (catches installs made while closed)
+    setInterval(run, 3600000);    // then once an hour
 }
 
 // Many Electron-based apps (Discord, Slack, VS Code, and others) use a
