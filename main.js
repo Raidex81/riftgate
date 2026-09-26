@@ -4977,6 +4977,110 @@ ipcMain.handle("get-ebooks", async () => {
     }
 });
 
+// --- Online cover for library books with none of their own ---------------
+// A book whose file has no embedded cover (common for PDFs and some EPUBs)
+// gets its real published cover looked up online: Open Library first,
+// then Google Books. Only covers that genuinely belong to that title are
+// used -- there's no fan-art source for books (SteamGridDB is games-only,
+// and would happily match "Harry Potter" to a game). A title with no cover
+// anywhere is looked up again at most once a week.
+const EBOOK_COVER_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+function cleanBookTitleForSearch(title) {
+    return String(title || "")
+        .replace(/\.(epub|pdf)$/i, "")
+        .replace(/\((?:z-lib|zlibrary|libgen|oceanofpdf|epub)[^)]*\)/gi, "")
+        .replace(/[_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 150);
+}
+
+async function findOnlineBookCoverUrl(title, author) {
+    const cleanTitle = cleanBookTitleForSearch(title);
+    if (!cleanTitle) return null;
+    const cleanAuthor = String(author || "").trim().slice(0, 100);
+
+    try {
+        const params = new URLSearchParams({ title: cleanTitle, limit: "5", fields: "cover_i,title,author_name" });
+        if (cleanAuthor) params.set("author", cleanAuthor);
+        const data = await fetchWithRetry(`https://openlibrary.org/search.json?${params.toString()}`, 10000, 2);
+        const doc = data && Array.isArray(data.docs) ? data.docs.find((d) => d && d.cover_i) : null;
+        if (doc) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`;
+    } catch (err) {
+        console.error("[ebook-cover] Open Library lookup failed:", err.message || err);
+    }
+
+    try {
+        let q = `intitle:${cleanTitle}`;
+        if (cleanAuthor) q += ` inauthor:${cleanAuthor}`;
+        const data = await fetchWithRetry(`https://www.googleapis.com/books/v1/volumes?${new URLSearchParams({ q, maxResults: "5", printType: "books" }).toString()}`, 10000, 2);
+        const item = data && Array.isArray(data.items)
+            ? data.items.find((i) => i && i.volumeInfo && i.volumeInfo.imageLinks && (i.volumeInfo.imageLinks.thumbnail || i.volumeInfo.imageLinks.smallThumbnail))
+            : null;
+        if (item) {
+            const links = item.volumeInfo.imageLinks;
+            return String(links.thumbnail || links.smallThumbnail).replace(/^http:/, "https:").replace(/&edge=curl/, "");
+        }
+    } catch (err) {
+        console.error("[ebook-cover] Google Books lookup failed:", err.message || err);
+    }
+
+    return null;
+}
+
+ipcMain.handle("find-ebook-cover", async (event, bookPath) => {
+    if (typeof bookPath !== "string" || !fs.existsSync(EBOOKS_FILE)) return null;
+    let ebooks;
+    try {
+        ebooks = JSON.parse(fs.readFileSync(EBOOKS_FILE, "utf8"));
+    } catch (err) {
+        return null;
+    }
+    const entry = ebooks.find((b) => b && typeof b.path === "string" && b.path.toLowerCase() === bookPath.toLowerCase());
+    if (!entry) return null;
+    if (entry.cover && entry.cover.startsWith("covers/") && !entry.cover.endsWith("no-cover-book.jpg")) return entry.cover;
+    if (entry.coverLookupAt && Date.now() - entry.coverLookupAt < EBOOK_COVER_RETRY_MS) return null;
+
+    let found = null;
+    try {
+        const url = await findOnlineBookCoverUrl(entry.title || path.basename(entry.path), entry.author);
+        if (url) {
+            const buffer = await fetchBufferFollowingRedirects(url);
+            // Open Library answers "no cover" with a tiny placeholder
+            // unless ?default=false; anything this small isn't a real cover.
+            if (buffer && buffer.length > 2000) {
+                if (!fs.existsSync(COVERS_FOLDER)) fs.mkdirSync(COVERS_FOLDER, { recursive: true });
+                const coverFileName = `ebook-${crypto.randomUUID()}.jpg`;
+                fs.writeFileSync(path.join(COVERS_FOLDER, coverFileName), buffer);
+                found = `covers/${coverFileName}`;
+            }
+        }
+    } catch (err) {
+        console.error("[ebook-cover] couldn't fetch a cover for", entry.title || entry.path, "-", err.message || err);
+    }
+
+    // Re-read before writing, in case the library changed meanwhile.
+    try {
+        const latest = JSON.parse(fs.readFileSync(EBOOKS_FILE, "utf8"));
+        const target = latest.find((b) => b && typeof b.path === "string" && b.path.toLowerCase() === bookPath.toLowerCase());
+        if (target) {
+            if (found) {
+                target.cover = found;
+                delete target.coverLookupAt;
+            } else {
+                target.coverLookupAt = Date.now();
+            }
+            fs.writeFileSync(EBOOKS_FILE, JSON.stringify(latest, null, 2));
+        }
+    } catch (err) {
+        // non-critical -- it'll just be looked up again next time
+    }
+
+    if (found) console.log(`[ebook-cover] Found an online cover for "${entry.title || path.basename(entry.path)}".`);
+    return found;
+});
+
 ipcMain.handle("save-ebook", async (event, ebook) => {
     let ebooks = [];
     if (fs.existsSync(EBOOKS_FILE)) {

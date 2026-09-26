@@ -1213,6 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.6.2": [
+        "New: books in My Library that have no cover of their own now get their real published cover looked up online (Open Library, then Google Books)",
         "Fixed: cards on the same line are now always the same height — in Installed, the other card grids, Upcoming Games and every sideways-scrolling row — whatever extra info a card shows"
     ],
     "1.6.1": [
@@ -5770,6 +5771,30 @@ function wireFreeGamesPlatformDragReorder() {
 
 // --- Reading Room (eBook library) ------------------------------------------
 
+// A library book with no cover of its own gets its real published cover
+// looked up online (see find-ebook-cover in main.js). One lookup per book
+// per session, one at a time, so a big library doesn't fire dozens at once.
+const libraryCoverLookups = new Map(); // book.path -> Promise<string|null>
+let libraryCoverQueue = Promise.resolve();
+
+function lookUpLibraryBookCover(book, imgEl) {
+    if (!book || !book.path) return;
+    let pending = libraryCoverLookups.get(book.path);
+    if (!pending) {
+        pending = libraryCoverQueue = libraryCoverQueue
+            .then(() => window.riftgate.invoke("find-ebook-cover", book.path))
+            .catch(() => null);
+        libraryCoverLookups.set(book.path, pending);
+    }
+    pending.then((found) => {
+        if (!found) return;
+        book.cover = found;
+        const cached = Array.isArray(ebooksCache) ? ebooksCache.find((b) => b.path === book.path) : null;
+        if (cached) cached.cover = found;
+        if (imgEl && imgEl.isConnected) imgEl.src = found;
+    });
+}
+
 function buildEbookCard(book, navList) {
     const card = document.createElement("div");
     card.className = "game-card";
@@ -5787,7 +5812,11 @@ function buildEbookCard(book, navList) {
 
     const cover = document.createElement("img");
     cover.className = "cover-img";
-    cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
+    cover.onerror = () => {
+        cover.onerror = null;
+        cover.src = "covers/no-cover-book.jpg";
+        lookUpLibraryBookCover(book, cover);
+    };
     cover.src = book.cover || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
@@ -5796,6 +5825,7 @@ function buildEbookCard(book, navList) {
     });
     coverWrap.appendChild(cover);
     card.appendChild(coverWrap);
+    if (!book.cover || book.cover.endsWith("no-cover-book.jpg")) lookUpLibraryBookCover(book, cover);
 
     const manualCoverBtn = document.createElement("button");
     manualCoverBtn.className = "manualCoverBtn";
