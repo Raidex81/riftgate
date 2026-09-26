@@ -13,8 +13,8 @@ version — written so either of you can follow it.
   ```
 - Push access to https://github.com/Raidex81/Riftgate (ask Alfredo to add
   you as a collaborator if you don't have it)
-- Whoever publishes a release creates a short-lived GitHub token each
-  time (step 5) — never save one permanently on the PC.
+- Releases are built on GitHub (step 5) — no personal token needed.
+  Never save a GitHub token permanently on the PC.
 - On Windows PowerShell, always type `npm.cmd` instead of `npm` (plain
   `npm` can open a "Select an app" dialog instead of running).
 
@@ -85,45 +85,31 @@ Before publishing:
 
 - Set the new version number in `package.json` (`"version"`) and make
   sure `renderer.js`'s `CHANGELOG` has an entry for it — that's what the
-  🔔 button shows.
+  🔔 button shows. Push that commit.
 - Make sure the Supabase side for this version is live. For 1.6.x that's
   database migrations up to `20260926000800` and the Edge Functions
   `media-proxy`, `account-email`, `verify-email` and `vault` — all
   already done. See `supabase/README.md`.
 
-Publishing needs a GitHub token that can create releases on the repo.
-**Don't store it permanently** (no `setx`) — set it only for the
-PowerShell window you're releasing from, so it disappears when the
-window closes:
+Then, all on GitHub — no token or local build needed:
 
-1. Go to https://github.com/settings/personal-access-tokens → **Generate
-   new token** (fine-grained) → Repository access: **only
-   Raidex81/Riftgate** → Permissions: **Contents: Read and write** →
-   set an expiry (e.g. 7 days) → **Generate** → copy it.
-2. In the PowerShell window you'll release from:
-   ```
-   $env:GH_TOKEN = Read-Host "Paste GitHub token"
-   ```
-   (paste it when asked — it won't be saved anywhere.)
+1. **Create the release first** (so the builds can't create it twice):
+   go to https://github.com/Raidex81/Riftgate/releases/new, type the tag
+   `v` + the version (e.g. `v1.6.2`) and choose **Create new tag**, set
+   the title to the version number, paste that version's notes from the
+   🔔 changelog, keep **Latest** selected, and click **Publish release**.
+2. **Windows:** https://github.com/Raidex81/Riftgate/actions/workflows/release-windows.yml
+   → **Run workflow** → **Run workflow**. It builds the installer on
+   GitHub's own Windows machine and uploads it (plus `latest.yml`) into
+   that release.
+3. **Mac:** do the same with "Publish macOS Release" (5b below).
 
-3. **Create the release on GitHub first** (otherwise the build tool can
-   create it twice at the same moment, splitting the files between two
-   copies): go to https://github.com/Raidex81/Riftgate/releases/new, type
-   the tag `v` + the version in `package.json` (e.g. `v1.6.1`) and choose
-   **Create new tag**, set the title to the version number, paste that
-   version's notes from the 🔔 changelog, and click **Publish release**.
-   Then run the next command within 2 hours — the build tool only adds
-   files to a release that's less than 2 hours old.
-
-Then, from inside `C:\Riftgate`, in that same window:
-
-```
-npm.cmd run release
-```
-
-This builds the Windows installer and uploads it to the release you just
-created (it must match the version in `package.json`). It can take a few
-minutes — it's building and uploading the whole installer.
+**Fallback — building Windows on your own PC** (if the Windows workflow
+is ever unavailable): create a fine-grained token (only
+Raidex81/Riftgate, **Contents: Read and write**, 7-day expiry), then in a
+new PowerShell window: `$env:GH_TOKEN = Read-Host "Paste GitHub token"`,
+paste it, and run `npm.cmd run release`. Never save the token
+permanently (no `setx`), and delete it afterwards.
 
 ## 5b. Build and publish the macOS release
 
@@ -134,7 +120,8 @@ release):
 
 1. Go to https://github.com/Raidex81/Riftgate/actions/workflows/release-mac.yml
 2. Click **Run workflow** → **Run workflow** (defaults to the `main`
-   branch, which is what you want).
+   branch, which is what you want). It can run at the same time as the
+   Windows one.
 3. Wait for it to finish (a few minutes — it's building a real dmg/zip
    on an actual macOS runner). It publishes straight into the same
    GitHub Release as the Windows files, even if that release is more
