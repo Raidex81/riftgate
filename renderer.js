@@ -1231,7 +1231,7 @@ const CHANGELOG = {
         "Fixed: the email-confirmation page showed raw code and garbled symbols instead of a readable message",
         "Fixed: Epic's \"Get It Free\" button could open a page that doesn't exist",
         "Fixed: some free games appeared twice after a store refreshed on its own",
-        "Changed: Free Games rows now show a platform's full list, most popular first (new sort option, now the default), and VR gets its own row with every VR game from any store instead of a single stray card",
+        "Changed: Free Games rows now show a platform's full list, most popular first (new sort option, now the default), and VR gets its own row with the VR games from the PC stores (Meta Quest keeps its own row) instead of a single stray card",
         "Changed: new-install detection now compares your Desktop and Start Menu shortcuts shortly after launch and then hourly, so it also notices programs installed while Riftgate was closed",
         "Changed: update checks now run every few hours instead of constantly",
         "Security: only one copy of Riftgate runs at a time, web links always open in your browser, and launching or opening files is limited to items in your library",
@@ -5566,7 +5566,10 @@ function renderFreeGames() {
         if (!byPlatform[g.source]) byPlatform[g.source] = [];
         byPlatform[g.source].push(g);
     });
-    const vrGames = rowSorted.filter((g) => g.vr || g.source === "VR");
+    // Meta Quest games already have their own row (every one of them is
+    // VR), so the VR row leaves them out instead of repeating them — it
+    // collects the VR games from the PC stores. The VR tab still shows both.
+    const vrGames = rowSorted.filter((g) => (g.vr || g.source === "VR") && g.source !== "Meta Quest");
     if (vrGames.length > 0) byPlatform.VR = vrGames;
 
     let platformNames = Object.keys(byPlatform);
@@ -5596,7 +5599,9 @@ function renderFreeGames() {
 
     platformNames.forEach((platformName) => {
         const items = byPlatform[platformName];
-        const label = PLATFORM_LABELS[platformName] || platformName.toUpperCase();
+        const label = platformName === "VR"
+            ? "VR on PC stores"
+            : (PLATFORM_LABELS[platformName] || platformName.toUpperCase());
         const icon = PLATFORM_ICONS[platformName] || "🎁";
         const headingText = `${icon} ${label} (${items.length})`;
         if (items.length > FREE_GAMES_PREVIEW_CAP) {
