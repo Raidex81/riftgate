@@ -351,7 +351,7 @@ function collectShortcutTargets() {
                     if (!target || !/\.exe$/i.test(target) || IGNORED_SHORTCUT_TARGET.test(target)) continue;
                     const key = target.toLowerCase();
                     if (targets.has(key) || !fs.existsSync(target)) continue;
-                    targets.set(key, { path: target, name: entry.name.replace(/\.lnk$/i, "") });
+                    targets.set(key, { path: target, name: entry.name.replace(/\.lnk$/i, "").replace(/\.exe$/i, "") });
                 } catch (err) {
                     // unreadable shortcut, skip
                 }
