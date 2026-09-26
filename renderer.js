@@ -1232,7 +1232,7 @@ const CHANGELOG = {
         "Fixed: Epic's \"Get It Free\" button could open a page that doesn't exist",
         "Fixed: some free games appeared twice after a store refreshed on its own",
         "Changed: Free Games rows now show a platform's full list, most popular first (new sort option, now the default), and VR gets its own row with the VR games from the PC stores (Meta Quest keeps its own row) instead of a single stray card",
-        "Fixed: a cover could show up as an empty black box when the portrait artwork found online for it was blank or see-through — the original cover is kept instead",
+        "Fixed: a cover could show up as an empty black box when the portrait artwork found online for it was blank or see-through — the original cover is kept instead — and a Free Games cover whose link no longer works now tries an online lookup before showing \"No cover\"",
         "Changed: new-install detection now compares your Desktop and Start Menu shortcuts shortly after launch and then hourly, so it also notices programs installed while Riftgate was closed",
         "Changed: update checks now run every few hours instead of constantly",
         "Security: only one copy of Riftgate runs at a time, web links always open in your browser, and launching or opening files is limited to items in your library",
@@ -4872,13 +4872,26 @@ function buildFreeGameCard(game, navList) {
     // landscape header.jpg) and finally the generic placeholder.
     const freeGameCoverImgEl = card.querySelector(".cover-img");
 
+    // Last try before the "no cover" placeholder: look the title up online
+    // (the same SteamGridDB search used for landscape covers) — some
+    // listings link images that no longer load, e.g. expired store links.
+    let triedOnlineCover = false;
     freeGameCoverImgEl.addEventListener("error", function onFreeGameCoverError() {
         const fallbackSrc = freeGameCoverCacheSrc(game.fallbackImage);
+        const showPlaceholder = () => {
+            freeGameCoverImgEl.removeEventListener("error", onFreeGameCoverError);
+            if (!freeGameCoverImgEl.src.endsWith("covers/default.jpg")) freeGameCoverImgEl.src = "covers/default.jpg";
+        };
         if (fallbackSrc && freeGameCoverImgEl.src !== fallbackSrc) {
             freeGameCoverImgEl.src = fallbackSrc;
+        } else if (!triedOnlineCover && game.name) {
+            triedOnlineCover = true;
+            queueVerticalCoverLookup(game.name).then((found) => {
+                if (found) freeGameCoverImgEl.src = found;
+                else showPlaceholder();
+            });
         } else if (!freeGameCoverImgEl.src.endsWith("covers/default.jpg")) {
-            freeGameCoverImgEl.removeEventListener("error", onFreeGameCoverError);
-            freeGameCoverImgEl.src = "covers/default.jpg";
+            showPlaceholder();
         }
     });
 
