@@ -352,17 +352,81 @@ function freeGamesCoverMimeFor(filePath) {
     return "image/jpeg";
 }
 
+// The renderer can ask covercache:// for ANY URL, so the fetch below must not
+// become a way to reach things on this computer or the local network (the
+// app's own 127.0.0.1 server, a router admin page, cloud metadata at
+// 169.254.169.254, ...). Every hop — redirects included — must be http(s),
+// must resolve only to public addresses (checked at connect time, so a DNS
+// name that points at 127.0.0.1 is refused too), must answer with an image,
+// and may not exceed a size cap.
+const net = require("net");
+const dns = require("dns");
+const MAX_COVER_BYTES = 15 * 1024 * 1024;
+
+function isNonPublicAddress(address) {
+    if (net.isIPv4(address)) {
+        const [a, b] = address.split(".").map(Number);
+        return a === 0 || a === 10 || a === 127 || a >= 224 ||
+            (a === 100 && b >= 64 && b <= 127) ||
+            (a === 169 && b === 254) ||
+            (a === 172 && b >= 16 && b <= 31) ||
+            (a === 192 && b === 168) ||
+            (a === 192 && b === 0) ||
+            (a === 198 && (b === 18 || b === 19));
+    }
+    if (net.isIPv6(address)) {
+        const lower = address.toLowerCase();
+        const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+        if (mapped) return isNonPublicAddress(mapped[1]);
+        return lower === "::" || lower === "::1" ||
+            /^f[cd]/.test(lower) ||          // fc00::/7 unique-local
+            /^fe[89ab]/.test(lower) ||       // fe80::/10 link-local
+            /^ff/.test(lower);               // multicast
+    }
+    return true;
+}
+
+function publicOnlyLookup(hostname, options, callback) {
+    dns.lookup(hostname, options, (err, address, family) => {
+        if (err) return callback(err);
+        const all = Array.isArray(address) ? address : [{ address, family }];
+        if (all.length === 0 || all.some((entry) => isNonPublicAddress(entry.address))) {
+            return callback(new Error("Cover host is not a public address"));
+        }
+        callback(null, address, family);
+    });
+}
+
+function isAllowedCoverUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return (parsed.protocol === "https:" || parsed.protocol === "http:") && !parsed.username && !parsed.password;
+    } catch (err) {
+        return false;
+    }
+}
+
 // Same shape as downloadFileFollowingRedirects, but resolves with the image
 // bytes in memory instead of writing straight to a known destination path —
 // this cache doesn't know the right on-disk filename (extension included)
 // until it sees where a redirect chain actually ends up.
 function fetchBufferFollowingRedirects(url, redirectsLeft = 5) {
     return new Promise((resolve, reject) => {
+        if (!isAllowedCoverUrl(url)) {
+            reject(new Error("Cover URL not allowed"));
+            return;
+        }
         const client = url.startsWith("http://") ? http : https;
-        client.get(url, { headers: { "User-Agent": "RiftgateApp/1.0" } }, (res) => {
+        const req = client.get(url, { headers: { "User-Agent": "RiftgateApp/1.0" }, lookup: publicOnlyLookup, timeout: 20000 }, (res) => {
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
                 res.resume();
-                const nextUrl = new URL(res.headers.location, url).toString();
+                let nextUrl;
+                try {
+                    nextUrl = new URL(res.headers.location, url).toString();
+                } catch (err) {
+                    reject(new Error("Bad cover redirect"));
+                    return;
+                }
                 fetchBufferFollowingRedirects(nextUrl, redirectsLeft - 1).then(resolve).catch(reject);
                 return;
             }
@@ -371,11 +435,32 @@ function fetchBufferFollowingRedirects(url, redirectsLeft = 5) {
                 reject(new Error(`Cover fetch failed: ${res.statusCode}`));
                 return;
             }
+            const type = String(res.headers["content-type"] || "").toLowerCase();
+            if (type && !type.startsWith("image/") && !type.startsWith("application/octet-stream") && !type.startsWith("binary/octet-stream")) {
+                res.resume();
+                reject(new Error("Cover response is not an image"));
+                return;
+            }
+            if (Number(res.headers["content-length"] || 0) > MAX_COVER_BYTES) {
+                res.destroy();
+                reject(new Error("Cover image too large"));
+                return;
+            }
             const chunks = [];
-            res.on("data", (chunk) => chunks.push(chunk));
+            let total = 0;
+            res.on("data", (chunk) => {
+                total += chunk.length;
+                if (total > MAX_COVER_BYTES) {
+                    res.destroy(new Error("Cover image too large"));
+                    return;
+                }
+                chunks.push(chunk);
+            });
             res.on("end", () => resolve(Buffer.concat(chunks)));
             res.on("error", reject);
-        }).on("error", reject);
+        });
+        req.on("timeout", () => req.destroy(new Error("Cover fetch timed out")));
+        req.on("error", reject);
     });
 }
 
@@ -450,7 +535,7 @@ function registerFreeGamesCoverCacheProtocol() {
         } catch (err) {
             realUrl = "";
         }
-        if (!realUrl) {
+        if (!realUrl || realUrl.length > 2048 || !isAllowedCoverUrl(realUrl)) {
             return new Response(null, { status: 400 });
         }
 
