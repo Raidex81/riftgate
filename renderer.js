@@ -1214,7 +1214,8 @@ wheelPlayBtn.addEventListener("click", async () => {
 const CHANGELOG = {
     "1.6.1": [
         "Changed: a new, slimmer header banner that follows your chosen theme's colors (light mode included), replacing the tall video banner",
-        "Changed: Store's Newly Added, Most Popular and Recommended rows now always end on a full line of cards instead of leaving empty spaces"
+        "Changed: Store's Newly Added, Most Popular and Recommended rows now always end on a full line of cards instead of leaving empty spaces",
+        "Changed (Mac): new-install detection now checks shortly after launch and then hourly, and also notices apps installed while Riftgate was closed — same as on Windows"
     ],
     "1.6.0": [
         "Security: Riftgate no longer keeps your password on disk — staying logged in now uses a session the server can revoke, and The Vault and admin tools ask for your password once per launch",

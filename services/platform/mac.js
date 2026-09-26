@@ -288,51 +288,65 @@ function spawnApp(exePath, onExit) {
     }
 }
 
-// --- Detecting a freshly-installed app/game --------------------------------
-// Windows watches for an installer *process* to exit, because that's how
-// Windows installs work. Most Mac installs have no such process at all —
-// the common case is just dragging an app out of a mounted .dmg straight
-// into /Applications, with nothing running throughout. So instead of
-// trying to mimic the Windows mechanism, this takes a simpler and more
-// reliable approach for this platform: periodically snapshot what's in
-// /Applications + ~/Applications and report anything that wasn't there
-// last time. The very first poll only takes a baseline and reports
-// nothing, so it doesn't treat the user's entire existing app collection
-// as "newly installed" the moment Riftgate starts.
-let lastAppSnapshot = null; // Set of app paths, or null before the first poll
+// Detecting a freshly-installed app: most Mac installs are just a .app
+// dragged into /Applications, with nothing running throughout. So this
+// compares a snapshot of /Applications + ~/Applications with the previous
+// one, shortly after launch and then once an hour (same schedule as
+// Windows). The snapshot is saved next to games.json, so an app installed
+// while Riftgate was closed is still noticed on the next launch. The very
+// first run only records a baseline, so the user's existing collection
+// isn't reported as "newly installed".
+const APP_SNAPSHOT_FILE = "applications-snapshot.json";
+
+async function checkForNewApps(getGamesFilePath, onDetected) {
+    const gamesFile = getGamesFilePath();
+    if (!gamesFile) return;
+    const snapshotFile = path.join(path.dirname(gamesFile), APP_SNAPSHOT_FILE);
+
+    const current = await scanGenericApps();
+    const currentPaths = current.map((a) => a.path);
+
+    let previous = null;
+    try {
+        const parsed = JSON.parse(fs.readFileSync(snapshotFile, "utf8"));
+        if (Array.isArray(parsed)) previous = new Set(parsed);
+    } catch (err) {
+        previous = null;
+    }
+    try {
+        fs.writeFileSync(snapshotFile, JSON.stringify(currentPaths));
+    } catch (err) {
+        console.error("[installer-detect] couldn't save app snapshot:", err.message || err);
+    }
+    if (previous === null) {
+        console.log(`[installer-detect] First check: recorded ${currentPaths.length} app(s) as the baseline.`);
+        return;
+    }
+
+    let existingPaths = new Set();
+    try {
+        const games = JSON.parse(fs.readFileSync(gamesFile, "utf8"));
+        existingPaths = new Set(games.map((g) => (g.path || "").toLowerCase()));
+    } catch (err) {
+        // if this fails, just proceed without the extra check
+    }
+
+    const candidates = current
+        .filter((a) => !previous.has(a.path) && !existingPaths.has(a.path.toLowerCase()))
+        .map((a) => ({ path: a.path, name: a.name }));
+
+    console.log(`[installer-detect] Checked ${currentPaths.length} app(s); ${candidates.length} new.`);
+    if (candidates.length > 0) onDetected(candidates);
+}
 
 function startInstallWatcher(getGamesFilePath, onDetected) {
-    setInterval(async () => {
-        const current = await scanGenericApps();
-        const currentPaths = new Set(current.map((a) => a.path));
-
-        if (lastAppSnapshot === null) {
-            lastAppSnapshot = currentPaths;
-            return;
-        }
-
-        const newOnes = current.filter((a) => !lastAppSnapshot.has(a.path));
-        lastAppSnapshot = currentPaths;
-
-        if (newOnes.length === 0) return;
-
-        let existingPaths = new Set();
-        try {
-            const games = JSON.parse(fs.readFileSync(getGamesFilePath(), "utf8"));
-            existingPaths = new Set(games.map((g) => (g.path || "").toLowerCase()));
-        } catch (err) {
-            // if this fails, just proceed without the extra check
-        }
-
-        const candidates = newOnes
-            .filter((a) => !existingPaths.has(a.path.toLowerCase()))
-            .map((a) => ({ path: a.path, name: a.name }));
-
-        if (candidates.length > 0) {
-            console.log(`[installer-detect] Found ${candidates.length} new app(s) in /Applications.`);
-            onDetected(candidates);
-        }
-    }, 3600000); // once an hour — matches windows.js; a "new install" check doesn't need to be near-instant
+    const run = () => {
+        checkForNewApps(getGamesFilePath, onDetected).catch((err) => {
+            console.error("[installer-detect] check failed:", err.message || err);
+        });
+    };
+    setTimeout(run, 20 * 1000);   // shortly after launch
+    setInterval(run, 3600000);    // then once an hour
 }
 
 // Mac apps update in place inside the same .app bundle rather than the

@@ -18,18 +18,19 @@ suggestions).
 │  Main process (Node.js)                                     │
 │                                                               │
 │   main.js  ──requires──▶  services/                         │
-│   (~7,200 lines:            supabase.js   http.js           │
+│   (~7,400 lines:            supabase.js   http.js           │
 │    window/app lifecycle,    steam.js      tvmaze.js         │
-│    ~163 ipcMain handlers,   books.js      github.js         │
-│    IPC validation, CSP,     content-filters.js              │
-│    local HTTP server)       platform/ (windows.js, mac.js)  │
+│    ~170 ipcMain handlers,   books.js      github.js         │
+│    IPC validation, CSP,     tmdb.js       free-games.js     │
+│    local HTTP server)       content-filters.js              │
+│                             platform/ (windows.js, mac.js)  │
 │                                                               │
 │   Serves the UI over http://127.0.0.1:<random port>/         │
 └───────────────────────────┬───────────────────────────────────┘
                              │ preload.js (contextBridge, channel allowlists)
 ┌───────────────────────────▼───────────────────────────────────┐
 │  Renderer (sandboxed, contextIsolation: true, nodeIntegration: │
-│  false) — index.html + renderer.js (~10,900 lines), the UI     │
+│  false) — index.html + renderer.js (~12,700 lines), the UI     │
 └─────────────────────────────────────────────────────────────┘
                              │
                              ▼ (all external calls happen in the
@@ -41,10 +42,14 @@ suggestions).
   Postgres + RLS + RPC + Storage)               Gutenberg, Open
         │                                       Library, TVMaze,
         ▼                                       GitHub, Epic/GOG/
-  media-proxy Edge Function                     itch.io/GamerPower)
-  (TMDB, RAWG, SteamGridDB,
-  YouTube — vendor keys live
-  here, never in the client)
+  Edge Functions:                               itch.io/GamerPower,
+   media-proxy (TMDB, RAWG,                     CheapShark)
+    SteamGridDB, YouTube —
+    vendor keys live here)
+   account-email + verify-email
+    (password reset / email
+    confirmation, via Resend)
+   vault (signed file links)
 ```
 
 **Why a local HTTP server instead of `file://`.** Electron's default
@@ -55,9 +60,18 @@ there instead. That server also serves locally-cached cover art from the
 user's `userData/covers` folder, and sets `Cache-Control: no-store`
 everywhere so a stale cached response never masks a real update.
 
+**`covercache://`** is a small custom protocol that downloads Free
+Games/Store cover art once and serves it from disk afterwards. Because the
+page decides which URL to ask for, every download (and every redirect it
+follows) must be `http(s)`, must resolve only to public internet
+addresses — never this computer, the local network or cloud metadata
+addresses, checked at connect time so a DNS name pointing at `127.0.0.1`
+is refused too — must answer with an image, and is capped at 15 MB and
+20 seconds.
+
 **Codebase layout**, roughly in the order you'd want to read it:
 
-- `main.js` — app/window lifecycle, IPC handler wiring (~163
+- `main.js` — app/window lifecycle, IPC handler wiring (~170
   `ipcMain.handle` calls), the local server, CSP and IPC-sender
   validation. Still the largest file by a wide margin; see
   [Roadmap](#roadmap).
@@ -67,7 +81,8 @@ everywhere so a stale cached response never masks a real update.
   access; everything goes through IPC.
 - `services/*.js` — pure, dependency-light modules holding the actual
   external API calls (`supabase.js`, `http.js`, `steam.js`, `tvmaze.js`,
-  `books.js`, `github.js`, `content-filters.js`), extracted out of
+  `tmdb.js`, `free-games.js`, `books.js`, `github.js`,
+  `content-filters.js`), extracted out of
   `main.js` so each data source's logic can be read (and changed) on its
   own. `main.js` still owns caching, orchestration, and all IPC wiring —
   these modules only know how to call an API and shape its response.
@@ -81,6 +96,9 @@ everywhere so a stale cached response never masks a real update.
   so a change there applies to Windows and Mac identically. See
   [Known limitations](#known-limitations) for the Mac side's testing
   status.
+- `supabase/` — the backend as code: numbered database migrations (with
+  a rollback script for each), a local test harness for them, and the
+  source of every Edge Function. See [Supabase backend](#supabase-backend).
 
 ## Electron architecture
 
@@ -122,6 +140,21 @@ allowlist), `frame-src https://www.youtube.com` only, `connect-src
 'self'` (the renderer never calls `fetch`/`XHR` itself — see below),
 `object-src 'none'`.
 
+**Window and navigation guards.** Only one copy of Riftgate can run at a
+time (a second launch just focuses the first window). No window can be
+navigated away from Riftgate's own page: links that try to open a new
+window go to the user's real browser (https only), and in-page
+navigations or redirects to anywhere else are blocked. Launching an item
+is limited to what's actually in the user's library (plus `steam:` links),
+and opening an eBook to `.epub`/`.pdf` files in the library.
+
+**Electron fuses** are flipped on the packaged app at build time
+(`build.electronFuses` in `package.json`): the installed `Riftgate.exe`
+can't be started as a plain Node.js runtime (`ELECTRON_RUN_AS_NODE`), and
+ignores `NODE_OPTIONS` and `--inspect` switches, so it can't be used to
+run other code; it only loads its own `app.asar`, whose integrity is
+checked at startup; and cookies are stored encrypted.
+
 **Permission requests** (camera, microphone, geolocation, notifications,
 MIDI, clipboard, screen/device capture, etc.) are denied by default via
 `setPermissionRequestHandler`/`setPermissionCheckHandler` — Electron's
@@ -135,13 +168,14 @@ fullscreen button.
 Everything the renderer can do to the outside world goes through IPC,
 and it's checked at both ends:
 
-1. **`preload.js`** exposes exactly three allowlists via
-   `contextBridge.exposeInMainWorld` — `INVOKABLE_CHANNELS`,
-   `LISTENABLE_CHANNELS`, `SENDABLE_CHANNELS` — each a `Set` of exact
-   channel names. Calling `window.api.invoke("something-not-on-the-
-   list")` throws before it ever reaches the main process.
+1. **`preload.js`** exposes a single `window.riftgate` object via
+   `contextBridge.exposeInMainWorld`, guarded by three allowlists —
+   `INVOKABLE_CHANNELS`, `LISTENABLE_CHANNELS`, `SENDABLE_CHANNELS` —
+   each a `Set` of exact channel names. Calling
+   `window.riftgate.invoke("something-not-on-the-list")` throws before it
+   ever reaches the main process.
 2. **`main.js`** wraps `ipcMain.handle`/`on`/`once` themselves, so
-   *every* handler — all ~163 of them — is checked without having to
+   *every* handler — all ~170 of them — is checked without having to
    remember to add a check inside each one individually
    (`isTrustedIpcSender`, below). This is a second, independent layer:
    even a channel that's legitimately allowlisted in step 1 gets
@@ -163,9 +197,10 @@ somehow ended up in the same process from calling IPC — this closes that
 gap by rejecting any sender whose origin isn't Riftgate's own local
 server on its own randomized port, full stop.
 
-A handful of sensitive handlers add a third layer on top of both of the
-above: The Vault's file preview/download re-verifies the caller's
-username/password against the server before returning anything (see
+A handful of sensitive actions add a third layer on top of both of the
+above: anything touching accounts, admin tools or The Vault is re-checked
+by the server itself against the account password (see
+[Accounts & sessions](#accounts--sessions) and
 [Vault security](#vault-security)).
 
 ## Security model
@@ -192,39 +227,67 @@ than any single control doing all the work:
    only ever holds Supabase's public URL and a "publishable" key, which
    are meant to be public — Supabase's own security model is RLS
    policies, not keeping that key secret.
-7. **Server-side re-authentication for sensitive actions** — see Vault,
-   below.
+7. **Server-side re-authentication for sensitive actions** — see
+   Accounts & sessions and Vault, below.
+8. **Hardened packaged app** — Electron fuses (above), updated
+   dependencies, and only the app's real files in the installer (no
+   private notes, database scripts or old backup copies).
 
 This list reflects what's actually been built and verified so far, not a
 claim that everything is covered — see
 [Known limitations](#known-limitations).
+
+## Accounts & sessions
+
+Riftgate uses its own username accounts (not Supabase Auth), so all
+account logic lives in Postgres functions called over RPC:
+
+- **Password storage.** Password hashes, emails and reset/verification
+  tokens live in a `private` schema that the app's public key can't read
+  at all; only the database's own functions can. Hashes use bcrypt
+  (cost 12, upgraded automatically on the next successful login).
+- **Lockout.** 10 wrong passwords lock that username for 15 minutes,
+  doubling on each further lockout (up to 24 hours).
+- **Staying logged in.** The app never stores the password. After login it
+  stores a random session token in `userData/session.dat`, encrypted with
+  the operating system's own key store (`safeStorage`). The server keeps
+  only a hash of that token; sessions last 30 days (extended on use, up to
+  10 per account) and are all revoked on a real password change. The
+  password itself is asked for once per launch, the first time The Vault
+  or an admin tool needs it, and kept only in memory.
+- **Password reset and email confirmation** are handled entirely by the
+  `account-email` Edge Function: it creates the reset code or confirmation
+  token in the database and emails it via Resend, so neither ever passes
+  through the app. The confirmation link lands on `verify-email`, which
+  replies with a plain-text page.
+- **Feature detection.** `get_backend_info()` returns the backend's
+  `schema_version`; the app checks it before using newer server features,
+  so an older backend or an older app keeps working during an upgrade.
 
 ## Vault security
 
 The Vault (private, invite-only file/link sharing with expiration) is
 the most sensitive surface in the app, so it gets the most layers:
 
-- Files live in Supabase Storage (bucket `riftgate-shares`); links and
-  metadata live in Postgres.
-- Admin/account-sensitive operations — login, password changes, role
-  changes, adding items to the Vault's access allowlist, and so on — go
-  through Postgres RPC functions (`callAdminRpc`) rather than direct
-  table access. Each of those functions re-verifies the caller's
-  username/password *inside the database* on every single call. The
-  Electron app itself never holds or checks a password hash — it just
-  passes credentials through and trusts the RPC's yes/no answer.
-- Downloading or previewing a shared file gets a short-lived **signed
-  URL** from Supabase Storage rather than a permanent public link, and
-  that signed URL is only issued after `isAuthorizedForSharedFile`
-  confirms the requesting user is actually on that file's access list.
-  This check was added after a real gap was found where the
-  preview/download path wasn't checking authorization at all — anyone
-  who knew (or guessed) a storage path could have pulled a file without
-  being on the allowlist. It's fixed now, but it's a good example of why
-  this section exists instead of just asserting "it's secure."
-- Shared files and links expire automatically (cleanup handlers run on
-  schedule and on-demand), so nothing shared into the Vault lingers
-  indefinitely by default.
+- Files live in the private Supabase Storage bucket `riftgate-shares`
+  (50 MB per file). It has **no** public storage rules, so the app's
+  public key can't list, read or write it directly.
+- Every file transfer goes through the `vault` Edge Function. It checks
+  the account password with the database first, then hands out a
+  short-lived **signed** upload or download link (5 minutes, or 1 hour
+  for image previews). The storage name of each upload is generated by
+  the server, and the upload is only recorded after the server confirms
+  the file really exists and is within the size limit, so nobody can
+  point a Vault entry at someone else's file.
+- Deleting a file, the expiry clean-up and the admin "Clean Vault now"
+  remove the database entry and the stored file together, inside the
+  function — the database functions that delete Vault entries can only
+  be called by that function, so entries and stored files can't drift
+  apart. Uploads that were started but never finished are removed too.
+- Shared files and links expire automatically (1–24 hours for files, 90
+  days for links).
+- In the app, The Vault is currently shown to admins only while it's
+  being reworked.
 
 ## Data sources
 
@@ -239,6 +302,8 @@ the most sensitive surface in the app, so it gets the most layers:
 | Open Library | Buy Books / Manga / Comics browsing | Direct — public, no-key API |
 | TVMaze | TV episode/air-date data | Direct — public, no-key API |
 | GitHub | Repo descriptions for community Applications | Direct — public API |
+| CheapShark | Store deals across many resellers | Direct — public, no-key API |
+| Resend | Password-reset and email-confirmation emails | `account-email` Edge Function (key server-side) |
 | Epic Games Store, GOG, itch.io, GamerPower | Free Games aggregation | Direct — public endpoints/undocumented storefront APIs, scraped/parsed where no formal API exists (itch.io in particular has no public discovery API) |
 
 The line that decides "direct" vs. "`media-proxy`" isn't arbitrary: the
@@ -252,7 +317,9 @@ keyless APIs where there's nothing to protect.
 **Local** (in the OS's per-user app data folder, via
 `app.getPath("userData")`) — installed game/app library entries, all
 caches (free games, upcoming releases, ebook lists, etc.), locally
-downloaded cover art, downloaded eBooks, app settings, and a
+downloaded cover art, downloaded eBooks, app settings, the encrypted
+login session token (`session.dat`), the shortcut snapshot used for
+new-install detection (`shortcut-snapshot.json`), and a
 description-diagnostic log. None of this is synced or backed up by
 Riftgate itself; `export-backup-data` / `import-backup-data` exist for
 the user to do that manually.
@@ -260,37 +327,65 @@ the user to do that manually.
 **Cloud** (Supabase) — anything inherently shared or cross-device:
 accounts and login, The Vault's files/links and access lists, community
 Applications submissions, and the suggestions/admin-moderation system.
-Access is governed by Postgres Row-Level Security policies and the
-RPC-based re-authentication described above, not by anything the client
-enforces.
+Access is governed by Postgres Row-Level Security policies, the
+RPC-based re-authentication and the Edge Functions described above, not
+by anything the client enforces.
+
+## Supabase backend
+
+Everything on the Supabase side is kept in [`supabase/`](supabase/):
+
+- `migrations/` — numbered SQL changes, applied in order in the Supabase
+  SQL Editor. Production is currently at **schema version 7** (migrations
+  `0001`–`0008` applied). Each file's header explains what it does, how
+  it affects older app versions, and how to verify it.
+- `rollback/` — an undo script for each migration.
+- `tests/` — a local test harness (`run.sh`) that applies every migration
+  to a throwaway Postgres database with a stand-in for Supabase's own
+  setup and checks the results. It's never pointed at production.
+- `functions/` — source of the Edge Functions: `media-proxy` (media APIs,
+  allowlisted endpoints only), `account-email`, `verify-email` and
+  `vault`. `media-proxy`, `account-email` and `vault` require the app's
+  publishable key ("Verify JWT" on); `verify-email` doesn't, because it's
+  opened straight from an email link.
+
+Two older functions, `send-password-reset-email` and
+`send-verification-email`, are still deployed only for app versions
+before 1.6.0 and will be switched off once everyone has updated.
 
 ## Build & release process
 
 ```
-npm start     # electron .                          — run from source
-npm run dist  # electron-builder                     — build only, no publish
-npm run release  # electron-builder --publish always  — build + publish to GitHub Releases
+npm start          # electron .                                   — run from source
+npm run dist       # electron-builder --publish never             — build the installer locally
+npm run release    # electron-builder --publish always            — build + publish to GitHub Releases
 ```
 
-`electron-builder` (24.13.3, currently paired with Electron 44.4.3)
-produces a Windows NSIS installer (`oneClick`, per-user, desktop +
-Start Menu shortcuts) and, for `release`, publishes it straight to a
-GitHub Release matching whatever version is in `package.json`, using a
-`GH_TOKEN` environment variable with `repo` scope. Installed copies use
-`electron-updater` to check that same Releases feed and self-update —
-no manual redownload needed after the first install.
+(In Windows PowerShell, use `npm.cmd` instead of `npm`.)
+
+`electron-builder` (26.15.3, with Electron 44.4.3) produces a Windows NSIS
+installer (`oneClick`, per-user, desktop + Start Menu shortcuts), flips the
+Electron fuses described above, and packs only the app's real files —
+`build.files` in `package.json` leaves out private notes, `supabase/`,
+docs, old backup copies and the retired banner video. `release` publishes
+to the GitHub Release matching the version in `package.json`, using a
+short-lived `GH_TOKEN` set only in the terminal window doing the release;
+the release itself is created on GitHub first (see `RELEASE.md` for why).
+Installed Windows copies use `electron-updater` to check that same
+Releases feed and update themselves.
 
 The installer is **not code-signed** — see
 [Known limitations](#known-limitations).
 
-**macOS** builds (dmg + zip, x64 and arm64) are configured the same way
-under `build.mac` in `package.json`, but built by GitHub Actions rather
-than locally — there's no Mac dev hardware in this project. A manually
+**macOS** builds (dmg + zip, Intel and Apple Silicon) are configured the
+same way under `build.mac` in `package.json`, but built by GitHub Actions
+rather than locally — there's no Mac hardware in this project. A manually
 triggered workflow (`.github/workflows/release-mac.yml`) builds and
-publishes into the same GitHub Release the Windows build went to; a
-second workflow (`build-check.yml`) builds both platforms on every push
-without publishing, as a canary for changes that accidentally break the
-Mac side. See `RELEASE.md` for the actual release steps.
+publishes into the same GitHub Release the Windows build went to, even if
+that release is more than 2 hours old; a second workflow
+(`build-check.yml`) builds both platforms on every push without
+publishing, as a canary for changes that accidentally break either side.
+See `RELEASE.md` for the actual release steps.
 
 ## Screenshots
 
@@ -300,7 +395,7 @@ _(to be added)_
 
 Reflects the active backlog, roughly in priority order:
 
-- **Architecture** — split `main.js`'s remaining ~7,200 lines by
+- **Architecture** — split `main.js`'s remaining ~7,400 lines by
   subsystem (`ipc/`, `windows/`, `games/`, `free-games/`, `media/`,
   `vault/`, `auth/`, `system/`, alongside the existing `services/`)
   rather than one large file. The services extraction above is the first
@@ -332,20 +427,24 @@ Reflects the active backlog, roughly in priority order:
 
 - **Unsigned installers.** Windows SmartScreen shows a "protected your
   PC" warning on first run, and the Mac build needs a right-click →
-  Open the first time instead of a plain double-click. Both are fixable
-  with paid developer accounts/certificates (real ongoing cost, neither
-  currently purchased).
+  Open the first time instead of a plain double-click. On the Mac this
+  also means automatic updates can't install — Mac users download each
+  new `.dmg` by hand. Both are fixable with paid developer
+  accounts/certificates (real ongoing cost, neither currently purchased).
+- **Account emails only reach the owner for now.** Emails are sent with
+  Resend's test sender, which only delivers to the Resend account
+  owner's own address until a real sending domain is set up.
 - **No automated tests.** Correctness currently rests on manual
   click-through testing per release (see `RELEASE.md`) — CI now builds
   both platforms on every push, but that only catches build breakage,
   not behavioral bugs.
-- **`main.js` is still large** (~7,200 lines) despite the services
+- **`main.js` is still large** (~7,400 lines) despite the services
   extraction — IPC wiring, window/app lifecycle, and per-feature logic
   are still interleaved in one file. See [Roadmap](#roadmap).
 - **Mac build unverified on real hardware.** `services/platform/mac.js`
   (Applications-folder scanning, process tracking via `ps`, launching
-  via `open -a`, uninstall via `shell.trashItem`, the install-detection
-  poller) was written and unit-tested without any Mac to actually run
+  via `open -a`, uninstall via `shell.trashItem`, the hourly
+  install-detection check) was written and unit-tested without any Mac to actually run
   it on. It needs a real-hardware pass before being trusted the way the
   Windows side already is — see `MAC_TESTING.md` for exactly what to
   check.

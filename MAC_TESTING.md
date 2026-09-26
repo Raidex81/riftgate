@@ -9,12 +9,17 @@ checklist is for. Please work through it on real macOS hardware before
 treating the Mac build as trustworthy the way the Windows build already
 is, and report back anything that doesn't match what's described.
 
-Get the build from the [Releases page](https://github.com/Raidex81/Riftgate/releases)
-— download the `.dmg`, drag Riftgate into Applications, and note that
-**first launch needs a right-click → Open**, not a double-click — the
-build is unsigned (see below), so Gatekeeper blocks a plain
-double-click the first time with an "unidentified developer" warning.
-That's expected, not a bug.
+Get the build from the [Releases page](https://github.com/Raidex81/Riftgate/releases/latest)
+— under **Assets**, download `Riftgate-<version>-arm64.dmg` for a Mac with
+an Apple chip (M1/M2/M3/M4…) or `Riftgate-<version>.dmg` for an Intel Mac
+(Apple menu → About This Mac shows which). Open it, drag Riftgate into
+Applications, and note that **first launch needs a right-click → Open**,
+not a double-click — the build is unsigned (see below), so Gatekeeper
+blocks a plain double-click the first time. On newer macOS versions you
+may instead need System Settings → Privacy & Security → **Open Anyway**,
+and if macOS claims the app "is damaged", run
+`xattr -cr /Applications/Riftgate.app` in Terminal and open it again.
+All of that is expected for an unsigned app, not a bug.
 
 ## 1. Basic launch & window behavior
 
@@ -74,14 +79,16 @@ That's expected, not a bug.
 
 ## 4. Detecting a fresh install
 
-- With Riftgate running, install a brand-new app (drag something new
-  into `/Applications`, or run a real installer if you have one handy).
-  Within roughly 10 seconds, Riftgate should prompt about the new
-  install. (Windows watches for installer *processes* exiting; Mac has
-  no equivalent, so this polls `/Applications` for anything that
-  wasn't there a poll ago — confirm it actually catches a real install
-  within that window, and doesn't spam false positives for unrelated
-  Finder/Spotlight activity.)
+Riftgate compares the contents of `/Applications` and `~/Applications`
+with the list it saved last time — about 20 seconds after it opens, then
+once an hour. The very first check only records what's already there.
+
+- Open Riftgate, wait about 30 seconds, then quit it completely.
+- Install a brand-new app (drag something new into `/Applications`, or
+  run a real installer).
+- Open Riftgate again. Within about 20 seconds it should show the "New
+  Install Detected" popup for that app — and nothing else. Report any
+  missed install, or any popup for something you didn't just install.
 
 ## 5. Removing a game
 
@@ -126,6 +133,10 @@ in-place update to succeed — for now, getting a new version means
 downloading the new `.dmg` from GitHub Releases each time.
 
 ## 8. General polish
+
+- The header at the top (gem logo, RIFTGATE lettering and portal
+  artwork) should look crisp and follow the chosen theme's colors when
+  you switch themes in Options.
 
 - App icon in the Dock and in Finder — should be Riftgate's real icon,
   not a generic placeholder. (Built from `build/icon.png` automatically

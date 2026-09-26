@@ -1,13 +1,24 @@
 // Riftgate — media-proxy Edge Function
 //
 // Thin server-side proxy for the third-party media APIs Riftgate calls
-// (TMDB, RAWG, YouTube, SteamGridDB). The real vendor API keys are stored
-// as secrets on THIS function (Project Settings -> Edge Functions ->
+// (TMDB, RAWG, YouTube, SteamGridDB, Steam). The real vendor API keys are
+// stored as secrets on THIS function (Project Settings -> Edge Functions ->
 // Secrets, or the "Manage secrets" button on this function's page) and are
 // never sent to the client. The packaged app only ever holds the public
 // Supabase project URL and its publishable key, which are safe to embed —
 // that's how Supabase's own security model works (data is protected by
 // Row Level Security, not by keeping that key secret).
+//
+// IMPORTANT: because the Supabase URL + publishable key are public by
+// design (they're plain text in every installed copy of the app), this
+// function must NEVER forward an arbitrary vendor/path/query to the
+// upstream API — anyone who extracts those two values (trivial — just
+// watch network traffic, or unzip the app) could otherwise use this
+// function as a free, unlimited proxy to TMDB/RAWG/YouTube/SteamGridDB/
+// Steam, burning through the real keys' rate limits and cost at our
+// expense. ALLOWED_PATHS below is the fix: only the exact endpoint shapes
+// Riftgate's own UI actually calls are permitted; everything else is
+// rejected with a 403 before any upstream request is made.
 //
 // Request body (POST only):
 //   {
@@ -60,6 +71,42 @@ const SECRET_ENV: Record<string, string> = {
   steam: "STEAM_API_KEY",
 };
 
+// The exact set of endpoint shapes the Riftgate app actually calls, per
+// vendor — anything not matching one of these is refused. Built directly
+// from every mediaProxyGetJson(Plain) call site in main.js and services/; if a future
+// change to the app adds a genuinely new endpoint, it needs to be added
+// here too or that feature will get a 403 from this function.
+const ALLOWED_PATHS: Record<string, RegExp[]> = {
+  tmdb: [
+    /^\/movie\/now_playing$/,
+    /^\/movie\/upcoming$/,
+    /^\/movie\/\d+\/videos$/,
+    /^\/tv\/\d+\/videos$/,
+    /^\/search\/tv$/,
+    /^\/search\/movie$/,
+    /^\/search\/multi$/,
+    /^\/discover\/movie$/,
+    /^\/discover\/tv$/,
+    /^\/watch\/providers\/(movie|tv)$/,
+    /^\/(movie|tv)\/\d+\/watch\/providers$/,
+    /^\/(movie|tv)\/\d+\/images$/, // services/tmdb.js fetchFallbackPoster
+  ],
+  rawg: [
+    /^\/games$/,
+    /^\/games\/\d+$/,
+  ],
+  youtube: [
+    /^\/search$/,
+  ],
+  steamgriddb: [
+    /^\/search\/autocomplete\/[^/]+$/,
+    /^\/grids\/game\/\d+$/,
+  ],
+  steam: [
+    /^\/IPlayerService\/GetOwnedGames\/v0001\/?$/,
+  ],
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Use POST" }), {
@@ -91,6 +138,14 @@ Deno.serve(async (req: Request) => {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const allowedForVendor = ALLOWED_PATHS[vendor] || [];
+  if (!allowedForVendor.some((pattern) => pattern.test(path))) {
+    return new Response(
+      JSON.stringify({ error: "This endpoint isn't on the allowlist for this vendor." }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const key = Deno.env.get(SECRET_ENV[vendor]);

@@ -13,9 +13,10 @@ version — written so either of you can follow it.
   ```
 - Push access to https://github.com/Raidex81/Riftgate (ask Alfredo to add
   you as a collaborator if you don't have it)
-- Only needed by whoever will actually publish a release: a GitHub
-  Personal Access Token with the `repo` scope, saved as the `GH_TOKEN`
-  environment variable (see step 5 below)
+- Whoever publishes a release creates a short-lived GitHub token each
+  time (step 5) — never save one permanently on the PC.
+- On Windows PowerShell, always type `npm.cmd` instead of `npm` (plain
+  `npm` can open a "Select an app" dialog instead of running).
 
 ## 1. Get the latest code
 
@@ -31,7 +32,7 @@ git pull
 Only needed the first time, or any time `package.json` changes:
 
 ```
-npm install
+npm.cmd install
 ```
 
 ## 3. Test it locally
@@ -39,31 +40,23 @@ npm install
 Runs the app straight from source — no installer needed:
 
 ```
-npm start
+npm.cmd start
 ```
 
-On Windows PowerShell, type `npm.cmd` instead of `npm` (plain `npm` can
-open a "Select an app" dialog instead of running).
+If Riftgate is already open (including the installed version), close it
+completely first (⏻ → Close Completely) — only one copy can run at a
+time, so a second start just brings the old window back.
 
-Quick pass on what actually changed this round (v1.6.0):
+Quick pass on what changed this round (v1.6.1):
 
-- **Login stays signed in without a stored password** — log in, close
-  and reopen the app: you should still be logged in. Open The Vault or an
-  admin tool: it asks for your password once, then not again until you
-  restart.
-- **Forgot password / email confirmation** — both emails arrive (while
-  Riftgate still uses Resend's test sender they only reach the Resend
-  account owner's address); the confirmation link shows a plain
-  "Email confirmed!" page.
-- **The Vault (admins)** — upload a small image, hover to preview,
-  download it, remove it, then use **Clean Vault now**.
-- **Free Games** — covers load; Epic's "Get It Free" opens the real
-  store page; no duplicate entries.
-- **New-install detection** — about 20 seconds after launch, the
-  PowerShell window prints an `[installer-detect]` line. A new program
-  shortcut on the Desktop/Start Menu triggers the "New Install Detected"
-  popup (at launch, then hourly).
-- **Reading Room** — open an ebook; cover and title load.
+- **Header** — the new slim header (gem, RIFTGATE lettering, portal
+  artwork) shows at the top and follows the theme when you switch themes
+  in Options (light mode too).
+- **Store** — Newly Added, Most Popular and Recommended each end on a
+  full line of cards, and re-fill when you resize the window.
+
+Then a quick general check that nothing else broke: log in, open Free
+Games (covers load), open an ebook in the Reading Room, and open Theatre.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
@@ -71,19 +64,30 @@ you're done.
 ## 4. Commit and push
 
 ```
-git add -A
+git status
+git add <the files you changed>
 git commit -m "Describe what changed here"
 git push
 ```
+
+Check `git status` first and only add the files you actually meant to
+change — the folder also holds private notes and big media files that
+don't belong on GitHub.
 
 This is also the point where the other person should `git pull` to get
 these changes on their own machine.
 
 ## 5. Build and publish the release
 
-Before publishing, make sure the Supabase side for this version is live
-(for v1.6.0: database migrations up to `20260926000800`, and the Edge
-Functions `account-email`, `verify-email` and `vault` — all already done).
+Before publishing:
+
+- Set the new version number in `package.json` (`"version"`) and make
+  sure `renderer.js`'s `CHANGELOG` has an entry for it — that's what the
+  🔔 button shows.
+- Make sure the Supabase side for this version is live. For 1.6.x that's
+  database migrations up to `20260926000800` and the Edge Functions
+  `media-proxy`, `account-email`, `verify-email` and `vault` — all
+  already done. See `supabase/README.md`.
 
 Publishing needs a GitHub token that can create releases on the repo.
 **Don't store it permanently** (no `setx`) — set it only for the
@@ -115,10 +119,9 @@ Then, from inside `C:\Riftgate`, in that same window:
 npm.cmd run release
 ```
 
-This builds the Windows installer and publishes it straight to a new
-GitHub Release matching whatever version is in `package.json` right
-now. It can take a few minutes — it's building and uploading the whole
-installer.
+This builds the Windows installer and uploads it to the release you just
+created (it must match the version in `package.json`). It can take a few
+minutes — it's building and uploading the whole installer.
 
 ## 5b. Build and publish the macOS release
 
@@ -132,8 +135,8 @@ release):
    branch, which is what you want).
 3. Wait for it to finish (a few minutes — it's building a real dmg/zip
    on an actual macOS runner). It publishes straight into the same
-   GitHub Release `npm.cmd run release` created for the current
-   `package.json` version.
+   GitHub Release as the Windows files, even if that release is more
+   than 2 hours old.
 
 No token setup needed for this one — it uses the token GitHub Actions
 provides automatically. This produces an **unsigned** Mac build (same
@@ -152,14 +155,22 @@ results for the commit you just pushed.
 
 ## 6. Verify
 
-Check https://github.com/Raidex81/Riftgate/releases and confirm the new
-version's release exists with the `.exe` attached (and the `.dmg`/`.zip`
-too, once 5b has run).
+Check https://github.com/Raidex81/Riftgate/releases and confirm there's
+exactly **one** release for the new version, marked **Latest**, and that
+its Assets include:
+
+- Windows: `Riftgate-Setup-<version>.exe`, its `.blockmap`, and
+  `latest.yml` (installed copies use `latest.yml` to find the update)
+- Mac (after 5b): `.dmg` and `.zip` files for Intel and Apple Silicon,
+  their `.blockmap` files, and `latest-mac.yml`
 
 ## 7. Get the update onto a running install
 
-- Already have Riftgate installed? Just leave it running (it checks for
-  updates automatically) or reopen it — it'll prompt you to update.
+- Already have Riftgate installed on Windows? Just leave it running (it
+  checks for updates every few hours) or reopen it — it'll prompt you to
+  update.
+- On a Mac, updates don't install themselves yet (the app isn't signed):
+  download the new `.dmg` and drag it over the old copy in Applications.
 - Testing a totally fresh install instead? Download the `.exe` (or, on
   a Mac, the `.dmg`) from the Releases page above.
 

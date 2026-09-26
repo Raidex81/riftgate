@@ -15,17 +15,28 @@ about, all in one place.
 
 ### 👉 [Download the latest version](https://github.com/Raidex81/Riftgate/releases/latest)
 
-Click the link above, then look for **Assets** on that page and download
-the `.exe` file.
+On that page, open **Assets** and pick the file for your computer:
 
-> **First-time install note:** Windows may show a blue "Windows
+| Computer | File |
+|---|---|
+| Windows 10/11 | `Riftgate-Setup-<version>.exe` |
+| Mac with Apple chip (M1/M2/M3/M4…) | `Riftgate-<version>-arm64.dmg` |
+| Mac with Intel chip | `Riftgate-<version>.dmg` |
+
+> **Windows first-install note:** Windows may show a blue "Windows
 > protected your PC" screen the first time you run the installer. This
 > is normal for independently-published apps that aren't digitally
-> signed — click **More info → Run anyway** to continue.
+> signed — click **More info → Run anyway** to continue. It only happens
+> once: every update after that installs itself automatically through
+> the app.
 >
-> This only happens once. Every update after your first install
-> installs itself automatically through the app — no more downloads,
-> no more warnings.
+> **Mac first-install note:** open the `.dmg`, drag Riftgate into
+> Applications, then **right-click → Open** the first time (or System
+> Settings → Privacy & Security → **Open Anyway**). If macOS says the app
+> "is damaged", run `xattr -cr /Applications/Riftgate.app` in Terminal
+> and open it again. The Mac version isn't signed yet, so it can't update
+> itself — download the new `.dmg` from the link above for each new
+> version (your library and settings are kept).
 
 ---
 
@@ -76,8 +87,12 @@ series, and games, all in one feed.
 
 ![Surprise Me](screenshots/surprise-me.png)
 
-Nine color themes, light/dark mode, adjustable grid density, and a
-fully custom interface — automatic updates included.
+**🔒 The Vault** — private file and link sharing between friends, with
+automatic expiry (currently admin-only while it's being reworked).
+
+Nine color themes (the header, accents and glow all follow the one you
+pick), light/dark mode, adjustable grid density, and a fully custom
+interface — automatic updates included on Windows.
 
 ---
 
@@ -86,11 +101,14 @@ fully custom interface — automatic updates included.
 This is a personal project — all rights reserved. It isn't currently
 open for external contributions, but feel free to look around.
 
-Built with [Electron](https://www.electronjs.org/), backed by
-[Supabase](https://supabase.com/) for shared/cloud data (accounts,
-Applications, community suggestions). Third-party media APIs
-(TMDB, RAWG, SteamGridDB, YouTube) are proxied server-side, so no vendor
-keys ship inside the app.
+Built with [Electron](https://www.electronjs.org/) for Windows and macOS
+from one shared codebase, backed by [Supabase](https://supabase.com/) for
+shared/cloud data (accounts, The Vault, Applications, community
+suggestions). Third-party media APIs (TMDB, RAWG, SteamGridDB, YouTube)
+are proxied server-side, so no vendor keys ship inside the app, and
+account emails (password reset, email confirmation) are sent entirely by
+the server. The database changes and server functions live in
+[`supabase/`](supabase/).
 
 For a deeper technical look — the Electron process model, IPC and
 security hardening, what's stored locally vs. in the cloud, external data

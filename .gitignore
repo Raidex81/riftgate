@@ -27,3 +27,10 @@ coverage/
 *.log
 .env*
 .venv/
+
+# Stray local files that aren't part of the project
+/nul
+/git
+/BeatSaberVersion.txt
+Claude outputs/*.mp4
+Claude outputs/archive/*.bak-*
