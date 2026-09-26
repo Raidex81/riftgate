@@ -8380,7 +8380,7 @@ function fitHscrollTrack(trackEl, minCardWidth, gap) {
 // many of as will comfortably go, not a hard floor.
 const HSCROLL_TRACK_CONFIG = new Map([
     ["upcomingGamesGrid", { minCardWidth: 300, gap: 14 }],
-    ["upcomingMoviesGrid", { minCardWidth: 210, gap: 18 }],
+    ["upcomingMoviesGrid", { minCardWidth: 210, gap: 14 }],
     ["newShowsGrid", { minCardWidth: 210, gap: 14 }],
     ["newAnimeGrid", { minCardWidth: 210, gap: 14 }],
     ["mostPopularBooksGrid", { minCardWidth: 230, gap: 14 }],

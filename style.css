@@ -615,7 +615,8 @@ body.density-compact .upcoming-games-track .game-card{
     width:210px;
 }
 
-body.density-compact .new-shows-track .game-card{
+body.density-compact .new-shows-track .game-card,
+body.density-compact .upcoming-movies-track .game-card{
     width:150px;
 }
 
@@ -4969,7 +4970,8 @@ body.startup-locked{
    height let one card come out noticeably taller/shorter than its
    neighbors in the same row. Same fixed 2:3 box + object-fit:cover
    already used for Store/Free Games covers, for the same reason. */
-.new-shows-track .game-card{
+.new-shows-track .game-card,
+.upcoming-movies-track .game-card{
     width:210px;
 }
 
@@ -4982,16 +4984,21 @@ body.startup-locked{
    one row's cards to match the tallest, combined with .game-info's
    existing flex:1 + .card-footer's margin-top:auto (already used by
    every card type), pins every button to the same bottom edge. */
-.new-shows-track{
+.new-shows-track,
+.upcoming-movies-track{
     align-items:stretch;
 }
 
-.new-shows-track .cover-wrap{
+/* Upcoming Movies uses the same single scrolling row as New Series (it
+   used to be a 2-row grid, which left empty slots on wide screens). */
+.new-shows-track .cover-wrap,
+.upcoming-movies-track .cover-wrap{
     aspect-ratio:2/3;
     height:auto;
 }
 
-.new-shows-track .cover-wrap img.cover-img{
+.new-shows-track .cover-wrap img.cover-img,
+.upcoming-movies-track .cover-wrap img.cover-img{
     width:100%;
     height:100%;
     object-fit:cover;

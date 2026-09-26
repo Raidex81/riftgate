@@ -3376,16 +3376,29 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
         // listing (reliable titles/descriptions), with a targeted
         // per-movie fallback for posters specifically when missing,
         // rather than switching the whole request to another locale.
-        const data = await mediaProxyGetJsonPlain("tmdb", "/movie/upcoming", {
-            region: countryCode,
-            language: "en-US",
-            page: "1"
-        });
+        // Up to 3 pages (TMDB gives 20 per page): after dropping titles that
+        // are already out, one page alone often left only a dozen, which
+        // couldn't fill a single row on a wide screen.
+        const pages = [];
+        for (let page = 1; page <= 3; page++) {
+            const data = await mediaProxyGetJsonPlain("tmdb", "/movie/upcoming", {
+                region: countryCode,
+                language: "en-US",
+                page: String(page)
+            });
+            pages.push(...(data.results || []));
+            if (!data.total_pages || page >= data.total_pages) break;
+        }
         // TMDB's own "upcoming" endpoint is known to include movies that
         // have already released in some regions/release-types, so we
         // double-check against today's date instead of trusting it blindly.
         const todayStr = new Date().toISOString().slice(0, 10);
-        const results = (data.results || []).filter((m) => !m.release_date || m.release_date >= todayStr);
+        const seenIds = new Set();
+        const results = pages.filter((m) => {
+            if (!m || seenIds.has(m.id)) return false;
+            seenIds.add(m.id);
+            return !m.release_date || m.release_date >= todayStr;
+        });
 
         const tmdbLanguage = TMDB_LANGUAGE_BY_COUNTRY[countryCode] || "en-US";
         const mapped = await Promise.all(results.map(async (m) => {
