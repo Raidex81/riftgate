@@ -194,7 +194,9 @@ async function main() {
         if (info.cards > 0 && !/Loading/.test(info.count)) break;
       }
       await page.screenshot({ path: path.join(OUT, `see-all-${kind}.png`) });
-      record(`See all: ${kind}`, info.cards > 0, `${info.cards} cards — ${info.count}`);
+      // itch.io has no end: it must wait for scrolling, never load everything.
+      const runaway = kind === "itch" && /Loading all/.test(info.count);
+      record(`See all: ${kind}`, info.cards > 0 && !runaway, `${info.cards} cards — ${info.count}`);
       await page.evaluate(() => closeSeeAll());
     }
   }

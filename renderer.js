@@ -8867,6 +8867,8 @@ const SEE_ALL_KINDS = {
         title: () => "🎨 itch.io — free games",
         noun: "games",
         subtitle: () => "itch.io's new & popular free games — well over a million, so more load as you scroll",
+        // No real page count from itch.io: never load it all by itself.
+        endless: true,
         mediaType: () => "game",
         name: (it) => it.name,
         date: null,
@@ -9014,8 +9016,11 @@ async function loadSeeAllPage() {
     if (result && typeof result.totalResults === "number") state.totalResults = result.totalResults;
     const totalPages = (result && result.totalPages) || 0;
     state.hasMore = state.nextPage < totalPages;
-    if (state.nextPage === 1) state.autoLoad = totalPages <= SEE_ALL_AUTOLOAD_PAGES;
+    if (state.nextPage === 1) state.autoLoad = !SEE_ALL_KINDS[state.kind].endless && totalPages <= SEE_ALL_AUTOLOAD_PAGES;
     state.nextPage += 1;
+    // Safety net: a list that turns out longer than expected switches to
+    // loading as you scroll instead of fetching on and on by itself.
+    if (state.nextPage > SEE_ALL_AUTOLOAD_PAGES) state.autoLoad = false;
 
     renderSeeAllAppend();
 
