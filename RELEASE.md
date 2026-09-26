@@ -100,6 +100,15 @@ window closes:
    ```
    (paste it when asked — it won't be saved anywhere.)
 
+3. **Create the release on GitHub first** (otherwise the build tool can
+   create it twice at the same moment, splitting the files between two
+   copies): go to https://github.com/Raidex81/Riftgate/releases/new, type
+   the tag `v` + the version in `package.json` (e.g. `v1.6.1`) and choose
+   **Create new tag**, set the title to the version number, paste that
+   version's notes from the 🔔 changelog, and click **Publish release**.
+   Then run the next command within 2 hours — the build tool only adds
+   files to a release that's less than 2 hours old.
+
 Then, from inside `C:\Riftgate`, in that same window:
 
 ```
