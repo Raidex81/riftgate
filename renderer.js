@@ -11142,7 +11142,7 @@ async function showVaultImagePreview(file, anchorEl) {
 
     // The hover could have already ended by the time the URL comes
     // back — don't pop up a preview for something no longer hovered.
-    if (!anchorEl.matches(":hover")) return;
+    if (!anchorEl.isConnected || !anchorEl.matches(":hover")) return;
 
     vaultImagePreviewImg.src = url;
     positionVaultPreview(anchorEl);
@@ -11238,6 +11238,7 @@ function buildSharedFileItem(file) {
         deleteBtn.textContent = "✕";
         deleteBtn.title = "Remove this file";
         deleteBtn.addEventListener("click", async () => {
+            closeVaultPreview();
             if (!await showCustomConfirm(`Remove "${file.filename}"?`)) return;
             const result = await window.riftgate.invoke("delete-shared-file", {
                 username: settings.username,
@@ -11270,6 +11271,9 @@ function sortVaultFiles(files, sortBy) {
 }
 
 async function renderSharedFiles() {
+    // The list is about to be rebuilt, so the hovered item (and its
+    // mouseleave) may disappear — don't leave its preview stuck on screen.
+    closeVaultPreview();
     const listEl = document.getElementById("sharedFilesList");
     const emptyEl = document.getElementById("sharedFilesEmptyState");
     const noResultsEl = document.getElementById("vaultFilesNoResults");
