@@ -383,7 +383,10 @@ function checkForNewInstalls(getGamesFilePath, onDetected) {
     } catch (err) {
         console.error("[installer-detect] couldn't save shortcut snapshot:", err.message || err);
     }
-    if (previous === null) return; // first run: baseline only
+    if (previous === null) {
+        console.log(`[installer-detect] First check: recorded ${current.size} shortcut target(s) as the baseline.`);
+        return;
+    }
 
     let existingPaths = new Set();
     try {
@@ -398,10 +401,8 @@ function checkForNewInstalls(getGamesFilePath, onDetected) {
         .map(([, item]) => item)
         .filter((item) => !/riftgate/i.test(item.path));
 
-    if (candidates.length > 0) {
-        console.log(`[installer-detect] Found ${candidates.length} new shortcut target(s).`);
-        onDetected(candidates);
-    }
+    console.log(`[installer-detect] Checked ${current.size} shortcut target(s); ${candidates.length} new.`);
+    if (candidates.length > 0) onDetected(candidates);
 }
 
 // Starts the recurring check for newly-installed apps. Calls
