@@ -231,7 +231,17 @@ async function fetchGamerPowerFreeGames() {
 // detected here).
 async function fetchItchFreeGamesFromPage(url, vr) {
     try {
-        const page = await httpsGetTextPlain(url, 10000);
+        let page = await httpsGetTextPlain(url, 10000);
+        // itch.io renames its listing pages now and then (the VR page moved
+        // from tag-vr to tag-virtual-reality) and answers the old address
+        // with a redirect, so follow a couple of those, staying on itch.io.
+        let pageUrl = url;
+        for (let hops = 0; hops < 3 && [301, 302, 303, 307, 308].includes(page.statusCode) && page.headers && page.headers.location; hops++) {
+            const next = new URL(page.headers.location, pageUrl);
+            if (next.protocol !== "https:" || next.hostname !== "itch.io") break;
+            pageUrl = next.href;
+            page = await httpsGetTextPlain(pageUrl, 10000);
+        }
         if (page.statusCode !== 200) {
             throw new Error(`HTTP ${page.statusCode}`);
         }
@@ -308,7 +318,7 @@ async function fetchItchFreeGames() {
 // "flatscreen game that also happens to support VR" distinction the way
 // Steam does), so all of these come back tagged "native".
 async function fetchItchVrFreeGames() {
-    const games = await fetchItchFreeGamesFromPage("https://itch.io/games/free/tag-vr", "native");
+    const games = await fetchItchFreeGamesFromPage("https://itch.io/games/free/tag-virtual-reality", "native");
     console.log(`[free-games] itch.io VR: found ${games.length} free VR game(s).`);
     return games;
 }

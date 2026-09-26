@@ -205,6 +205,19 @@ async function main() {
   record("App still running at the end", !exitInfo, exitInfo ? `exited (code ${exitInfo.code}, signal ${exitInfo.signal})` : "");
 }
 
+// Problems that only show up in the app's own log / the page console.
+function checkLogs() {
+  let log = "";
+  try { log = fs.readFileSync(path.join(OUT, "app-log.txt"), "utf8"); } catch { return; }
+  record("Menu-bar icon", !/tray icon failed/.test(log), (log.match(/tray icon failed[^\n]*/) || [""])[0].slice(0, 200));
+  record("Theme icon switching", !/failed to set theme icon/.test(log), (log.match(/failed to set theme icon[^\n]*/) || [""])[0].slice(0, 200));
+  const vr = log.match(/itch\.io VR: found (\d+)/);
+  const vrFailed = /itch\.io fetch failed \([^)]*tag-/.test(log);
+  record("itch.io free VR games", vrFailed ? false : vr ? Number(vr[1]) > 0 : null, vrFailed ? "itch.io VR page failed to load" : vr ? `${vr[1]} found` : "not fetched this run");
+  const blocked = consoleErrors.filter((e) => /Content Security Policy/.test(e));
+  record("Nothing blocked by the security policy", blocked.length === 0, blocked.length ? blocked[0].slice(0, 200) : "");
+}
+
 try {
   await main();
 } catch (e) {
@@ -215,6 +228,7 @@ try {
     for (let i = 0; i < 20 && !exitInfo; i++) await sleep(500);
     if (!exitInfo) child.kill("SIGKILL");
   }
+  checkLogs();
   writeReport();
   const failed = results.filter((r) => r.ok === false).length;
   console.log(`\n${failed ? failed + " check(s) failed" : "All checks passed"} — screenshots and report in ${OUT}`);

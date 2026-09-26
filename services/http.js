@@ -74,7 +74,7 @@ function httpsGetTextPlain(url, timeoutMs) {
         const req = https.get(url, { headers: { "User-Agent": "RiftgateApp/1.0" } }, (res) => {
             let data = "";
             res.on("data", (chunk) => (data += chunk));
-            res.on("end", () => resolve({ statusCode: res.statusCode, body: data }));
+            res.on("end", () => resolve({ statusCode: res.statusCode, headers: res.headers, body: data }));
         }).on("error", reject);
 
         req.setTimeout(timeoutMs || 8000, () => {

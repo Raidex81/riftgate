@@ -4,7 +4,8 @@ name: Mac Smoke Test
 # Tests the exact Mac files people download: fetches the .dmg from a
 # published GitHub Release, installs it the way a user would (mount the
 # .dmg, copy Riftgate.app into /Applications), launches it on a real Mac
-# and walks through every main section. Screenshots and a pass/fail report
+# and walks through every main section. Enter "main" as the version to
+# build the current code instead and test that before releasing it. Screenshots and a pass/fail report
 # are attached to the run as "mac-smoke-apple-silicon" / "mac-smoke-intel".
 # Nothing is built or published. The script is .github/scripts/mac-smoke-test.mjs.
 
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to test, e.g. 1.6.2 (leave blank for the latest release)"
+        description: "Version to test, e.g. 1.6.2 — or main to build and test the latest code (blank = latest release)"
         required: false
         default: ""
 
@@ -27,9 +28,11 @@ jobs:
         include:
           - runner: macos-latest
             label: apple-silicon
+            arch: arm64
             dmg_suffix: "-arm64"
           - runner: macos-15-intel
             label: intel
+            arch: x64
             dmg_suffix: ""
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
@@ -40,7 +43,20 @@ jobs:
         with:
           node-version: 22
 
+      - name: Build the current code
+        if: inputs.version == 'main'
+        run: |
+          npm ci
+          npx electron-builder --mac dir --${{ matrix.arch }} --publish never
+          APP=$(find dist -maxdepth 2 -name Riftgate.app -type d | head -1)
+          echo "Built $APP"
+          cp -R "$APP" /Applications/
+          echo "EXPECTED_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
       - name: Find the release
+        if: inputs.version != 'main'
         id: rel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,9 +72,11 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "EXPECTED_VERSION=${TAG#v}" >> "$GITHUB_ENV"
           echo "Testing release $TAG"
 
       - name: Download the .dmg
+        if: inputs.version != 'main'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.rel.outputs.tag }}
@@ -69,6 +87,7 @@ jobs:
           ls -l "$RUNNER_TEMP/dl"
 
       - name: Install like a user would
+        if: inputs.version != 'main'
         run: |
           DMG=$(ls "$RUNNER_TEMP"/dl/*.dmg)
           hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/rg-dmg" "$DMG"
@@ -80,7 +99,6 @@ jobs:
         env:
           APP_PATH: /Applications/Riftgate.app
           OUT_DIR: ${{ github.workspace }}/smoke-results
-          EXPECTED_VERSION: ${{ steps.rel.outputs.version }}
           LABEL: ${{ matrix.label }}
         run: |
           mkdir -p "$RUNNER_TEMP/smoke"

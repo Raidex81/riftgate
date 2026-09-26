@@ -40,11 +40,10 @@ All of that is expected for an unsigned app, not a bug.
   Completely / Cancel" dialog, same as Windows. "Minimize to Background"
   hides the window but Riftgate keeps running (check the menu bar for
   its tray icon).
-- **Menu bar tray icon** — likely to look wrong. It's Riftgate's regular
-  app icon, not a proper macOS "template" (black/transparent,
-  auto-inverting) menu bar icon, since no one's made that asset yet.
-  Note how bad it looks (oversized, wrong colors, etc.) so it can be
-  prioritized correctly — this is a known gap, not a surprise.
+- **Menu bar icon** — a small black gem outline (a macOS "template"
+  image, so it turns white on a dark menu bar). Its menu has Show
+  Riftgate and Quit. After "Minimize to Background", clicking Riftgate's
+  **Dock** icon should also bring the window back.
 - Quitting from the tray icon's right-click menu, and from Cmd+Q,
   both actually quit (check the process is gone, not just the window).
 

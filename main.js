@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, safeStorage, protocol, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, safeStorage, protocol, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const path = require("path");
@@ -1330,7 +1330,18 @@ function resolveIconPath(...segments) {
 function createTray() {
     if (tray) return;
 
-    tray = new Tray(resolveIconPath("icon.ico"));
+    // macOS can't read .ico files, and its menu bar expects a small
+    // black-and-transparent "template" image that it recolours itself for
+    // light and dark menu bars (trayTemplate@2x.png is picked up
+    // automatically on Retina screens).
+    let trayImage = resolveIconPath("icon.ico");
+    if (process.platform === "darwin") {
+        trayImage = nativeImage.createFromPath(resolveIconPath("trayTemplate.png"));
+        if (trayImage.isEmpty()) throw new Error("trayTemplate.png could not be loaded");
+        trayImage.setTemplateImage(true);
+    }
+
+    tray = new Tray(trayImage);
     tray.setToolTip("Riftgate");
 
     const menu = Menu.buildFromTemplate([
@@ -1366,6 +1377,10 @@ const THEME_ICON_NAMES = new Set(["riftgate", "cyberpunk", "emerald", "crimson",
 
 ipcMain.handle("set-app-icon", async (event, themeName) => {
     if (!THEME_ICON_NAMES.has(themeName)) return false;
+    // macOS has no per-window icon (the Dock always shows the app bundle's
+    // own icon) and can't read .ico files, and the menu-bar icon has to stay
+    // the monochrome template image, so there's nothing to change there.
+    if (process.platform === "darwin") return true;
     try {
         const iconPath = resolveIconPath(`${themeName}.ico`);
         if (fs.existsSync(iconPath) && win && !win.isDestroyed()) {
@@ -7364,6 +7379,16 @@ ipcMain.handle("start-update-download", async () => {
         await autoUpdater.downloadUpdate();
     } catch (err) {
         console.error("[updater] download failed:", err.message || err);
+    }
+});
+
+// macOS: clicking Riftgate's Dock icon while it runs in the background
+// (window hidden by "Minimize to Background") brings the window back.
+// Windows does this through the tray icon instead.
+app.on("activate", () => {
+    if (win && !win.isDestroyed()) {
+        win.show();
+        win.focus();
     }
 });
 
