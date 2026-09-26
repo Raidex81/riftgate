@@ -3737,10 +3737,6 @@ ipcMain.handle("select-exe", async () => {
 // behind platform.isProcessRunning() and platform.startInstallWatcher().
 // Both platforms now compare snapshots once an hour: Desktop/Start Menu
 // shortcut targets on Windows, /Applications on Mac.
-platform.startInstallWatcher() — same
-// tasklist-based behavior on Windows, a from-scratch /Applications-diffing
-// approach on Mac (most Mac installs have no persistent "setup.exe"-like
-// process to watch for the way Windows installers do).
 platform.startInstallWatcher(
     () => GAMES_FILE,
     (candidates) => {
