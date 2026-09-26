@@ -149,3 +149,9 @@ begin
     values (p_filename, p_storage_path, p_file_size, p_description, p_username, now() + (p_expires_hours || ' hours')::interval) returning * into v_row;
     return v_row;
 end; $function$;
+create or replace function public.force_clean_shared_links(p_admin_username text, p_admin_password text)
+ returns setof shared_links language plpgsql security definer set search_path to 'public', 'extensions' as $function$
+begin
+    if not verify_admin_login(p_admin_username, p_admin_password) then raise exception 'Not authorized'; end if;
+    return query DELETE FROM shared_links RETURNING *;
+end; $function$;
