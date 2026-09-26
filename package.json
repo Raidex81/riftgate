@@ -5,18 +5,18 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder",
+    "dist": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --publish never",
     "release": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --publish always"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "electron-updater": "^6.1.7",
-    "adm-zip": "^0.5.10"
+    "electron-updater": "^6.8.9",
+    "adm-zip": "^0.6.1"
   },
   "devDependencies": {
     "electron": "^44.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.riftgate.app",
@@ -39,11 +39,35 @@
       "!ARCHITECTURE.md",
       "!MAC_TESTING.md",
       "!screenshots{,/**/*}",
-      "!build-installer.bat"
+      "!build-installer.bat",
+      "!.refactor{,/**/*}",
+      "!_private{,/**/*}",
+      "!supabase{,/**/*}",
+      "!.github{,/**/*}",
+      "!test-results{,/**/*}",
+      "!playwright-report{,/**/*}",
+      "!coverage{,/**/*}",
+      "!.venv{,/**/*}",
+      "!**/*.log",
+      "!.env*",
+      "!games.json",
+      "!RELEASE.md",
+      "!nul",
+      "!git"
     ],
     "asarUnpack": [
       "icons/**/*"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false,
+      "resetAdHocDarwinSignature": true
+    },
     "publish": {
       "provider": "github",
       "owner": "Raidex81",
@@ -65,8 +89,20 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "public.app-category.games",
       "icon": "build/icon.png",
