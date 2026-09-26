@@ -4198,9 +4198,17 @@ body.density-compact #moviesGrid.games-grid{
 /* Same reasoning for the non-carousel Free Games grids — the capped
    platform previews (buildFreeGamesPreviewSection), the single-platform
    full list, and the VR native/adapted groups all render into a plain
-   .games-grid.browse-grid inside #freeGamesContainer. No column-width/gap
-   override here any more — this now just inherits the same sizing as
-   every other .games-grid (Installed included), per Alfredo. */
+   .games-grid.browse-grid inside #freeGamesContainer. Same card sizes as
+   every other .games-grid, except the columns stretch to share out the
+   leftover width, so each line of cards reaches the right edge instead of
+   stopping short of it (up to a card's width of empty space otherwise). */
+#freeGamesContainer .games-grid{
+    grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+}
+
+body.density-compact #freeGamesContainer .games-grid{
+    grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+}
 
 /* Redundant with the app-wide .cover-wrap default above (same fixed 2:3
    box), kept explicit here since this is where Free Games' uniform-row

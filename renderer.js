@@ -1213,6 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.7.1": [
+        "Changed: in Free Games, every line of cards now reaches the right edge of the window at any size — the big platform grids stretch to fill it, and the sideways rows (Newly Added and the smaller platforms) size their cards so a whole number of them fits exactly",
         "Changed: Free Games' platform previews (Steam, GOG, itch.io…) and Store's Newly Added, Most Popular and Recommended rows always show exactly two full lines of cards — a wider window shows more instead of leaving empty space, a narrower one hides the ones that don't fit"
     ],
     "1.7.0": [
@@ -5406,7 +5407,24 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     row.appendChild(rightArrow);
     section.appendChild(row);
     container.appendChild(section);
+    freeGamesTrackObserver.observe(track);
 }
+
+// Sideways rows (Newly Added and the smaller platforms): size the cards so
+// a whole number of them exactly fills the visible width at any window
+// size, like the New tab's rows, instead of a card sliced off at the edge
+// or a gap after the last visible one.
+function fitFreeGamesTrack(track) {
+    const compact = document.body.classList.contains("density-compact");
+    fitHscrollTrack(track, compact ? 160 : 230, 14);
+}
+
+const freeGamesTrackObserver = new ResizeObserver((entries) => {
+    entries.forEach((entry) => {
+        if (entry.target.isConnected) fitFreeGamesTrack(entry.target);
+        else freeGamesTrackObserver.unobserve(entry.target);
+    });
+});
 
 // For platforms with more games than a carousel can reasonably be scrolled
 // through by hand (see FREE_GAMES_PREVIEW_CAP): a plain wrapping grid
@@ -5528,6 +5546,7 @@ function renderFreeGames() {
 
     newRow.innerHTML = "";
     restRow.querySelectorAll(".games-grid").forEach((g) => freeGamesPreviewObserver.unobserve(g));
+    document.querySelectorAll("#freeGamesContainer .free-games-track").forEach((t) => freeGamesTrackObserver.unobserve(t));
     restRow.innerHTML = "";
     browseHeading.style.display = "none";
 
