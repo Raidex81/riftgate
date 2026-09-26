@@ -1213,6 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.6.2": [
+        "Changed: cancelling the password prompt when opening The Vault no longer brings it straight back — the Vault shows an Unlock button instead, and asks again only if you click it or come back to The Vault later",
         "New: books in My Library that have no cover of their own now get their real published cover looked up online (Open Library, then Google Books)",
         "Fixed: cards on the same line are now always the same height — in Installed, the other card grids, Upcoming Games and every sideways-scrolling row — whatever extra info a card shows"
     ],
@@ -4472,6 +4473,7 @@ function performSectionSwitch(section) {
     window.scrollTo(0, 0);
     resetAllSectionSearchBars();
     currentSection = section;
+    passwordPromptCancelledIn = null;
     sectionPill.title = "You're viewing: " + SECTION_LABELS[section];
     setAmbientIcons(section);
     showNextFact();
@@ -11313,7 +11315,9 @@ async function showVaultImagePreview(file, anchorEl) {
     let url = vaultPreviewUrlCache[file.storage_path];
 
     if (!url) {
-        const result = await window.riftgate.invoke("get-shared-file-preview-url", { username: settings.username, password: await getSessionPassword(), storagePath: file.storage_path });
+        const previewPassword = await getSessionPassword({ passive: true });
+        if (!previewPassword) return;
+        const result = await window.riftgate.invoke("get-shared-file-preview-url", { username: settings.username, password: previewPassword, storagePath: file.storage_path });
         if (!result.success) return;
         url = result.url;
         vaultPreviewUrlCache[file.storage_path] = url;
@@ -11457,7 +11461,14 @@ async function renderSharedFiles() {
     const emptyEl = document.getElementById("sharedFilesEmptyState");
     const noResultsEl = document.getElementById("vaultFilesNoResults");
 
-    const result = await window.riftgate.invoke("get-shared-files", { username: settings.username, password: await getSessionPassword() });
+    const vaultPassword = await getSessionPassword({ passive: true });
+    if (!vaultPassword) {
+        showVaultLocked();
+        return;
+    }
+    const staleUnlockBtn = document.getElementById("vaultUnlockBtn");
+    if (staleUnlockBtn) staleUnlockBtn.remove();
+    const result = await window.riftgate.invoke("get-shared-files", { username: settings.username, password: vaultPassword });
     vaultFilesCache = result.success ? result.files : [];
 
     if (!result.success || vaultFilesCache.length === 0) {
@@ -11610,7 +11621,12 @@ async function renderSharedLinks() {
     const emptyEl = document.getElementById("sharedLinksEmptyState");
     const noResultsEl = document.getElementById("vaultLinksNoResults");
 
-    const result = await window.riftgate.invoke("get-shared-links", { username: settings.username, password: await getSessionPassword() });
+    const vaultPassword = await getSessionPassword({ passive: true });
+    if (!vaultPassword) {
+        showVaultLocked();
+        return;
+    }
+    const result = await window.riftgate.invoke("get-shared-links", { username: settings.username, password: vaultPassword });
     vaultLinksCache = result.success ? result.links : [];
 
     if (!result.success || vaultLinksCache.length === 0) {
@@ -11766,8 +11782,43 @@ async function finishLoadingSharedFolder() {
 
     // Quietly clears anything that expired since the last check — no
     // need to wait for or react to the result here.
-    window.riftgate.invoke("cleanup-expired-shared-files", { username: settings.username, password: await getSessionPassword() });
-    window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: await getSessionPassword() });
+    const cleanupPassword = await getSessionPassword({ passive: true });
+    if (!cleanupPassword) return;
+    window.riftgate.invoke("cleanup-expired-shared-files", { username: settings.username, password: cleanupPassword });
+    window.riftgate.invoke("cleanup-expired-shared-links", { username: settings.username, password: cleanupPassword });
+}
+
+// Shown instead of the file/link lists when the password prompt was
+// cancelled: a short note and an Unlock button (which asks again).
+function showVaultLocked() {
+    clearVaultExpiryTickers("files");
+    clearVaultExpiryTickers("links");
+    document.getElementById("sharedFilesList").innerHTML = "";
+    document.getElementById("sharedLinksList").innerHTML = "";
+    document.getElementById("vaultFilesNoResults").style.display = "none";
+    document.getElementById("vaultLinksNoResults").style.display = "none";
+    document.getElementById("sharedLinksEmptyState").style.display = "none";
+
+    const emptyEl = document.getElementById("sharedFilesEmptyState");
+    emptyEl.style.display = "";
+    emptyEl.querySelector("p").textContent = "The Vault is locked — enter your password to see what's been shared.";
+    let unlockBtn = document.getElementById("vaultUnlockBtn");
+    if (!unlockBtn) {
+        unlockBtn = document.createElement("button");
+        unlockBtn.id = "vaultUnlockBtn";
+        unlockBtn.type = "button";
+        unlockBtn.className = "wheel-play";
+        unlockBtn.style.marginTop = "8px";
+        unlockBtn.textContent = "🔓 Unlock The Vault";
+        unlockBtn.addEventListener("click", async () => {
+            const password = await getSessionPassword();
+            if (password) {
+                unlockBtn.remove();
+                finishLoadingSharedFolder();
+            }
+        });
+        emptyEl.appendChild(unlockBtn);
+    }
 }
 
 // --- Unified login (setup + sign-in) ---------------------------------
@@ -11798,7 +11849,13 @@ function openVaultLoginModal(mode) {
 
 function closeVaultLoginModal() {
     document.getElementById("vaultLoginModal").classList.remove("active");
-    // Closed without a password (Cancel) — anything waiting gets null.
+    // Closed without a password (Cancel) while something was waiting for
+    // it: remember that for this section, so the automatic loads here
+    // (file list, link list, clean-up, previews) don't keep re-opening the
+    // prompt. Leaving the section and coming back, or clicking a button
+    // that needs the password, asks again.
+    if (sessionPasswordWaiters.length > 0) passwordPromptCancelledIn = currentSection;
+    // Anything waiting gets null.
     settleSessionPasswordWaiters(null);
 }
 
@@ -11808,10 +11865,14 @@ function closeVaultLoginModal() {
 // then kept in memory until Riftgate closes. Resolves to null if the user
 // cancels or isn't logged in.
 let sessionPasswordWaiters = [];
+let passwordPromptCancelledIn = null; // section where the prompt was last cancelled
 
-function getSessionPassword() {
+// options.passive: an automatic load (not a button the user clicked) —
+// skips the prompt if it was already cancelled in the current section.
+function getSessionPassword(options = {}) {
     if (adminPasswordCache) return Promise.resolve(adminPasswordCache);
     if (!isLoggedIn) return Promise.resolve(null);
+    if (options.passive && passwordPromptCancelledIn === currentSection) return Promise.resolve(null);
     return new Promise((resolve) => {
         sessionPasswordWaiters.push(resolve);
         if (!document.getElementById("vaultLoginModal").classList.contains("active")) {
