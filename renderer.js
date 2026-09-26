@@ -1222,6 +1222,9 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.6.1": [
+        "Changed: Store's Newly Added, Most Popular and Recommended rows now always end on a full line of cards instead of leaving empty spaces"
+    ],
     "1.6.0": [
         "Security: Riftgate no longer keeps your password on disk — staying logged in now uses a session the server can revoke, and The Vault and admin tools ask for your password once per launch",
         "Security: repeated wrong passwords now lock the account for a while, and stored passwords use stronger hashing",
@@ -10591,13 +10594,45 @@ function buildStoreSpotlightSection(container, headingText, items) {
     section.appendChild(grid);
 
     container.appendChild(section);
+    storeSpotlightGridObserver.observe(grid);
+    fitStoreSpotlightToFullRows(grid);
 }
 
-// How many days a deal counts as "newly added", and how many cards each
-// spotlight row previews -- these are curated highlights, not full lists,
-// so both are capped well below what the full Browse All grid can hold.
+// How many days a deal counts as "newly added", and roughly how many cards
+// each spotlight row previews -- these are curated highlights, not full
+// lists. Each row gets a larger pool of candidates (STORE_SPOTLIGHT_POOL)
+// and then shows exactly enough of them to fill its last line of cards,
+// so a row never ends with empty slots (see fitStoreSpotlightToFullRows).
 const STORE_NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const STORE_SPOTLIGHT_CAP = 12;
+const STORE_SPOTLIGHT_POOL = 48;
+
+// Shows as many cards as fill whole lines at the current window width:
+// about STORE_SPOTLIGHT_CAP cards, rounded up to the end of the line. If
+// the pool runs out before that, the half-empty last line is dropped
+// instead (unless the row has less than one line to begin with).
+function fitStoreSpotlightToFullRows(grid) {
+    const cards = Array.from(grid.children);
+    if (cards.length === 0) return;
+    const tracks = getComputedStyle(grid).gridTemplateColumns;
+    const columns = tracks && tracks !== "none" ? tracks.split(" ").filter(Boolean).length : 0;
+    if (columns < 1) return; // not laid out yet (tab hidden) -- the observer re-runs this
+    const lines = Math.max(1, Math.ceil(STORE_SPOTLIGHT_CAP / columns));
+    let show = Math.min(cards.length, lines * columns);
+    if (show > columns && show % columns !== 0) show -= show % columns;
+    cards.forEach((card, i) => { card.style.display = i < show ? "" : "none"; });
+    const h2 = grid.parentElement && grid.parentElement.querySelector(".theatre-block-header h2");
+    if (h2) h2.textContent = h2.textContent.replace(/\(\d+\)$/, `(${show})`);
+}
+
+// Re-fits every spotlight row whenever its width changes (window resize,
+// sidebar toggle, or the Store tab first becoming visible).
+const storeSpotlightGridObserver = new ResizeObserver((entries) => {
+    entries.forEach((entry) => {
+        if (entry.target.isConnected) fitStoreSpotlightToFullRows(entry.target);
+        else storeSpotlightGridObserver.unobserve(entry.target);
+    });
+});
 
 function renderStoreDeals() {
     const grid = document.getElementById("storeGrid");
@@ -10607,6 +10642,7 @@ function renderStoreDeals() {
     const noResults = document.getElementById("storeNoResults");
     const resultCount = document.getElementById("storeResultCount");
     grid.innerHTML = "";
+    newRow.querySelectorAll(".games-grid").forEach((g) => storeSpotlightGridObserver.unobserve(g));
     newRow.innerHTML = "";
     browseHeading.style.display = "none";
 
@@ -10628,7 +10664,7 @@ function renderStoreDeals() {
     const newlyAdded = storeDealsCache
         .filter((d) => (d.firstSeenAt || 0) > now - STORE_NEW_WINDOW_MS)
         .sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1))
-        .slice(0, STORE_SPOTLIGHT_CAP);
+        .slice(0, STORE_SPOTLIGHT_POOL);
     if (newlyAdded.length > 0) {
         buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
     }
@@ -10683,7 +10719,7 @@ function renderStoreDeals() {
         const mostPopular = deals
             .filter((d) => d.popularity != null)
             .sort((a, b) => b.popularity - a.popularity)
-            .slice(0, STORE_SPOTLIGHT_CAP);
+            .slice(0, STORE_SPOTLIGHT_POOL);
 
         // "Recommended" here means well-reviewed games (a real Steam
         // popularity signal, not a guess) that also happen to be a
@@ -10693,7 +10729,7 @@ function renderStoreDeals() {
         const recommended = deals
             .filter((d) => d.popularity != null && (d.discountPercent || 0) >= 40)
             .sort((a, b) => b.popularity - a.popularity)
-            .slice(0, STORE_SPOTLIGHT_CAP);
+            .slice(0, STORE_SPOTLIGHT_POOL);
 
         if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular);
         if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended);
