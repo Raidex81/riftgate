@@ -109,34 +109,117 @@ body{
         var(--bg-primary);
 }
 
-/* Real animated video banner — the wordmark, tagline, gem pulse and
-   lightning are all baked into the video itself, so the header is just
-   a responsive full-width <video> now. No CSS/SVG overlay needed. */
+/* Brand header — a compact, theme-aware replacement for the old video
+   banner. Everything here is drawn from the active theme's own colors
+   (--accent-1/--accent-2/--bg-*), so it matches every theme, light mode
+   included, instead of a fixed purple artwork. */
 .hero-banner{
     position:relative;
     overflow:hidden;
     display:flex;
     align-items:center;
-    justify-content:center;
-    /* Matches the video's own filtered edge tones (sampled directly from
-       the asset: brightness(.72) contrast(1.45) saturate(1.3) crushes the
-       video's edges to near-black with a faint blue-purple cast) rather
-       than the page's flatter, noticeably lighter --bg-primary. The
-       poster attribute on .hero-banner-video now covers the load-in gap,
-       but this still matters any time the video box is visible without a
-       frame painted over it yet (a slow decode, a dropped source) --
-       belt and suspenders for the same "background must fit the banner
-       color" complaint, on top of the poster fix. */
-    background:radial-gradient(ellipse at 15% 15%, #170035, transparent 60%), #010002;
+    gap:22px;
+    height:112px;
+    padding:0 36px;
+    box-sizing:border-box;
+    background:
+        radial-gradient(ellipse 420px 180px at 70px 50%, color-mix(in srgb, var(--accent-1) 22%, transparent), transparent 70%),
+        radial-gradient(ellipse 700px 220px at 88% 120%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 70%),
+        linear-gradient(90deg, var(--bg-secondary), var(--bg-primary) 65%);
     border-bottom:1px solid var(--border-color);
     transition:background .3s ease, border-color .3s ease;
 }
 
-.hero-banner-video{
-    display:block;
+/* Thin accent line along the bottom edge, fading out to the right. */
+.hero-banner::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:2px;
+    background:linear-gradient(90deg, var(--accent-1), var(--accent-2) 40%, transparent 85%);
+    opacity:.85;
+}
+
+/* Faint facet lines on the right, echoing the gem's cut. */
+.hero-banner::before{
+    content:"";
+    position:absolute;
+    top:0;
+    bottom:0;
+    right:0;
+    width:46%;
+    background:
+        repeating-linear-gradient(60deg, transparent 0 46px, color-mix(in srgb, var(--accent-1) 9%, transparent) 46px 47px),
+        repeating-linear-gradient(-60deg, transparent 0 46px, color-mix(in srgb, var(--accent-2) 7%, transparent) 46px 47px);
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 60%);
+    mask-image:linear-gradient(90deg, transparent, #000 60%);
+    pointer-events:none;
+}
+
+.hero-gem{
+    position:relative;
+    flex:0 0 auto;
+    width:66px;
+    height:72px;
+}
+
+.hero-gem img{
+    position:relative;
     width:100%;
-    height:auto;
-    filter:brightness(.72) contrast(1.45) saturate(1.3);
+    height:100%;
+    object-fit:contain;
+    filter:drop-shadow(0 0 14px color-mix(in srgb, var(--accent-1) 55%, transparent));
+    animation:heroGemGlow 5s ease-in-out infinite;
+}
+
+@keyframes heroGemGlow{
+    0%, 100%{ filter:drop-shadow(0 0 10px color-mix(in srgb, var(--accent-1) 45%, transparent)); }
+    50%{ filter:drop-shadow(0 0 20px color-mix(in srgb, var(--accent-2) 60%, transparent)); }
+}
+
+.hero-text{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+}
+
+.hero-wordmark{
+    margin:0;
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size:38px;
+    line-height:1;
+    font-weight:800;
+    letter-spacing:.32em;
+    background:linear-gradient(90deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    white-space:nowrap;
+}
+
+.hero-tagline{
+    margin:0;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.42em;
+    text-transform:uppercase;
+    color:var(--text-secondary);
+    white-space:nowrap;
+}
+
+@media (max-width:1100px){
+    .hero-banner{ height:92px; padding:0 22px; gap:16px; }
+    .hero-gem{ width:52px; height:57px; }
+    .hero-wordmark{ font-size:30px; }
+    .hero-tagline{ font-size:11px; letter-spacing:.3em; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .hero-gem img{ animation:none; }
 }
 
 

@@ -641,30 +641,14 @@
     <div id="mainContent">
 
     <header class="hero-banner">
-        <!-- Real animated artwork (the CSS/SVG pulse+lightning overlay
-             from earlier attempts is gone — this video already has all of
-             that baked in). Re-encoded from the original mpeg4 export,
-             which Chromium can't play at all, into two web-safe formats:
-             VP9/WebM (always supported, no licensing dependency — this is
-             the one that actually renders) with an H.264/MP4 fallback.
-             Also shrank it from ~2.6MB down to ~300-470KB either way.
-             Muted+autoplay+loop+playsinline is what lets it autoplay at
-             all in Chromium without a user gesture.
-
-             poster is frame 0 of this exact video (extracted, not a
-             different/older banner asset), so there's zero visible jump
-             or color mismatch during the gap between the element painting
-             and the video actually being decoded and ready to play --
-             before this, that gap showed the flat .hero-banner background
-             color instead, which visibly clashed with the video depending
-             on monitor brightness. The .hero-banner-video CSS filter
-             (brightness/contrast/saturate) applies to the poster the same
-             way it applies to live frames, so it stays visually identical
-             the instant playback takes over. -->
-        <video class="hero-banner-video" autoplay loop muted playsinline poster="/assets/riftgate-banner-poster.jpg" aria-label="Riftgate — All your worlds. One gateway.">
-            <source src="/assets/riftgate-banner-video.webm" type="video/webm">
-            <source src="/assets/riftgate-banner-video.mp4" type="video/mp4">
-        </video>
+        <!-- Compact brand header drawn from the active theme's colors
+             (see .hero-banner in style.css), replacing the old full-width
+             video banner. -->
+        <div class="hero-gem"><img src="/assets/riftgate-gem-mark.png" alt=""></div>
+        <div class="hero-text">
+            <h1 class="hero-wordmark">RIFTGATE</h1>
+            <p class="hero-tagline">All your worlds. One gateway.</p>
+        </div>
     </header>
     <div class="fact-ticker">
         <div class="fact-ticker-track" id="factTickerTrack"></div>

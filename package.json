@@ -57,7 +57,8 @@
       "!**/*.bak",
       "!**/*.bak-*",
       "!**/*.bak.*",
-      "!**/*.orig"
+      "!**/*.orig",
+      "!assets/riftgate-banner*"
     ],
     "asarUnpack": [
       "icons/**/*"

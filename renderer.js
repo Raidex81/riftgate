@@ -1,13 +1,3 @@
-// Respect prefers-reduced-motion: a looping video isn't something CSS
-// can pause on its own, so do it directly. (Moved here from an inline
-// <script> in index.html so script-src can stay '''self''' with no
-// '''unsafe-inline''' in the CSP.)
-if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    const heroVideo = document.querySelector(".hero-banner-video");
-    if (heroVideo) heroVideo.pause();
-}
-
-
 const libraryContainer = document.getElementById("libraryContainer");
 const addBtn = document.getElementById("addBtn");
 const ambientBg = document.getElementById("ambientBg");
@@ -1223,6 +1213,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.6.1": [
+        "Changed: a new, slimmer header banner that follows your chosen theme's colors (light mode included), replacing the tall video banner",
         "Changed: Store's Newly Added, Most Popular and Recommended rows now always end on a full line of cards instead of leaving empty spaces"
     ],
     "1.6.0": [
