@@ -14,10 +14,18 @@ const https = require("https");
 
 const CINEMA_RADIUS_METERS = 15000;
 const REQUEST_TIMEOUT_MS = 30000;
+// The main public Overpass server answers in a couple of seconds but often
+// turns a request away when it's busy (HTTP 429/504, usually within a
+// second), so it gets a few tries with a short pause in between before the
+// mirrors — which are slower and sometimes don't answer at all, hence the
+// shorter wait on them.
 const OVERPASS_ENDPOINTS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
+    { url: "https://overpass-api.de/api/interpreter", tries: 3, timeoutMs: REQUEST_TIMEOUT_MS },
+    { url: "https://overpass.private.coffee/api/interpreter", tries: 1, timeoutMs: 15000 },
+    { url: "https://overpass.kumi.systems/api/interpreter", tries: 1, timeoutMs: 15000 }
 ];
+const RETRY_PAUSE_MS = 2500;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Official sites of the big chains. `match` is compared (lower-case,
 // accents removed) against the cinema's brand, operator and name; a
@@ -100,7 +108,7 @@ function distanceKm(lat1, lon1, lat2, lon2) {
     return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getJson(url, userAgent) {
+function getJson(url, userAgent, timeoutMs = REQUEST_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
         const req = https.get(url, { headers: { "User-Agent": userAgent, Accept: "application/json" } }, (res) => {
             let data = "";
@@ -117,7 +125,7 @@ function getJson(url, userAgent) {
                 }
             });
         }).on("error", reject);
-        req.setTimeout(REQUEST_TIMEOUT_MS, () => req.destroy(new Error("Request timed out")));
+        req.setTimeout(timeoutMs, () => req.destroy(new Error("Request timed out")));
     });
 }
 
@@ -140,7 +148,14 @@ function mallAround(malls, lat, lon) {
 
 async function geocodeCity(city, countryCode, userAgent) {
     const params = new URLSearchParams({ format: "jsonv2", limit: "1", city, countrycodes: countryCode.toLowerCase() });
-    const results = await getJson(`https://nominatim.openstreetmap.org/search?${params}`, userAgent);
+    const url = `https://nominatim.openstreetmap.org/search?${params}`;
+    let results;
+    try {
+        results = await getJson(url, userAgent);
+    } catch {
+        await sleep(RETRY_PAUSE_MS); // one more try after a busy moment
+        results = await getJson(url, userAgent);
+    }
     const first = Array.isArray(results) ? results[0] : null;
     if (!first) return null;
     const lat = parseFloat(first.lat);
@@ -151,10 +166,13 @@ async function geocodeCity(city, countryCode, userAgent) {
 async function queryOverpass(query, userAgent) {
     let lastError = null;
     for (const endpoint of OVERPASS_ENDPOINTS) {
-        try {
-            return await getJson(`${endpoint}?data=${encodeURIComponent(query)}`, userAgent);
-        } catch (err) {
-            lastError = err; // busy or down: try the next public instance
+        for (let attempt = 1; attempt <= endpoint.tries; attempt++) {
+            try {
+                return await getJson(`${endpoint.url}?data=${encodeURIComponent(query)}`, userAgent, endpoint.timeoutMs);
+            } catch (err) {
+                lastError = err; // busy or down: pause and retry, then the next server
+                if (attempt < endpoint.tries) await sleep(RETRY_PAUSE_MS * attempt);
+            }
         }
     }
     throw lastError || new Error("No Overpass endpoint answered");
