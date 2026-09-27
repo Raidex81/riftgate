@@ -1205,7 +1205,8 @@ const CHANGELOG = {
     "1.7.2": [
         "New: pick your cinema — next to In Theaters (Theatre) and Upcoming Movies (New) there's a list of the cinemas around your city, nearest first. Once you choose one, \"Find Tickets & Showtimes\" opens that cinema's own website (or its chain's official site) to see sessions and buy tickets, instead of a Google search",
         "Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)",
-        "Changed: dragging a section tab (New, Installed, Free Games…) to put them in your own order is easier to see — the tab you're moving fades and a bar shows exactly where it will land; in the side menu it now follows up/down instead of left/right"
+        "Changed: dragging a section tab (New, Installed, Free Games…) to put them in your own order is easier to see — the tab you're moving fades and a bar shows exactly where it will land; in the side menu it now follows up/down instead of left/right",
+        "Changed: the opening animation now shows the new Riftgate banner at full size — the gem lands inside the spinning portal, energy streaks and crystal shards sweep in, then RIFTGATE and \"All your worlds. One gateway.\" appear — all in your chosen theme's colours"
     ],
     "1.7.1": [
         "Changed: in Free Games, every line of cards now reaches the right edge of the window at any size — the big platform grids stretch to fill it, and the sideways rows (Newly Added and the smaller platforms) size their cards so a whole number of them fits exactly",
@@ -9343,7 +9344,7 @@ async function loadNewSection() {
     loadNewAnime();
 }
 
-// Shows/hides the 3D diamond-assembly overlay already present in the HTML
+// Shows/hides the banner-style opening animation already present in the HTML
 // by default — if the setting is off, it's removed immediately instead of
 // playing out.
 function playStartupAnimation() {
@@ -9359,11 +9360,13 @@ function playStartupAnimation() {
         return;
     }
 
-    // Let the reveal (~0.9s) and the glow pulse (starts at 0.9s, now runs
-    // 3.6s — 2s longer than before) finish, then fade the whole overlay out.
-    // The page stays non-scrollable (see body.startup-locked in style.css)
-    // right up to this same moment, so the side scrollbars never show up
-    // early.
+    // Starts only now, after loadSettings() applied the saved colour theme,
+    // so the banner-style scene is drawn in the right colours from its
+    // first frame. The whole sequence (see "Startup animation" in
+    // style.css) ends with a portal flare at ~4.5s, when the overlay fades
+    // out. The page stays non-scrollable (see body.startup-locked) right up
+    // to this same moment, so the side scrollbars never show up early.
+    overlay.classList.add("startup-play");
     setTimeout(() => {
         overlay.classList.add("startup-hidden");
         document.body.classList.remove("startup-locked");

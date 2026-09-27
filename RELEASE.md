@@ -62,6 +62,10 @@ Quick pass on what changed this round (v1.7.2):
   another: it fades while moving and a coloured bar shows where it will
   land. Let go: the top bar and the side menu both take the new order,
   and it's still there after restarting the app.
+- **Opening animation** — start the app: the gem lands in a spinning
+  portal, streaks and shards sweep in, then RIFTGATE and the tagline
+  appear, in your theme's colours. Change the theme (sidebar), restart:
+  the animation follows the new colours from the first frame.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

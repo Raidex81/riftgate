@@ -170,10 +170,34 @@
 
     <div id="ambientIconsLayer" class="ambient-icons-layer"></div>
 
-    <div id="startupOverlay" class="startup-overlay">
+    <!-- Opening animation: the header banner's identity (gem, portal,
+         RIFTGATE wordmark, tagline, streaks and shards) assembling at full
+         size, in the active theme's colours. Nothing moves until
+         playStartupAnimation() adds .startup-play, which happens after the
+         saved theme is applied, so the colours never jump mid-animation. -->
+    <div id="startupOverlay" class="startup-overlay" aria-hidden="true">
+        <div class="startup-backdrop"></div>
+        <div class="startup-facets"></div>
+        <div class="startup-sparks"></div>
+        <div class="startup-streak s1"></div>
+        <div class="startup-streak s2"></div>
+        <div class="startup-streak s3"></div>
+        <div class="startup-streak s4"></div>
+        <span class="startup-shard a"></span>
+        <span class="startup-shard b"></span>
+        <span class="startup-shard c"></span>
+        <span class="startup-shard d"></span>
+        <span class="startup-shard e"></span>
+        <span class="startup-shard f"></span>
         <div class="startup-scene">
-            <div class="startup-gem-glow"></div>
-            <img class="startup-gem-img" src="/assets/riftgate-gem.png" alt="">
+            <div class="startup-gem">
+                <div class="startup-portal"></div>
+                <div class="startup-gem-glow"></div>
+                <img class="startup-gem-img" src="/assets/riftgate-gem-mark.png" alt="">
+            </div>
+            <div class="startup-wordmark">RIFTGATE</div>
+            <div class="startup-tagline">All your worlds. One gateway.</div>
+            <div class="startup-underline"></div>
         </div>
     </div>
 
