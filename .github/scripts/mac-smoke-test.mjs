@@ -201,6 +201,36 @@ async function main() {
     }
   }
 
+  // 3c. "Your cinema" picker (1.7.2+): OpenStreetMap cinemas for a city,
+  // and picking one points Find Tickets at that cinema's own site.
+  const hasCinemas = await page.evaluate(() => typeof loadCinemas === "function");
+  if (hasCinemas) {
+    for (const [cc, city] of [["PT", "Lisbon"], ["US", "New York"]]) {
+      const r = await page.evaluate((a) => window.riftgate.invoke("get-cinemas", a), { countryCode: cc, city }).catch((e) => ({ cinemas: [], error: String(e) }));
+      const list = (r && r.cinemas) || [];
+      const withSite = list.filter((c) => c.url).length;
+      record(`Cinemas: ${city}`, list.length > 0 ? true : r && r.error ? null : false,
+        r && r.error ? r.error : `${list.length} cinemas, ${withSite} with a website — nearest: ${list.slice(0, 3).map((c) => c.label).join("; ")}`);
+    }
+    await page.evaluate((s) => switchSection(s), "theatre");
+    await sleep(3000);
+    const picked = await page.evaluate(async () => {
+      const selects = [...document.querySelectorAll("select[data-cinema-picker]")];
+      for (let i = 0; i < 40 && cinemaList.state === "loading"; i++) await new Promise((r) => setTimeout(r, 500));
+      const first = cinemaList.cinemas.find((c) => c.url);
+      if (!selects.length || !first) return { selects: selects.length, state: cinemaList.state, count: cinemaList.cinemas.length };
+      selects[0].value = first.id;
+      selects[0].dispatchEvent(new Event("change"));
+      await new Promise((r) => setTimeout(r, 300));
+      const out = { selects: selects.length, synced: selects.every((s) => s.value === first.id), title: ticketsButtonTitle(), count: cinemaList.cinemas.length };
+      selects[0].value = "";
+      selects[0].dispatchEvent(new Event("change"));
+      return out;
+    });
+    await page.screenshot({ path: path.join(OUT, "cinema-picker.png") });
+    record("Cinema picker", picked.selects === 2 && picked.synced === true && /^Opens /.test(picked.title || "") ? true : picked.count === 0 ? null : false, JSON.stringify(picked));
+  }
+
   // 4. Theme switch — the header should follow each theme's colours.
   await page.evaluate((s) => switchSection(s), "installed");
   await sleep(2000);

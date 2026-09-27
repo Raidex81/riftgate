@@ -47,14 +47,17 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.7.1):
+Quick pass on what changed this round (v1.7.2):
 
-- **Free Games previews** — the big platform rows (Steam, GOG, itch.io…)
-  show exactly two full lines of cards. Make the window wider: more
-  cards appear, no empty space at the end of a line. Make it narrower:
-  the extra cards hide, still two full lines.
-- **Store rows** — Newly Added, Most Popular and Recommended behave the
-  same way: always two full lines at any window width.
+- **Your cinema** — in Theatre, next to In Theaters, open the new
+  "🎟️ Any cinema in …" list (it says "Loading cinemas…" for a few
+  seconds the first time). Pick a cinema, then click Find Tickets &
+  Showtimes on any film: the cinema's own site (or its chain's site)
+  opens, not Google. The same list sits next to Upcoming Movies in New
+  and remembers the same choice.
+- Change the city at the top of Theatre: the list changes to that
+  city's cinemas; switch back and your earlier pick is still there.
+- Choose "🎟️ Any cinema" again: Find Tickets goes back to a Google search.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

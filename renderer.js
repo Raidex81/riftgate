@@ -1154,17 +1154,7 @@ wheelPlayBtn.addEventListener("click", async () => {
     if (!wheelWinner) return;
 
     if (wheelMode === "movie") {
-        const countryCode = movieCountrySelect.value || "US";
-        const city = movieCitySelect.value;
-        const countryName = COUNTRY_NAMES[countryCode] || "";
-        const domain = GOOGLE_DOMAIN_BY_COUNTRY[countryCode] || "com";
-
-        const queryParts = [wheelWinner.title, "showtimes", "tickets"];
-        if (city) queryParts.push(city);
-        queryParts.push(countryName);
-
-        const query = encodeURIComponent(queryParts.filter(Boolean).join(" "));
-        window.riftgate.invoke("open-external", `https://www.google.${domain}/search?q=${query}`);
+        openTicketsFor(wheelWinner.title);
     } else if (wheelMode === "freegames") {
         window.riftgate.invoke("open-external", wheelWinner.url);
     } else if (wheelMode === "readinglibrary") {
@@ -1212,6 +1202,10 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.7.2": [
+        "New: pick your cinema — next to In Theaters (Theatre) and Upcoming Movies (New) there's a list of the cinemas around your city, nearest first. Once you choose one, \"Find Tickets & Showtimes\" opens that cinema's own website (or its chain's official site) to see sessions and buy tickets, instead of a Google search",
+        "Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)"
+    ],
     "1.7.1": [
         "Changed: in Free Games, every line of cards now reaches the right edge of the window at any size — the big platform grids stretch to fill it, and the sideways rows (Newly Added and the smaller platforms) size their cards so a whole number of them fits exactly",
         "Changed: Free Games' platform previews (Steam, GOG, itch.io…) and Store's Newly Added, Most Popular and Recommended rows always show exactly two full lines of cards — a wider window shows more instead of leaving empty space, a narrower one hides the ones that don't fit"
@@ -2606,6 +2600,7 @@ function applySettingsToUI() {
 
     movieCountrySelect.value = settings.country || settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
+    loadCinemas();
 
     steamId64Input.value = settings.steamId64 || "";
 }
@@ -7456,6 +7451,7 @@ movieCountrySelect.addEventListener("change", () => {
     saveSetting("country", movieCountrySelect.value);
     populateCitySelect(movieCountrySelect.value, null);
     saveSetting("movieCity", movieCitySelect.value);
+    loadCinemas();
     loadMovies();
     // Provider availability is region-specific (Netflix's catalog in the
     // US isn't the same as in Portugal), so a country change needs a full
@@ -7471,6 +7467,162 @@ movieCountrySelect.addEventListener("change", () => {
 
 movieCitySelect.addEventListener("change", () => {
     saveSetting("movieCity", movieCitySelect.value);
+    loadCinemas();
+});
+
+// --- "Your cinema" picker (In Theaters + Upcoming Movies headers) ---------
+// Lists the cinemas around the chosen city (OpenStreetMap, via main.js,
+// which caches each city for two weeks). Once the user picks one, every
+// "Find Tickets & Showtimes" button opens that cinema's own website — or
+// its chain's official site — instead of a Google search. A cinema with no
+// known site still narrows the search to that exact cinema. The choice is
+// remembered per city, so switching back to a city brings its cinema back.
+const cinemaSelects = Array.from(document.querySelectorAll("select[data-cinema-picker]"));
+const cinemaList = { key: null, cinemas: [], state: "idle" };
+let cinemaLoadSeq = 0;
+
+function cinemaCityKey() {
+    return `${movieCountrySelect.value || "US"}|${movieCitySelect.value || ""}`;
+}
+
+function chosenCinema() {
+    const saved = (settings.cinemaByCity || {})[cinemaCityKey()];
+    return saved && typeof saved.id === "string" && typeof saved.name === "string" ? saved : null;
+}
+
+function cinemaHost(url) {
+    try {
+        return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+        return "";
+    }
+}
+
+function ticketsButtonTitle() {
+    const cinema = chosenCinema();
+    if (!cinema) return "Search the web for showtimes near you — or pick your cinema next to In Theaters / Upcoming Movies";
+    return cinema.url
+        ? `Opens ${cinema.name} (${cinemaHost(cinema.url)})`
+        : `Searches the web for ${cinema.name} showtimes`;
+}
+
+function refreshTicketsButtonTitles() {
+    const title = ticketsButtonTitle();
+    document.querySelectorAll(".ticketsBtn").forEach((btn) => { btn.title = title; });
+}
+
+function openTicketsFor(movieTitle) {
+    const cinema = chosenCinema();
+    if (cinema && cinema.url) {
+        window.riftgate.invoke("open-external", cinema.url);
+        return;
+    }
+    const countryCode = movieCountrySelect.value || "US";
+    const city = movieCitySelect.value;
+    const countryName = COUNTRY_NAMES[countryCode] || "";
+    const domain = GOOGLE_DOMAIN_BY_COUNTRY[countryCode] || "com";
+    const queryParts = cinema
+        ? [cinema.name, city, movieTitle, "showtimes", "tickets"]
+        : [movieTitle, "showtimes", "tickets", city, countryName];
+    const query = encodeURIComponent(queryParts.filter(Boolean).join(" "));
+    window.riftgate.invoke("open-external", `https://www.google.${domain}/search?q=${query}`);
+}
+
+function renderCinemaSelects() {
+    const city = movieCitySelect.value;
+    const chosen = chosenCinema();
+    const cinemas = cinemaList.key === cinemaCityKey() ? cinemaList.cinemas : [];
+
+    cinemaSelects.forEach((select) => {
+        select.hidden = !city;
+        select.textContent = "";
+        select.appendChild(new Option(`🎟️ Any cinema in ${city}`, ""));
+        // Still loading (or the list changed): keep the saved pick visible.
+        if (chosen && !cinemas.some((c) => c.id === chosen.id)) {
+            select.appendChild(new Option(`📍 ${chosen.label || chosen.name}`, chosen.id));
+        }
+        cinemas.forEach((c) => {
+            const bits = [`📍 ${c.label || c.name}`];
+            if (typeof c.distanceKm === "number") bits.push(`${c.distanceKm} km`);
+            if (!c.url) bits.push("web search");
+            select.appendChild(new Option(bits.join(" · "), c.id));
+        });
+        let note = null;
+        if (cinemaList.state === "loading") note = "Loading cinemas…";
+        else if (cinemaList.state === "error") note = "Couldn't load cinemas";
+        else if (cinemaList.state === "ready" && cinemas.length === 0) note = `No cinemas found near ${city}`;
+        if (note) {
+            const info = new Option(note, "__note");
+            info.disabled = true;
+            select.appendChild(info);
+        }
+        if (cinemaList.state === "ready" || cinemaList.state === "error") {
+            select.appendChild(new Option("↻ Refresh cinema list", "__refresh"));
+        }
+        select.value = chosen ? chosen.id : "";
+        select.title = (chosen
+            ? (chosen.url ? `Tickets open ${cinemaHost(chosen.url)}` : "This cinema has no known website — tickets search the web for it")
+            : "Choose your cinema: Find Tickets then opens its own website") + "\nCinema data © OpenStreetMap contributors";
+    });
+    refreshTicketsButtonTitles();
+}
+
+async function loadCinemas(refresh = false) {
+    const key = cinemaCityKey();
+    const city = movieCitySelect.value;
+    const seq = ++cinemaLoadSeq;
+    if (!city) {
+        Object.assign(cinemaList, { key, cinemas: [], state: "idle" });
+        renderCinemaSelects();
+        return;
+    }
+    if (!refresh && cinemaList.key === key && cinemaList.state === "ready") {
+        renderCinemaSelects();
+        return;
+    }
+    Object.assign(cinemaList, { key, cinemas: cinemaList.key === key ? cinemaList.cinemas : [], state: "loading" });
+    renderCinemaSelects();
+    let result = null;
+    try {
+        result = await window.riftgate.invoke("get-cinemas", { countryCode: movieCountrySelect.value || "US", city, refresh });
+    } catch (err) {
+        result = null;
+    }
+    if (seq !== cinemaLoadSeq) return; // the city changed while this was loading
+    const cinemas = result && Array.isArray(result.cinemas) ? result.cinemas : [];
+    Object.assign(cinemaList, { key, cinemas, state: result && !result.error ? "ready" : (cinemas.length ? "ready" : "error") });
+
+    // Keep the saved pick's link up to date (a cinema may have gained a website).
+    const chosen = chosenCinema();
+    const fresh = chosen && cinemas.find((c) => c.id === chosen.id);
+    if (fresh && (fresh.url !== chosen.url || fresh.label !== chosen.label)) {
+        saveSetting("cinemaByCity", { ...(settings.cinemaByCity || {}), [key]: { id: fresh.id, name: fresh.name, label: fresh.label, url: fresh.url || null } });
+    }
+    renderCinemaSelects();
+}
+
+cinemaSelects.forEach((select) => {
+    select.addEventListener("change", () => {
+        const value = select.value;
+        if (value === "__refresh") {
+            loadCinemas(true);
+            return;
+        }
+        if (value === "__note") {
+            renderCinemaSelects();
+            return;
+        }
+        const key = cinemaCityKey();
+        const map = { ...(settings.cinemaByCity || {}) };
+        const picked = cinemaList.key === key ? cinemaList.cinemas.find((c) => c.id === value) : null;
+        if (picked) {
+            map[key] = { id: picked.id, name: picked.name, label: picked.label, url: picked.url || null };
+        } else if (!value) {
+            delete map[key];
+        }
+        saveSetting("cinemaByCity", map);
+        renderCinemaSelects();
+    });
 });
 
 // --- "Theater mode" large video popup (not fullscreen) ---------------------
@@ -7645,19 +7797,9 @@ function buildMovieCard(movie, showReleaseDate, navList) {
     movieCoverImgEl.style.cursor = "pointer";
     movieCoverImgEl.addEventListener("click", () => openGameDetailModal(movie, "movie", navList));
 
-    card.querySelector(".ticketsBtn").addEventListener("click", () => {
-        const countryCode = movieCountrySelect.value || "US";
-        const city = movieCitySelect.value;
-        const countryName = COUNTRY_NAMES[countryCode] || "";
-        const domain = GOOGLE_DOMAIN_BY_COUNTRY[countryCode] || "com";
-
-        const queryParts = [movie.title, "showtimes", "tickets"];
-        if (city) queryParts.push(city);
-        queryParts.push(countryName);
-
-        const query = encodeURIComponent(queryParts.filter(Boolean).join(" "));
-        window.riftgate.invoke("open-external", `https://www.google.${domain}/search?q=${query}`);
-    });
+    const ticketsBtn = card.querySelector(".ticketsBtn");
+    ticketsBtn.title = ticketsButtonTitle();
+    ticketsBtn.addEventListener("click", () => openTicketsFor(movie.title));
 
     attachAdminRemoveButton(card, "movie", movie.id, movie.title);
 

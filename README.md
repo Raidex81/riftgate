@@ -96,7 +96,9 @@ next-episode countdown), see what's in cinemas near you, browse what's
 popular on each streaming service in your region (Netflix, Prime Video,
 Disney+, Max and more — with **See all** for the full catalog), and look
 up where any film or show is streaming. Every title opens a full-screen
-trailer.
+trailer. Pick your cinema from the ones around your city and **Find
+Tickets** takes you straight to that cinema's own site for sessions and
+tickets.
 
 ![Theatre](screenshots/theatre.png)
 
@@ -140,15 +142,17 @@ suggestions). Third-party media APIs (TMDB, RAWG, SteamGridDB, YouTube)
 are proxied server-side, so no vendor keys ship inside the app, and
 account emails (password reset, email confirmation) are sent entirely by
 the server. The database changes and server functions live in
-[`supabase/`](supabase/).
+[`supabase/`](supabase/). The cinema list comes straight from
+[OpenStreetMap](https://www.openstreetmap.org/copyright) (© OpenStreetMap
+contributors) and is cached for two weeks per city.
 
-Size, as of version 1.7.1 (counted with `wc -l`, blank lines and comments
+Size, as of version 1.7.2 (counted with `wc -l`, blank lines and comments
 included):
 
 | Part | Lines |
 |---|---|
-| App JavaScript (main process, UI logic, services) | 24,872 |
-| UI markup and styles (`index.html`, `style.css`) | 7,649 |
+| App JavaScript (main process, UI logic, services) | 25,303 |
+| UI markup and styles (`index.html`, `style.css`) | 7,662 |
 | Backend (Supabase Edge Functions, SQL migrations and rollbacks) | 2,508 |
 
 For a deeper technical look — the Electron process model, IPC and

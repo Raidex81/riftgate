@@ -117,6 +117,7 @@ const INVOKABLE_CHANNELS = new Set([
     "get-upcoming-games",
     "get-upcoming-movies",
     "get-full-list",
+    "get-cinemas",
     "get-watch-providers",
     "get-watchlist",
     "import-backup-data",

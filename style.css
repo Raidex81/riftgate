@@ -5860,3 +5860,14 @@ body.see-all-open{
     margin:16px 0 0;
     min-height:1em;
 }
+
+/* "Your cinema" picker next to In Theaters / Upcoming Movies. Cinema names
+   can be long ("Cinema NOS Amoreiras — Avenida Engenheiro Duarte Pacheco"),
+   so the closed control is capped and the full name shows in the list. */
+.theatre-block-header select.cinema-select{
+    max-width:min(340px, 100%);
+    text-overflow:ellipsis;
+}
+.theatre-block-header select.cinema-select[hidden]{
+    display:none;
+}
