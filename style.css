@@ -491,10 +491,23 @@ input{
     outline:2px dashed var(--accent-1);
 }
 
-.sidebarNavBtn.section-drag-over,
-.sectionOption.section-drag-over{
-    outline:2px dashed var(--accent-1);
-    outline-offset:-2px;
+/* Reordering the sections by drag: the tab being moved dims, and an
+   accent bar marks where it will land. */
+.sidebarNavBtn.section-dragging,
+.sectionOption.section-dragging{
+    opacity:.4;
+}
+.sectionOption.section-drop-before{
+    box-shadow:-5px 0 0 -1px var(--accent-1);
+}
+.sectionOption.section-drop-after{
+    box-shadow:5px 0 0 -1px var(--accent-1);
+}
+.sidebarNavBtn.section-drop-before{
+    box-shadow:0 -3px 0 0 var(--accent-1);
+}
+.sidebarNavBtn.section-drop-after{
+    box-shadow:0 3px 0 0 var(--accent-1);
 }
 
 .theatre-block-header h2.section-drag-over{

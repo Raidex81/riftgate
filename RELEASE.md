@@ -58,6 +58,10 @@ Quick pass on what changed this round (v1.7.2):
 - Change the city at the top of Theatre: the list changes to that
   city's cinemas; switch back and your earlier pick is still there.
 - Choose "🎟️ Any cinema" again: Find Tickets goes back to a Google search.
+- **Section order** — drag a tab in the top bar (e.g. Applications) onto
+  another: it fades while moving and a coloured bar shows where it will
+  land. Let go: the top bar and the side menu both take the new order,
+  and it's still there after restarting the app.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

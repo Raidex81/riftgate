@@ -1204,7 +1204,8 @@ wheelPlayBtn.addEventListener("click", async () => {
 const CHANGELOG = {
     "1.7.2": [
         "New: pick your cinema — next to In Theaters (Theatre) and Upcoming Movies (New) there's a list of the cinemas around your city, nearest first. Once you choose one, \"Find Tickets & Showtimes\" opens that cinema's own website (or its chain's official site) to see sessions and buy tickets, instead of a Google search",
-        "Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)"
+        "Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)",
+        "Changed: dragging a section tab (New, Installed, Free Games…) to put them in your own order is easier to see — the tab you're moving fades and a bar shows exactly where it will land; in the side menu it now follows up/down instead of left/right"
     ],
     "1.7.1": [
         "Changed: in Free Games, every line of cards now reaches the right edge of the window at any size — the big platform grids stretch to fill it, and the sideways rows (Newly Added and the smaller platforms) size their cards so a whole number of them fits exactly",
@@ -4128,67 +4129,75 @@ function applySectionOrder() {
 }
 
 // Lets the user drag a section tab into a new position — first, second,
-// last, wherever matches their own priorities. Same insert-before/after-by
-// -cursor-half pattern used for reordering game cards (see reorderGames
-// above): dragging either button group updates the one shared SECTION_ORDER
-// array, which then re-applies to both groups together.
+// last, wherever matches their own priorities. Dragging either button group
+// (the top tab strip or the sidebar list) updates the one shared
+// SECTION_ORDER array, which then re-applies to both groups together.
+// While dragging, the tab being moved dims and a bar shows exactly where
+// it will land: left/right of a top tab, above/below a sidebar entry.
+function sectionDropAfter(btn, event) {
+    const rect = btn.getBoundingClientRect();
+    return btn.classList.contains("sidebarNavBtn")
+        ? (event.clientY - rect.top) > rect.height / 2
+        : (event.clientX - rect.left) > rect.width / 2;
+}
+
+function clearSectionDragMarks() {
+    document.querySelectorAll(".section-drop-before, .section-drop-after, .section-dragging").forEach((el) => {
+        el.classList.remove("section-drop-before", "section-drop-after", "section-dragging");
+    });
+}
+
 function wireSectionDragReorder(buttons) {
     buttons.forEach((btn) => {
         btn.draggable = true;
+        btn.title = "Drag to change the order of the sections";
 
         btn.addEventListener("dragstart", (event) => {
             draggedSectionKey = btn.dataset.section;
             event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", draggedSectionKey);
+            btn.classList.add("section-dragging");
         });
 
         btn.addEventListener("dragover", (event) => {
             if (!draggedSectionKey || draggedSectionKey === btn.dataset.section) return;
             event.preventDefault();
-            btn.classList.add("section-drag-over");
+            event.dataTransfer.dropEffect = "move";
+            const after = sectionDropAfter(btn, event);
+            btn.classList.toggle("section-drop-after", after);
+            btn.classList.toggle("section-drop-before", !after);
         });
 
         btn.addEventListener("dragleave", () => {
-            btn.classList.remove("section-drag-over");
+            btn.classList.remove("section-drop-before", "section-drop-after");
         });
 
         btn.addEventListener("drop", (event) => {
             event.preventDefault();
-            btn.classList.remove("section-drag-over");
+            const insertAfter = sectionDropAfter(btn, event);
+            clearSectionDragMarks();
             if (!draggedSectionKey || draggedSectionKey === btn.dataset.section) return;
 
             const fromIndex = SECTION_ORDER.indexOf(draggedSectionKey);
             const targetIndex = SECTION_ORDER.indexOf(btn.dataset.section);
             if (fromIndex === -1 || targetIndex === -1) return;
 
-            // Which half of the button was it dropped on? Left = insert
-            // before, right = insert after — lets something land after the
-            // very last tab too, not just between two existing ones.
-            const rect = btn.getBoundingClientRect();
-            const insertAfter = (event.clientX - rect.left) > rect.width / 2;
-
-            const newOrder = [...SECTION_ORDER];
-            newOrder.splice(fromIndex, 1);
-            let insertIndex = newOrder.indexOf(btn.dataset.section) + (insertAfter ? 1 : 0);
-
-            // Same no-op guard as the New tab's block reorder above --
-            // dropping a tab on the half of its immediate neighbor
-            // nearest its current spot otherwise computes right back to
-            // the same position instead of the real swap the other half
-            // of that same neighbor would give.
-            if (insertIndex === fromIndex) {
-                insertIndex = insertAfter ? insertIndex - 1 : insertIndex + 1;
-            }
-
+            // Insert exactly where the bar showed: before or after the
+            // tab it was dropped on.
+            const newOrder = SECTION_ORDER.filter((key) => key !== draggedSectionKey);
+            const insertIndex = newOrder.indexOf(btn.dataset.section) + (insertAfter ? 1 : 0);
             newOrder.splice(insertIndex, 0, draggedSectionKey);
 
-            SECTION_ORDER = newOrder;
             draggedSectionKey = null;
+            if (newOrder.join() === SECTION_ORDER.join()) return;
+            SECTION_ORDER = newOrder;
             saveSetting("sectionOrder", SECTION_ORDER);
             applySectionOrder();
         });
 
         btn.addEventListener("dragend", () => {
             draggedSectionKey = null;
+            clearSectionDragMarks();
         });
     });
 }
