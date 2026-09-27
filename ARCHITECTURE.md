@@ -3,7 +3,8 @@
 This is the technical companion to [README.md](README.md). The README is
 the pitch; this is how it actually works — for anyone evaluating the
 codebase, picking this project back up after time away, or curious what's
-underneath a nine-theme game launcher.
+underneath a personal entertainment hub — games, films, TV, anime, books,
+apps, free content and deals in one desktop app.
 
 Riftgate is an [Electron](https://www.electronjs.org/) desktop app: a
 Node.js main process, a sandboxed Chromium renderer, and a small backend
@@ -18,9 +19,9 @@ suggestions).
 │  Main process (Node.js)                                     │
 │                                                               │
 │   main.js  ──requires──▶  services/                         │
-│   (~7,400 lines:            supabase.js   http.js           │
+│   (~7,800 lines:            supabase.js   http.js           │
 │    window/app lifecycle,    steam.js      tvmaze.js         │
-│    ~170 ipcMain handlers,   books.js      github.js         │
+│    ~175 ipcMain handlers,   books.js      github.js         │
 │    IPC validation, CSP,     tmdb.js       free-games.js     │
 │    local HTTP server)       content-filters.js              │
 │                             platform/ (windows.js, mac.js)  │
@@ -30,7 +31,7 @@ suggestions).
                              │ preload.js (contextBridge, channel allowlists)
 ┌───────────────────────────▼───────────────────────────────────┐
 │  Renderer (sandboxed, contextIsolation: true, nodeIntegration: │
-│  false) — index.html + renderer.js (~12,700 lines), the UI     │
+│  false) — index.html + renderer.js (~13,100 lines), the UI     │
 └─────────────────────────────────────────────────────────────┘
                              │
                              ▼ (all external calls happen in the
@@ -71,7 +72,7 @@ is refused too — must answer with an image, and is capped at 15 MB and
 
 **Codebase layout**, roughly in the order you'd want to read it:
 
-- `main.js` — app/window lifecycle, IPC handler wiring (~170
+- `main.js` — app/window lifecycle, IPC handler wiring (~175
   `ipcMain.handle` calls), the local server, CSP and IPC-sender
   validation. Still the largest file by a wide margin; see
   [Roadmap](#roadmap).
@@ -175,7 +176,7 @@ and it's checked at both ends:
    `window.riftgate.invoke("something-not-on-the-list")` throws before it
    ever reaches the main process.
 2. **`main.js`** wraps `ipcMain.handle`/`on`/`once` themselves, so
-   *every* handler — all ~170 of them — is checked without having to
+   *every* handler — all ~175 of them — is checked without having to
    remember to add a check inside each one individually
    (`isTrustedIpcSender`, below). This is a second, independent layer:
    even a channel that's legitimately allowlisted in step 1 gets
@@ -395,9 +396,9 @@ _(to be added)_
 
 Reflects the active backlog, roughly in priority order:
 
-- **Split `renderer.js` (next major architecture project)** — ~12,700
+- **Split `renderer.js` (next major architecture project)** — ~13,100
   lines in one file, organised only by `// --- Section ---` comment
-  headers (about 47 of them). Target layout:
+  headers (about 50 of them). Target layout:
 
   ```
   renderer/
@@ -422,7 +423,7 @@ Reflects the active backlog, roughly in priority order:
   variables keep working, one section per commit; (3) only then, turn
   the files into ES modules with explicit imports and replace the shared
   globals with a small state module.
-- **Architecture** — split `main.js`'s remaining ~7,400 lines by
+- **Architecture** — split `main.js`'s remaining ~7,800 lines by
   subsystem (`ipc/`, `windows/`, `games/`, `free-games/`, `media/`,
   `vault/`, `auth/`, `system/`, alongside the existing `services/`)
   rather than one large file. The services extraction above is the first
@@ -465,7 +466,7 @@ Reflects the active backlog, roughly in priority order:
   click-through testing per release (see `RELEASE.md`) — CI now builds
   both platforms on every push, but that only catches build breakage,
   not behavioral bugs.
-- **`main.js` is still large** (~7,400 lines) despite the services
+- **`main.js` is still large** (~7,800 lines) despite the services
   extraction — IPC wiring, window/app lifecycle, and per-feature logic
   are still interleaved in one file. See [Roadmap](#roadmap).
 - **Mac build unverified on real hardware.** `services/platform/mac.js`

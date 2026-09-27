@@ -1,11 +1,25 @@
 # Riftgate
 
-**Your games. Your apps. Your media. One gateway.**
+**All your worlds. One gateway.**
 
-A unified desktop launcher — organize your installed games and apps,
-discover what's free or on sale right now across Steam, GOG, Epic, and
-dozens of other stores, and keep track of the movies and shows you care
-about, all in one place.
+Riftgate is a personal entertainment hub for Windows and Mac. It brings
+your games, movies, TV, anime, books, apps, free content and deals
+together in one desktop app — so instead of jumping between launchers,
+store pages, streaming sites and release calendars, you open one window
+and everything is there, up to date and in your region.
+
+- **Play** — your whole game and app library on one shelf, with covers,
+  trailers and playtime, plus new installs picked up automatically.
+- **Get it free** — thousands of games that are free right now on Steam,
+  Epic, GOG, itch.io and more, refreshed live.
+- **Save** — the biggest PC game discounts across Steam and dozens of
+  other stores, in your own currency.
+- **Watch** — what's in cinemas near you, what's coming, what each
+  streaming service carries, and your TV shows' next episodes.
+- **Discover** — every upcoming film, game, series and anime in one feed,
+  with a "See all" for the complete list.
+- **Read** — your own eBook library plus free classics, best sellers,
+  manga and comics.
 
 ![Riftgate — New tab, showing upcoming games and new series](screenshots/new.png)
 
@@ -15,7 +29,7 @@ about, all in one place.
 
 ### 👉 [Download the latest version](https://github.com/Raidex81/Riftgate/releases/latest)
 
-On that page, open **Assets** and pick the file for your computer:
+Free. On that page, open **Assets** and pick the file for your computer:
 
 | Computer | File |
 |---|---|
@@ -38,67 +52,77 @@ On that page, open **Assets** and pick the file for your computer:
 > itself — download the new `.dmg` from the link above for each new
 > version (your library and settings are kept).
 
+No account needed: everything works the moment it opens. Signing in is
+only for optional extras like sending suggestions.
+
 ---
 
 ## What's inside
 
-**📀 Installed Library** — organize every game, app, and VR title you
-run, with drag-and-drop reordering, auto-fetched cover art and
-descriptions, and hover trailers.
+**🆕 New** — one feed for what's coming and what just arrived: upcoming
+games, films coming to cinemas in your region, new series and new anime,
+with hover trailers. Every row has a **See all** button that opens the
+complete list — every film releasing in your country over the next 12
+months, every upcoming game, every series and anime that started in the
+last 90 days — with search and sorting.
+
+**📀 Installed** — every game, app and VR title you run, on one shelf.
+Drag a shortcut or `.exe` onto the window to add it, or let Riftgate
+scan for your Steam games and installed apps; it fetches covers,
+descriptions and hover trailers, tracks your playtime, and offers to add
+anything you install later.
 
 ![Installed Library](screenshots/installed-library.png)
 
-**🎁 Free Games** — a live, auto-updating list of what's free to keep
-or free to play right now on Steam, Epic Games, GOG, itch.io, and
-giveaway aggregators like GamerPower.
+**🎁 Free Games** — a live, auto-updating collection of what's free to
+keep or free to play right now: Steam, Epic Games, every free game on
+GOG, itch.io, giveaway trackers like GamerPower, and the big
+free-to-play titles from Battle.net, EA, Riot, Ubisoft and more — with a
+dedicated VR view, genre filters and search. Rows always fill your
+window, whatever its width.
 
 ![Free Games](screenshots/free-games.png)
 
-**🛒 Store** — the best discounts on PC games right now, aggregated
-across Steam and dozens of other resellers (GOG, Epic, Humble,
-Fanatical, GreenManGaming, and more) in one searchable, sortable grid.
-Every deal shows its discount, a review-score badge (Steam rating or
-Metacritic), and a trailer preview, with quick links straight to each
-store to buy. Prices and currency follow your Region setting, so
-they match the store you'd actually be buying from.
+**🛒 Store** — the biggest current discounts on PC games from Steam and
+dozens of other stores (GOG, Epic, Humble, Fanatical, GreenManGaming and
+more) in one searchable, sortable grid. Every deal shows its discount, a
+review-score badge (Steam rating or Metacritic) and a trailer, with a
+link straight to the store. Prices and currency follow your region.
 
 ![Store](screenshots/store.png)
 
-**🎬 Theatre** — track TV series for new episodes (with ratings and a
-next-episode countdown), browse movies currently playing near you, see everything each
-streaming service carries in your region, and jump into a full-screen
-trailer preview.
+**🎬 Theatre** — follow TV series for new episodes (with ratings and a
+next-episode countdown), see what's in cinemas near you, browse what's
+popular on each streaming service in your region (Netflix, Prime Video,
+Disney+, Max and more — with **See all** for the full catalog), and look
+up where any film or show is streaming. Every title opens a full-screen
+trailer.
 
 ![Theatre](screenshots/theatre.png)
 
-**📚 Reading Room** — your own eBook library (EPUB/PDF), plus Discover
-Online and Buy Books tabs for free and mainstream titles, with
-dedicated Manga and Comics browsing.
+**📚 Reading Room** — your own eBook library (EPUB/PDF, with real
+covers found online), free public-domain classics, current best sellers
+and new releases, and dedicated Manga and Comics shelves.
 
 ![Reading Room](screenshots/reading-room.png)
 
-**🧩 Applications** — tools and apps built by the community, each with
-a creator credit and a link straight to where to grab it — browse by
-search or sort by newest, most visited, name, or author.
+**🧩 Applications** — tools and apps built by the community, each with a
+creator credit and a link to get it; search, or sort by newest, most
+visited, name or author.
 
 ![Applications](screenshots/applications.png)
 
-**🆕 New** — see what's newly released or coming soon across movies,
-series, and games, all in one feed. Every row has a **See all** button
-that opens the complete list — every film coming to cinemas in your
-region over the next 12 months, every upcoming game, every new series
-and anime — with search and sorting.
-
-**🎲 Surprise Me** — can't decide? Spin the wheel.
+**🎲 Surprise Me** — can't decide what to play, watch or read? Spin the
+wheel; it knows which section you're in.
 
 ![Surprise Me](screenshots/surprise-me.png)
 
-**🔒 The Vault** — private file and link sharing between friends, with
-automatic expiry (currently admin-only while it's being reworked).
+**🎨 Make it yours** — nine color themes (the whole look follows the one
+you pick), light and dark mode, adjustable card size, a first-run tour,
+and automatic updates on Windows.
 
-Nine color themes (the header, accents and glow all follow the one you
-pick), light/dark mode, adjustable grid density, and a fully custom
-interface — automatic updates included on Windows.
+**🔒 Coming soon: The Vault** — private file and link sharing between
+friends, with automatic expiry.
 
 ---
 
@@ -115,6 +139,15 @@ are proxied server-side, so no vendor keys ship inside the app, and
 account emails (password reset, email confirmation) are sent entirely by
 the server. The database changes and server functions live in
 [`supabase/`](supabase/).
+
+Size, as of version 1.7.1 (counted with `wc -l`, blank lines and comments
+included):
+
+| Part | Lines |
+|---|---|
+| App JavaScript (main process, UI logic, services) | 24,872 |
+| UI markup and styles (`index.html`, `style.css`) | 7,649 |
+| Backend (Supabase Edge Functions, SQL migrations and rollbacks) | 2,508 |
 
 For a deeper technical look — the Electron process model, IPC and
 security hardening, what's stored locally vs. in the cloud, external data

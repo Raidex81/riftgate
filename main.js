@@ -7754,6 +7754,6 @@ app.whenReady().then(async () => {
 
 
 console.log("=====================================");
-console.log("Game Launcher started");
+console.log("Riftgate started");
 console.log("Online cover fetch (SteamGridDB): via Supabase media-proxy Edge Function.");
 console.log("=====================================");
