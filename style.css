@@ -4300,10 +4300,10 @@ body.startup-locked{
    Same pieces as the header banner (.hero-*): the gem, portal rings,
    RIFTGATE wordmark, tagline, energy streaks, crystal shards and sparks,
    all drawn from the active theme's --accent-1/--accent-2. Timeline
-   (playStartupAnimation fades it all out at 4.5s):
+   (playStartupAnimation fades it all out at 5.5s):
      0.0s backdrop glow  → 0.1s portal opens → 0.3s gem lands
      1.0s streaks sweep  → 1.2s wordmark     → 2.0s tagline + underline
-     3.6s portal flare, then fade to the app. */
+     4.6s portal flare, then fade to the app. */
 
 .startup-overlay{
     position:fixed;
@@ -4507,7 +4507,7 @@ body.startup-locked{
 .startup-play .startup-backdrop{ animation:startupFadeIn .8s ease forwards; }
 .startup-play .startup-facets{ animation:startupFadeIn 1.4s ease .2s forwards; }
 .startup-play .startup-sparks{ animation:startupFadeIn 1s ease .6s forwards, startupTwinkle 1.6s ease-in-out 1.6s infinite alternate; }
-.startup-play .startup-portal{ animation:startupPortalOpen 1.3s cubic-bezier(.22,.75,.25,1) .1s forwards, startupPortalSpin 40s linear infinite, startupPortalFlare .9s ease-in-out 3.6s forwards; }
+.startup-play .startup-portal{ animation:startupPortalOpen 1.3s cubic-bezier(.22,.75,.25,1) .1s forwards, startupPortalSpin 40s linear infinite, startupPortalFlare .9s ease-in-out 4.6s forwards; }
 .startup-play .startup-portal::after{ animation:startupRingSpin 9s linear infinite; }
 .startup-play .startup-gem-glow{ animation:startupGlowPulse 1.4s ease-in-out .9s 3 alternate; }
 .startup-play .startup-gem-img{ animation:startupGemReveal .9s cubic-bezier(.22,.75,.25,1) .3s forwards, startupGemBreath 2.6s ease-in-out 1.2s infinite; }

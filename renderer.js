@@ -9363,7 +9363,7 @@ function playStartupAnimation() {
     // Starts only now, after loadSettings() applied the saved colour theme,
     // so the banner-style scene is drawn in the right colours from its
     // first frame. The whole sequence (see "Startup animation" in
-    // style.css) ends with a portal flare at ~4.5s, when the overlay fades
+    // style.css) ends with a portal flare at ~5.5s, when the overlay fades
     // out. The page stays non-scrollable (see body.startup-locked) right up
     // to this same moment, so the side scrollbars never show up early.
     overlay.classList.add("startup-play");
@@ -9371,7 +9371,7 @@ function playStartupAnimation() {
         overlay.classList.add("startup-hidden");
         document.body.classList.remove("startup-locked");
         setTimeout(() => overlay.remove(), 550);
-    }, 4500);
+    }, 5500);
 }
 
 // --- Login (optional — the app is fully usable signed out) ----------------
