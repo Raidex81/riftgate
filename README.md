@@ -128,8 +128,10 @@ friends, with automatic expiry.
 
 ## For developers
 
-This is a personal project — all rights reserved. It isn't currently
-open for external contributions, but feel free to look around.
+Riftgate is open source under the [GNU GPL v3.0 or later](LICENSE), and
+contributions are welcome — bug reports, ideas, fixes and new features.
+Read **[CONTRIBUTING.md](CONTRIBUTING.md)** to get started: running it
+from source is just `npm install` and `npm start`, no API keys needed.
 
 Built with [Electron](https://www.electronjs.org/) for Windows and macOS
 from one shared codebase, backed by [Supabase](https://supabase.com/) for

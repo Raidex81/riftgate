@@ -469,14 +469,12 @@ Reflects the active backlog, roughly in priority order:
 - **`main.js` is still large** (~7,800 lines) despite the services
   extraction — IPC wiring, window/app lifecycle, and per-feature logic
   are still interleaved in one file. See [Roadmap](#roadmap).
-- **Mac build unverified on real hardware.** `services/platform/mac.js`
-  (Applications-folder scanning, process tracking via `ps`, launching
-  via `open -a`, uninstall via `shell.trashItem`, the hourly
-  install-detection check) was written and unit-tested without any Mac to actually run
-  it on. It needs a real-hardware pass before being trusted the way the
-  Windows side already is — see `MAC_TESTING.md` for exactly what to
-  check.
-- **Not open to external contributions.** Proprietary, all-rights-
-  reserved (see [README.md](README.md)) — this is a deliberate choice,
-  not an oversight, but worth stating plainly for anyone evaluating it
-  as a potential open-source dependency or contribution target.
+- **Mac build only partly verified.** The Mac Smoke Test workflow
+  installs every release on GitHub's Apple-silicon and Intel Macs and
+  checks it launches, loads every section and its full lists, but the
+  hands-on parts of `services/platform/mac.js` (Applications-folder
+  scanning, process tracking via `ps`, launching via `open -a`,
+  uninstall via `shell.trashItem`, install detection) still need a pass
+  on a real Mac — see `MAC_TESTING.md` for exactly what to check.
+- **Licence.** Open source under GPL-3.0-or-later ([LICENSE](LICENSE));
+  contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).

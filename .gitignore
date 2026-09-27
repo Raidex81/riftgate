@@ -32,5 +32,6 @@ coverage/
 /nul
 /git
 /BeatSaberVersion.txt
-Claude outputs/*.mp4
-Claude outputs/archive/*.bak-*
+Claude outputs/
+secrets.example.js
+games.json

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/Raidex81/Riftgate/security/advisories/new
+    about: Please report security issues privately, not as a public issue.
+  - name: Download Riftgate
+    url: https://github.com/Raidex81/Riftgate/releases/latest
+    about: The latest version for Windows and Mac.
