@@ -1215,6 +1215,7 @@ const CHANGELOG = {
         "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
         "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
         "Changed: the section tabs, Free Games' platform buttons and Reading Room's tabs have a new look — the selected one has a slim glow in your theme's colours that slowly spins. The Store's reseller links glow while you point at them",
+        "Changed: a new Login / Log out button — glassy, lit from above in your theme's colour, with a soft halo when you point at it",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
