@@ -767,10 +767,12 @@
             <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
         </div>
 
-        <span id="currentUsernameLabel" class="current-username" style="display:none;"></span>
-        <button id="adminBtn" class="login-status-btn" title="Log in">Login</button>
-
+        <!-- Login / Log out leads the button group on the right of the
+             search bar (it used to sit on its own and could end up over
+             the search box). -->
         <div class="header-actions">
+            <span id="currentUsernameLabel" class="current-username" style="display:none;"></span>
+            <button id="adminBtn" class="login-status-btn" title="Log in">Login</button>
             <button id="notifyBtn" title="What's new"><svg class="nav-icon"><use href="#icon-notify"></use></svg></button>
             <button id="suggestBtn" title="Suggest something"><svg class="nav-icon"><use href="#icon-suggest"></use></svg></button>
             <button id="surpriseBtn" title="Surprise me — spin the wheel">

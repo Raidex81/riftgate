@@ -6685,6 +6685,15 @@ body.light-theme .github-star-btn{
    Uiverse.io by vinh_8995 (MIT), rewritten as plain CSS; it keeps the
    button's own pill shape and size. */
 #adminBtn.login-status-btn{
+    /* Inside the (already sticky) button group now: no sticking of its own,
+       and its own size rather than the group's small-button padding. */
+    position:relative;
+    top:auto;
+    padding:10px 18px;
+    border-radius:999px;
+    font-size:14px;
+    font-weight:700;
+    margin-right:4px;
     --login-fill:color-mix(in srgb, var(--accent-1) 14%, #14121c);
     color:rgba(255,255,255,.9);
     border:1.5px solid transparent;
