@@ -180,18 +180,86 @@ async function queryOverpass(query, userAgent) {
 
 // Returns [{ id, name, label, url, urlSource: "cinema"|"chain"|null, distanceKm }]
 // sorted nearest first.
+// Nominatim (OpenStreetMap's own search) asks for at most one request per
+// second from an app, so its calls are spaced out.
+const NOMINATIM_GAP_MS = 1100;
+const NOMINATIM_MAX_RESULTS = 50;
+
+function viewboxAround(center) {
+    const km = CINEMA_RADIUS_METERS / 1000;
+    const dLat = km / 111;
+    const dLon = km / (111 * Math.max(0.2, Math.cos((center.lat * Math.PI) / 180)));
+    return [center.lon - dLon, center.lat + dLat, center.lon + dLon, center.lat - dLat].join(",");
+}
+
+// Every place of one kind ("cinema", "mall") inside the city's box, as the
+// same shape Overpass returns: { type, id, lat, lon, tags }.
+async function nominatimPlaces(phrase, center, userAgent) {
+    const params = new URLSearchParams({
+        format: "jsonv2", q: phrase, viewbox: viewboxAround(center), bounded: "1",
+        limit: String(NOMINATIM_MAX_RESULTS), extratags: "1", addressdetails: "1"
+    });
+    const url = `https://nominatim.openstreetmap.org/search?${params}`;
+    let results;
+    try {
+        results = await getJson(url, userAgent);
+    } catch {
+        await sleep(RETRY_PAUSE_MS);
+        results = await getJson(url, userAgent);
+    }
+    return (Array.isArray(results) ? results : []).map((r) => {
+        const address = r.address || {};
+        return {
+            type: r.osm_type,
+            id: r.osm_id,
+            lat: parseFloat(r.lat),
+            lon: parseFloat(r.lon),
+            tags: {
+                ...(r.extratags || {}),
+                name: r.name || (r.extratags && r.extratags.name) || "",
+                amenity: r.category === "amenity" ? r.type : undefined,
+                shop: r.category === "shop" ? r.type : undefined,
+                "addr:suburb": address.suburb || address.city_district || address.neighbourhood || address.quarter || address.town || undefined
+            }
+        };
+    });
+}
+
 async function fetchCinemas(countryCode, city, appVersion) {
     const userAgent = `Riftgate/${appVersion} (https://github.com/Raidex81/Riftgate)`;
     const center = await geocodeCity(city, countryCode, userAgent);
     if (!center) return [];
 
+    // Cinemas come from Nominatim first: it answers within a second or two,
+    // where the public Overpass servers were often too busy (HTTP 504) and
+    // most cities ended up with no list. Overpass is the fallback.
     // Shopping centres come along so a multiplex can be named by the mall
     // it's in: OpenStreetMap often calls five different venues just
     // "Cinema NOS", and "Cinema NOS — NorteShopping" is what people know.
-    const around = `(around:${CINEMA_RADIUS_METERS},${center.lat},${center.lon})`;
-    const query = `[out:json][timeout:25];(nwr["amenity"="cinema"]${around};nwr["shop"="mall"]${around};);out center tags;`;
-    const data = await queryOverpass(query, userAgent);
-    const elements = (data && data.elements) || [];
+    let elements = null;
+    try {
+        await sleep(NOMINATIM_GAP_MS);
+        const cinemaPlaces = (await nominatimPlaces("cinema", center, userAgent)).filter((el) => el.tags.amenity === "cinema");
+        let mallPlaces = [];
+        if (cinemaPlaces.some((el) => nameIsJustChain(el.tags.name || "", findChain(el.tags)))) {
+            try {
+                await sleep(NOMINATIM_GAP_MS);
+                mallPlaces = (await nominatimPlaces("mall", center, userAgent)).filter((el) => el.tags.shop === "mall");
+            } catch {
+                // Without mall names the neighbourhood labels them instead.
+            }
+        }
+        elements = cinemaPlaces.concat(mallPlaces);
+    } catch {
+        elements = null;
+    }
+    if (!elements) {
+        const around = `(around:${CINEMA_RADIUS_METERS},${center.lat},${center.lon})`;
+        const query = `[out:json][timeout:25];(nwr["amenity"="cinema"]${around};nwr["shop"="mall"]${around};);out center tags;`;
+        const data = await queryOverpass(query, userAgent);
+        elements = (data && data.elements) || [];
+    }
+
     const position = (el) => ({ lat: el.lat ?? (el.center && el.center.lat), lon: el.lon ?? (el.center && el.center.lon) });
     const malls = elements
         .filter((el) => el.tags && el.tags.shop === "mall" && typeof el.tags.name === "string" && el.tags.name.trim())

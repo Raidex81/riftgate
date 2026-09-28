@@ -655,7 +655,8 @@ body.density-compact .upcoming-movies-track .game-card{
    own gold-tinted frame instead, so favourites read as a distinct card
    state even before you hover — the "Favourite" variant in the reference
    sheet — layered with the same hover glow language everything else uses. */
-.game-card:hover, .game-card:focus-visible{
+.game-card:hover, .game-card:focus-visible,
+.game-card.gp-show{
     border-color:var(--accent-1);
     box-shadow:0 5px 20px rgba(0,0,0,.5), 0 0 0 1px var(--accent-1), 0 0 22px -6px var(--accent-1), 0 0 40px -12px var(--accent-2);
     transform:translateY(-2px);
@@ -886,7 +887,8 @@ body.density-compact .upcoming-movies-track .game-card{
 }
 
 .game-card:hover .soundToggle,
-.game-card:focus-within .soundToggle{
+.game-card:focus-within .soundToggle,
+.game-card.gp-show .soundToggle{
     opacity:1;
 }
 
@@ -1058,7 +1060,8 @@ body.density-compact .upcoming-movies-track .game-card{
 }
 
 .game-card:hover .removeBtn,
-.game-card:focus-within .removeBtn{
+.game-card:focus-within .removeBtn,
+.game-card.gp-show .removeBtn{
     opacity:1;
 }
 
@@ -1093,7 +1096,8 @@ body.density-compact .upcoming-movies-track .game-card{
 }
 
 .game-card:hover .admin-remove-item-btn,
-.game-card:focus-within .admin-remove-item-btn{
+.game-card:focus-within .admin-remove-item-btn,
+.game-card.gp-show .admin-remove-item-btn{
     opacity:1;
 }
 
@@ -1988,7 +1992,8 @@ body.density-compact .upcoming-movies-track .game-card{
 }
 
 .game-card:hover .manualCoverBtn,
-.game-card:focus-within .manualCoverBtn{
+.game-card:focus-within .manualCoverBtn,
+.game-card.gp-show .manualCoverBtn{
     opacity:1;
 }
 
@@ -2168,7 +2173,8 @@ body.density-compact .upcoming-movies-track .game-card{
 }
 
 .game-card:hover .favoriteBtn,
-.game-card:focus-within .favoriteBtn{
+.game-card:focus-within .favoriteBtn,
+.game-card.gp-show .favoriteBtn{
     opacity:1;
 }
 
@@ -3385,7 +3391,8 @@ body.density-compact #moviesGrid.games-grid{
 }
 
 .game-card:hover .removeShowBtn,
-.game-card:focus-within .removeShowBtn{
+.game-card:focus-within .removeShowBtn,
+.game-card.gp-show .removeShowBtn{
     opacity:1;
 }
 
@@ -3706,7 +3713,8 @@ body.density-compact #moviesGrid.games-grid{
 }
 
 .game-card:hover .enlargeBtn,
-.game-card:focus-within .enlargeBtn{
+.game-card:focus-within .enlargeBtn,
+.game-card.gp-show .enlargeBtn{
     opacity:1;
 }
 
@@ -5855,7 +5863,8 @@ body.startup-locked{
     transition:border-color .2s, box-shadow .2s, transform .2s;
 }
 
-.community-app-card:hover{
+.community-app-card:hover,
+.community-app-card.gp-show{
     border-color:var(--accent-1);
     box-shadow:0 4px 18px -8px rgba(0,0,0,.45), 0 0 0 1px var(--accent-1);
     transform:translateY(-2px);
@@ -6229,7 +6238,8 @@ body.gp-nav *{
     white-space:nowrap;
     pointer-events:none;
 }
-body.gp-pad.gp-nav .gp-hints{
+body.gp-pad.gp-nav .gp-hints,
+body.tv-mode.gp-nav .gp-hints{
     display:flex;
 }
 .gp-hints b{
@@ -6243,4 +6253,141 @@ body.gp-pad.gp-nav .gp-hints{
     background:var(--accent-gradient);
     color:#fff;
     font-size:11px;
+}
+
+.list-pager-pages{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    flex:1;
+    min-width:0;
+}
+.list-pager-search{
+    width:240px;
+    max-width:100%;
+    padding:7px 12px;
+    border-radius:8px;
+    border:1px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-primary);
+    font-size:12px;
+}
+.list-pager-search:focus{
+    outline:none;
+    border-color:var(--accent-1);
+}
+
+/* Inside a card with the controller/remote (A / OK on a card): the card
+   stays lit and its cover reads as "Details". */
+body.gp-nav .game-card.gp-inside{
+    outline:2px dashed color-mix(in srgb, var(--accent-1) 70%, transparent);
+    outline-offset:4px;
+}
+body.gp-nav .cover-img.gp-focus{
+    outline-offset:-4px;
+}
+body.gp-nav .cover-wrap:has(> .cover-img.gp-focus)::after{
+    content:"ⓘ Details";
+    position:absolute;
+    left:50%;
+    bottom:12px;
+    translate:-50% 0;
+    padding:5px 12px;
+    border-radius:999px;
+    background:var(--accent-gradient);
+    color:#fff;
+    font-size:12px;
+    font-weight:700;
+    pointer-events:none;
+}
+
+/* Controls screen (gamepad-nav.js) */
+.controls-box{
+    max-width:720px;
+    width:min(720px, 92vw);
+}
+.controls-intro, .controls-note{
+    color:var(--text-secondary);
+    font-size:13px;
+    margin:0 0 12px;
+}
+.controls-note{
+    margin-top:12px;
+    color:var(--text-muted);
+}
+.controls-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:12px;
+}
+.controls-tab{
+    padding:7px 12px;
+    border-radius:999px;
+    border:1px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-secondary);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+}
+.controls-tab.active{
+    background:var(--accent-gradient);
+    border-color:transparent;
+    color:#fff;
+}
+.controls-diagram{
+    display:flex;
+    justify-content:center;
+}
+.controls-diagram:empty{
+    display:none;
+}
+.cd-svg{
+    width:100%;
+    max-width:420px;
+    max-height:230px;
+    margin:0 auto 10px;
+}
+.cd-body{ fill:var(--bg-tertiary); stroke:var(--border-color); stroke-width:2; }
+.cd-part{ fill:var(--bg-secondary); stroke:var(--border-color); stroke-width:1.5; }
+.cd-key{ fill:var(--bg-secondary); stroke:var(--accent-1); stroke-width:1.5; }
+.cd-main{ fill:color-mix(in srgb, var(--accent-1) 35%, var(--bg-secondary)); }
+.cd-key-label{ fill:var(--text-primary); font-size:13px; font-weight:800; }
+.cd-small{ fill:var(--text-secondary); font-size:10px; font-weight:700; }
+.cd-tiny{ fill:var(--text-secondary); font-size:8px; font-weight:700; }
+.cd-arrow{ fill:var(--text-secondary); font-size:12px; }
+.cd-title{ fill:var(--text-muted); font-size:10px; font-weight:700; }
+.controls-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+.controls-table td{
+    padding:7px 8px;
+    border-top:1px solid var(--border-color);
+    color:var(--text-secondary);
+    vertical-align:top;
+}
+.controls-table td:first-child{
+    width:170px;
+    white-space:nowrap;
+}
+.controls-table b{
+    display:inline-block;
+    padding:3px 9px;
+    border-radius:8px;
+    background:var(--bg-tertiary);
+    border:1px solid var(--accent-1);
+    color:var(--text-primary);
+    font-size:12px;
+}
+.controls-row-note{
+    color:var(--text-muted) !important;
+    font-style:italic;
+}
+/* The hints bar would cover the controls screen's own Close button. */
+body:has(#controlsModal.active) .gp-hints{
+    display:none !important;
 }

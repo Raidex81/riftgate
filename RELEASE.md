@@ -62,6 +62,14 @@ Quick pass on what changed this round (v1.7.3):
   sections, ☰ opens the side panel. Unplug it: back to normal size.
 - **Pages** — Free Games → GOG (or VR): 100 games per page with page
   buttons above and below. Reading Room → Manga: page 1 of 2.
+  The search box beside the pages ("Search GOG games…") looks only in
+  that list.
+- **Card options** — with the controller/remote, select a card (A / OK):
+  the highlight goes inside (Details, sound, trailer, buttons); B leaves.
+  View / Share (or F1) opens the controls screen. Unplug the controller:
+  back to normal size straight away.
+- **Cinemas** — pick a few different cities (Braga, Coimbra, Faro,
+  Setúbal): each should list its cinemas within a few seconds.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.

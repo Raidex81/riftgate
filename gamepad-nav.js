@@ -5,14 +5,20 @@
 // be used on screen — section tabs, buttons, lists, cards — picking the
 // nearest item in the direction pressed:
 //
-//   D-pad / left stick / arrow keys   move the highlight
-//   A / Enter                          open or press the highlighted item
-//   B / Backspace                      back: close a window, panel or menu
+//   D-pad / left stick / arrow keys   move the highlight (up/down row by row)
+//   A / OK / Enter                     select; on a card, open its options
+//                                      (Details, Trailer, Sound, Play/Get…)
+//   B / Back / Esc                     back: leave a card, close a window/panel
+//   Y                                  a card's details straight away
 //   X                                  a card's main button (Play, Get, Tickets…)
 //   LB / RB                            previous / next section
 //   LT / RT                            scroll a screen up / down (right stick scrolls too)
 //   ☰ Menu (Start)                     open / close the side panel (settings)
-//   ⧉ View (Back)                      TV mode on / off
+//   ⧉ View (Back)                      the controls screen (per controller type)
+//
+// The full table for each kind of controller (Xbox, PlayStation, Nintendo,
+// TV remote, keyboard) is in CONTROLS below; the controls screen and the
+// hints bar are built from it.
 //
 // TV mode zooms the whole interface (main.js "set-tv-mode") so it reads from
 // the couch. "With a controller" (the default) turns it on while a
@@ -43,6 +49,9 @@
     let current = null;
     let padConnected = false;
     let tvOn = null; // unknown until the first applyTvMode, which always sets the zoom
+    // Unplugging the controller goes back to desktop mode, even with TV mode
+    // set to "Always on", until a controller is used again.
+    let desktopUntilNextPad = false;
     let pollHandle = null;
     const previousButtons = new Map(); // gamepad index -> pressed[]
     let heldDirection = null;
@@ -52,19 +61,71 @@
     const sideBar = document.getElementById("sideBar");
     const tvModeSelect = document.getElementById("tvModeSelect");
 
+    // --- Controller types and what each button does ---------------------------------
+    // Buttons are named by position (the browser's standard mapping), so the
+    // labels differ per brand: the bottom face button is A on Xbox, ✕ on
+    // PlayStation and B on Nintendo.
+    const SCHEMES = {
+        xbox: { name: "Xbox", keys: { MOVE: "D-pad / left stick", A: "A", B: "B", X: "X", Y: "Y", LB: "LB", RB: "RB", LT: "LT", RT: "RT", RS: "Right stick", MENU: "Menu ☰", VIEW: "View ⧉" } },
+        playstation: { name: "PlayStation", keys: { MOVE: "D-pad / left stick", A: "✕", B: "○", X: "□", Y: "△", LB: "L1", RB: "R1", LT: "L2", RT: "R2", RS: "Right stick", MENU: "Options", VIEW: "Create / Share" } },
+        nintendo: { name: "Nintendo / other", keys: { MOVE: "D-pad / left stick", A: "B", B: "A", X: "Y", Y: "X", LB: "L", RB: "R", LT: "ZL", RT: "ZR", RS: "Right stick", MENU: "+", VIEW: "−" } },
+        remote: { name: "TV remote", keys: { MOVE: "Arrow buttons", A: "OK", B: "Back", X: null, Y: null, LB: "CH −", RB: "CH +", LT: null, RT: null, RS: null, MENU: "Menu", VIEW: "Info" } },
+        keyboard: { name: "Keyboard", keys: { MOVE: "Arrow keys", A: "Enter", B: "Esc / Backspace", X: "P", Y: "I", LB: "[", RB: "]", LT: "Page Up", RT: "Page Down", RS: null, MENU: "M", VIEW: "F1 or ?" } }
+    };
+    const CONTROLS = [
+        ["MOVE", null, "Move the highlight. Up and down go row by row: to the item right under, or the first item of a shorter row."],
+        ["A", null, "Select. On a card: open its options — Details, ▶ Trailer, 🔊 Sound on/off, Play / Get / Tickets and the rest. On a list (country, city, sort): change it with up/down, select again to confirm."],
+        ["B", null, "Back: leave a card's options, close a window, the side panel or the See all list."],
+        ["Y", null, "On a card: its details straight away."],
+        ["X", null, "On a card: its main button straight away (Play, Get it free, Find tickets…)."],
+        ["LB", "RB", "Previous / next section (New, Installed, Free Games…)."],
+        ["LT", "RT", "Scroll a whole screen up / down."],
+        ["RS", null, "Scroll freely."],
+        ["MENU", null, "Open / close the side panel (settings, region, TV mode)."],
+        ["VIEW", null, "This controls screen."]
+    ];
+    let scheme = "xbox";
+
+    function schemeForPad(pad) {
+        const id = String((pad && pad.id) || "").toLowerCase();
+        if (/054c|playstation|dualsense|dualshock|wireless controller/.test(id)) return "playstation";
+        if (/057e|nintendo|pro controller|joy-con|switch/.test(id)) return "nintendo";
+        return "xbox";
+    }
+
+    function keyLabel(which, other, keys) {
+        const a = keys[which];
+        if (!a) return null;
+        return other && keys[other] ? `${a} / ${keys[other]}` : a;
+    }
+
     // --- Hints bar ----------------------------------------------------------
     const hints = document.createElement("div");
     hints.className = "gp-hints";
     hints.setAttribute("aria-hidden", "true");
-    [["A", "Open"], ["B", "Back"], ["X", "Play / Get"], ["LB RB", "Sections"], ["☰", "Menu"]].forEach(([key, label]) => {
-        const item = document.createElement("span");
-        const badge = document.createElement("b");
-        badge.textContent = key;
-        item.appendChild(badge);
-        item.appendChild(document.createTextNode(label));
-        hints.appendChild(item);
-    });
     document.body.appendChild(hints);
+
+    function renderHints() {
+        const keys = SCHEMES[scheme].keys;
+        hints.textContent = "";
+        [["A", null, "Select"], ["B", null, "Back"], ["Y", null, "Details"], ["X", null, "Play / Get"], ["LB", "RB", "Sections"], ["MENU", null, "Menu"], ["VIEW", null, "Controls"]].forEach(([which, other, label]) => {
+            const key = keyLabel(which, other, keys);
+            if (!key) return;
+            const item = document.createElement("span");
+            const badge = document.createElement("b");
+            badge.textContent = key;
+            item.appendChild(badge);
+            item.appendChild(document.createTextNode(label));
+            hints.appendChild(item);
+        });
+    }
+
+    function setScheme(next) {
+        if (!SCHEMES[next] || next === scheme) return;
+        scheme = next;
+        renderHints();
+    }
+    renderHints();
 
     // --- What can be highlighted right now -------------------------------------
     function isShown(el) {
@@ -90,10 +151,36 @@
             modals.sort((a, b) => (parseInt(getComputedStyle(a).zIndex, 10) || 0) - (parseInt(getComputedStyle(b).zIndex, 10) || 0));
             return modals[modals.length - 1];
         }
+        if (insideCard) {
+            if (insideCard.isConnected && isShown(insideCard)) return insideCard;
+            leaveCard(false);
+        }
         const seeAll = document.getElementById("seeAllOverlay");
         if (seeAll && !seeAll.hidden) return seeAll;
         if (sideBar && sideBar.classList.contains("gp-open")) return sideBar;
         return document.body;
+    }
+
+    // --- Inside a card: its own options ---------------------------------------------
+    // A (OK) on a card moves the highlight into it: the cover (= Details),
+    // ▶ trailer, 🔊 sound, ★ favourite and every button on the card. B leaves.
+    let insideCard = null;
+
+    function enterCard(card) {
+        insideCard = card;
+        card.classList.add("gp-inside", "gp-show");
+        const first = card.querySelector(".cover-img");
+        const list = candidates();
+        setCurrent(first && list.includes(first) ? first : list[0] || card);
+    }
+
+    function leaveCard(focusCard = true) {
+        const card = insideCard;
+        insideCard = null;
+        if (!card) return;
+        card.classList.remove("gp-inside");
+        if (focusCard && card.isConnected) setCurrent(card);
+        else card.classList.remove("gp-show");
     }
 
     function horizontallyReachable(el, rect) {
@@ -116,7 +203,8 @@
     function candidates() {
         const layer = activeLayer();
         const list = [];
-        layer.querySelectorAll(CANDIDATE_SELECTOR).forEach((el) => {
+        const insideThisCard = layer === insideCard;
+        layer.querySelectorAll(insideThisCard ? `${CANDIDATE_SELECTOR}, .cover-img` : CANDIDATE_SELECTOR).forEach((el) => {
             if (el.matches(SKIP_SELECTOR)) return;
             if (layer === document.body) {
                 if (sideBar && sideBar.contains(el)) return;
@@ -124,7 +212,7 @@
             }
             // Parts of a card are reached through the card itself.
             const card = el.matches(CARD_SELECTOR) ? null : el.closest(CARD_SELECTOR);
-            if (card) return;
+            if (card && card !== layer) return;
             if (el.matches("label.sidebar-toggle") === false && el.closest("label.sidebar-toggle")) return;
             if (!isShown(el)) return;
             const rect = el.getBoundingClientRect();
@@ -139,9 +227,18 @@
     function setCurrent(el, { scroll = true } = {}) {
         if (editingSelect && editingSelect !== el) finishSelectEdit(true);
         if (current && current !== el) current.classList.remove("gp-focus");
+        const oldCard = current ? current.closest(CARD_SELECTOR) : null;
+        const newCard = el ? el.closest(CARD_SELECTOR) : null;
+        if (oldCard && oldCard !== newCard) oldCard.classList.remove("gp-show", "gp-inside");
         current = el;
         if (!el) return;
         el.classList.add("gp-focus");
+        // A highlighted card looks hovered: its trailer, sound and other
+        // buttons show, and the background follows it like with the mouse.
+        if (newCard && newCard !== oldCard) {
+            newCard.classList.add("gp-show");
+            newCard.dispatchEvent(new MouseEvent("mouseenter"));
+        }
         document.body.classList.add("gp-nav");
         if (el.matches("button, a[href], select, input, textarea, [tabindex]")) {
             try { el.focus({ preventScroll: true }); } catch { /* not focusable */ }
@@ -268,6 +365,17 @@
         const list = candidates();
         if (!currentIsValid()) {
             setCurrent(nearestToViewportTop(list));
+            return;
+        }
+
+        // Inside a card its options are one short list, in the card's own
+        // order (Details, sound, trailer, then its buttons): right/down go
+        // to the next one, left/up to the previous.
+        if (insideCard && activeLayer() === insideCard) {
+            const index = list.indexOf(current);
+            const step = direction === "right" || direction === "down" ? 1 : -1;
+            const next = list[index + step];
+            if (next) setCurrent(next);
             return;
         }
 
@@ -415,10 +523,7 @@
         }
         const el = current;
         if (el.matches(CARD_SELECTOR)) {
-            // Open the card's details, like clicking its cover.
-            const opener = el.querySelector(".cover-img, .game-desc, h3") || el.querySelector("button");
-            if (opener) opener.click();
-            else el.click();
+            enterCard(el);
             return;
         }
         if (el.tagName === "SELECT") {
@@ -434,7 +539,23 @@
         el.click();
     }
 
+    function openDetails() {
+        const card = currentIsValid() ? current.closest(CARD_SELECTOR) : null;
+        if (!card) {
+            activate();
+            return;
+        }
+        const opener = card.querySelector(".cover-img, .game-desc, h3") || card.querySelector("button");
+        if (opener) opener.click();
+    }
+
     function primaryAction() {
+        if (currentIsValid() && !current.matches(CARD_SELECTOR) && current.closest(CARD_SELECTOR)) {
+            const cardEl = current.closest(CARD_SELECTOR);
+            const main = Array.from(cardEl.querySelectorAll(".launchBtn, .ticketsBtn")).find((b) => isShown(b));
+            if (main) main.click();
+            return;
+        }
         if (!currentIsValid() || !current.matches(CARD_SELECTOR)) {
             activate();
             return;
@@ -467,6 +588,10 @@
             const closer = visibleButtonIn(layer, "[id$='CloseBtn'], [id$='CancelBtn'], [id$='LaterBtn'], .modal-close, .close-btn, button[aria-label='Close']");
             if (closer) closer.click();
             else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            return;
+        }
+        if (insideCard) {
+            leaveCard(true);
             return;
         }
         const seeAll = document.getElementById("seeAllOverlay");
@@ -528,7 +653,7 @@
     function applyTvMode() {
         if (tvModeSelect) tvModeSelect.value = tvModeSetting();
         const mode = tvModeSetting();
-        const wanted = mode === "on" || (mode === "auto" && padConnected);
+        const wanted = !desktopUntilNextPad && (mode === "on" || (mode === "auto" && padConnected));
         if (wanted === tvOn) return;
         tvOn = wanted;
         document.body.classList.toggle("tv-mode", wanted);
@@ -542,12 +667,6 @@
         });
     }
 
-    function toggleTvModeQuick() {
-        const next = tvOn ? "off" : "on";
-        if (typeof saveSetting === "function") saveSetting("tvMode", next);
-        else if (typeof settings !== "undefined") settings.tvMode = next;
-        applyTvMode();
-    }
 
     // --- Controller polling ------------------------------------------------------
     function connectedPads() {
@@ -572,12 +691,13 @@
             case BUTTON.A: activate(); break;
             case BUTTON.B: back(); break;
             case BUTTON.X: primaryAction(); break;
+            case BUTTON.Y: openDetails(); break;
             case BUTTON.LB: switchSectionBy(-1); break;
             case BUTTON.RB: switchSectionBy(1); break;
             case BUTTON.LT: scrollScreen(-1); break;
             case BUTTON.RT: scrollScreen(1); break;
             case BUTTON.MENU: toggleSidePanel(); break;
-            case BUTTON.VIEW: toggleTvModeQuick(); break;
+            case BUTTON.VIEW: toggleControlsHelp(); break;
             default: break;
         }
     }
@@ -621,19 +741,32 @@
         if (!pollHandle) pollHandle = requestAnimationFrame(poll);
     }
 
-    window.addEventListener("gamepadconnected", () => {
+    window.addEventListener("gamepadconnected", (event) => {
         padConnected = true;
+        desktopUntilNextPad = false;
+        setScheme(schemeForPad(event.gamepad));
         document.body.classList.add("gp-pad");
         applyTvMode();
         startPolling();
     });
 
+    // Back to desktop mode: normal size, no highlight, no hints, the mouse
+    // in charge.
     window.addEventListener("gamepaddisconnected", () => {
         padConnected = connectedPads().length > 0;
-        if (!padConnected) {
-            document.body.classList.remove("gp-pad");
-            applyTvMode();
+        if (padConnected) return;
+        desktopUntilNextPad = true;
+        document.body.classList.remove("gp-pad", "gp-nav");
+        if (editingSelect) finishSelectEdit(false);
+        leaveCard(false);
+        if (current) {
+            current.classList.remove("gp-focus");
+            const card = current.closest(CARD_SELECTOR);
+            if (card) card.classList.remove("gp-show");
         }
+        current = null;
+        if (sideBar) sideBar.classList.remove("gp-open");
+        applyTvMode();
     });
 
     // --- TV remote / keyboard ------------------------------------------------------
@@ -654,6 +787,7 @@
             // In a text box, left/right move the cursor; up/down leave it.
             if (typing && (direction === "left" || direction === "right")) return;
             event.preventDefault();
+            if (!padConnected) setScheme(tvOn ? "remote" : "keyboard");
             move(direction);
             return;
         }
@@ -661,6 +795,25 @@
             event.preventDefault();
             activate();
             return;
+        }
+        if (!typing) {
+            const key = event.key;
+            let handled = true;
+            if (key === "ChannelUp" || key === "]") switchSectionBy(1);
+            else if (key === "ChannelDown" || key === "[") switchSectionBy(-1);
+            else if (key === "PageDown") scrollScreen(1);
+            else if (key === "PageUp") scrollScreen(-1);
+            else if (key === "F1" || key === "?" || key === "Info") toggleControlsHelp();
+            else if (key === "ContextMenu" || key === "m" || key === "M") toggleSidePanel();
+            else if (key === "p" || key === "P") primaryAction();
+            else if (key === "i" || key === "I") openDetails();
+            else handled = false;
+            if (handled) {
+                event.preventDefault();
+                document.body.classList.add("gp-nav");
+                if (!padConnected) setScheme(tvOn ? "remote" : "keyboard");
+                return;
+            }
         }
         if ((event.key === "Backspace" || event.key === "BrowserBack" || event.key === "GoBack") && !typing) {
             event.preventDefault();
@@ -683,7 +836,12 @@
         const position = `${event.screenX},${event.screenY}`;
         if (lastMouse !== null && lastMouse !== position) {
             document.body.classList.remove("gp-nav");
-            if (current) current.classList.remove("gp-focus");
+            leaveCard(false);
+            if (current) {
+                current.classList.remove("gp-focus");
+                const card = current.closest(CARD_SELECTOR);
+                if (card) card.classList.remove("gp-show");
+            }
             current = null;
             if (sideBar) sideBar.classList.remove("gp-open");
         }
@@ -698,9 +856,136 @@
         startPolling();
     }
 
+    // --- Controls screen: what every button does, per kind of controller -------------
+    const helpModal = document.createElement("div");
+    helpModal.className = "modal-overlay";
+    helpModal.id = "controlsModal";
+    helpModal.innerHTML = `
+        <div class="modal-box controls-box" role="dialog" aria-labelledby="controlsTitle">
+            <h3 id="controlsTitle">🎮 Controller &amp; remote controls</h3>
+            <p class="controls-intro">Riftgate recognises your controller by itself. Pick a type to see its buttons.</p>
+            <div class="controls-tabs" role="tablist"></div>
+            <div class="controls-diagram"></div>
+            <table class="controls-table"><tbody></tbody></table>
+            <p class="controls-note">TV mode (everything bigger) turns on while a controller is connected and off when it's unplugged — change it in the side panel under Display.</p>
+            <div class="modal-actions"><button type="button" id="controlsCloseBtn">Close</button></div>
+        </div>`;
+    document.body.appendChild(helpModal);
+    let helpScheme = scheme;
+
+    function svgText(x, y, text, cls) {
+        return `<text x="${x}" y="${y}" class="${cls || "cd-label"}" text-anchor="middle">${String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`;
+    }
+
+    // A plain, generic outline (not any brand's shape) with each button's
+    // name for the chosen controller type in its place.
+    function diagramFor(kind) {
+        const k = SCHEMES[kind].keys;
+        if (kind === "keyboard") return "";
+        if (kind === "remote") {
+            return `<svg viewBox="0 0 200 250" class="cd-svg" aria-hidden="true">
+                <rect x="55" y="8" width="90" height="234" rx="40" class="cd-body"/>
+                <circle cx="100" cy="92" r="36" class="cd-part"/>
+                <circle cx="100" cy="92" r="15" class="cd-key"/>${svgText(100, 97, k.A, "cd-key-label")}
+                ${svgText(100, 68, "▲", "cd-arrow")}${svgText(100, 124, "▼", "cd-arrow")}${svgText(75, 97, "◀", "cd-arrow")}${svgText(125, 97, "▶", "cd-arrow")}
+                <rect x="66" y="142" width="30" height="18" rx="8" class="cd-key"/>${svgText(81, 155, k.B, "cd-small")}
+                <rect x="104" y="142" width="30" height="18" rx="8" class="cd-key"/>${svgText(119, 155, k.MENU, "cd-small")}
+                <rect x="66" y="170" width="30" height="18" rx="8" class="cd-key"/>${svgText(81, 183, k.RB, "cd-small")}
+                <rect x="66" y="194" width="30" height="18" rx="8" class="cd-key"/>${svgText(81, 207, k.LB, "cd-small")}
+                <rect x="104" y="170" width="30" height="18" rx="8" class="cd-key"/>${svgText(119, 183, k.VIEW, "cd-small")}
+                ${svgText(100, 36, "TV remote", "cd-title")}
+            </svg>`;
+        }
+        return `<svg viewBox="0 0 440 250" class="cd-svg" aria-hidden="true">
+            <path d="M120 58 H320 C372 58 402 92 414 148 C426 204 404 236 374 236 C350 236 336 218 322 198 L300 170 H140 L118 198 C104 218 90 236 66 236 C36 236 14 204 26 148 C38 92 68 58 120 58 Z" class="cd-body"/>
+            <rect x="74" y="30" width="86" height="20" rx="9" class="cd-key"/>${svgText(117, 44, k.LB, "cd-small")}
+            <rect x="80" y="6" width="74" height="20" rx="9" class="cd-part"/>${svgText(117, 20, k.LT, "cd-small")}
+            <rect x="280" y="30" width="86" height="20" rx="9" class="cd-key"/>${svgText(323, 44, k.RB, "cd-small")}
+            <rect x="286" y="6" width="74" height="20" rx="9" class="cd-part"/>${svgText(323, 20, k.RT, "cd-small")}
+            <path d="M96 98 h18 v-18 h18 v18 h18 v18 h-18 v18 h-18 v-18 h-18 z" class="cd-key"/>${svgText(123, 150, "D-pad", "cd-small")}
+            <circle cx="170" cy="152" r="22" class="cd-part"/>${svgText(170, 156, "L stick", "cd-small")}
+            <circle cx="270" cy="152" r="22" class="cd-part"/>${svgText(270, 156, "R stick", "cd-small")}
+            <rect x="178" y="92" width="34" height="18" rx="9" class="cd-key"/>${svgText(195, 105, k.VIEW.split(" ")[0], "cd-tiny")}
+            <rect x="228" y="92" width="34" height="18" rx="9" class="cd-key"/>${svgText(245, 105, k.MENU.split(" ")[0], "cd-tiny")}
+            <circle cx="330" cy="80" r="15" class="cd-key"/>${svgText(330, 85, k.Y, "cd-key-label")}
+            <circle cx="302" cy="108" r="15" class="cd-key"/>${svgText(302, 113, k.X, "cd-key-label")}
+            <circle cx="358" cy="108" r="15" class="cd-key"/>${svgText(358, 113, k.B, "cd-key-label")}
+            <circle cx="330" cy="136" r="15" class="cd-key cd-main"/>${svgText(330, 141, k.A, "cd-key-label")}
+        </svg>`;
+    }
+
+    function renderHelp() {
+        const tabs = helpModal.querySelector(".controls-tabs");
+        tabs.textContent = "";
+        Object.entries(SCHEMES).forEach(([kind, info]) => {
+            const tab = document.createElement("button");
+            tab.type = "button";
+            tab.className = `controls-tab${kind === helpScheme ? " active" : ""}`;
+            tab.setAttribute("role", "tab");
+            tab.setAttribute("aria-selected", kind === helpScheme ? "true" : "false");
+            tab.textContent = info.name;
+            tab.addEventListener("click", () => {
+                helpScheme = kind;
+                renderHelp();
+                const again = helpModal.querySelector(".controls-tab.active");
+                if (again && document.body.classList.contains("gp-nav")) setCurrent(again, { scroll: false });
+            });
+            tabs.appendChild(tab);
+        });
+        helpModal.querySelector(".controls-diagram").innerHTML = diagramFor(helpScheme);
+        const body = helpModal.querySelector(".controls-table tbody");
+        body.textContent = "";
+        const keys = SCHEMES[helpScheme].keys;
+        CONTROLS.forEach(([which, other, what]) => {
+            const key = keyLabel(which, other, keys);
+            if (!key) return;
+            const row = document.createElement("tr");
+            const keyCell = document.createElement("td");
+            const badge = document.createElement("b");
+            badge.textContent = key;
+            keyCell.appendChild(badge);
+            const whatCell = document.createElement("td");
+            whatCell.textContent = what;
+            row.appendChild(keyCell);
+            row.appendChild(whatCell);
+            body.appendChild(row);
+        });
+        if (helpScheme === "remote") {
+            const row = document.createElement("tr");
+            const note = document.createElement("td");
+            note.colSpan = 2;
+            note.className = "controls-row-note";
+            note.textContent = "No Y / X on a remote: select a card (OK) and pick Details, Trailer, Sound or Play inside it.";
+            row.appendChild(note);
+            body.appendChild(row);
+        }
+    }
+
+    function toggleControlsHelp(open) {
+        const willOpen = typeof open === "boolean" ? open : !helpModal.classList.contains("active");
+        if (willOpen) {
+            helpScheme = scheme;
+            renderHelp();
+            helpModal.classList.add("active");
+            if (document.body.classList.contains("gp-nav")) {
+                const tab = helpModal.querySelector(".controls-tab.active");
+                if (tab) setCurrent(tab, { scroll: false });
+            }
+        } else {
+            helpModal.classList.remove("active");
+        }
+    }
+    helpModal.querySelector("#controlsCloseBtn").addEventListener("click", () => toggleControlsHelp(false));
+    helpModal.addEventListener("click", (event) => { if (event.target === helpModal) toggleControlsHelp(false); });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && helpModal.classList.contains("active")) toggleControlsHelp(false);
+    });
+    const helpButton = document.getElementById("controlsHelpBtn");
+    if (helpButton) helpButton.addEventListener("click", () => toggleControlsHelp(true));
+
     // renderer.js may have applied the saved settings before this file
     // loaded (it only waits for load-settings), so apply TV mode now too.
     applyTvMode();
 
-    window.riftgatePad = { applyTvMode, move, activate, back, candidates, focus: setCurrent, get current() { return current; } };
+    window.riftgatePad = { applyTvMode, move, activate, back, candidates, focus: setCurrent, openDetails, primaryAction, toggleControlsHelp, setScheme, SCHEMES, CONTROLS, get current() { return current; } };
 })();

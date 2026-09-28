@@ -121,8 +121,10 @@ wheel; it knows which section you're in.
 
 **🎮 Controller & TV** — play from the couch with an Xbox or PlayStation
 controller or a TV remote: move around with the D-pad, open with A, go
-back with B, switch sections with LB/RB. TV mode makes everything bigger
-and turns on by itself when a controller is connected.
+back with B, switch sections with LB/RB; select a card to reach its
+trailer, sound and buttons. TV mode makes everything bigger while a
+controller is connected. Every button, per controller type:
+**[CONTROLS.md](CONTROLS.md)** (also in the app: View / Share / F1).
 
 **🎨 Make it yours** — nine color themes (the whole look follows the one
 you pick), light and dark mode, adjustable card size, a first-run tour,
@@ -162,8 +164,8 @@ included):
 
 | Part | Lines |
 |---|---|
-| App JavaScript (main process, UI logic, controller navigation, services) | 26,240 |
-| UI markup and styles (`index.html`, `style.css`) | 8,103 |
+| App JavaScript (main process, UI logic, controller navigation, services) | 26,930 |
+| UI markup and styles (`index.html`, `style.css`) | 8,256 |
 | Backend (Supabase Edge Functions, SQL migrations and rollbacks) | 2,508 |
 
 For a deeper technical look — the Electron process model, IPC and

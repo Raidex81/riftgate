@@ -522,6 +522,44 @@ function queuedFetchBuffer(url) {
 // path so it survives untouched (encodeURIComponent already escapes any
 // "/" it contains, but keeping it out of the path sidesteps ever having to
 // think about that).
+// The cover cache now holds every cover shown anywhere in the app (games,
+// films, series, books), so it gets a size limit: at start-up, when it's
+// over COVER_CACHE_MAX_BYTES, the covers used longest ago are removed until
+// it's back under COVER_CACHE_TARGET_BYTES. Runs in the background.
+const COVER_CACHE_MAX_BYTES = 800 * 1024 * 1024;
+const COVER_CACHE_TARGET_BYTES = 600 * 1024 * 1024;
+async function pruneCoverCache() {
+    try {
+        const names = await fs.promises.readdir(FREEGAMES_COVER_CACHE_FOLDER);
+        const files = [];
+        let total = 0;
+        for (const name of names) {
+            const filePath = path.join(FREEGAMES_COVER_CACHE_FOLDER, name);
+            try {
+                const stat = await fs.promises.stat(filePath);
+                if (!stat.isFile()) continue;
+                files.push({ filePath, size: stat.size, used: stat.mtimeMs });
+                total += stat.size;
+            } catch {
+                // vanished meanwhile
+            }
+        }
+        if (total <= COVER_CACHE_MAX_BYTES) return;
+        files.sort((a, b) => a.used - b.used);
+        for (const file of files) {
+            if (total <= COVER_CACHE_TARGET_BYTES) break;
+            try {
+                await fs.promises.unlink(file.filePath);
+                total -= file.size;
+            } catch {
+                // in use or already gone
+            }
+        }
+    } catch (err) {
+        console.error("[covers] cache clean-up failed:", err.message || err);
+    }
+}
+
 function registerFreeGamesCoverCacheProtocol() {
     protocol.handle("covercache", async (request) => {
         let realUrl;
@@ -558,6 +596,10 @@ function registerFreeGamesCoverCacheProtocol() {
         if (fs.existsSync(cachePath)) {
             try {
                 const data = fs.readFileSync(cachePath);
+                // Marks it as recently used, so the size limit (see
+                // pruneCoverCache) removes covers nobody has looked at first.
+                const now = new Date();
+                fs.utimes(cachePath, now, now, () => {});
                 return new Response(data, { headers: { "Content-Type": freeGamesCoverMimeFor(cachePath), ...cacheHeaders } });
             } catch (err) {
                 // Fall through and re-fetch — a corrupt/half-written cache
@@ -7779,6 +7821,7 @@ app.whenReady().then(async () => {
     });
 
     registerFreeGamesCoverCacheProtocol();
+    setTimeout(pruneCoverCache, 20000);
     await createWindow();
     startDropzoneWatcher();
 

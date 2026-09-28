@@ -1208,6 +1208,11 @@ const CHANGELOG = {
         "New: Riftgate asks once where you are (country and city), so cinemas, release dates, streaming and prices are right from the start. New accounts give it while signing up",
         "New: country and city lists next to In Theaters and Upcoming Movies, always in sync, with \"Other city…\" to type any city — the cinema list follows",
         "Changed: long lists come in pages of 100 — Free Games platforms and VR, and Reading Room's shelves, Manga and Comics — so they open much faster. Newly Added adds more games as you scroll",
+        "New: select a card with the controller or remote to reach everything on it — Details, ▶ Trailer, 🔊 Sound on/off, Play / Get / Tickets. Y opens details and X the main button straight away",
+        "New: a controls screen for Xbox, PlayStation, Nintendo, TV remote and keyboard showing what every button does (View / Share / − / Info / F1, or the side panel). Unplugging the controller goes straight back to desktop mode",
+        "New: a search box beside the page buttons that looks only in that list — \"Search Steam games…\", \"Search Epic Games…\", manga, comics, your library",
+        "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
+        "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
     ],
@@ -3341,7 +3346,7 @@ function buildCard(game, navList) {
     <button class="favoriteBtn ${game.favorite ? "active" : ""}" title="Favorite">${uiIcon("star", { filled: game.favorite })}</button>
 
     <div class="cover-wrap">
-        <img class="cover-img" src="${image}" alt="">
+        <img class="cover-img" src="${freeGameCoverCacheSrc(image)}" alt="">
         ${category === "app" ? "" : `<button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>`}
         <div class="cover-bottom-right">
             ${category === "app" ? "" : `<button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>`}
@@ -4680,32 +4685,58 @@ function listIdentity(items) {
     return `${items.length}|${first.workKey || first.id || first.title || ""}`;
 }
 
+// options: key (what the list shows), state (an object to keep the page and
+// search in, for grids that are rebuilt on every render), searchText(item)
+// and searchPlaceholder (a search box beside the page buttons that looks
+// only inside this list), pageSize.
 function renderPagedGrid(grid, items, buildCard, options = {}) {
     const pageSize = options.pageSize || LIST_PAGE_SIZE;
     const key = options.key || "";
-    let state = pagedGridState.get(grid);
-    if (!state || state.key !== key) {
-        state = { key, page: options.startPage || 1 };
+    let state = options.state || pagedGridState.get(grid);
+    if (!state) {
+        state = {};
         pagedGridState.set(grid, state);
     }
-    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-    state.page = Math.min(Math.max(1, state.page), totalPages);
+    if (state.key !== key || state.page === undefined) {
+        state.key = key;
+        state.page = options.startPage || 1;
+        state.query = "";
+    }
 
     removeListPagers(grid);
 
+    const searchText = typeof options.searchText === "function" ? options.searchText : null;
+    let shown = items;
+    const applyQuery = () => {
+        const q = (state.query || "").trim().toLowerCase();
+        shown = q && searchText ? items.filter((item) => String(searchText(item) || "").toLowerCase().includes(q)) : items;
+    };
+    applyQuery();
+    const totalPages = () => Math.max(1, Math.ceil(shown.length / pageSize));
+
     const pagers = [];
+    const pageAreas = [];
     const draw = () => {
+        state.page = Math.min(Math.max(1, state.page), totalPages());
         grid.innerHTML = "";
-        const start = (state.page - 1) * pageSize;
-        const fragment = document.createDocumentFragment();
-        items.slice(start, start + pageSize).forEach((item) => fragment.appendChild(buildCard(item)));
-        grid.appendChild(fragment);
-        pagers.forEach(fillPager);
+        if (shown.length === 0) {
+            const empty = document.createElement("p");
+            empty.style.cssText = "color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;";
+            empty.textContent = `Nothing here matches "${state.query.trim()}".`;
+            grid.appendChild(empty);
+        } else {
+            const start = (state.page - 1) * pageSize;
+            const fragment = document.createDocumentFragment();
+            shown.slice(start, start + pageSize).forEach((item) => fragment.appendChild(buildCard(item)));
+            grid.appendChild(fragment);
+        }
+        pageAreas.forEach(fillPageArea);
+        if (pagers[1]) pagers[1].hidden = totalPages() <= 1;
         if (typeof options.onPage === "function") options.onPage(state.page);
     };
 
     const goTo = (page, fromBottom) => {
-        if (page === state.page || page < 1 || page > totalPages) return;
+        if (page === state.page || page < 1 || page > totalPages()) return;
         state.page = page;
         draw();
         // From the bottom bar, bring the top of the new page into view
@@ -4716,9 +4747,10 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
         }
     };
 
-    function fillPager(pager) {
-        const fromBottom = pager === pagers[1];
-        pager.textContent = "";
+    function fillPageArea(area) {
+        const fromBottom = area === pageAreas[1];
+        area.textContent = "";
+        const pages = totalPages();
         const addButton = (label, page, extraClass, ariaLabel) => {
             const btn = document.createElement("button");
             btn.type = "button";
@@ -4729,31 +4761,37 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
                 btn.classList.add("active");
                 btn.setAttribute("aria-current", "page");
             }
-            btn.disabled = page < 1 || page > totalPages;
+            btn.disabled = page < 1 || page > pages;
             btn.addEventListener("click", () => goTo(page, fromBottom));
-            pager.appendChild(btn);
+            area.appendChild(btn);
         };
-        addButton("‹ Previous", state.page - 1, "list-pager-step", "Previous page");
-        pageNumbersAround(state.page, totalPages).forEach((n) => {
-            if (n === "…") {
-                const gap = document.createElement("span");
-                gap.className = "list-pager-gap";
-                gap.textContent = "…";
-                pager.appendChild(gap);
-            } else {
-                addButton(String(n), n, "", `Page ${n}`);
-            }
-        });
-        addButton("Next ›", state.page + 1, "list-pager-step", "Next page");
+        if (pages > 1) {
+            addButton("‹ Previous", state.page - 1, "list-pager-step", "Previous page");
+            pageNumbersAround(state.page, pages).forEach((n) => {
+                if (n === "…") {
+                    const gap = document.createElement("span");
+                    gap.className = "list-pager-gap";
+                    gap.textContent = "…";
+                    area.appendChild(gap);
+                } else {
+                    addButton(String(n), n, "", `Page ${n}`);
+                }
+            });
+            addButton("Next ›", state.page + 1, "list-pager-step", "Next page");
+        }
         const info = document.createElement("span");
         info.className = "list-pager-info";
-        const first = (state.page - 1) * pageSize + 1;
-        const last = Math.min(items.length, state.page * pageSize);
-        info.textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${items.length.toLocaleString()}`;
-        pager.appendChild(info);
+        if (shown.length === 0) {
+            info.textContent = "0 found";
+        } else {
+            const first = (state.page - 1) * pageSize + 1;
+            const last = Math.min(shown.length, state.page * pageSize);
+            info.textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${shown.length.toLocaleString()}${shown !== items ? " found" : ""}`;
+        }
+        area.appendChild(info);
     }
 
-    if (totalPages > 1) {
+    if (items.length > pageSize) {
         grid.dataset.paged = "1";
         const top = document.createElement("div");
         const bottom = document.createElement("div");
@@ -4763,6 +4801,33 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
         bottom.setAttribute("role", "navigation");
         bottom.setAttribute("aria-label", "Pages");
         bottom.classList.add("list-pager-bottom");
+
+        // Search only inside this list, right beside its pages.
+        if (searchText) {
+            const search = document.createElement("input");
+            search.type = "search";
+            search.className = "list-pager-search";
+            search.placeholder = options.searchPlaceholder || "Search this list…";
+            search.setAttribute("aria-label", search.placeholder);
+            search.value = state.query || "";
+            let debounce = null;
+            search.addEventListener("input", () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => {
+                    state.query = search.value;
+                    state.page = 1;
+                    applyQuery();
+                    draw();
+                }, 180);
+            });
+            top.appendChild(search);
+        }
+        [top, bottom].forEach((bar) => {
+            const area = document.createElement("div");
+            area.className = "list-pager-pages";
+            bar.appendChild(area);
+            pageAreas.push(area);
+        });
         grid.before(top);
         grid.after(bottom);
         pagers.push(top, bottom);
@@ -4863,6 +4928,10 @@ function formatFreeSinceDate(timestampMs) {
 // serves it from disk from then on. A URL that isn't remote http(s) already
 // (the local "covers/default.jpg" placeholder, or a covercache:// URL that
 // went through this already) is returned untouched.
+// Every web cover in the app (games, films, series, books…) loads through
+// this: the first time a cover is shown it is saved on disk (main.js,
+// covercache://), and from then on it opens straight from the computer —
+// no waiting on the internet the next time Riftgate starts.
 function freeGameCoverCacheSrc(url) {
     if (url && /^https?:\/\//i.test(url)) {
         return `covercache://cover?u=${encodeURIComponent(url)}`;
@@ -5672,9 +5741,10 @@ function renderFreeGamesPlatformTabs() {
 // renderFreeGames rebuilds its grids from scratch on every change, so the
 // page a single-platform list is on is remembered here, per list, and kept
 // while the platform, search, genre and sort stay the same.
-const freeGamesPageMemory = { key: "", pages: {} };
-function keepFreeGamesPage(listName) {
-    return (page) => { freeGamesPageMemory.pages[listName] = page; };
+const freeGamesPageMemory = { key: "", lists: {} };
+function freeGamesListState(listName) {
+    if (!freeGamesPageMemory.lists[listName]) freeGamesPageMemory.lists[listName] = {};
+    return freeGamesPageMemory.lists[listName];
 }
 
 function renderFreeGames() {
@@ -5694,7 +5764,7 @@ function renderFreeGames() {
     const freeGamesListKey = [searchTerm, platformFilter, categoryFilter, sortBy].join("|");
     if (freeGamesPageMemory.key !== freeGamesListKey) {
         freeGamesPageMemory.key = freeGamesListKey;
-        freeGamesPageMemory.pages = {};
+        freeGamesPageMemory.lists = {};
     }
 
     const filtered = freeGamesCache.filter((g) => {
@@ -5773,7 +5843,11 @@ function renderFreeGames() {
                 grid.className = "games-grid browse-grid";
                 section.appendChild(grid);
                 restRow.appendChild(section);
-                renderPagedGrid(grid, items, (g) => buildFreeGameCard(g, sorted), { startPage: freeGamesPageMemory.pages[heading], onPage: keepFreeGamesPage(heading) });
+                renderPagedGrid(grid, items, (g) => buildFreeGameCard(g, sorted), {
+                    state: freeGamesListState(heading),
+                    searchText: (g) => g.name,
+                    searchPlaceholder: `Search ${heading.replace(/^\S+\s/, "")} games…`
+                });
             };
 
             buildVrGroup("🕶️ Native VR", native);
@@ -5797,7 +5871,12 @@ function renderFreeGames() {
         grid.className = "games-grid browse-grid";
         section.appendChild(grid);
         restRow.appendChild(section);
-        renderPagedGrid(grid, sorted, (g) => buildFreeGameCard(g, sorted), { startPage: freeGamesPageMemory.pages[platformFilter], onPage: keepFreeGamesPage(platformFilter) });
+        renderPagedGrid(grid, sorted, (g) => buildFreeGameCard(g, sorted), {
+            state: freeGamesListState(platformFilter),
+            searchText: (g) => g.name,
+            // "Search Steam games…", "Search Epic Games…" (the tab's own name).
+            searchPlaceholder: `Search ${platformFilter}${/games?$/i.test(platformFilter) ? "" : " games"}…`
+        });
         return;
     }
 
@@ -6070,7 +6149,7 @@ function buildEbookCard(book, navList) {
         cover.src = "covers/no-cover-book.jpg";
         lookUpLibraryBookCover(book, cover);
     };
-    cover.src = book.cover || "covers/no-cover-book.jpg";
+    cover.src = freeGameCoverCacheSrc(book.cover) || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
     cover.addEventListener("click", () => {
@@ -6225,7 +6304,7 @@ function renderReadingRoom() {
         return;
     }
 
-    renderPagedGrid(readingRoomContainer, filtered, (book) => buildEbookCard(book, filtered), { key: `${searchTerm}|${sortBy}` });
+    renderPagedGrid(readingRoomContainer, filtered, (book) => buildEbookCard(book, filtered), { key: `${searchTerm}|${sortBy}`, searchText: (book) => `${book.title || ""} ${book.author || ""}`, searchPlaceholder: "Search your library…" });
 }
 
 async function loadReadingRoom() {
@@ -6254,7 +6333,7 @@ function buildDiscoveryEbookCard(book, navList) {
     const cover = document.createElement("img");
     cover.className = "cover-img";
     cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
-    cover.src = book.cover || "covers/no-cover-book.jpg";
+    cover.src = freeGameCoverCacheSrc(book.cover) || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
     cover.addEventListener("click", () => {
@@ -6373,7 +6452,7 @@ function renderEbookDiscoveryGrid(grid, books, errorMessage) {
         return;
     }
     const sortedDiscoveryBooks = sortNoCoverLast(visibleBooks, "cover");
-    renderPagedGrid(grid, sortedDiscoveryBooks, (book) => buildDiscoveryEbookCard(book, sortedDiscoveryBooks), { key: listIdentity(sortedDiscoveryBooks) });
+    renderPagedGrid(grid, sortedDiscoveryBooks, (book) => buildDiscoveryEbookCard(book, sortedDiscoveryBooks), { key: listIdentity(sortedDiscoveryBooks), searchText: (book) => `${book.title || ""} ${book.author || ""}`, searchPlaceholder: "Search these books…" });
 }
 
 async function loadEbookDiscovery() {
@@ -6478,7 +6557,7 @@ function buildBuyFreeBookCard(book, section, navList) {
     const cover = document.createElement("img");
     cover.className = "cover-img";
     cover.onerror = () => { cover.onerror = null; cover.src = "covers/no-cover-book.jpg"; };
-    cover.src = book.cover || "covers/no-cover-book.jpg";
+    cover.src = freeGameCoverCacheSrc(book.cover) || "covers/no-cover-book.jpg";
     cover.alt = book.title;
     cover.style.cursor = "pointer";
     cover.addEventListener("click", async () => {
@@ -6624,7 +6703,10 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
         ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
         : sortNoCoverLast(visibleBooks, "cover");
 
-    renderPagedGrid(grid, ordered, (book) => buildBuyFreeBookCard(book, section, ordered), { key: listIdentity(ordered) });
+    renderPagedGrid(grid, ordered, (book) => buildBuyFreeBookCard(book, section, ordered), {
+        key: listIdentity(ordered), searchText: (book) => `${book.title || ""} ${book.author || ""}`,
+        searchPlaceholder: kind === "manga" ? "Search manga…" : kind === "comics" ? "Search comics…" : "Search these books…"
+    });
 
     // Manga/Comics specifically get a much bigger list than before, so
     // this keeps that from dominating the screen by default — same
@@ -6729,7 +6811,7 @@ function renderFreeFindsSection() {
     section.style.display = activeReadingRoomTab === "discover" ? "" : "none";
     grid.innerHTML = "";
     const sortedFreeFinds = sortNoCoverLast(visibleBooks, "cover");
-    renderPagedGrid(grid, sortedFreeFinds, (book) => buildBuyFreeBookCard(book, "book", sortedFreeFinds), { key: listIdentity(sortedFreeFinds) });
+    renderPagedGrid(grid, sortedFreeFinds, (book) => buildBuyFreeBookCard(book, "book", sortedFreeFinds), { key: listIdentity(sortedFreeFinds), searchText: (book) => `${book.title || ""} ${book.author || ""}`, searchPlaceholder: "Search free finds…" });
 }
 
 async function loadBuyFreeBooks() {
@@ -7197,7 +7279,7 @@ async function searchShows() {
         // textContent, never innerHTML.
         if (show.image) {
             const img = document.createElement("img");
-            img.src = show.image;
+            img.src = freeGameCoverCacheSrc(show.image);
             img.alt = show.name;
             chip.appendChild(img);
         }
@@ -7301,7 +7383,7 @@ function buildShowCard(show, navList) {
     card.innerHTML = `
         <button class="removeShowBtn" title="Stop tracking">✕</button>
         <div class="cover-wrap">
-            <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(show.image) || "covers/default.jpg"}" alt="">
             <span class="media-type-badge" hidden></span>
             <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
@@ -8053,7 +8135,7 @@ function buildMovieCard(movie, showReleaseDate, navList) {
     // third-party content, so both go through textContent below.
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${movie.poster || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(movie.poster) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
@@ -8252,7 +8334,7 @@ function buildStreamingProviderCard(item, providerName) {
     // third-party content, so both go through textContent below.
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${item.image || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(item.image) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
@@ -8855,7 +8937,7 @@ function renderRelatedGames(rawGames) {
         card.className = "game-card";
         card.innerHTML = `
             <div class="cover-wrap">
-                <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
+                <img class="cover-img" src="${freeGameCoverCacheSrc(game.image) || "covers/default.jpg"}" alt="">
             </div>
             <div class="game-info">
                 <h3></h3>
@@ -9048,7 +9130,7 @@ function buildNewShowCard(show, navList) {
     // untrusted third-party content, so both go through textContent.
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${show.image || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(show.image) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
@@ -9249,7 +9331,7 @@ function buildUpcomingGameCard(game, navList) {
     // third-party content, so it goes through textContent below.
     card.innerHTML = `
         <div class="cover-wrap">
-            <img class="cover-img" src="${game.image || "covers/default.jpg"}" alt="">
+            <img class="cover-img" src="${freeGameCoverCacheSrc(game.image) || "covers/default.jpg"}" alt="">
             <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
             <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
