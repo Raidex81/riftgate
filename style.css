@@ -3985,38 +3985,41 @@ body.density-compact #moviesGrid.games-grid{
     justify-content:center;
 }
 
-/* Free Games platform buttons: a dark face in a thin ring with a soft
-   gradient glow behind it that spins while you point at it (and on the
-   selected platform). Adapted from Uiverse.io by SelfMadeSystem (MIT):
-   the fixed 120×60 clip-path shape became a rounded box that fits any
-   label, the glow uses the theme's --accent-1 / --accent-2, and the
-   dotted page backdrop was left out. The #unopaq filters are in
-   index.html. */
+/* ================= Glowing buttons (.glow-tab) =================
+   Section tabs, Free Games platform buttons, Reading Room tabs and the
+   Store's reseller links. A face in a thin ring with slim gradient glows
+   behind it, in the theme's --accent-1 / --accent-2. Adapted from
+   Uiverse.io by SelfMadeSystem (MIT): the fixed 120×60 clip-path became
+   each button's own rounded shape, and the page-wide dotted backdrop was
+   left out. makeGlowButton() in renderer.js builds the inside; the
+   #unopaq filters are in index.html.
+
+   Selection buttons (tabs, platforms): only the selected one glows and
+   slowly spins; the others show a faint hint of colour in the ring.
+   Action buttons (.glow-tab--action, the Store links): the glow wakes up
+   while you point at them. */
 .glow-tab{
-    --glow-face:color-mix(in srgb, var(--bg-primary) 70%, #000);
+    --glow-face:var(--bg-tertiary);
     position:relative;
     display:inline-flex;
     padding:0;
     border:none;
-    border-radius:14px;
+    border-radius:10px;
     background:none;
-    color:var(--text-secondary, var(--text-primary));
-    font-size:12px;
+    color:var(--text-primary);
+    font-size:13px;
     font-weight:600;
     white-space:nowrap;
     cursor:pointer;
     isolation:isolate;
     transition:color .2s ease, transform .15s ease;
 }
-body.light-theme .glow-tab{
-    --glow-face:var(--bg-secondary);
-}
 .glow-tab-border{
     position:relative;
     display:block;
-    padding:2px;
+    padding:1.5px;
     border-radius:inherit;
-    background:#0005;
+    background:var(--border-color);
 }
 .glow-tab-face{
     position:relative;
@@ -4024,8 +4027,9 @@ body.light-theme .glow-tab{
     display:flex;
     align-items:center;
     justify-content:center;
-    padding:7px 14px;
-    border-radius:12px;
+    gap:8px;
+    padding:9px 16px;
+    border-radius:8.5px;
     background:var(--glow-face);
     color:inherit;
     transition:background .2s ease;
@@ -4040,19 +4044,18 @@ body.light-theme .glow-tab{
     pointer-events:none;
     transition:opacity .3s ease;
 }
-/* Slim glow: a thin halo hugging the button rather than a wide cloud. */
 .glow-tab-spin-blur{
-    filter:blur(0.45em) url(#unopaq);
+    filter:blur(0.3em) url(#unopaq);
 }
 .glow-tab-spin-intense{
-    inset:-0.06em;
-    filter:blur(0.12em) url(#unopaq2);
-    border-radius:0.8em;
+    inset:-0.04em;
+    filter:blur(0.08em) url(#unopaq2);
 }
 .glow-tab-spin-inside{
     inset:-2px;
     z-index:0;
     filter:blur(2px) url(#unopaq3);
+    opacity:.12;
 }
 .glow-tab-spin::before{
     content:"";
@@ -4070,37 +4073,47 @@ body.light-theme .glow-tab{
 .glow-tab-spin-inside::before{
     background:linear-gradient(90deg, color-mix(in srgb, var(--accent-1) 45%, #fff) 30%, transparent 45% 55%, color-mix(in srgb, var(--accent-2) 45%, #fff) 70%);
 }
-/* Not selected: only the ring shows a faint, still hint of colour
-   (the inside glow); pointing at one brightens that a little — only the
-   selected platform glows fully and spins, so there's never a doubt which
-   one is chosen. */
-.glow-tab .glow-tab-spin-inside{
-    opacity:.18;
-}
 .glow-tab:hover,
 .glow-tab:focus-visible{
     color:var(--text-primary);
 }
 .glow-tab:not(.active):hover .glow-tab-spin-inside,
 .glow-tab:not(.active):focus-visible .glow-tab-spin-inside{
-    opacity:.45;
-}
-.glow-tab.active .glow-tab-spin::before{
-    animation-play-state:running;
-}
-/* The selected platform keeps glowing and reads in white on a tinted face. */
-.glow-tab.active{
-    color:#fff;
-}
-.glow-tab.active .glow-tab-spin{
-    opacity:.9;
-}
-.glow-tab.active .glow-tab-face{
-    background:color-mix(in srgb, var(--accent-1) 28%, var(--glow-face));
+    opacity:.35;
 }
 .glow-tab:focus-visible{
     outline:2px solid var(--accent-1);
     outline-offset:3px;
+}
+/* Selected */
+.glow-tab.active{
+    color:#fff;
+    background:none;
+}
+.glow-tab.active .glow-tab-spin{
+    opacity:.55;
+}
+.glow-tab.active .glow-tab-spin::before{
+    animation-play-state:running;
+}
+.glow-tab.active .glow-tab-face{
+    background:color-mix(in srgb, var(--accent-1) 32%, var(--glow-face));
+}
+/* Action buttons: the glow shows while pointed at, and a press lights it up. */
+.glow-tab--action:hover .glow-tab-spin,
+.glow-tab--action:focus-visible .glow-tab-spin{
+    opacity:.55;
+}
+.glow-tab--action:hover .glow-tab-spin::before,
+.glow-tab--action:focus-visible .glow-tab-spin::before{
+    animation-play-state:running;
+}
+.glow-tab--action:hover .glow-tab-face,
+.glow-tab--action:focus-visible .glow-tab-face{
+    background:color-mix(in srgb, var(--accent-1) 18%, var(--glow-face));
+}
+.glow-tab--action:active .glow-tab-spin{
+    opacity:.9;
 }
 @keyframes glowTabSpin{
     0%{ rotate:10deg; }
@@ -4115,51 +4128,58 @@ body.light-theme .glow-tab{
     .glow-tab-spin::before{ animation:none; }
 }
 
-/* Section tabs (New, Installed, Free Games…) in the same glowing style,
-   keeping their own shape and size (10px corners, 1.5px ring) with an even
-   quieter, slimmer glow than the platform buttons. */
+/* Each kind keeps its own shape and size. */
 .sectionOption.glow-tab{
-    --glow-face:var(--bg-tertiary);
-    padding:0;
     gap:0;
+    transition:color .2s ease;
+}
+.free-games-tab.glow-tab{
+    --glow-face:color-mix(in srgb, var(--bg-primary) 70%, #000);
+    border-radius:14px;
+    font-size:12px;
+    color:var(--text-secondary, var(--text-primary));
+}
+.free-games-tab.glow-tab .glow-tab-face{
+    padding:7.5px 14px;
+    border-radius:12.5px;
+}
+body.light-theme .free-games-tab.glow-tab{
+    --glow-face:var(--bg-secondary);
+}
+/* (These two keep their older base rules elsewhere in this file, which
+   would otherwise put padding, a border and a hover background on the
+   outside of the glow.) */
+.reading-room-tab.glow-tab,
+.reading-room-tab.glow-tab:hover,
+.reading-room-tab.glow-tab.active,
+.storePlatformLinkBtn.glow-tab,
+.storePlatformLinkBtn.glow-tab:hover{
+    gap:0;
+    padding:0;
     border:none;
-    border-radius:10px;
     background:none;
-    font-size:13px;
-    color:var(--text-primary);
 }
-.sectionOption.glow-tab .glow-tab-border{
-    padding:1.5px;
-    background:var(--border-color);
+.reading-room-tab.glow-tab{
+    /* The tab bar's own colour: unselected tabs look see-through, as before. */
+    --glow-face:var(--bg-secondary);
+    color:var(--text-muted);
 }
-.sectionOption.glow-tab .glow-tab-face{
-    gap:8px;
-    padding:9px 16px;
-    border-radius:8.5px;
-}
-.sectionOption.glow-tab .glow-tab-spin-blur{
-    filter:blur(0.3em) url(#unopaq);
-}
-.sectionOption.glow-tab .glow-tab-spin-intense{
-    inset:-0.04em;
-    filter:blur(0.08em) url(#unopaq2);
-    border-radius:10px;
-}
-.sectionOption.glow-tab .glow-tab-spin-inside{
-    opacity:.12;
-}
-.sectionOption.glow-tab:not(.active):hover .glow-tab-spin-inside{
-    opacity:.35;
-}
-.sectionOption.glow-tab.active{
+.reading-room-tab.glow-tab.active{
     color:#fff;
-    background:none;
 }
-.sectionOption.glow-tab.active .glow-tab-spin{
-    opacity:.55;
+.reading-room-tab.glow-tab .glow-tab-border{
+    padding:1px;
 }
-.sectionOption.glow-tab.active .glow-tab-face{
-    background:color-mix(in srgb, var(--accent-1) 32%, var(--glow-face));
+.reading-room-tab.glow-tab .glow-tab-face{
+    padding:10px 18px;
+    border-radius:9px;
+}
+.storePlatformLinkBtn.glow-tab{
+    font-size:12.5px;
+}
+.storePlatformLinkBtn.glow-tab .glow-tab-face{
+    gap:6px;
+    padding:8px 14px;
 }
 
 /* "View all N →" button under a capped platform preview (see

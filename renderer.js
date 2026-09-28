@@ -1214,7 +1214,7 @@ const CHANGELOG = {
         "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
         "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
         "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
-        "Changed: the section tabs (New, Installed, Free Games…) and Free Games' platform buttons have a new look — the selected one has a slim glow in your theme's colours that slowly spins",
+        "Changed: the section tabs, Free Games' platform buttons and Reading Room's tabs have a new look — the selected one has a slim glow in your theme's colours that slowly spins. The Store's reseller links glow while you point at them",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -4021,8 +4021,9 @@ function initFactTicker() {
 // Uiverse.io by SelfMadeSystem, MIT): two slim glows behind, a thin ring,
 // and the button's own content moved into the face. Only the selected
 // button glows and spins.
-function makeGlowButton(btn) {
+function makeGlowButton(btn, { action = false } = {}) {
     if (btn.classList.contains("glow-tab")) return btn;
+    if (action) btn.classList.add("glow-tab--action");
     const face = document.createElement("span");
     face.className = "glow-tab-face";
     while (btn.firstChild) face.appendChild(btn.firstChild);
@@ -4033,7 +4034,8 @@ function makeGlowButton(btn) {
 }
 
 const sectionOptions = document.querySelectorAll(".sectionOption");
-sectionOptions.forEach(makeGlowButton);
+sectionOptions.forEach((btn) => makeGlowButton(btn));
+document.querySelectorAll(".reading-room-tab").forEach((btn) => makeGlowButton(btn));
 const sidebarNavButtons = document.querySelectorAll(".sidebarNavBtn");
 
 // The "Start on section" dropdown (in Settings) used to keep its own
@@ -11501,6 +11503,7 @@ function updateStorePlatformLinks() {
         btn.querySelector("span").textContent = source;
         btn.title = `Open ${source} in your browser`;
         btn.addEventListener("click", () => window.riftgate.invoke("open-external", url));
+        makeGlowButton(btn, { action: true });
         container.appendChild(btn);
     });
 }
