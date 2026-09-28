@@ -1216,6 +1216,7 @@ const CHANGELOG = {
         "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
         "Changed: the section tabs, Free Games' platform buttons and Reading Room's tabs have a new look — the selected one has a slim glow in your theme's colours that slowly spins. The Store's reseller links glow while you point at them",
         "Changed: a new Login / Log out button — glassy, lit from above in your theme's colour, with a soft halo when you point at it",
+        "Changed: the \"See all\" lists (Upcoming Movies and Games, In Theaters, New Series and Anime, streaming services, itch.io) show 100 at a time with page buttons, while the rest keeps loading in the background",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -4738,18 +4739,23 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
 
     const pagers = [];
     const pageAreas = [];
+    let drawnPage = [];
+    const pageSlice = () => {
+        const start = (state.page - 1) * pageSize;
+        return shown.slice(start, start + pageSize);
+    };
     const draw = () => {
         state.page = Math.min(Math.max(1, state.page), totalPages());
         grid.innerHTML = "";
+        drawnPage = pageSlice();
         if (shown.length === 0) {
             const empty = document.createElement("p");
             empty.style.cssText = "color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;";
-            empty.textContent = `Nothing here matches "${state.query.trim()}".`;
+            empty.textContent = (state.query || "").trim() ? `Nothing here matches "${state.query.trim()}".` : (options.emptyText || "");
             grid.appendChild(empty);
         } else {
-            const start = (state.page - 1) * pageSize;
             const fragment = document.createDocumentFragment();
-            shown.slice(start, start + pageSize).forEach((item) => fragment.appendChild(buildCard(item)));
+            drawnPage.forEach((item) => fragment.appendChild(buildCard(item)));
             grid.appendChild(fragment);
         }
         pageAreas.forEach(fillPageArea);
@@ -4764,8 +4770,14 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
         // From the bottom bar, bring the top of the new page into view
         // (below the sticky section tabs).
         if (fromBottom && pagers[0]) {
-            const top = pagers[0].getBoundingClientRect().top + window.scrollY - 170;
-            window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            const box = options.scrollContainer;
+            if (box) {
+                const top = box.scrollTop + pagers[0].getBoundingClientRect().top - box.getBoundingClientRect().top - 12;
+                box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            } else {
+                const top = pagers[0].getBoundingClientRect().top + window.scrollY - 170;
+                window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            }
         }
     };
 
@@ -4856,6 +4868,30 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
         grid._listPagers = pagers;
     }
     draw();
+
+    // For lists that keep growing while open ("See all" loading more pages
+    // from the internet): take the longer list without redrawing the cards
+    // when the page on screen stays the same — only the page buttons and
+    // counts change. Crossing the one-page size rebuilds the whole thing.
+    return {
+        update(newItems) {
+            const hadPagers = pagers.length > 0;
+            if (hadPagers !== (newItems.length > pageSize)) {
+                return renderPagedGrid(grid, newItems, buildCard, { ...options, state });
+            }
+            items = newItems;
+            applyQuery();
+            const next = pageSlice();
+            const same = next.length === drawnPage.length && next.every((item, i) => item === drawnPage[i]);
+            if (same && shown.length > 0) {
+                pageAreas.forEach(fillPageArea);
+                if (pagers[1]) pagers[1].hidden = totalPages() <= 1;
+            } else {
+                draw();
+            }
+            return this;
+        }
+    };
 }
 
 function attachSeeMore(grid, rowsVisible = 2, expandedRowsCap = null) {
@@ -9582,53 +9618,53 @@ function updateSeeAllStatus() {
     } else if (state.autoLoad) {
         text = `Loading all ${def.noun}… ${loaded.toLocaleString()}${state.totalResults ? ` of about ${state.totalResults.toLocaleString()}` : ""}`;
     } else {
-        text = `${loaded.toLocaleString()}${state.totalResults ? ` of ${state.totalResults.toLocaleString()}` : ""} ${def.noun} loaded — scroll down for more`;
+        text = `${loaded.toLocaleString()}${state.totalResults ? ` of ${state.totalResults.toLocaleString()}` : ""} ${def.noun} loaded — more load as you go through the pages`;
     }
     if (state.error && loaded > 0) text += ` · ${state.error}`;
     document.getElementById("seeAllCount").textContent = text;
     seeAllStatus.textContent = state.hasMore && !state.autoLoad ? (state.loading ? "Loading more…" : "") : "";
 }
 
+// The full list shows 100 at a time with page buttons above and below
+// (renderPagedGrid), while the rest keeps loading in the background; the
+// search box and sort at the top work on the whole list.
 function renderSeeAll() {
     const state = seeAllState;
     if (!state) return;
     const def = SEE_ALL_KINDS[state.kind];
     state.visible = seeAllVisibleItems();
-    seeAllGrid.innerHTML = "";
-    if (state.visible.length === 0 && !state.loading) {
-        seeAllGrid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${state.items.length ? "Nothing matches your search." : "Nothing to show right now."}</p>`;
-    }
-    const frag = document.createDocumentFragment();
-    state.visible.forEach((it) => appendSeeAllCard(frag, def, it, state));
-    seeAllGrid.appendChild(frag);
+    const key = `${seeAllSearch.value.trim().toLowerCase()}|${seeAllSort.value}`;
+    const emptyText = state.loading ? "" : (state.items.length ? "Nothing matches your search." : "Nothing to show right now.");
+    const build = (it) => {
+        try {
+            return def.build(it, state.visible, state.ctx);
+        } catch (err) {
+            console.error("[see-all] couldn't build a card:", err);
+            return document.createElement("span");
+        }
+    };
+    state.pages = renderPagedGrid(seeAllGrid, state.visible, build, {
+        state: state.pageState,
+        key,
+        emptyText,
+        scrollContainer: seeAllScroll,
+        onPage: () => { if (key === state.pageState.key) maybeLoadMoreSeeAll(); }
+    });
     state.renderedCount = state.visible.length;
     updateSeeAllStatus();
 }
 
-// One odd item from a third-party list must never stop the rest showing.
-function appendSeeAllCard(parent, def, item, state) {
-    try {
-        parent.appendChild(def.build(item, state.visible, state.ctx));
-    } catch (err) {
-        console.error("[see-all] couldn't build a card:", err);
-    }
-}
 
 // New page arrived: append instead of rebuilding when the order can't
 // change (no search, source order), so scrolling isn't disturbed.
 function renderSeeAllAppend() {
     const state = seeAllState;
-    const def = SEE_ALL_KINDS[state.kind];
-    if (seeAllSearch.value.trim() || seeAllSort.value !== "default" || state.renderedCount === 0) {
+    if (!state.pages || state.renderedCount === 0) {
         renderSeeAll();
         return;
     }
-    const before = state.visible.length;
     state.visible = seeAllVisibleItems();
-    const added = state.visible.slice(before);
-    const frag = document.createDocumentFragment();
-    added.forEach((it) => appendSeeAllCard(frag, def, it, state));
-    seeAllGrid.appendChild(frag);
+    state.pages = state.pages.update(state.visible);
     state.renderedCount = state.visible.length;
     updateSeeAllStatus();
 }
@@ -9680,13 +9716,14 @@ async function loadSeeAllPage() {
     }
 }
 
-// Scroll-driven loading for the long lists: fetch the next page whenever
-// the bottom of the grid is within about two screens.
+// Lists too long to load all at once (and itch.io, which never ends)
+// stay one page ahead of the page on screen: enough is fetched for the
+// next page to exist, so "Next ›" is always there while more remain.
 function maybeLoadMoreSeeAll() {
     const state = seeAllState;
     if (!state || state.autoLoad || !state.hasMore || state.loading) return;
-    const remaining = seeAllScroll.scrollHeight - seeAllScroll.scrollTop - seeAllScroll.clientHeight;
-    if (remaining < seeAllScroll.clientHeight * 2) loadSeeAllPage();
+    const wanted = ((state.pageState.page || 1) + 1) * LIST_PAGE_SIZE;
+    if ((state.visible || []).length < wanted) loadSeeAllPage();
 }
 
 seeAllScroll.addEventListener("scroll", maybeLoadMoreSeeAll, { passive: true });
@@ -9706,6 +9743,8 @@ function openSeeAll(kind, ctx = {}) {
         loading: false,
         error: null,
         totalResults: null,
+        pageState: {},
+        pages: null,
         token: Symbol(kind)
     };
     document.getElementById("seeAllTitle").textContent = def.title(ctx);
@@ -9728,6 +9767,7 @@ function openSeeAll(kind, ctx = {}) {
     });
     seeAllGrid.classList.toggle("see-all-posters", !!def.posters);
     seeAllGrid.innerHTML = "";
+    removeListPagers(seeAllGrid);
     seeAllScroll.scrollTop = 0;
     seeAllOverlay.hidden = false;
     document.body.classList.add("see-all-open");
@@ -9741,6 +9781,7 @@ function closeSeeAll() {
     seeAllOverlay.hidden = true;
     document.body.classList.remove("see-all-open");
     seeAllGrid.innerHTML = "";
+    removeListPagers(seeAllGrid);
 }
 
 let seeAllSearchTimer = null;
@@ -10927,12 +10968,10 @@ function updateAdminUiVisibility() {
     adminBtn.style.display = "";
     // "active" now tracks plain login status (any signed-in user), not
     // just admin mode, so the button visually reports logged in vs.
-    // logged out at a glance from any section — admins keep the shield
-    // icon on top of that for their own extra distinction.
+    // logged out at a glance from any section. Plain words, no symbol
+    // (admins are told apart by the name shown beside it).
     adminBtn.classList.toggle("active", isLoggedIn);
-    adminBtn.textContent = isLoggedIn
-        ? (isAdminMode ? "🛡️ Log Out" : "🔓 Log Out")
-        : "🔑 Login";
+    adminBtn.textContent = isLoggedIn ? "Log Out" : "Login";
     adminBtn.title = isLoggedIn ? "Log out" : "Log in";
 
     // Visible from every section (unlike the Vault's own username line),
