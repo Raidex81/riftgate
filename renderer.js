@@ -1214,6 +1214,7 @@ const CHANGELOG = {
         "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
         "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
         "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
+        "Changed: Free Games' platform buttons glow in your theme's colours — the glow spins when you point at one, and the selected platform keeps glowing",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -5725,9 +5726,12 @@ function renderFreeGamesPlatformTabs() {
     Array.from(freeGamesPlatformSelect.options).forEach((opt) => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "free-games-tab";
+        btn.className = "free-games-tab glow-tab";
         if (opt.value === currentValue) btn.classList.add("active");
-        btn.textContent = opt.value === "all"
+        // Glowing button (see .glow-tab in style.css): two soft glows
+        // behind, a thin ring, then the face with the label.
+        btn.innerHTML = `<span class="glow-tab-spin glow-tab-spin-blur"></span><span class="glow-tab-spin glow-tab-spin-intense"></span><span class="glow-tab-border"><span class="glow-tab-spin glow-tab-spin-inside"></span><span class="glow-tab-face"></span></span>`;
+        btn.querySelector(".glow-tab-face").textContent = opt.value === "all"
             ? "🎮 All Platforms"
             : `${PLATFORM_ICONS[opt.value] || "🎁"} ${opt.textContent}`;
         btn.addEventListener("click", () => {

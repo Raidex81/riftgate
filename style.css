@@ -3985,28 +3985,133 @@ body.density-compact #moviesGrid.games-grid{
     justify-content:center;
 }
 
-.free-games-tab{
-    padding:8px 14px;
-    border-radius:20px;
-    border:1px solid var(--border-color, rgba(255,255,255,0.1));
-    background:var(--bg-tertiary);
+/* Free Games platform buttons: a dark face in a thin ring with a soft
+   gradient glow behind it that spins while you point at it (and on the
+   selected platform). Adapted from Uiverse.io by SelfMadeSystem (MIT):
+   the fixed 120×60 clip-path shape became a rounded box that fits any
+   label, the glow uses the theme's --accent-1 / --accent-2, and the
+   dotted page backdrop was left out. The #unopaq filters are in
+   index.html. */
+.free-games-tab.glow-tab{
+    --glow-face:color-mix(in srgb, var(--bg-primary) 70%, #000);
+    position:relative;
+    display:inline-flex;
+    padding:0;
+    border:none;
+    border-radius:14px;
+    background:none;
     color:var(--text-secondary, var(--text-primary));
     font-size:12px;
     font-weight:600;
-    cursor:pointer;
     white-space:nowrap;
-    transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    cursor:pointer;
+    isolation:isolate;
+    transition:color .2s ease, transform .15s ease;
 }
-
-.free-games-tab:hover{
-    background:var(--accent-1);
+body.light-theme .free-games-tab.glow-tab{
+    --glow-face:var(--bg-secondary);
+}
+.glow-tab-border{
+    position:relative;
+    display:block;
+    padding:3px;
+    border-radius:inherit;
+    background:#0005;
+}
+.glow-tab-face{
+    position:relative;
+    z-index:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 13px;
+    border-radius:11px;
+    background:var(--glow-face);
+    color:inherit;
+    transition:background .2s ease;
+}
+.glow-tab-spin{
+    position:absolute;
+    inset:0;
+    z-index:-2;
+    opacity:.35;
+    overflow:hidden;
+    border-radius:inherit;
+    pointer-events:none;
+    transition:opacity .3s ease;
+}
+.glow-tab-spin-blur{
+    filter:blur(1.2em) url(#unopaq);
+}
+.glow-tab-spin-intense{
+    inset:-0.125em;
+    filter:blur(0.25em) url(#unopaq2);
+    border-radius:0.75em;
+}
+.glow-tab-spin-inside{
+    inset:-2px;
+    z-index:0;
+    filter:blur(2px) url(#unopaq3);
+}
+.glow-tab-spin::before{
+    content:"";
+    position:absolute;
+    inset:-150%;
+    animation:glowTabSpin 8s cubic-bezier(0.56, 0.15, 0.28, 0.86) infinite, glowTabPulse 4s infinite;
+    animation-play-state:paused;
+}
+.glow-tab-spin-blur::before{
+    background:linear-gradient(90deg, var(--accent-1) 30%, transparent 50%, var(--accent-2) 70%);
+}
+.glow-tab-spin-intense::before{
+    background:linear-gradient(90deg, color-mix(in srgb, var(--accent-1) 70%, #fff) 20%, transparent 45% 55%, color-mix(in srgb, var(--accent-2) 70%, #fff) 80%);
+}
+.glow-tab-spin-inside::before{
+    background:linear-gradient(90deg, color-mix(in srgb, var(--accent-1) 45%, #fff) 30%, transparent 45% 55%, color-mix(in srgb, var(--accent-2) 45%, #fff) 70%);
+}
+/* Pointing at it: the glow wakes up and spins. */
+.free-games-tab.glow-tab:hover,
+.free-games-tab.glow-tab:focus-visible{
+    color:var(--text-primary);
+}
+.free-games-tab.glow-tab:hover .glow-tab-spin,
+.free-games-tab.glow-tab:focus-visible .glow-tab-spin{
+    opacity:.7;
+}
+.free-games-tab.glow-tab:hover .glow-tab-spin::before,
+.free-games-tab.glow-tab:focus-visible .glow-tab-spin::before,
+.free-games-tab.glow-tab.active .glow-tab-spin::before{
+    animation-play-state:running;
+}
+/* Pressed: full glow, like the original. */
+.free-games-tab.glow-tab:active .glow-tab-spin{
+    opacity:1;
+}
+/* The selected platform keeps glowing and reads in white on a tinted face. */
+.free-games-tab.glow-tab.active{
     color:#fff;
 }
-
-.free-games-tab.active{
-    background:var(--accent-1);
-    color:#fff;
-    border-color:var(--accent-1);
+.free-games-tab.glow-tab.active .glow-tab-spin{
+    opacity:1;
+}
+.free-games-tab.glow-tab.active .glow-tab-face{
+    background:color-mix(in srgb, var(--accent-1) 28%, var(--glow-face));
+}
+.free-games-tab.glow-tab:focus-visible{
+    outline:2px solid var(--accent-1);
+    outline-offset:3px;
+}
+@keyframes glowTabSpin{
+    0%{ rotate:10deg; }
+    50%{ rotate:190deg; }
+    to{ rotate:370deg; }
+}
+@keyframes glowTabPulse{
+    0%, to{ scale:1; }
+    50%{ scale:.75; }
+}
+@media (prefers-reduced-motion:reduce){
+    .glow-tab-spin::before{ animation:none; }
 }
 
 /* "View all N →" button under a capped platform preview (see
