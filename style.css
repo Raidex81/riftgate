@@ -6404,8 +6404,9 @@ body.gp-nav .gp-scroll.gp-focus{
 }
 
 /* ================= "Star on GitHub" button (top line, far right) =================
-   Rainbow-border button adapted from Uiverse.io by elijahgummer (MIT),
-   rewritten as plain CSS; the fill follows the theme. */
+   Glowing animated border adapted from Uiverse.io by elijahgummer (MIT),
+   rewritten as plain CSS. The border and glow use the theme's own
+   gradient (--accent-1 → --accent-2); the fill follows light/dark. */
 .github-star-btn{
     --gh-fill:#121213;
     margin-left:auto;
@@ -6426,7 +6427,7 @@ body.gp-nav .gp-scroll.gp-focus{
     background:
         linear-gradient(var(--gh-fill), var(--gh-fill)),
         linear-gradient(var(--gh-fill) 50%, color-mix(in srgb, var(--gh-fill) 60%, transparent) 80%, transparent),
-        linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+        linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-1));
     background-size:200%;
     background-clip:padding-box, border-box, border-box;
     background-origin:border-box;
@@ -6442,7 +6443,7 @@ body.gp-nav .gp-scroll.gp-focus{
     height:20%;
     width:60%;
     transform:translateX(-50%);
-    background:linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+    background:linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-1));
     background-size:200%;
     animation:ghRainbow 2s linear infinite;
     filter:blur(calc(0.8 * 1rem));
