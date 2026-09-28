@@ -1302,8 +1302,12 @@ async function createWindow() {
     win.once("ready-to-show", showMainWindow);
     setTimeout(showMainWindow, 4000);
     // TV mode changed while the window was hidden in the tray: apply it now.
+    // (The value is read when the callback runs: showMainWindow may have
+    // applied it already and cleared it, and then there's nothing to do.)
     win.on("show", () => {
-        if (pendingZoomFactor !== null) setImmediate(() => applyZoomFactor(pendingZoomFactor));
+        setImmediate(() => {
+            if (pendingZoomFactor !== null) applyZoomFactor(pendingZoomFactor);
+        });
     });
 
     win.loadURL(`http://127.0.0.1:${port}`);
@@ -3699,6 +3703,7 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
 const TV_MODE_ZOOM = 1.3;
 let pendingZoomFactor = null;
 function applyZoomFactor(factor) {
+    if (typeof factor !== "number" || !Number.isFinite(factor)) return;
     if (!win || win.isDestroyed()) return;
     if (!win.isVisible()) {
         pendingZoomFactor = factor;
