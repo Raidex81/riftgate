@@ -6832,3 +6832,20 @@ html body .sidebar-btn.refresh-btn{
 @media (prefers-reduced-motion:reduce){
     html body .refresh-btn.is-busy .refresh-btn__svg{ animation:none; }
 }
+
+/* ================= Main item buttons: press effect =================
+   Launch, Get it free, Find Tickets, Add to My Shows, Watch, Read, Visit…
+   (every .launchBtn) keep their own look; pressing one now sinks it in —
+   the colour dims and an inner shadow pushes the face down, easing out
+   over .3s. The press effect is adapted from Uiverse.io by minecrafte_8792
+   (MIT). */
+.launchBtn{
+    transition:background .3s ease, color .3s ease, box-shadow .3s ease;
+}
+.launchBtn:active:not(:disabled){
+    color:rgba(255,255,255,.55);
+    box-shadow:0 0 0 transparent, inset 4px 4px 12px rgba(0,0,0,.45), inset -4px -4px 12px rgba(255,255,255,.12);
+}
+body.light-theme .launchBtn:active:not(:disabled){
+    color:rgba(255,255,255,.7);
+}

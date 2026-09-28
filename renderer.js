@@ -1218,6 +1218,7 @@ const CHANGELOG = {
         "Changed: a new Login / Log out button — glassy, lit from above in your theme's colour, with a soft halo when you point at it",
         "Changed: the \"See all\" lists (Upcoming Movies and Games, In Theaters, New Series and Anime, streaming services, itch.io) show 100 at a time with page buttons, while the rest keeps loading in the background",
         "Changed: new Refresh buttons (Free Games, Store, Refresh All Metadata, Refresh Steam Playtime) in your theme's colours — the refresh icon slides across the button when you point at it and spins while it refreshes",
+        "Changed: the main buttons on every card (Launch, Get it free, Find Tickets, Add to My Shows…) now sink in when you press them",
         "Fixed: upcoming games (and any game card with no cover, a broken one or a sideways screenshot) now get their real box art — from Steam first, then SteamGridDB — for games already out and most still to come",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
