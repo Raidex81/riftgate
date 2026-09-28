@@ -2840,6 +2840,9 @@ body.is-fullscreen #mainContent{
 }
 
 .global-search input{
+    /* border-box: with width:100% plus its padding and border the box used
+       to stick out ~60px past its column, under the Login button. */
+    box-sizing:border-box;
     width:100%;
     padding:11px 16px 11px 42px;
     border-radius:999px;
