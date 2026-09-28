@@ -354,19 +354,47 @@ input{
     color:var(--text-primary);
 }
 
-#addBtn{
-    width:40px;
-    height:40px;
+/* "Add" buttons (Installed, Reading Room): a circle with a plus, drawn in
+   the theme colour, that turns a quarter and fills on hover. Adapted from
+   Uiverse.io by catraco (MIT), rewritten as plain CSS. */
+.add-new-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
     border:none;
-    border-radius:50%;
-    background:var(--color-success);
-    color:white;
-    font-size:22px;
+    background:none;
+    line-height:0;
     cursor:pointer;
+    outline:none;
+    transition:transform .3s ease;
 }
-
-#addBtn:hover{
-    background:var(--color-success-hover);
+.add-new-btn:hover{
+    transform:rotate(90deg);
+}
+.add-new-btn svg{
+    width:46px;
+    height:46px;
+    fill:none;
+    stroke:var(--accent-1);
+    transition:fill .3s ease, stroke .3s ease;
+}
+.add-new-btn:hover svg{
+    fill:color-mix(in srgb, var(--accent-1) 40%, #000);
+}
+.add-new-btn:active svg{
+    stroke:color-mix(in srgb, var(--accent-1) 45%, #fff);
+    fill:color-mix(in srgb, var(--accent-1) 75%, #000);
+    transition-duration:0s;
+}
+.add-new-btn:focus-visible svg{
+    filter:drop-shadow(0 0 6px var(--accent-1));
+}
+body.light-theme .add-new-btn:hover svg{
+    fill:color-mix(in srgb, var(--accent-1) 22%, #fff);
+}
+@media (prefers-reduced-motion:reduce){
+    .add-new-btn, .add-new-btn:hover{ transform:none; }
 }
 
 .category-section{
@@ -2137,21 +2165,6 @@ body.density-compact .upcoming-movies-track .game-card{
     color:var(--text-primary);
 }
 
-#addEbookBtn{
-    width:40px;
-    height:40px;
-    border:none;
-    border-radius:50%;
-    background:var(--color-success);
-    color:white;
-    font-size:22px;
-    cursor:pointer;
-    transition:background .2s;
-}
-
-#addEbookBtn:hover{
-    background:var(--color-success-hover);
-}
 
 /* ================= Favorite star ================= */
 

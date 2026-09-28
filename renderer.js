@@ -1213,6 +1213,7 @@ const CHANGELOG = {
         "New: a search box beside the page buttons that looks only in that list — \"Search Steam games…\", \"Search Epic Games…\", manga, comics, your library",
         "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
         "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
+        "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
