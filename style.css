@@ -6193,6 +6193,11 @@ body.gp-nav .gp-focus{
     box-shadow:0 0 0 7px color-mix(in srgb, var(--accent-1) 28%, transparent), 0 0 26px color-mix(in srgb, var(--accent-2) 45%, transparent) !important;
     border-radius:12px;
 }
+/* A list opened for changing with the controller (A), arrows pick. */
+body.gp-nav select.gp-editing{
+    outline-style:dashed !important;
+    background:color-mix(in srgb, var(--accent-1) 22%, var(--bg-tertiary)) !important;
+}
 body.gp-nav .game-card.gp-focus{
     transform:translateY(-4px) scale(1.035);
     transition:transform .15s ease;

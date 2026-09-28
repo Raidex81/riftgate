@@ -105,6 +105,14 @@
         return rowRect.right > 0 && rowRect.left < window.innerWidth;
     }
 
+    // Cards past the fold of a folded grid ("▾ See more") are out of sight.
+    function hiddenByFold(el, rect) {
+        const fold = el.closest(".grid-collapsed");
+        if (!fold) return false;
+        const box = fold.getBoundingClientRect();
+        return rect.top >= box.bottom - 2 || rect.bottom <= box.top + 2;
+    }
+
     function candidates() {
         const layer = activeLayer();
         const list = [];
@@ -121,6 +129,7 @@
             if (!isShown(el)) return;
             const rect = el.getBoundingClientRect();
             if (!horizontallyReachable(el, rect)) return;
+            if (hiddenByFold(el, rect)) return;
             list.push(el);
         });
         return list;
@@ -128,6 +137,7 @@
 
     // --- Moving the highlight --------------------------------------------------
     function setCurrent(el, { scroll = true } = {}) {
+        if (editingSelect && editingSelect !== el) finishSelectEdit(true);
         if (current && current !== el) current.classList.remove("gp-focus");
         current = el;
         if (!el) return;
@@ -141,13 +151,61 @@
         if (scroll) bringIntoView(el);
     }
 
+    // Pinned = inside something that stays put while the page scrolls (the
+    // section tabs, the Login button and the icons beside it, the ticker).
+    // Content scrolls underneath them, so a card can sit behind them on
+    // screen; they must never be mistaken for the card's neighbours.
+    const pinnedCache = new WeakMap();
+    function isPinned(el) {
+        if (pinnedCache.has(el)) return pinnedCache.get(el);
+        let pinned = false;
+        for (let node = el; node && node !== document.body; node = node.parentElement) {
+            const position = getComputedStyle(node).position;
+            if (position === "sticky" || position === "fixed") { pinned = true; break; }
+        }
+        pinnedCache.set(el, pinned);
+        return pinned;
+    }
+
+    // Bottom edge of the pinned bars at the top of the page right now.
+    function pinnedTopEdge() {
+        let bottom = 0;
+        document.querySelectorAll("#sectionPill, .login-status-btn, .header-actions, .fact-ticker").forEach((bar) => {
+            const r = bar.getBoundingClientRect();
+            if (r.height > 0 && r.top < window.innerHeight / 3 && getComputedStyle(bar).position === "sticky") bottom = Math.max(bottom, r.bottom);
+        });
+        return bottom;
+    }
+
     function bringIntoView(el) {
+        // Sideways inside a row: scroll the row itself.
+        const track = el.closest(".carousel-track, .hscroll-row");
+        if (track && track !== el) {
+            const r = el.getBoundingClientRect();
+            const t = track.getBoundingClientRect();
+            if (r.left < t.left) track.scrollBy({ left: r.left - t.left - 8, behavior: "smooth" });
+            else if (r.right > t.right) track.scrollBy({ left: r.right - t.right + 8, behavior: "smooth" });
+        }
+        const box = el.parentElement && el.parentElement.closest(".games-grid");
+        if (box && box.scrollHeight > box.clientHeight + 2 && getComputedStyle(box).overflowY === "auto") {
+            const r = el.getBoundingClientRect();
+            const b = box.getBoundingClientRect();
+            if (r.top < b.top) box.scrollBy({ top: r.top - b.top - 8, behavior: "smooth" });
+            else if (r.bottom > b.bottom) box.scrollBy({ top: r.bottom - b.bottom + 8, behavior: "smooth" });
+        }
+        if (activeLayer() !== document.body || isPinned(el)) {
+            if (activeLayer() !== document.body) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+            return;
+        }
+        // Up and down: keep the whole item below the pinned bars and above
+        // the hints bar (a tall card is lined up with its top).
         const rect = el.getBoundingClientRect();
-        // Keep clear of the sticky section tabs at the top and the hints bar.
-        const topSafe = 150;
+        const topSafe = pinnedTopEdge() + 16;
         const bottomSafe = window.innerHeight - 70;
-        const block = rect.top < topSafe || rect.bottom > bottomSafe ? "center" : "nearest";
-        el.scrollIntoView({ block, inline: "nearest", behavior: "smooth" });
+        let delta = 0;
+        if (rect.top < topSafe) delta = rect.top - topSafe;
+        else if (rect.bottom > bottomSafe) delta = rect.height > bottomSafe - topSafe ? rect.top - topSafe : rect.bottom - bottomSafe;
+        if (delta) window.scrollBy({ top: delta, behavior: "smooth" });
     }
 
     function currentIsValid() {
@@ -168,11 +226,36 @@
         return best || list[0] || null;
     }
 
+    // A list (country, city, sort…) is changed on purpose, not by passing
+    // over it: A opens it for changing (arrows pick, A confirms, B cancels).
+    let editingSelect = null;
+    let editingOriginalIndex = -1;
+
+    function startSelectEdit(select) {
+        editingSelect = select;
+        editingOriginalIndex = select.selectedIndex;
+        select.classList.add("gp-editing");
+    }
+
+    function finishSelectEdit(confirm) {
+        const select = editingSelect;
+        if (!select) return;
+        editingSelect = null;
+        select.classList.remove("gp-editing");
+        if (!confirm) {
+            select.selectedIndex = editingOriginalIndex;
+        } else if (select.selectedIndex !== editingOriginalIndex) {
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    }
+
     function move(direction) {
-        // A select's choices change with left/right; up/down leave it.
-        if (currentIsValid() && current.tagName === "SELECT" && (direction === "left" || direction === "right")) {
-            stepSelect(current, direction === "right" ? 1 : -1);
-            return;
+        if (editingSelect) {
+            if (!editingSelect.isConnected) { editingSelect = null; }
+            else {
+                stepSelect(editingSelect, direction === "down" || direction === "right" ? 1 : -1);
+                return;
+            }
         }
         if (currentIsValid() && current.matches("input[type=range]") && (direction === "left" || direction === "right")) {
             const step = parseFloat(current.step) || 1;
@@ -191,11 +274,27 @@
         const from = current.getBoundingClientRect();
         const fx = from.left + from.width / 2;
         const fy = from.top + from.height / 2;
+        const inPage = activeLayer() === document.body;
+        const fromPinned = inPage && isPinned(current);
         let best = null;
         let bestScore = Infinity;
+        let bestPinned = null;
+        let bestPinnedScore = Infinity;
+
+        if (direction === "up" || direction === "down") {
+            const target = verticalTarget(list, direction, from, inPage, fromPinned);
+            if (target) setCurrent(target);
+            else window.scrollBy({ top: direction === "down" ? 240 : -240, behavior: "smooth" });
+            return;
+        }
 
         list.forEach((el) => {
             if (el === current || el.contains(current) || current.contains(el)) return;
+            const pinned = inPage && isPinned(el);
+            // From the pinned bars, sideways stays in the bars; from the page,
+            // only "up" can reach them, and only past the top of the content.
+            if (fromPinned && !pinned && (direction === "left" || direction === "right")) return;
+            if (!fromPinned && pinned && direction !== "up") return;
             const r = el.getBoundingClientRect();
             const cx = r.left + r.width / 2;
             const cy = r.top + r.height / 2;
@@ -219,11 +318,81 @@
             if (primary <= 0) return;
             // Items in line with the current one win over diagonal ones.
             const score = primary + secondary * (overlap ? 0.3 : 2.5);
+            if (pinned && !fromPinned) {
+                if (score < bestPinnedScore) { bestPinnedScore = score; bestPinned = el; }
+                return;
+            }
             if (score < bestScore) { bestScore = score; best = el; }
         });
 
+        // Going up from the page reaches the pinned bars only when nothing
+        // in the content itself is above.
+        if (!best && bestPinned) best = bestPinned;
         if (best) setCurrent(best);
         else if (direction === "up" || direction === "down") window.scrollBy({ top: direction === "down" ? 240 : -240, behavior: "smooth" });
+    }
+
+    // Up / down go row by row, like other TV apps: to the item right under
+    // (or over) the current one in the next row, or, when nothing is right
+    // under it (a shorter row, a new shelf), to the first item of that row.
+    // Down from a card skips the next row's heading buttons and goes
+    // straight to its cards (up from a card still reaches those buttons),
+    // and down in a folded grid unfolds it ("▾ See more") to keep going.
+    function verticalTarget(list, direction, from, inPage, fromPinned) {
+        const down = direction === "down";
+        const fromCard = current.matches(CARD_SELECTOR);
+
+        if (down && fromCard) {
+            const fold = current.closest(".grid-collapsed");
+            const seeMore = fold && fold.nextElementSibling && fold.nextElementSibling.classList.contains("see-more-btn") ? fold.nextElementSibling : null;
+            const hasMoreBelow = fold && Array.from(fold.children).some((card) => {
+                const r = card.getBoundingClientRect();
+                return r.top >= from.bottom - 2 && hiddenByFold(card, r);
+            });
+            if (seeMore && hasMoreBelow) {
+                seeMore.click();
+                list = candidates();
+            }
+        }
+
+        const items = [];
+        const pinnedItems = [];
+        list.forEach((el) => {
+            if (el === current || el.contains(current) || current.contains(el)) return;
+            const pinned = inPage && isPinned(el);
+            if (!fromPinned && pinned && !down) {
+                // Collected apart: only used when nothing in the page is above.
+            } else if (!fromPinned && pinned) {
+                return;
+            }
+            const r = el.getBoundingClientRect();
+            // Must start past the middle of the current item in that direction.
+            if (down ? r.top < from.top + from.height * 0.5 : r.bottom > from.bottom - from.height * 0.5) return;
+            (pinned && !fromPinned ? pinnedItems : items).push({ el, r });
+        });
+
+        const pickFromNearestLine = (group) => {
+            if (!group.length) return null;
+            const edgeOf = (i) => (down ? i.r.top : i.r.bottom);
+            let ref = group[0];
+            group.forEach((i) => { if (down ? edgeOf(i) < edgeOf(ref) : edgeOf(i) > edgeOf(ref)) ref = i; });
+            const tolerance = Math.max(24, ref.r.height * 0.5);
+            const line = group.filter((i) => (down ? edgeOf(i) <= edgeOf(ref) + tolerance : edgeOf(i) >= edgeOf(ref) - tolerance));
+            let best = null;
+            let bestOverlap = 0;
+            line.forEach((i) => {
+                const overlap = Math.min(i.r.right, from.right) - Math.max(i.r.left, from.left);
+                if (overlap > bestOverlap) { bestOverlap = overlap; best = i; }
+            });
+            if (!best) best = line.reduce((a, b) => (b.r.left < a.r.left ? b : a));
+            return best.el;
+        };
+
+        if (down && fromCard) {
+            const next = pickFromNearestLine(items.filter((i) => i.el.matches(CARD_SELECTOR)));
+            if (next) return next;
+        }
+        return pickFromNearestLine(items) || pickFromNearestLine(pinnedItems);
     }
 
     function stepSelect(select, delta) {
@@ -235,11 +404,11 @@
         }
         if (index === select.selectedIndex || index < 0 || index >= select.options.length) return;
         select.selectedIndex = index;
-        select.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
     // --- Actions ---------------------------------------------------------------
     function activate() {
+        if (editingSelect && editingSelect !== current) finishSelectEdit(true);
         if (!currentIsValid()) {
             move("down");
             return;
@@ -253,7 +422,8 @@
             return;
         }
         if (el.tagName === "SELECT") {
-            stepSelect(el, 1);
+            if (editingSelect === el) finishSelectEdit(true);
+            else startSelectEdit(el);
             return;
         }
         if (el.matches("input, textarea")) {
@@ -278,6 +448,10 @@
     }
 
     function back() {
+        if (editingSelect) {
+            finishSelectEdit(false);
+            return;
+        }
         if (sideBar && sideBar.classList.contains("gp-open")) {
             toggleSidePanel(false);
             return;
@@ -493,6 +667,11 @@
             back();
             return;
         }
+        if (event.key === "Escape" && editingSelect) {
+            event.preventDefault();
+            finishSelectEdit(false);
+            return;
+        }
         if (event.key === "Escape" && sideBar && sideBar.classList.contains("gp-open")) {
             toggleSidePanel(false);
         }
@@ -519,5 +698,9 @@
         startPolling();
     }
 
-    window.riftgatePad = { applyTvMode, move, activate, back, candidates, get current() { return current; } };
+    // renderer.js may have applied the saved settings before this file
+    // loaded (it only waits for load-settings), so apply TV mode now too.
+    applyTvMode();
+
+    window.riftgatePad = { applyTvMode, move, activate, back, candidates, focus: setCurrent, get current() { return current; } };
 })();

@@ -1203,7 +1203,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.7.3": [
-        "New: play with a controller or a TV remote — the D-pad, stick or arrow keys move a highlight around everything on screen; A opens, B goes back, X plays or gets a game, LB/RB switch sections and ☰ Menu opens the side panel. Button hints show at the bottom",
+        "New: play with a controller or a TV remote — the D-pad, stick or arrow keys move a highlight around everything on screen; A opens, B goes back, X plays or gets a game, LB/RB switch sections and ☰ Menu opens the side panel. Down and up go row by row, to the item right under (or the first one of a shorter row); lists like country and city change only after pressing A on them. Button hints show at the bottom",
         "New: TV mode makes the whole interface bigger for the couch. It turns on by itself while a controller is connected (or set it to Always on / Off in the side panel under Display)",
         "New: Riftgate asks once where you are (country and city), so cinemas, release dates, streaming and prices are right from the start. New accounts give it while signing up",
         "New: country and city lists next to In Theaters and Upcoming Movies, always in sync, with \"Other city…\" to type any city — the cinema list follows",
