@@ -6730,3 +6730,105 @@ body.light-theme #adminBtn.login-status-btn{
 body.light-theme #adminBtn.login-status-btn.active{
     --login-fill:color-mix(in srgb, var(--accent-1) 18%, #fff);
 }
+
+/* ================= Refresh buttons =================
+   Label with an icon block on the right that slides across the whole
+   button on hover (and stays across, spinning, while it refreshes); a
+   solid offset shadow that the button presses into. Adapted from
+   Uiverse.io by andrew-demchenk0 (MIT), in the theme's colours. The
+   "html body" prefix outranks the older generic button rules. */
+html body .refresh-btn.refresh-btn{
+    --rb-main:var(--accent-1);
+    --rb-bg:var(--bg-secondary);
+    --rb-bg-sub:color-mix(in srgb, var(--accent-1) 22%, var(--bg-secondary));
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:40px;
+    min-width:150px;
+    margin:0 4px 4px 0;
+    padding:0 51px 0 14px;
+    border:2px solid var(--rb-main);
+    border-radius:10px;
+    box-shadow:4px 4px var(--rb-main);
+    background:var(--rb-bg);
+    color:var(--text-primary);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:normal;
+    text-transform:none;
+    white-space:nowrap;
+    overflow:hidden;
+    cursor:pointer;
+    transform:none;
+    transition:all .3s ease;
+}
+html body .refresh-btn .refresh-btn__text{
+    transition:color .3s ease;
+}
+html body .refresh-btn .refresh-btn__icon{
+    position:absolute;
+    top:0;
+    right:0;
+    height:100%;
+    width:39px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--rb-bg-sub);
+    transition:width .3s ease, background .3s ease;
+}
+html body .refresh-btn .refresh-btn__svg{
+    width:20px;
+    height:20px;
+    fill:var(--rb-main);
+    transition:fill .3s ease;
+}
+html body .refresh-btn.refresh-btn:hover,
+html body .refresh-btn.refresh-btn:focus-visible,
+html body .refresh-btn.refresh-btn.is-busy{
+    background:var(--rb-bg);
+    box-shadow:4px 4px var(--rb-main);
+    transform:none;
+}
+html body .refresh-btn:hover .refresh-btn__text,
+html body .refresh-btn:focus-visible .refresh-btn__text{
+    color:transparent;
+}
+html body .refresh-btn:hover .refresh-btn__icon,
+html body .refresh-btn:focus-visible .refresh-btn__icon,
+html body .refresh-btn.is-busy .refresh-btn__icon{
+    width:100%;
+    background:var(--accent-gradient);
+}
+html body .refresh-btn:hover .refresh-btn__svg,
+html body .refresh-btn:focus-visible .refresh-btn__svg,
+html body .refresh-btn.is-busy .refresh-btn__svg{
+    fill:#fff;
+}
+html body .refresh-btn.refresh-btn:active:not(:disabled){
+    transform:translate(3px, 3px);
+    box-shadow:0 0 var(--rb-main);
+}
+/* Refreshing: the icon spins across the whole button. */
+html body .refresh-btn.is-busy{
+    cursor:progress;
+    opacity:1;
+}
+html body .refresh-btn.is-busy .refresh-btn__text{
+    color:transparent;
+}
+html body .refresh-btn.is-busy .refresh-btn__svg{
+    animation:refreshSpin .9s linear infinite;
+}
+@keyframes refreshSpin{
+    to{ transform:rotate(360deg); }
+}
+/* The two in the side panel span its width. */
+html body .sidebar-btn.refresh-btn{
+    width:calc(100% - 4px);
+}
+@media (prefers-reduced-motion:reduce){
+    html body .refresh-btn.is-busy .refresh-btn__svg{ animation:none; }
+}

@@ -1217,6 +1217,7 @@ const CHANGELOG = {
         "Changed: the section tabs, Free Games' platform buttons and Reading Room's tabs have a new look — the selected one has a slim glow in your theme's colours that slowly spins. The Store's reseller links glow while you point at them",
         "Changed: a new Login / Log out button — glassy, lit from above in your theme's colour, with a soft halo when you point at it",
         "Changed: the \"See all\" lists (Upcoming Movies and Games, In Theaters, New Series and Anime, streaming services, itch.io) show 100 at a time with page buttons, while the rest keeps loading in the background",
+        "Changed: new Refresh buttons (Free Games, Store, Refresh All Metadata, Refresh Steam Playtime) in your theme's colours — the refresh icon slides across the button when you point at it and spins while it refreshes",
         "Fixed: upcoming games (and any game card with no cover, a broken one or a sideways screenshot) now get their real box art — from Steam first, then SteamGridDB — for games already out and most still to come",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
@@ -2695,15 +2696,16 @@ steamId64Input.addEventListener("change", () => {
     saveSetting("steamId64", steamId64Input.value.trim());
 });
 
+makeRefreshButton(refreshSteamPlaytimeBtn, "Refresh Steam Playtime");
 refreshSteamPlaytimeBtn.addEventListener("click", async () => {
     const steamId = steamId64Input.value.trim();
 
-    refreshSteamPlaytimeBtn.disabled = true;
+    setRefreshButtonBusy(refreshSteamPlaytimeBtn, true, "Syncing with Steam…");
     steamPlaytimeStatus.textContent = "Syncing with Steam…";
 
     const result = await window.riftgate.invoke("refresh-steam-playtime", steamId);
 
-    refreshSteamPlaytimeBtn.disabled = false;
+    setRefreshButtonBusy(refreshSteamPlaytimeBtn, false);
 
     if (!result.success) {
         steamPlaytimeStatus.textContent = result.error;
@@ -2797,11 +2799,15 @@ window.riftgate.on("fullscreen-changed", (isFullscreen) => {
     document.body.classList.toggle("is-fullscreen", isFullscreen);
 });
 
+makeRefreshButton(refreshMetadataBtn, "Refresh All Metadata");
 refreshMetadataBtn.addEventListener("click", async () => {
-    refreshMetadataBtn.textContent = "🔄 Refreshing...";
-    allGames = await window.riftgate.invoke("refresh-metadata");
-    renderLibrary();
-    refreshMetadataBtn.textContent = "🔄 Refresh All Metadata";
+    setRefreshButtonBusy(refreshMetadataBtn, true);
+    try {
+        allGames = await window.riftgate.invoke("refresh-metadata");
+        renderLibrary();
+    } finally {
+        setRefreshButtonBusy(refreshMetadataBtn, false);
+    }
 });
 
 const exportBackupBtn = document.getElementById("exportBackupBtn");
@@ -4019,6 +4025,35 @@ function initFactTicker() {
 }
 
 // --- Section switching (Installed / Free Games / Reading Room / Theatre) ---
+
+// Refresh buttons (see .refresh-btn in style.css; adapted from Uiverse.io by
+// andrew-demchenk0, MIT): the label, and an icon block on the right that
+// slides across the whole button when pointed at — and stays across,
+// spinning, while the refresh runs. The refresh icon is Material Design's
+// (Apache 2.0).
+// (A function, not a const: some buttons are set up earlier in this file.)
+function refreshIconSvg() {
+    return `<svg class="refresh-btn__svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>`;
+}
+
+function makeRefreshButton(btn, label) {
+    if (!btn) return btn;
+    btn.classList.add("refresh-btn");
+    btn.innerHTML = `<span class="refresh-btn__text"></span><span class="refresh-btn__icon">${refreshIconSvg()}</span>`;
+    btn.querySelector(".refresh-btn__text").textContent = label;
+    btn.dataset.label = label;
+    btn.setAttribute("aria-label", label);
+    return btn;
+}
+
+function setRefreshButtonBusy(btn, busy, busyLabel = "Refreshing…") {
+    if (!btn) return;
+    btn.classList.toggle("is-busy", busy);
+    btn.disabled = busy;
+    const text = btn.querySelector(".refresh-btn__text");
+    if (text) text.textContent = busy ? busyLabel : btn.dataset.label;
+    btn.setAttribute("aria-busy", busy ? "true" : "false");
+}
 
 // Glowing button style (see .glow-tab in style.css; adapted from
 // Uiverse.io by SelfMadeSystem, MIT): two slim glows behind, a thin ring,
@@ -5320,9 +5355,9 @@ freeGamesPlatformSelect.addEventListener("change", () => {
 freeGamesCategorySelect.addEventListener("change", renderFreeGames);
 freeGamesSortSelect.addEventListener("change", renderFreeGames);
 
+makeRefreshButton(freeGamesRefreshBtn, "Refresh");
 freeGamesRefreshBtn.addEventListener("click", async () => {
-    freeGamesRefreshBtn.disabled = true;
-    freeGamesRefreshBtn.textContent = "🔄 Refreshing...";
+    setRefreshButtonBusy(freeGamesRefreshBtn, true);
 
     try {
         // Viewing a single platform (or the VR lens)? Only that platform's
@@ -5340,8 +5375,7 @@ freeGamesRefreshBtn.addEventListener("click", async () => {
             renderFreeGames();
         }
     } finally {
-        freeGamesRefreshBtn.disabled = false;
-        freeGamesRefreshBtn.textContent = "🔄 Refresh";
+        setRefreshButtonBusy(freeGamesRefreshBtn, false);
     }
 });
 
@@ -11918,17 +11952,19 @@ function buildStoreDealCard(deal) {
 document.getElementById("storeSearchInput").addEventListener("input", renderStoreDeals);
 document.getElementById("storePlatformSelect").addEventListener("change", renderStoreDeals);
 document.getElementById("storeSortSelect").addEventListener("change", renderStoreDeals);
+makeRefreshButton(document.getElementById("storeRefreshBtn"), "Refresh");
 document.getElementById("storeRefreshBtn").addEventListener("click", async () => {
     const btn = document.getElementById("storeRefreshBtn");
-    btn.disabled = true;
-    btn.textContent = "🔄 Refreshing...";
-    storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals", movieCountrySelect.value) || [];
-    storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
-    updateStorePlatformLinks();
-    updateStorePlatformSelect();
-    renderStoreDeals();
-    btn.disabled = false;
-    btn.textContent = "🔄 Refresh";
+    setRefreshButtonBusy(btn, true);
+    try {
+        storeDealsCache = await window.riftgate.invoke("force-refresh-store-deals", movieCountrySelect.value) || [];
+        storeSourceCounts = await window.riftgate.invoke("get-store-source-counts") || {};
+        updateStorePlatformLinks();
+        updateStorePlatformSelect();
+        renderStoreDeals();
+    } finally {
+        setRefreshButtonBusy(btn, false);
+    }
 });
 
 // app.name/description/author/added_by all come from admin-entered data
