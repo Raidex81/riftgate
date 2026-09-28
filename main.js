@@ -1246,9 +1246,22 @@ async function createWindow() {
     // in the row-fitting logic itself (fitHscrollTrack already sizes cards
     // to whatever width it's actually given), just a window that was
     // never given the screen's real width to fit to in the first place.
-    win.once("ready-to-show", () => {
+    // Shown once the first frame is painted; the timer is a safety net so
+    // the window can never stay hidden (tray icon only) if that event is
+    // ever missed.
+    let windowShown = false;
+    const showMainWindow = () => {
+        if (windowShown || !win || win.isDestroyed()) return;
+        windowShown = true;
         win.maximize();
         win.show();
+        if (pendingZoomFactor !== null) applyZoomFactor(pendingZoomFactor);
+    };
+    win.once("ready-to-show", showMainWindow);
+    setTimeout(showMainWindow, 4000);
+    // TV mode changed while the window was hidden in the tray: apply it now.
+    win.on("show", () => {
+        if (pendingZoomFactor !== null) setImmediate(() => applyZoomFactor(pendingZoomFactor));
     });
 
     win.loadURL(`http://127.0.0.1:${port}`);
@@ -3635,10 +3648,26 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
 // --- TV mode: the whole interface a size bigger ---------------------------
 // Zooming the page (rather than restyling it) keeps every layout rule
 // working: the page simply sees a smaller viewport and fits cards to it.
+//
+// Electron 40+ never fires "ready-to-show" if setZoomFactor is called on a
+// window that is still hidden (electron/electron#51972) — the window then
+// stayed invisible, only the tray icon showing. So the zoom is only applied
+// once the window is on screen (pendingZoomFactor holds it until then), and
+// only when it actually changes.
 const TV_MODE_ZOOM = 1.3;
+let pendingZoomFactor = null;
+function applyZoomFactor(factor) {
+    if (!win || win.isDestroyed()) return;
+    if (!win.isVisible()) {
+        pendingZoomFactor = factor;
+        return;
+    }
+    pendingZoomFactor = null;
+    if (Math.abs(win.webContents.getZoomFactor() - factor) > 0.001) win.webContents.setZoomFactor(factor);
+}
 ipcMain.handle("set-tv-mode", (event, on) => {
     if (!win || win.isDestroyed()) return false;
-    win.webContents.setZoomFactor(on === true ? TV_MODE_ZOOM : 1);
+    applyZoomFactor(on === true ? TV_MODE_ZOOM : 1);
     return true;
 });
 
