@@ -12,7 +12,7 @@ panel under **Display → TV mode**.
 | What it does | Xbox | PlayStation | Nintendo / other | TV remote | Keyboard |
 |---|---|---|---|---|---|
 | Move the highlight (up/down go row by row: to the item right under, or the first item of a shorter row) | D-pad / left stick | D-pad / left stick | D-pad / left stick | Arrow buttons | Arrow keys |
-| Select. On a card: open its options — Details, ▶ Trailer, 🔊 Sound on/off, Play / Get / Tickets… On a list (country, city, sort): change it, select again to confirm | A | ✕ | B | OK | Enter |
+| Select. On a card: go inside it, starting on its big button (Launch, Find Tickets, Get it free…); left/right reach Details, the description, ▶ Trailer, 🔊 Sound and the rest. In a window, up/down scroll a long description. On a list (country, city, sort): change it, select again to confirm | A | ✕ | B | OK | Enter |
 | Back: leave a card's options, close a window, the side panel or See all | B | ○ | A | Back | Esc / Backspace |
 | A card's details straight away | Y | △ | X | — (select the card, then Details) | I |
 | A card's main button straight away (Play, Get it free, Find tickets…) | X | □ | Y | — (select the card, then the button) | P |

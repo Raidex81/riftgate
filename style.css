@@ -6391,3 +6391,14 @@ body.gp-nav .cover-wrap:has(> .cover-img.gp-focus)::after{
 body:has(#controlsModal.active) .gp-hints{
     display:none !important;
 }
+
+/* The description inside a card, as a controller option: it opens the
+   details with the full text. */
+body.gp-nav .game-desc.gp-focus{
+    border-radius:6px;
+    outline-offset:2px;
+}
+/* A long description in a window, highlighted: up/down scroll it. */
+body.gp-nav .gp-scroll.gp-focus{
+    outline-offset:4px;
+}

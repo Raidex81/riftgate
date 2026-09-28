@@ -40,7 +40,7 @@
     const CARD_SELECTOR = ".game-card, .recent-episode-card, .community-app-card";
     const CANDIDATE_SELECTOR = [
         "button", "a[href]", "select", "input:not([type=hidden]):not([type=checkbox]):not([type=radio])",
-        "textarea", "label.sidebar-toggle", "[tabindex]:not([tabindex='-1'])", CARD_SELECTOR
+        "textarea", "label.sidebar-toggle", "[tabindex]:not([tabindex='-1'])", ".gp-scroll", CARD_SELECTOR
     ].join(",");
     // Arrows beside a sideways row are skipped: moving past the last visible
     // card scrolls the row by itself.
@@ -74,7 +74,7 @@
     };
     const CONTROLS = [
         ["MOVE", null, "Move the highlight. Up and down go row by row: to the item right under, or the first item of a shorter row."],
-        ["A", null, "Select. On a card: open its options — Details, ▶ Trailer, 🔊 Sound on/off, Play / Get / Tickets and the rest. On a list (country, city, sort): change it with up/down, select again to confirm."],
+        ["A", null, "Select. On a card: go inside it, starting on its big button (Launch, Find Tickets, Get it free…); left/right reach Details, the description, ▶ Trailer, 🔊 Sound and the rest. In a window, up/down scroll a long description. On a list (country, city, sort): change it with up/down, select again to confirm."],
         ["B", null, "Back: leave a card's options, close a window, the side panel or the See all list."],
         ["Y", null, "On a card: its details straight away."],
         ["X", null, "On a card: its main button straight away (Play, Get it free, Find tickets…)."],
@@ -166,12 +166,29 @@
     // ▶ trailer, 🔊 sound, ★ favourite and every button on the card. B leaves.
     let insideCard = null;
 
+    // The card's big button: Launch, Find Tickets & Showtimes, Get it free,
+    // Add to My Shows… (the widest button on the card when it has no
+    // launch-style class).
+    function mainButtonOf(root, list) {
+        const shown = list.filter((el) => el.tagName === "BUTTON" && root.contains(el));
+        const styled = shown.find((b) => b.matches(".launchBtn, .ticketsBtn, .wheel-play"));
+        if (styled) return styled;
+        let widest = null;
+        shown.forEach((b) => {
+            if (!widest || b.getBoundingClientRect().width > widest.getBoundingClientRect().width) widest = b;
+        });
+        return widest && widest.getBoundingClientRect().width >= 90 ? widest : null;
+    }
+
+    // OK on a card starts on its big button; left/right step through the
+    // rest: the cover (Details), sound, trailer, the description (opens the
+    // details with the full text) and the other buttons.
     function enterCard(card) {
         insideCard = card;
         card.classList.add("gp-inside", "gp-show");
-        const first = card.querySelector(".cover-img");
         const list = candidates();
-        setCurrent(first && list.includes(first) ? first : list[0] || card);
+        const cover = card.querySelector(".cover-img");
+        setCurrent(mainButtonOf(card, list) || (cover && list.includes(cover) ? cover : list[0]) || card);
     }
 
     function leaveCard(focusCard = true) {
@@ -204,7 +221,8 @@
         const layer = activeLayer();
         const list = [];
         const insideThisCard = layer === insideCard;
-        layer.querySelectorAll(insideThisCard ? `${CANDIDATE_SELECTOR}, .cover-img` : CANDIDATE_SELECTOR).forEach((el) => {
+        layer.querySelectorAll(insideThisCard ? `${CANDIDATE_SELECTOR}, .cover-img, .game-desc` : CANDIDATE_SELECTOR).forEach((el) => {
+            if (insideThisCard && el.matches(".game-desc") && !el.textContent.trim()) return;
             if (el.matches(SKIP_SELECTOR)) return;
             if (layer === document.body) {
                 if (sideBar && sideBar.contains(el)) return;
@@ -371,6 +389,17 @@
         // Inside a card its options are one short list, in the card's own
         // order (Details, sound, trailer, then its buttons): right/down go
         // to the next one, left/up to the previous.
+        // A long text (a description) scrolls with up/down before the
+        // highlight moves on.
+        if (currentIsValid() && (direction === "up" || direction === "down") && current.matches(".gp-scroll")) {
+            const box = current;
+            const room = direction === "down" ? box.scrollHeight - box.clientHeight - box.scrollTop : box.scrollTop;
+            if (room > 4) {
+                box.scrollBy({ top: (direction === "down" ? 1 : -1) * Math.max(60, box.clientHeight * 0.7), behavior: "smooth" });
+                return;
+            }
+        }
+
         if (insideCard && activeLayer() === insideCard) {
             const index = list.indexOf(current);
             const step = direction === "right" || direction === "down" ? 1 : -1;
@@ -539,6 +568,24 @@
         el.click();
     }
 
+    // When a press opens a window (details, trailer, a question…), the
+    // highlight starts inside it: on a long description, else on its big
+    // button, else on its first item.
+    // Closing that window brings the highlight back to where it was.
+    const returnStack = [];
+    function focusNewLayerSoon(previousLayer) {
+        const from = current;
+        setTimeout(() => {
+            const layer = activeLayer();
+            if (layer === previousLayer || layer === document.body || (current && layer.contains(current) && isShown(current))) return;
+            if (from) returnStack.push({ layer, el: from });
+            if (returnStack.length > 20) returnStack.shift();
+            const list = candidates();
+            const text = list.find((el) => el.matches(".gp-scroll") && el.scrollHeight > el.clientHeight + 4);
+            setCurrent(text || mainButtonOf(layer, list) || list[0] || null);
+        }, 350);
+    }
+
     function openDetails() {
         const card = currentIsValid() ? current.closest(CARD_SELECTOR) : null;
         if (!card) {
@@ -588,6 +635,16 @@
             const closer = visibleButtonIn(layer, "[id$='CloseBtn'], [id$='CancelBtn'], [id$='LaterBtn'], .modal-close, .close-btn, button[aria-label='Close']");
             if (closer) closer.click();
             else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            setTimeout(() => {
+                if (activeLayer() === layer) return; // still open
+                while (returnStack.length) {
+                    const back = returnStack.pop();
+                    if (back.layer === layer && back.el.isConnected && isShown(back.el)) {
+                        setCurrent(back.el, { scroll: false });
+                        return;
+                    }
+                }
+            }, 150);
             return;
         }
         if (insideCard) {
@@ -688,10 +745,10 @@
     function onButton(index) {
         document.body.classList.add("gp-nav");
         switch (index) {
-            case BUTTON.A: activate(); break;
+            case BUTTON.A: { const before = activeLayer(); activate(); focusNewLayerSoon(before); break; }
             case BUTTON.B: back(); break;
-            case BUTTON.X: primaryAction(); break;
-            case BUTTON.Y: openDetails(); break;
+            case BUTTON.X: { const before = activeLayer(); primaryAction(); focusNewLayerSoon(before); break; }
+            case BUTTON.Y: { const before = activeLayer(); openDetails(); focusNewLayerSoon(before); break; }
             case BUTTON.LB: switchSectionBy(-1); break;
             case BUTTON.RB: switchSectionBy(1); break;
             case BUTTON.LT: scrollScreen(-1); break;
@@ -793,7 +850,9 @@
         }
         if (event.key === "Enter" && !typing && currentIsValid()) {
             event.preventDefault();
+            const before = activeLayer();
             activate();
+            focusNewLayerSoon(before);
             return;
         }
         if (!typing) {
@@ -805,8 +864,8 @@
             else if (key === "PageUp") scrollScreen(-1);
             else if (key === "F1" || key === "?" || key === "Info") toggleControlsHelp();
             else if (key === "ContextMenu" || key === "m" || key === "M") toggleSidePanel();
-            else if (key === "p" || key === "P") primaryAction();
-            else if (key === "i" || key === "I") openDetails();
+            else if (key === "p" || key === "P") { const before = activeLayer(); primaryAction(); focusNewLayerSoon(before); }
+            else if (key === "i" || key === "I") { const before = activeLayer(); openDetails(); focusNewLayerSoon(before); }
             else handled = false;
             if (handled) {
                 event.preventDefault();
