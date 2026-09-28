@@ -3992,7 +3992,7 @@ body.density-compact #moviesGrid.games-grid{
    label, the glow uses the theme's --accent-1 / --accent-2, and the
    dotted page backdrop was left out. The #unopaq filters are in
    index.html. */
-.free-games-tab.glow-tab{
+.glow-tab{
     --glow-face:color-mix(in srgb, var(--bg-primary) 70%, #000);
     position:relative;
     display:inline-flex;
@@ -4008,7 +4008,7 @@ body.density-compact #moviesGrid.games-grid{
     isolation:isolate;
     transition:color .2s ease, transform .15s ease;
 }
-body.light-theme .free-games-tab.glow-tab{
+body.light-theme .glow-tab{
     --glow-face:var(--bg-secondary);
 }
 .glow-tab-border{
@@ -4074,31 +4074,31 @@ body.light-theme .free-games-tab.glow-tab{
    (the inside glow); pointing at one brightens that a little — only the
    selected platform glows fully and spins, so there's never a doubt which
    one is chosen. */
-.free-games-tab.glow-tab .glow-tab-spin-inside{
+.glow-tab .glow-tab-spin-inside{
     opacity:.18;
 }
-.free-games-tab.glow-tab:hover,
-.free-games-tab.glow-tab:focus-visible{
+.glow-tab:hover,
+.glow-tab:focus-visible{
     color:var(--text-primary);
 }
-.free-games-tab.glow-tab:not(.active):hover .glow-tab-spin-inside,
-.free-games-tab.glow-tab:not(.active):focus-visible .glow-tab-spin-inside{
+.glow-tab:not(.active):hover .glow-tab-spin-inside,
+.glow-tab:not(.active):focus-visible .glow-tab-spin-inside{
     opacity:.45;
 }
-.free-games-tab.glow-tab.active .glow-tab-spin::before{
+.glow-tab.active .glow-tab-spin::before{
     animation-play-state:running;
 }
 /* The selected platform keeps glowing and reads in white on a tinted face. */
-.free-games-tab.glow-tab.active{
+.glow-tab.active{
     color:#fff;
 }
-.free-games-tab.glow-tab.active .glow-tab-spin{
+.glow-tab.active .glow-tab-spin{
     opacity:.9;
 }
-.free-games-tab.glow-tab.active .glow-tab-face{
+.glow-tab.active .glow-tab-face{
     background:color-mix(in srgb, var(--accent-1) 28%, var(--glow-face));
 }
-.free-games-tab.glow-tab:focus-visible{
+.glow-tab:focus-visible{
     outline:2px solid var(--accent-1);
     outline-offset:3px;
 }
@@ -4113,6 +4113,53 @@ body.light-theme .free-games-tab.glow-tab{
 }
 @media (prefers-reduced-motion:reduce){
     .glow-tab-spin::before{ animation:none; }
+}
+
+/* Section tabs (New, Installed, Free Games…) in the same glowing style,
+   keeping their own shape and size (10px corners, 1.5px ring) with an even
+   quieter, slimmer glow than the platform buttons. */
+.sectionOption.glow-tab{
+    --glow-face:var(--bg-tertiary);
+    padding:0;
+    gap:0;
+    border:none;
+    border-radius:10px;
+    background:none;
+    font-size:13px;
+    color:var(--text-primary);
+}
+.sectionOption.glow-tab .glow-tab-border{
+    padding:1.5px;
+    background:var(--border-color);
+}
+.sectionOption.glow-tab .glow-tab-face{
+    gap:8px;
+    padding:9px 16px;
+    border-radius:8.5px;
+}
+.sectionOption.glow-tab .glow-tab-spin-blur{
+    filter:blur(0.3em) url(#unopaq);
+}
+.sectionOption.glow-tab .glow-tab-spin-intense{
+    inset:-0.04em;
+    filter:blur(0.08em) url(#unopaq2);
+    border-radius:10px;
+}
+.sectionOption.glow-tab .glow-tab-spin-inside{
+    opacity:.12;
+}
+.sectionOption.glow-tab:not(.active):hover .glow-tab-spin-inside{
+    opacity:.35;
+}
+.sectionOption.glow-tab.active{
+    color:#fff;
+    background:none;
+}
+.sectionOption.glow-tab.active .glow-tab-spin{
+    opacity:.55;
+}
+.sectionOption.glow-tab.active .glow-tab-face{
+    background:color-mix(in srgb, var(--accent-1) 32%, var(--glow-face));
 }
 
 /* "View all N →" button under a capped platform preview (see

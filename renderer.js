@@ -1214,7 +1214,7 @@ const CHANGELOG = {
         "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
         "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
         "Changed: new \"Add\" buttons in Installed and Reading Room — a circle with a plus in your theme colour that turns and fills when you point at it",
-        "Changed: Free Games' platform buttons glow in your theme's colours — the glow spins when you point at one, and the selected platform keeps glowing",
+        "Changed: the section tabs (New, Installed, Free Games…) and Free Games' platform buttons have a new look — the selected one has a slim glow in your theme's colours that slowly spins",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -4017,7 +4017,23 @@ function initFactTicker() {
 
 // --- Section switching (Installed / Free Games / Reading Room / Theatre) ---
 
+// Glowing button style (see .glow-tab in style.css; adapted from
+// Uiverse.io by SelfMadeSystem, MIT): two slim glows behind, a thin ring,
+// and the button's own content moved into the face. Only the selected
+// button glows and spins.
+function makeGlowButton(btn) {
+    if (btn.classList.contains("glow-tab")) return btn;
+    const face = document.createElement("span");
+    face.className = "glow-tab-face";
+    while (btn.firstChild) face.appendChild(btn.firstChild);
+    btn.classList.add("glow-tab");
+    btn.innerHTML = `<span class="glow-tab-spin glow-tab-spin-blur"></span><span class="glow-tab-spin glow-tab-spin-intense"></span><span class="glow-tab-border"><span class="glow-tab-spin glow-tab-spin-inside"></span></span>`;
+    btn.querySelector(".glow-tab-border").appendChild(face);
+    return btn;
+}
+
 const sectionOptions = document.querySelectorAll(".sectionOption");
+sectionOptions.forEach(makeGlowButton);
 const sidebarNavButtons = document.querySelectorAll(".sidebarNavBtn");
 
 // The "Start on section" dropdown (in Settings) used to keep its own
@@ -5726,14 +5742,12 @@ function renderFreeGamesPlatformTabs() {
     Array.from(freeGamesPlatformSelect.options).forEach((opt) => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "free-games-tab glow-tab";
+        btn.className = "free-games-tab";
         if (opt.value === currentValue) btn.classList.add("active");
-        // Glowing button (see .glow-tab in style.css): two soft glows
-        // behind, a thin ring, then the face with the label.
-        btn.innerHTML = `<span class="glow-tab-spin glow-tab-spin-blur"></span><span class="glow-tab-spin glow-tab-spin-intense"></span><span class="glow-tab-border"><span class="glow-tab-spin glow-tab-spin-inside"></span><span class="glow-tab-face"></span></span>`;
-        btn.querySelector(".glow-tab-face").textContent = opt.value === "all"
+        btn.textContent = opt.value === "all"
             ? "🎮 All Platforms"
             : `${PLATFORM_ICONS[opt.value] || "🎁"} ${opt.textContent}`;
+        makeGlowButton(btn);
         btn.addEventListener("click", () => {
             if (freeGamesPlatformSelect.value === opt.value) return;
             freeGamesPlatformSelect.value = opt.value;
