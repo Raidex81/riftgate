@@ -119,6 +119,11 @@ wheel; it knows which section you're in.
 
 ![Surprise Me](screenshots/surprise-me.png)
 
+**🎮 Controller & TV** — play from the couch with an Xbox or PlayStation
+controller or a TV remote: move around with the D-pad, open with A, go
+back with B, switch sections with LB/RB. TV mode makes everything bigger
+and turns on by itself when a controller is connected.
+
 **🎨 Make it yours** — nine color themes (the whole look follows the one
 you pick), light and dark mode, adjustable card size, a first-run tour,
 and automatic updates on Windows.
@@ -152,13 +157,13 @@ the server. The database changes and server functions live in
 [OpenStreetMap](https://www.openstreetmap.org/copyright) (© OpenStreetMap
 contributors) and is cached for two weeks per city.
 
-Size, as of version 1.7.2 (counted with `wc -l`, blank lines and comments
+Size, as of version 1.7.3 (counted with `wc -l`, blank lines and comments
 included):
 
 | Part | Lines |
 |---|---|
-| App JavaScript (main process, UI logic, services) | 25,303 |
-| UI markup and styles (`index.html`, `style.css`) | 7,662 |
+| App JavaScript (main process, UI logic, controller navigation, services) | 26,240 |
+| UI markup and styles (`index.html`, `style.css`) | 8,103 |
 | Backend (Supabase Edge Functions, SQL migrations and rollbacks) | 2,508 |
 
 For a deeper technical look — the Electron process model, IPC and

@@ -141,6 +141,19 @@ async function main() {
   });
   record("First-run tour", null, tour ? "appeared (closed it to continue)" : "did not appear");
 
+  // 1.7.3+: the one-time "Where are you?" window appears after the opening
+  // animation on a fresh install. Answer it (Lisbon, Portugal) like a user.
+  await sleep(2500);
+  const located = await page.evaluate(() => {
+    const modal = document.getElementById("locationModal");
+    if (!modal || !modal.classList.contains("active")) return "did not appear";
+    document.getElementById("locationCountrySelect").value = "PT";
+    document.getElementById("locationCityInput").value = "Lisbon";
+    document.getElementById("locationSaveBtn").click();
+    return `appeared, answered Lisbon, Portugal — now ${movieCountrySelect.value} / ${movieCitySelect.value}`;
+  });
+  record("Location window", located.startsWith("did not") ? null : /PT \/ Lisbon/.test(located), located);
+
   const reported = await page.evaluate(() => window.riftgate && window.riftgate.invoke ? window.riftgate.invoke("get-app-version") : null).catch(() => null);
   if (reported) record("Version reported by the app", EXPECTED ? reported === EXPECTED : null, reported);
 

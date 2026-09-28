@@ -231,6 +231,10 @@ const DEFAULT_SETTINGS = {
     movieCity: "",
     // "Your cinema" per city, keyed "PT|Lisbon" -> { id, name, label, url }.
     cinemaByCity: {},
+    // Country + city asked once per computer (see maybeAskLocation).
+    locationConfirmed: false,
+    // "auto" = on while a controller is connected, "on", or "off".
+    tvMode: "auto",
     startupAnimation: true,
     deviceId: null,
     username: null,
@@ -1212,6 +1216,11 @@ async function createWindow() {
         // right here would cause -- this way the very first frame the
         // user sees is already the maximized one.
         show: false,
+        // Paints the window the opening animation's own near-black from its
+        // very first frame. Without it Chromium's default white shows for a
+        // moment while the window appears and is maximized (the page, whose
+        // overlay is this same colour, hasn't painted the new size yet).
+        backgroundColor: "#050308",
         // Without this, Windows falls back to the .exe's own embedded icon
         // for the taskbar/alt-tab entry — correct for a packaged build, but
         // in dev mode ("electron .") that .exe is just Electron's own
@@ -3621,6 +3630,16 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
         return { items: [], page: pageNum, totalPages: pageNum, totalResults: null, error: "Couldn't load this page — try again in a moment." };
     }
     return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
+});
+
+// --- TV mode: the whole interface a size bigger ---------------------------
+// Zooming the page (rather than restyling it) keeps every layout rule
+// working: the page simply sees a smaller viewport and fits cards to it.
+const TV_MODE_ZOOM = 1.3;
+ipcMain.handle("set-tv-mode", (event, on) => {
+    if (!win || win.isDestroyed()) return false;
+    win.webContents.setZoomFactor(on === true ? TV_MODE_ZOOM : 1);
+    return true;
 });
 
 // --- Cinemas near the chosen city ("Your cinema" picker) ------------------

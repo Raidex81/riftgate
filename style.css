@@ -1551,7 +1551,8 @@ body.density-compact .upcoming-movies-track .game-card{
     overflow-y:hidden;
 }
 
-.sidebar:hover{
+.sidebar:hover,
+.sidebar.gp-open{
     transform:translateX(0);
     overflow-y:auto;
 }
@@ -1691,7 +1692,8 @@ body.density-compact .upcoming-movies-track .game-card{
     transition:opacity .2s ease;
 }
 
-.sidebar:hover .sidebar-handle{
+.sidebar:hover .sidebar-handle,
+.sidebar.gp-open .sidebar-handle{
     opacity:0;
 }
 
@@ -1707,7 +1709,8 @@ body.density-compact .upcoming-movies-track .game-card{
     transition:opacity .2s ease;
 }
 
-.sidebar:hover .sidebar-content{
+.sidebar:hover .sidebar-content,
+.sidebar.gp-open .sidebar-content{
     opacity:1;
 }
 
@@ -6110,10 +6113,129 @@ body.see-all-open{
 /* "Your cinema" picker next to In Theaters / Upcoming Movies. Cinema names
    can be long ("Cinema NOS Amoreiras — Avenida Engenheiro Duarte Pacheco"),
    so the closed control is capped and the full name shows in the list. */
+/* Country, city and cinema together at the right of the In Theaters and
+   Upcoming Movies headers (the group, not each select, takes the free space). */
+.theatre-block-header .cinema-controls{
+    margin-left:auto;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:8px;
+    min-width:0;
+}
+.theatre-block-header .cinema-controls select{
+    margin-left:0;
+}
+.theatre-block-header select.location-select{
+    max-width:170px;
+    text-overflow:ellipsis;
+}
 .theatre-block-header select.cinema-select{
     max-width:min(340px, 100%);
     text-overflow:ellipsis;
 }
 .theatre-block-header select.cinema-select[hidden]{
     display:none;
+}
+
+/* Page buttons for long lists (see renderPagedGrid in renderer.js). */
+.list-pager{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    margin:4px 0 14px;
+}
+.list-pager-bottom{
+    margin:14px 0 4px;
+}
+.list-pager-btn{
+    min-width:34px;
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid var(--border-color);
+    background:var(--bg-tertiary);
+    color:var(--text-secondary);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+}
+.list-pager-btn:hover:not(:disabled), .list-pager-btn:focus-visible{
+    border-color:var(--accent-1);
+    color:var(--text-primary);
+}
+.list-pager-btn.active{
+    background:var(--accent-gradient);
+    border-color:transparent;
+    color:#fff;
+}
+.list-pager-btn:disabled{
+    opacity:.35;
+    cursor:default;
+}
+.list-pager-gap{
+    color:var(--text-muted);
+    padding:0 2px;
+}
+.list-pager-info{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--text-muted);
+}
+
+/* ================= Controller / TV-remote navigation (gamepad-nav.js) ================= */
+/* The highlight only shows while a controller or the arrow keys are in use;
+   moving the mouse hides it again. */
+body.gp-nav .gp-focus{
+    outline:3px solid var(--accent-1) !important;
+    outline-offset:3px;
+    box-shadow:0 0 0 7px color-mix(in srgb, var(--accent-1) 28%, transparent), 0 0 26px color-mix(in srgb, var(--accent-2) 45%, transparent) !important;
+    border-radius:12px;
+}
+body.gp-nav .game-card.gp-focus{
+    transform:translateY(-4px) scale(1.035);
+    transition:transform .15s ease;
+}
+body.gp-nav{
+    cursor:none;
+}
+body.gp-nav *{
+    cursor:none !important;
+}
+
+/* Button hints along the bottom while a controller is in use. */
+.gp-hints{
+    position:fixed;
+    left:50%;
+    bottom:14px;
+    translate:-50% 0;
+    z-index:1200;
+    display:none;
+    gap:18px;
+    padding:9px 18px;
+    border-radius:999px;
+    background:color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+    border:1px solid var(--border-color);
+    box-shadow:0 8px 30px rgba(0,0,0,.45);
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    white-space:nowrap;
+    pointer-events:none;
+}
+body.gp-pad.gp-nav .gp-hints{
+    display:flex;
+}
+.gp-hints b{
+    display:inline-grid;
+    place-items:center;
+    min-width:22px;
+    height:22px;
+    padding:0 6px;
+    margin-right:6px;
+    border-radius:11px;
+    background:var(--accent-gradient);
+    color:#fff;
+    font-size:11px;
 }

@@ -1202,6 +1202,15 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.7.3": [
+        "New: play with a controller or a TV remote — the D-pad, stick or arrow keys move a highlight around everything on screen; A opens, B goes back, X plays or gets a game, LB/RB switch sections and ☰ Menu opens the side panel. Button hints show at the bottom",
+        "New: TV mode makes the whole interface bigger for the couch. It turns on by itself while a controller is connected (or set it to Always on / Off in the side panel under Display)",
+        "New: Riftgate asks once where you are (country and city), so cinemas, release dates, streaming and prices are right from the start. New accounts give it while signing up",
+        "New: country and city lists next to In Theaters and Upcoming Movies, always in sync, with \"Other city…\" to type any city — the cinema list follows",
+        "Changed: long lists come in pages of 100 — Free Games platforms and VR, and Reading Room's shelves, Manga and Comics — so they open much faster. Newly Added adds more games as you scroll",
+        "Fixed: no more white window flashing behind the opening animation",
+        "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
+    ],
     "1.7.2": [
         "New: pick your cinema — next to In Theaters (Theatre) and Upcoming Movies (New) there's a list of the cinemas around your city, nearest first. Once you choose one, \"Find Tickets & Showtimes\" opens that cinema's own website (or its chain's official site) to see sessions and buy tickets, instead of a Google search",
         "Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)",
@@ -2603,6 +2612,8 @@ function applySettingsToUI() {
     movieCountrySelect.value = settings.country || settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
     loadCinemas();
+    // TV mode (gamepad-nav.js) follows the saved setting from the start.
+    if (window.riftgatePad) window.riftgatePad.applyTvMode();
 
     steamId64Input.value = settings.steamId64 || "";
 }
@@ -4523,7 +4534,9 @@ function performSectionSwitch(section) {
     libraryContainer.style.display = isInstalled ? "" : "none";
     introScreen.classList.toggle("active", isInstalled && allGames.length === 0);
 
-    theatreTopbar.style.display = section === "theatre" ? "" : "none";
+    // Its city list now sits (as visible copies) next to In Theaters and
+    // Upcoming Movies, so this bar stays hidden in every section.
+    theatreTopbar.style.display = "none";
 
     const isReadingRoom = section === "reading-room";
     document.querySelector(".reading-room-tabs").style.display = isReadingRoom ? "" : "none";
@@ -4633,7 +4646,142 @@ sidebarNavButtons.forEach((btn) => {
 // Collapses a grid to 2 rows with a "See more" toggle, if it has more than
 // that — used for every browsable grid (Installed categories, Free Games,
 // My Shows, Movies) so long lists don't dominate the screen by default.
+// --- Pages for long lists ---------------------------------------------------
+// A list longer than LIST_PAGE_SIZE is drawn one page at a time, with page
+// buttons above and below it, instead of building every card at once —
+// thousands of cards (Free Games on a fresh install, big platforms, Manga)
+// made those sections slow to open and to scroll. `key` describes what the
+// list currently shows (platform, search, sort…): while it stays the same
+// the user's page is kept across re-renders; when it changes, back to page 1.
+const LIST_PAGE_SIZE = 100;
+const pagedGridState = new WeakMap();
+
+function removeListPagers(grid) {
+    (grid._listPagers || []).forEach((el) => el.remove());
+    grid._listPagers = [];
+    delete grid.dataset.paged;
+}
+
+function pageNumbersAround(page, totalPages) {
+    const wanted = new Set([1, totalPages, page - 2, page - 1, page, page + 1, page + 2]);
+    const pages = [...wanted].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+    const out = [];
+    pages.forEach((n, i) => {
+        if (i > 0 && n - pages[i - 1] > 1) out.push("…");
+        out.push(n);
+    });
+    return out;
+}
+
+// Identifies which list a grid is showing (a new search or a different
+// shelf starts from page 1; the same list refreshed keeps the page).
+function listIdentity(items) {
+    const first = items[0] || {};
+    return `${items.length}|${first.workKey || first.id || first.title || ""}`;
+}
+
+function renderPagedGrid(grid, items, buildCard, options = {}) {
+    const pageSize = options.pageSize || LIST_PAGE_SIZE;
+    const key = options.key || "";
+    let state = pagedGridState.get(grid);
+    if (!state || state.key !== key) {
+        state = { key, page: options.startPage || 1 };
+        pagedGridState.set(grid, state);
+    }
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    state.page = Math.min(Math.max(1, state.page), totalPages);
+
+    removeListPagers(grid);
+
+    const pagers = [];
+    const draw = () => {
+        grid.innerHTML = "";
+        const start = (state.page - 1) * pageSize;
+        const fragment = document.createDocumentFragment();
+        items.slice(start, start + pageSize).forEach((item) => fragment.appendChild(buildCard(item)));
+        grid.appendChild(fragment);
+        pagers.forEach(fillPager);
+        if (typeof options.onPage === "function") options.onPage(state.page);
+    };
+
+    const goTo = (page, fromBottom) => {
+        if (page === state.page || page < 1 || page > totalPages) return;
+        state.page = page;
+        draw();
+        // From the bottom bar, bring the top of the new page into view
+        // (below the sticky section tabs).
+        if (fromBottom && pagers[0]) {
+            const top = pagers[0].getBoundingClientRect().top + window.scrollY - 170;
+            window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+    };
+
+    function fillPager(pager) {
+        const fromBottom = pager === pagers[1];
+        pager.textContent = "";
+        const addButton = (label, page, extraClass, ariaLabel) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = `list-pager-btn${extraClass ? " " + extraClass : ""}`;
+            btn.textContent = label;
+            if (ariaLabel) btn.setAttribute("aria-label", ariaLabel);
+            if (page === state.page) {
+                btn.classList.add("active");
+                btn.setAttribute("aria-current", "page");
+            }
+            btn.disabled = page < 1 || page > totalPages;
+            btn.addEventListener("click", () => goTo(page, fromBottom));
+            pager.appendChild(btn);
+        };
+        addButton("‹ Previous", state.page - 1, "list-pager-step", "Previous page");
+        pageNumbersAround(state.page, totalPages).forEach((n) => {
+            if (n === "…") {
+                const gap = document.createElement("span");
+                gap.className = "list-pager-gap";
+                gap.textContent = "…";
+                pager.appendChild(gap);
+            } else {
+                addButton(String(n), n, "", `Page ${n}`);
+            }
+        });
+        addButton("Next ›", state.page + 1, "list-pager-step", "Next page");
+        const info = document.createElement("span");
+        info.className = "list-pager-info";
+        const first = (state.page - 1) * pageSize + 1;
+        const last = Math.min(items.length, state.page * pageSize);
+        info.textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${items.length.toLocaleString()}`;
+        pager.appendChild(info);
+    }
+
+    if (totalPages > 1) {
+        grid.dataset.paged = "1";
+        const top = document.createElement("div");
+        const bottom = document.createElement("div");
+        top.className = bottom.className = "list-pager";
+        top.setAttribute("role", "navigation");
+        top.setAttribute("aria-label", "Pages");
+        bottom.setAttribute("role", "navigation");
+        bottom.setAttribute("aria-label", "Pages");
+        bottom.classList.add("list-pager-bottom");
+        grid.before(top);
+        grid.after(bottom);
+        pagers.push(top, bottom);
+        grid._listPagers = pagers;
+    }
+    draw();
+}
+
 function attachSeeMore(grid, rowsVisible = 2, expandedRowsCap = null) {
+    // A paged list (see renderPagedGrid) already shows one manageable page
+    // with its own page buttons; folding it as well would hide those.
+    if (grid.dataset.paged === "1") {
+        const after = grid._listPagers && grid._listPagers[1] ? grid._listPagers[1].nextElementSibling : null;
+        if (after && after.classList.contains("see-more-btn")) after.remove();
+        grid.classList.remove("grid-collapsed");
+        grid.style.maxHeight = "";
+        grid.style.overflowY = "";
+        return;
+    }
     const next = grid.nextElementSibling;
     if (next && next.classList.contains("see-more-btn")) {
         next.remove();
@@ -5405,7 +5553,23 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     leftArrow.addEventListener("click", () => track.scrollBy({ left: -700, behavior: "smooth" }));
     rightArrow.addEventListener("click", () => track.scrollBy({ left: 700, behavior: "smooth" }));
 
-    items.forEach((g) => track.appendChild(buildFreeGameCard(g, items)));
+    // A long row (Newly Added holds every game on a fresh install) builds
+    // its cards LIST_PAGE_SIZE at a time: the next batch is added as the
+    // row is scrolled near its end, instead of thousands up front.
+    let shown = 0;
+    const appendBatch = () => {
+        const fragment = document.createDocumentFragment();
+        items.slice(shown, shown + LIST_PAGE_SIZE).forEach((g) => fragment.appendChild(buildFreeGameCard(g, items)));
+        shown = Math.min(items.length, shown + LIST_PAGE_SIZE);
+        track.appendChild(fragment);
+        if (track.isConnected) fitFreeGamesTrack(track);
+    };
+    appendBatch();
+    if (items.length > shown) {
+        track.addEventListener("scroll", () => {
+            if (shown < items.length && track.scrollLeft + track.clientWidth * 2.5 >= track.scrollWidth) appendBatch();
+        }, { passive: true });
+    }
 
     row.appendChild(leftArrow);
     row.appendChild(track);
@@ -5505,6 +5669,14 @@ function renderFreeGamesPlatformTabs() {
     });
 }
 
+// renderFreeGames rebuilds its grids from scratch on every change, so the
+// page a single-platform list is on is remembered here, per list, and kept
+// while the platform, search, genre and sort stay the same.
+const freeGamesPageMemory = { key: "", pages: {} };
+function keepFreeGamesPage(listName) {
+    return (page) => { freeGamesPageMemory.pages[listName] = page; };
+}
+
 function renderFreeGames() {
     const newRow = document.getElementById("freeGamesNewRow");
     const restRow = document.getElementById("freeGamesRestRow");
@@ -5518,6 +5690,12 @@ function renderFreeGames() {
     const sortBy = freeGamesSortSelect.value;
 
     renderFreeGamesPlatformTabs();
+
+    const freeGamesListKey = [searchTerm, platformFilter, categoryFilter, sortBy].join("|");
+    if (freeGamesPageMemory.key !== freeGamesListKey) {
+        freeGamesPageMemory.key = freeGamesListKey;
+        freeGamesPageMemory.pages = {};
+    }
 
     const filtered = freeGamesCache.filter((g) => {
         if (isItemRemoved("freegame", g.id)) return false;
@@ -5593,9 +5771,9 @@ function renderFreeGames() {
                 section.appendChild(header);
                 const grid = document.createElement("div");
                 grid.className = "games-grid browse-grid";
-                items.forEach((g) => grid.appendChild(buildFreeGameCard(g, sorted)));
                 section.appendChild(grid);
                 restRow.appendChild(section);
+                renderPagedGrid(grid, items, (g) => buildFreeGameCard(g, sorted), { startPage: freeGamesPageMemory.pages[heading], onPage: keepFreeGamesPage(heading) });
             };
 
             buildVrGroup("🕶️ Native VR", native);
@@ -5617,10 +5795,9 @@ function renderFreeGames() {
 
         const grid = document.createElement("div");
         grid.className = "games-grid browse-grid";
-        sorted.forEach((g) => grid.appendChild(buildFreeGameCard(g, sorted)));
         section.appendChild(grid);
-
         restRow.appendChild(section);
+        renderPagedGrid(grid, sorted, (g) => buildFreeGameCard(g, sorted), { startPage: freeGamesPageMemory.pages[platformFilter], onPage: keepFreeGamesPage(platformFilter) });
         return;
     }
 
@@ -6039,6 +6216,7 @@ function renderReadingRoom() {
     filtered = sortNoCoverLast(filtered, "cover");
 
     readingRoomContainer.innerHTML = "";
+    removeListPagers(readingRoomContainer);
 
     if (filtered.length === 0) {
         readingRoomContainer.innerHTML = ebooksCache.length === 0
@@ -6047,7 +6225,7 @@ function renderReadingRoom() {
         return;
     }
 
-    filtered.forEach((book) => readingRoomContainer.appendChild(buildEbookCard(book, filtered)));
+    renderPagedGrid(readingRoomContainer, filtered, (book) => buildEbookCard(book, filtered), { key: `${searchTerm}|${sortBy}` });
 }
 
 async function loadReadingRoom() {
@@ -6182,6 +6360,7 @@ function buildDiscoveryEbookCard(book, navList) {
 
 function renderEbookDiscoveryGrid(grid, books, errorMessage) {
     grid.innerHTML = "";
+    removeListPagers(grid);
 
     const visibleBooks = (canSeeMatureContent()
         ? books
@@ -6194,7 +6373,7 @@ function renderEbookDiscoveryGrid(grid, books, errorMessage) {
         return;
     }
     const sortedDiscoveryBooks = sortNoCoverLast(visibleBooks, "cover");
-    sortedDiscoveryBooks.forEach((book) => grid.appendChild(buildDiscoveryEbookCard(book, sortedDiscoveryBooks)));
+    renderPagedGrid(grid, sortedDiscoveryBooks, (book) => buildDiscoveryEbookCard(book, sortedDiscoveryBooks), { key: listIdentity(sortedDiscoveryBooks) });
 }
 
 async function loadEbookDiscovery() {
@@ -6428,6 +6607,7 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
     const isAlphaGrid = kind === "manga" || kind === "comics";
 
     grid.innerHTML = "";
+    removeListPagers(grid);
 
     const visibleBooks = (canSeeMatureContent()
         ? books
@@ -6444,7 +6624,7 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
         ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
         : sortNoCoverLast(visibleBooks, "cover");
 
-    ordered.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, section, ordered)));
+    renderPagedGrid(grid, ordered, (book) => buildBuyFreeBookCard(book, section, ordered), { key: listIdentity(ordered) });
 
     // Manga/Comics specifically get a much bigger list than before, so
     // this keeps that from dominating the screen by default — same
@@ -6549,7 +6729,7 @@ function renderFreeFindsSection() {
     section.style.display = activeReadingRoomTab === "discover" ? "" : "none";
     grid.innerHTML = "";
     const sortedFreeFinds = sortNoCoverLast(visibleBooks, "cover");
-    sortedFreeFinds.forEach((book) => grid.appendChild(buildBuyFreeBookCard(book, "book", sortedFreeFinds)));
+    renderPagedGrid(grid, sortedFreeFinds, (book) => buildBuyFreeBookCard(book, "book", sortedFreeFinds), { key: listIdentity(sortedFreeFinds) });
 }
 
 async function loadBuyFreeBooks() {
@@ -7445,13 +7625,67 @@ const moviesGrid = document.getElementById("moviesGrid");
 })();
 
 function populateCitySelect(countryCode, preferredCity) {
-    const cities = (CITIES_BY_COUNTRY[countryCode] || []).slice().sort((a, b) => a.localeCompare(b));
-    movieCitySelect.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
+    const cities = (CITIES_BY_COUNTRY[countryCode] || []).slice();
+    // A city the user typed themselves (see the location window) that isn't
+    // in the built-in list is kept as a choice of its own.
+    if (preferredCity && !cities.includes(preferredCity)) cities.push(preferredCity);
+    cities.sort((a, b) => a.localeCompare(b));
+    movieCitySelect.textContent = "";
+    cities.forEach((c) => movieCitySelect.appendChild(new Option(c, c)));
 
     if (preferredCity && cities.includes(preferredCity)) {
         movieCitySelect.value = preferredCity;
     }
+    syncLocationPickers();
 }
+
+// --- Country / city pickers next to In Theaters and Upcoming Movies -------
+// Visible copies of the two real controls (the app-wide country in
+// Settings → Region, #globalCountrySelect, and the city list,
+// #movieCitySelect): changing either copy changes the real one, which runs
+// the usual reload, and every copy follows. "Other city…" opens the
+// location window to type any city.
+const countryPickers = Array.from(document.querySelectorAll("select[data-country-picker]"));
+const cityPickers = Array.from(document.querySelectorAll("select[data-city-picker]"));
+const OTHER_CITY_VALUE = "__other-city";
+
+function syncLocationPickers() {
+    const countryOptions = Array.from(movieCountrySelect.options);
+    countryPickers.forEach((select) => {
+        if (select.options.length !== countryOptions.length) {
+            select.textContent = "";
+            countryOptions.forEach((o) => select.appendChild(new Option(o.textContent, o.value)));
+        }
+        select.value = movieCountrySelect.value;
+    });
+    cityPickers.forEach((select) => {
+        select.textContent = "";
+        Array.from(movieCitySelect.options).forEach((o) => select.appendChild(new Option(`📍 ${o.textContent}`, o.value)));
+        select.appendChild(new Option("✏️ Other city…", OTHER_CITY_VALUE));
+        select.value = movieCitySelect.value || OTHER_CITY_VALUE;
+    });
+}
+
+countryPickers.forEach((select) => {
+    select.addEventListener("change", () => {
+        if (movieCountrySelect.value === select.value) return;
+        movieCountrySelect.value = select.value;
+        movieCountrySelect.dispatchEvent(new Event("change"));
+    });
+});
+
+cityPickers.forEach((select) => {
+    select.addEventListener("change", () => {
+        if (select.value === OTHER_CITY_VALUE) {
+            select.value = movieCitySelect.value;
+            openLocationModal("change");
+            return;
+        }
+        if (movieCitySelect.value === select.value) return;
+        movieCitySelect.value = select.value;
+        movieCitySelect.dispatchEvent(new Event("change"));
+    });
+});
 
 movieCountrySelect.addEventListener("change", () => {
     // The one app-wide region setting now -- see its declaration above
@@ -7461,6 +7695,7 @@ movieCountrySelect.addEventListener("change", () => {
     saveSetting("country", movieCountrySelect.value);
     populateCitySelect(movieCountrySelect.value, null);
     saveSetting("movieCity", movieCitySelect.value);
+    syncLocationPickers();
     loadCinemas();
     loadMovies();
     // Provider availability is region-specific (Netflix's catalog in the
@@ -7477,8 +7712,114 @@ movieCountrySelect.addEventListener("change", () => {
 
 movieCitySelect.addEventListener("change", () => {
     saveSetting("movieCity", movieCitySelect.value);
+    syncLocationPickers();
     loadCinemas();
 });
+
+// --- Location window: country + city, asked once per computer --------------
+// Everyone is asked once (first start, or the first start after updating to
+// this version for people who already use Riftgate) after the opening
+// animation and any tour, so cinemas, release dates, streaming and prices
+// are set up for them from the start. New accounts give it while
+// registering (see showDobModal). "Later" asks again on the next start.
+const locationModal = document.getElementById("locationModal");
+const locationCountrySelect = document.getElementById("locationCountrySelect");
+const locationCityInput = document.getElementById("locationCityInput");
+const locationCityList = document.getElementById("locationCityList");
+const locationError = document.getElementById("locationError");
+
+function fillCountryChoices(select, countryCode) {
+    select.textContent = "";
+    Array.from(movieCountrySelect.options).forEach((o) => select.appendChild(new Option(o.textContent, o.value)));
+    select.value = countryCode;
+}
+
+function fillCitySuggestions(datalist, countryCode) {
+    datalist.textContent = "";
+    (CITIES_BY_COUNTRY[countryCode] || []).slice().sort((a, b) => a.localeCompare(b))
+        .forEach((c) => datalist.appendChild(new Option(c, c)));
+}
+
+// Best first guess: a country the user already picked, otherwise the one
+// their connection is in (get-country-by-ip), otherwise the current value.
+function guessedCountryCode() {
+    const hasOption = (cc) => !!cc && Array.from(movieCountrySelect.options).some((o) => o.value === cc);
+    if (settings.locationConfirmed || (settings.country && settings.country !== "US")) return movieCountrySelect.value;
+    return hasOption(myCountryCode) ? myCountryCode : movieCountrySelect.value;
+}
+
+function cleanCityName(raw) {
+    return String(raw || "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+// Sets the app-wide country and the city together, then everything that
+// depends on them reloads (country change handler, cinema list).
+function applyUserLocation(countryCode, city) {
+    if (movieCountrySelect.value !== countryCode) {
+        movieCountrySelect.value = countryCode;
+        movieCountrySelect.dispatchEvent(new Event("change"));
+    }
+    populateCitySelect(countryCode, city);
+    saveSetting("movieCity", movieCitySelect.value);
+    saveSetting("locationConfirmed", true);
+    loadCinemas();
+}
+
+let locationModalContext = null;
+function openLocationModal(context) {
+    locationModalContext = context;
+    const countryCode = guessedCountryCode();
+    fillCountryChoices(locationCountrySelect, countryCode);
+    fillCitySuggestions(locationCityList, countryCode);
+    locationCityInput.value = settings.locationConfirmed || context === "change" ? (movieCitySelect.value || "") : "";
+    locationError.textContent = "";
+    document.getElementById("locationLaterBtn").textContent = context === "change" ? "Cancel" : "Later";
+    locationModal.classList.add("active");
+    (locationCityInput.value ? locationCountrySelect : locationCityInput).focus();
+}
+
+function closeLocationModal() {
+    locationModal.classList.remove("active");
+    locationModalContext = null;
+}
+
+locationCountrySelect.addEventListener("change", () => {
+    fillCitySuggestions(locationCityList, locationCountrySelect.value);
+    // A city from the old country's list doesn't belong to the new one.
+    if ((CITIES_BY_COUNTRY[movieCountrySelect.value] || []).includes(locationCityInput.value)) locationCityInput.value = "";
+});
+
+function saveLocationModal() {
+    const city = cleanCityName(locationCityInput.value);
+    if (!city) {
+        locationError.textContent = "Type your city (or the nearest big one).";
+        locationCityInput.focus();
+        return;
+    }
+    applyUserLocation(locationCountrySelect.value, city);
+    closeLocationModal();
+}
+
+document.getElementById("locationSaveBtn").addEventListener("click", saveLocationModal);
+locationCityInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") saveLocationModal();
+});
+document.getElementById("locationLaterBtn").addEventListener("click", closeLocationModal);
+document.getElementById("dobCountrySelect").addEventListener("change", (event) => {
+    fillCitySuggestions(document.getElementById("dobCityList"), event.target.value);
+});
+
+let startupAnimationDoneResolve = null;
+const startupAnimationDone = new Promise((resolve) => { startupAnimationDoneResolve = resolve; });
+
+async function maybeAskLocation() {
+    if (settings.locationConfirmed) return;
+    await startupAnimationDone;
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Not on top of the welcome tour or another window (update, sign-in…).
+    while (tourActive || document.querySelector(".modal-overlay.active")) await pause(700);
+    if (!settings.locationConfirmed) openLocationModal("setup");
+}
 
 // --- "Your cinema" picker (In Theaters + Upcoming Movies headers) ---------
 // Lists the cinemas around the chosen city (OpenStreetMap, via main.js,
@@ -9351,12 +9692,14 @@ function playStartupAnimation() {
     const overlay = document.getElementById("startupOverlay");
     if (!overlay) {
         document.body.classList.remove("startup-locked");
+        startupAnimationDoneResolve();
         return;
     }
 
     if (settings.startupAnimation === false) {
         overlay.remove();
         document.body.classList.remove("startup-locked");
+        startupAnimationDoneResolve();
         return;
     }
 
@@ -9370,7 +9713,10 @@ function playStartupAnimation() {
     setTimeout(() => {
         overlay.classList.add("startup-hidden");
         document.body.classList.remove("startup-locked");
-        setTimeout(() => overlay.remove(), 550);
+        setTimeout(() => {
+            overlay.remove();
+            startupAnimationDoneResolve();
+        }, 550);
     }, 5500);
 }
 
@@ -9477,6 +9823,16 @@ function showDobModal(context) {
     errorEl.textContent = "";
     cancelBtn.style.display = context === "existing-user-required" ? "none" : "";
 
+    // A new account also says where the user is (country + city).
+    const locationFields = document.getElementById("dobLocationFields");
+    locationFields.style.display = context === "register" ? "" : "none";
+    if (context === "register") {
+        const countryCode = guessedCountryCode();
+        fillCountryChoices(document.getElementById("dobCountrySelect"), countryCode);
+        fillCitySuggestions(document.getElementById("dobCityList"), countryCode);
+        document.getElementById("dobCityInput").value = settings.locationConfirmed ? (movieCitySelect.value || "") : "";
+    }
+
     modal.classList.add("active");
     input.focus();
 }
@@ -9509,6 +9865,12 @@ async function attemptDobSubmit() {
         return;
     }
 
+    const registerCity = cleanCityName(document.getElementById("dobCityInput").value);
+    if (dobModalContext === "register" && !registerCity) {
+        errorEl.textContent = "Type your city (or the nearest big one).";
+        return;
+    }
+
     submitBtn.disabled = true;
     errorEl.textContent = "";
 
@@ -9532,6 +9894,7 @@ async function attemptDobSubmit() {
         myDateOfBirth = value;
         updateMinorStatus();
         pendingRegistrationUsername = null;
+        applyUserLocation(document.getElementById("dobCountrySelect").value, registerCity);
         closeDobModal();
         // Brand-new account — choose a password right away so this
         // username can never be used by someone who's only guessed or
@@ -12998,6 +13361,7 @@ async function init() {
     tryRestoreSessionOrStayLoggedOut();
     await loadGames();
     await checkForUpdatePopup();
+    maybeAskLocation();
     playStartupChime();
     checkForNewGames();
 

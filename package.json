@@ -1,6 +1,6 @@
 {
   "name": "riftgate",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "Riftgate - all your worlds, one gateway: a personal entertainment hub for your games, movies, TV, anime, books, apps, free content and deals.",
   "main": "main.js",
   "scripts": {

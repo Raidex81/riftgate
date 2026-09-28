@@ -216,6 +216,25 @@
         </div>
     </div>
 
+    <!-- Country and city, asked once per computer (see maybeAskLocation in
+         renderer.js) and whenever "Other city…" is picked in a city list. -->
+    <div class="modal-overlay" id="locationModal">
+        <div class="modal-box">
+            <h3>📍 Where are you?</h3>
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+                Riftgate uses your country and city for cinemas and showtimes, release dates, streaming availability and store prices. You can change it any time — next to In Theaters and Upcoming Movies, or in Settings → Region.
+            </p>
+            <select id="locationCountrySelect" aria-label="Country" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;"></select>
+            <input type="text" id="locationCityInput" list="locationCityList" maxlength="80" placeholder="Your city" aria-label="City" autocomplete="off" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <datalist id="locationCityList"></datalist>
+            <p id="locationError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
+            <div class="modal-actions">
+                <button id="locationLaterBtn">Later</button>
+                <button id="locationSaveBtn" class="wheel-play">Save</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="dobModal">
         <div class="modal-box">
             <h3>Your Date of Birth</h3>
@@ -223,6 +242,14 @@
                 Riftgate uses this only to know whether mature content should ever be shown to your account — never displayed to other users.
             </p>
             <input type="date" id="dobInput" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+            <!-- Registration only (see showDobModal): where the new user is,
+                 so Riftgate is set up for their region from the start. -->
+            <div id="dobLocationFields" class="location-fields" style="display:none;">
+                <p style="color:var(--text-secondary);font-size:13px;margin:6px 0 8px;">Where are you? Used for cinemas, release dates, streaming and store prices — you can change it any time.</p>
+                <select id="dobCountrySelect" aria-label="Country" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;"></select>
+                <input type="text" id="dobCityInput" list="dobCityList" maxlength="80" placeholder="Your city" aria-label="City" autocomplete="off" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:14px;margin-bottom:8px;">
+                <datalist id="dobCityList"></datalist>
+            </div>
             <p id="dobError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 10px;"></p>
             <div class="modal-actions">
                 <button id="dobCancelBtn">Cancel</button>
@@ -503,6 +530,10 @@
                     <option value="UA">Ukraine</option>
                     </select>
                 </div>
+                <div class="sidebar-select-row">
+                    <span>City</span>
+                    <select data-city-picker aria-label="City"></select>
+                </div>
             </div>
 
             <div class="sidebar-section">
@@ -567,6 +598,15 @@
                     <input type="checkbox" id="toggleFullscreen">
                     <span class="switch"></span>
                 </label>
+                <div class="sidebar-select-row">
+                    <span>TV mode</span>
+                    <select id="tvModeSelect" aria-label="TV mode">
+                        <option value="auto">With a controller</option>
+                        <option value="on">Always on</option>
+                        <option value="off">Off</option>
+                    </select>
+                </div>
+                <p class="sidebar-hint">🎮 Controller or TV remote: move with the D-pad, stick or arrow keys · Ⓐ / Enter opens · Ⓑ / Esc goes back · LB / RB switch sections · ☰ Menu opens this panel. TV mode makes everything bigger for the couch.</p>
             </div>
 
             <div class="sidebar-section" id="matureContentSidebarSection" style="display:none;">
@@ -1342,7 +1382,11 @@
             <div class="theatre-block-header">
                 <h2>🎬 In Theaters</h2>
                 <button type="button" class="see-all-btn" data-see-all="now-playing">See all →</button>
-                <select class="cinema-select" data-cinema-picker aria-label="Your cinema" hidden></select>
+                <div class="cinema-controls">
+                    <select class="location-select" data-country-picker aria-label="Country" title="Your country"></select>
+                    <select class="location-select" data-city-picker aria-label="City" title="Your city"></select>
+                    <select class="cinema-select" data-cinema-picker aria-label="Your cinema" hidden></select>
+                </div>
             </div>
             <input type="text" id="moviesFilterInput" class="subsection-filter" placeholder="Filter movies by name...">
             <div id="moviesGrid" class="games-grid browse-grid"></div>
@@ -1399,7 +1443,11 @@
             <div class="theatre-block-header">
                 <h2>🎬 Upcoming Movies</h2>
                 <button type="button" class="see-all-btn" data-see-all="upcoming-movies">See all →</button>
-                <select class="cinema-select" data-cinema-picker aria-label="Your cinema" hidden></select>
+                <div class="cinema-controls">
+                    <select class="location-select" data-country-picker aria-label="Country" title="Your country"></select>
+                    <select class="location-select" data-city-picker aria-label="City" title="Your city"></select>
+                    <select class="cinema-select" data-cinema-picker aria-label="Your cinema" hidden></select>
+                </div>
             </div>
             <div class="hscroll-row">
                 <button class="carousel-arrow carousel-arrow-left" id="upcomingMoviesLeftArrow" aria-label="Scroll left">‹</button>
@@ -1808,6 +1856,7 @@
     </div>
 
     <script src="renderer.js"></script>
+    <script src="gamepad-nav.js"></script>
 
 </body>
 

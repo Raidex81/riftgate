@@ -47,25 +47,21 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.7.2):
+Quick pass on what changed this round (v1.7.3):
 
-- **Your cinema** — in Theatre, next to In Theaters, open the new
-  "🎟️ Any cinema in …" list (it says "Loading cinemas…" for a few
-  seconds the first time). Pick a cinema, then click Find Tickets &
-  Showtimes on any film: the cinema's own site (or its chain's site)
-  opens, not Google. The same list sits next to Upcoming Movies in New
-  and remembers the same choice.
-- Change the city at the top of Theatre: the list changes to that
-  city's cinemas; switch back and your earlier pick is still there.
-- Choose "🎟️ Any cinema" again: Find Tickets goes back to a Google search.
-- **Section order** — drag a tab in the top bar (e.g. Applications) onto
-  another: it fades while moving and a coloured bar shows where it will
-  land. Let go: the top bar and the side menu both take the new order,
-  and it's still there after restarting the app.
-- **Opening animation** — start the app: the gem lands in a spinning
-  portal, streaks and shards sweep in, then RIFTGATE and the tagline
-  appear, in your theme's colours. Change the theme (sidebar), restart:
-  the animation follows the new colours from the first frame.
+- **Start-up** — no white window behind the opening animation. Right
+  after it, a "Where are you?" window asks for country and city (only
+  the first time). Type a city that isn't in the list (e.g. Almada) and
+  Save: In Theaters / Upcoming Movies show that city and its cinemas.
+- **Country / city lists** — next to In Theaters (Theatre) and Upcoming
+  Movies (New): change the country or city in one, the other follows.
+  "✏️ Other city…" opens the same window to type any city.
+- **Controller** — plug in an Xbox/PlayStation controller and press a
+  button: everything gets bigger (TV mode) and a bar of button hints
+  appears. D-pad moves the highlight, A opens, B goes back, LB/RB switch
+  sections, ☰ opens the side panel. Unplug it: back to normal size.
+- **Pages** — Free Games → GOG (or VR): 100 games per page with page
+  buttons above and below. Reading Room → Manga: page 1 of 2.
 
 Then a quick general check that nothing else broke: log in, open Free
 Games (covers load), open an ebook in the Reading Room, and open Theatre.
