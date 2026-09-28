@@ -4014,7 +4014,7 @@ body.light-theme .free-games-tab.glow-tab{
 .glow-tab-border{
     position:relative;
     display:block;
-    padding:3px;
+    padding:2px;
     border-radius:inherit;
     background:#0005;
 }
@@ -4024,8 +4024,8 @@ body.light-theme .free-games-tab.glow-tab{
     display:flex;
     align-items:center;
     justify-content:center;
-    padding:6px 13px;
-    border-radius:11px;
+    padding:7px 14px;
+    border-radius:12px;
     background:var(--glow-face);
     color:inherit;
     transition:background .2s ease;
@@ -4034,19 +4034,20 @@ body.light-theme .free-games-tab.glow-tab{
     position:absolute;
     inset:0;
     z-index:-2;
-    opacity:.35;
+    opacity:0;
     overflow:hidden;
     border-radius:inherit;
     pointer-events:none;
     transition:opacity .3s ease;
 }
+/* Slim glow: a thin halo hugging the button rather than a wide cloud. */
 .glow-tab-spin-blur{
-    filter:blur(1.2em) url(#unopaq);
+    filter:blur(0.45em) url(#unopaq);
 }
 .glow-tab-spin-intense{
-    inset:-0.125em;
-    filter:blur(0.25em) url(#unopaq2);
-    border-radius:0.75em;
+    inset:-0.06em;
+    filter:blur(0.12em) url(#unopaq2);
+    border-radius:0.8em;
 }
 .glow-tab-spin-inside{
     inset:-2px;
@@ -4069,30 +4070,30 @@ body.light-theme .free-games-tab.glow-tab{
 .glow-tab-spin-inside::before{
     background:linear-gradient(90deg, color-mix(in srgb, var(--accent-1) 45%, #fff) 30%, transparent 45% 55%, color-mix(in srgb, var(--accent-2) 45%, #fff) 70%);
 }
-/* Pointing at it: the glow wakes up and spins. */
+/* Not selected: only the ring shows a faint, still hint of colour
+   (the inside glow); pointing at one brightens that a little — only the
+   selected platform glows fully and spins, so there's never a doubt which
+   one is chosen. */
+.free-games-tab.glow-tab .glow-tab-spin-inside{
+    opacity:.18;
+}
 .free-games-tab.glow-tab:hover,
 .free-games-tab.glow-tab:focus-visible{
     color:var(--text-primary);
 }
-.free-games-tab.glow-tab:hover .glow-tab-spin,
-.free-games-tab.glow-tab:focus-visible .glow-tab-spin{
-    opacity:.7;
+.free-games-tab.glow-tab:not(.active):hover .glow-tab-spin-inside,
+.free-games-tab.glow-tab:not(.active):focus-visible .glow-tab-spin-inside{
+    opacity:.45;
 }
-.free-games-tab.glow-tab:hover .glow-tab-spin::before,
-.free-games-tab.glow-tab:focus-visible .glow-tab-spin::before,
 .free-games-tab.glow-tab.active .glow-tab-spin::before{
     animation-play-state:running;
-}
-/* Pressed: full glow, like the original. */
-.free-games-tab.glow-tab:active .glow-tab-spin{
-    opacity:1;
 }
 /* The selected platform keeps glowing and reads in white on a tinted face. */
 .free-games-tab.glow-tab.active{
     color:#fff;
 }
 .free-games-tab.glow-tab.active .glow-tab-spin{
-    opacity:1;
+    opacity:.9;
 }
 .free-games-tab.glow-tab.active .glow-tab-face{
     background:color-mix(in srgb, var(--accent-1) 28%, var(--glow-face));
