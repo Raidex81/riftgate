@@ -1212,6 +1212,7 @@ const CHANGELOG = {
         "New: a controls screen for Xbox, PlayStation, Nintendo, TV remote and keyboard showing what every button does (View / Share / − / Info / F1, or the side panel). Unplugging the controller goes straight back to desktop mode",
         "New: a search box beside the page buttons that looks only in that list — \"Search Steam games…\", \"Search Epic Games…\", manga, comics, your library",
         "Changed: every cover in the app (games, films, series, books) is now kept on your computer after it's shown once, so Riftgate opens faster next time",
+        "New: a \"Star on GitHub\" button at the right of the search line, with Riftgate's real star count — click it to open the project and give it a star",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -13726,3 +13727,39 @@ document.addEventListener("click", (e) => {
 });
 
 init();
+
+// --- "Star on GitHub" (top line, far right) ------------------------------------
+// Shows the repository's real star count (main.js get-github-stars, kept for
+// ten minutes) and opens the repository page to star it. Coming back to the
+// window refreshes the count, so a new star shows up.
+const githubStarBtn = document.getElementById("githubStarBtn");
+const githubStarCount = document.getElementById("githubStarCount");
+let githubRepoUrl = "https://github.com/Raidex81/Riftgate";
+
+function formatStarCount(n) {
+    if (n >= 10000) return `${Math.round(n / 1000)}k`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return String(n);
+}
+
+async function refreshGithubStars(fresh = false) {
+    if (!githubStarCount) return;
+    try {
+        const result = await window.riftgate.invoke("get-github-stars", { fresh });
+        if (result && result.url) githubRepoUrl = result.url;
+        if (result && Number.isFinite(result.stars)) {
+            githubStarCount.textContent = formatStarCount(result.stars);
+            githubStarBtn.title = `Riftgate on GitHub — ${result.stars.toLocaleString()} star${result.stars === 1 ? "" : "s"}. Click to give it a star`;
+        }
+    } catch {
+        // Keep whatever is shown.
+    }
+}
+
+if (githubStarBtn) {
+    githubStarBtn.addEventListener("click", () => {
+        window.riftgate.invoke("open-external", githubRepoUrl);
+    });
+    refreshGithubStars();
+    window.addEventListener("focus", () => refreshGithubStars(true));
+}

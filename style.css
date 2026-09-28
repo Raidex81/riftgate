@@ -6402,3 +6402,91 @@ body.gp-nav .game-desc.gp-focus{
 body.gp-nav .gp-scroll.gp-focus{
     outline-offset:4px;
 }
+
+/* ================= "Star on GitHub" button (top line, far right) =================
+   Rainbow-border button adapted from Uiverse.io by elijahgummer (MIT),
+   rewritten as plain CSS; the fill follows the theme. */
+.github-star-btn{
+    --gh-fill:#121213;
+    margin-left:auto;
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    height:40px;
+    padding:8px 16px;
+    border-radius:8px;
+    white-space:nowrap;
+    font-size:14px;
+    font-weight:600;
+    color:#fff;
+    cursor:pointer;
+    border:calc(0.08 * 1rem) solid transparent;
+    background:
+        linear-gradient(var(--gh-fill), var(--gh-fill)),
+        linear-gradient(var(--gh-fill) 50%, color-mix(in srgb, var(--gh-fill) 60%, transparent) 80%, transparent),
+        linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+    background-size:200%;
+    background-clip:padding-box, border-box, border-box;
+    background-origin:border-box;
+    animation:ghRainbow 2s linear infinite;
+    transition:transform .2s ease;
+}
+.github-star-btn::before{
+    content:"";
+    position:absolute;
+    bottom:-20%;
+    left:50%;
+    z-index:0;
+    height:20%;
+    width:60%;
+    transform:translateX(-50%);
+    background:linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+    background-size:200%;
+    animation:ghRainbow 2s linear infinite;
+    filter:blur(calc(0.8 * 1rem));
+    pointer-events:none;
+}
+.github-star-btn > *{
+    position:relative;
+    z-index:1;
+}
+.github-star-btn:hover{ transform:scale(1.05); }
+.github-star-btn:active{ transform:scale(.95); }
+.github-star-btn:focus-visible{ outline:2px solid var(--accent-1); outline-offset:3px; }
+.github-star-main, .github-star-count-wrap{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+.github-star-logo, .github-star-icon{
+    width:16px;
+    height:16px;
+    flex-shrink:0;
+}
+.github-star-icon{
+    color:#6b7280;
+    transition:color .2s ease;
+}
+.github-star-btn:hover .github-star-icon{ color:#fde047; }
+.github-star-count{
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.05em;
+    font-weight:600;
+}
+body.light-theme .github-star-btn{
+    --gh-fill:#fff;
+    color:#111;
+}
+@keyframes ghRainbow{
+    0%{ background-position:0%; }
+    100%{ background-position:200%; }
+}
+@media (prefers-reduced-motion:reduce){
+    .github-star-btn, .github-star-btn::before{ animation:none; }
+}
+/* Narrow windows: the count alone. */
+@media (max-width:1180px){
+    .github-star-label{ display:none; }
+}

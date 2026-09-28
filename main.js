@@ -3691,6 +3691,41 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
     return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
 });
 
+// --- "Star on GitHub" button: the repo's real star count --------------------
+// GitHub's public API (no key; 60 requests an hour per connection), so the
+// count is kept for 10 minutes, and the last one is saved on disk to show
+// straight away on the next start (or offline).
+const GITHUB_REPO = "Raidex81/Riftgate";
+const GITHUB_STARS_CACHE_FILE = "cache-github-stars.json";
+const GITHUB_STARS_TTL_MS = 10 * 60 * 1000;
+let githubStarsInFlight = null;
+
+ipcMain.handle("get-github-stars", async (event, { fresh } = {}) => {
+    const cached = loadDataCache(GITHUB_STARS_CACHE_FILE);
+    const cachedStars = cached && Number.isFinite(cached.stars) ? cached.stars : null;
+    // "fresh" (the window came back into focus, maybe after starring)
+    // still waits a minute between asks.
+    const maxAge = fresh ? 60 * 1000 : GITHUB_STARS_TTL_MS;
+    if (cachedStars !== null && Date.now() - (cached.savedAt || 0) < maxAge) {
+        return { stars: cachedStars, url: `https://github.com/${GITHUB_REPO}` };
+    }
+    if (!githubStarsInFlight) {
+        githubStarsInFlight = fetchWithRetry(`https://api.github.com/repos/${GITHUB_REPO}`, 8000, 1)
+            .then((data) => {
+                const stars = data && Number.isFinite(data.stargazers_count) ? data.stargazers_count : null;
+                if (stars !== null) saveDataCache(GITHUB_STARS_CACHE_FILE, { stars, savedAt: Date.now() });
+                return stars;
+            })
+            .catch((err) => {
+                console.error("[github] star count failed:", err.message || err);
+                return null;
+            })
+            .finally(() => { githubStarsInFlight = null; });
+    }
+    const stars = await githubStarsInFlight;
+    return { stars: stars !== null ? stars : cachedStars, url: `https://github.com/${GITHUB_REPO}` };
+});
+
 // --- TV mode: the whole interface a size bigger ---------------------------
 // Zooming the page (rather than restyling it) keeps every layout rule
 // working: the page simply sees a smaller viewport and fits cards to it.
