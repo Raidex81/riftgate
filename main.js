@@ -3691,6 +3691,97 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
     return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
 });
 
+// --- Game covers (portrait box art) for any game card ------------------------
+// Upcoming games only come with a wide screenshot (or nothing) from RAWG,
+// and plenty of other listings too. The box art is looked up by name:
+//   1. Steam's own store search — its vertical "library" cover exists for
+//      most games on Steam, released or still to come;
+//   2. SteamGridDB (fetchOnlineCover), for everything else.
+// Answers are remembered on disk: a found cover for a month, "none found"
+// for three days (announced games often get their art later).
+const GAME_COVERS_CACHE_FILE = "cache-game-covers.json";
+const GAME_COVER_HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GAME_COVER_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const gameCoverInFlight = new Map();
+
+function coverNameKey(name) {
+    return String(name || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[™®©]/g, "")
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+}
+
+function headOk(url) {
+    return new Promise((resolve) => {
+        try {
+            const req = https.request(url, { method: "HEAD", headers: { "User-Agent": "RiftgateApp/1.0" } }, (res) => {
+                res.resume();
+                resolve(res.statusCode >= 200 && res.statusCode < 300 && /^image\//.test(res.headers["content-type"] || ""));
+            });
+            req.on("error", () => resolve(false));
+            req.setTimeout(8000, () => req.destroy());
+            req.end();
+        } catch {
+            resolve(false);
+        }
+    });
+}
+
+async function findSteamPortraitCover(gameName) {
+    const wanted = coverNameKey(gameName);
+    if (!wanted) return null;
+    const data = await fetchWithRetry(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(gameName)}&cc=us&l=en`, 8000, 1);
+    const items = (data && Array.isArray(data.items)) ? data.items : [];
+    // Same game only: the exact name, or the name followed by more words
+    // ("Crimson Desert" → "Crimson Desert Enhanced") — never a different
+    // game that merely starts alike ("Grand Theft Auto VI" ≠ "… Vice City").
+    const exact = items.filter((it) => coverNameKey(it.name) === wanted);
+    const longer = items.filter((it) => coverNameKey(it.name).startsWith(`${wanted} `));
+    for (const item of [...exact, ...longer].slice(0, 3)) {
+        for (const file of ["library_600x900_2x.jpg", "library_600x900.jpg"]) {
+            const url = `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${item.id}/${file}`;
+            if (await headOk(url)) return url;
+        }
+    }
+    return null;
+}
+
+ipcMain.handle("find-game-cover", async (event, gameName) => {
+    if (typeof gameName !== "string" || !gameName.trim() || gameName.length > 200) return null;
+    const key = coverNameKey(gameName);
+    const cache = loadDataCache(GAME_COVERS_CACHE_FILE) || {};
+    const cached = cache[key];
+    if (cached) {
+        const ttl = cached.url ? GAME_COVER_HIT_TTL_MS : GAME_COVER_MISS_TTL_MS;
+        if (Date.now() - (cached.at || 0) < ttl) return cached.url || null;
+    }
+    if (!gameCoverInFlight.has(key)) {
+        const job = (async () => {
+            let url = null;
+            try {
+                url = await findSteamPortraitCover(gameName);
+            } catch (err) {
+                console.error(`[cover] Steam lookup failed for "${gameName}":`, err.message || err);
+            }
+            if (!url) url = await fetchOnlineCover(gameName);
+            const fresh = loadDataCache(GAME_COVERS_CACHE_FILE) || {};
+            fresh[key] = { url: url || null, at: Date.now() };
+            // Keep the file bounded: the 3,000 most recent answers.
+            const keys = Object.keys(fresh);
+            if (keys.length > 3000) {
+                keys.sort((a, b) => (fresh[a].at || 0) - (fresh[b].at || 0)).slice(0, keys.length - 3000).forEach((k) => delete fresh[k]);
+            }
+            saveDataCache(GAME_COVERS_CACHE_FILE, fresh);
+            return url || null;
+        })().finally(() => gameCoverInFlight.delete(key));
+        gameCoverInFlight.set(key, job);
+    }
+    return gameCoverInFlight.get(key);
+});
+
 // --- "Star on GitHub" button: the repo's real star count --------------------
 // GitHub's public API (no key; 60 requests an hour per connection), so the
 // count is kept for 10 minutes, and the last one is saved on disk to show
@@ -4390,7 +4481,9 @@ function isPlausibleSteamGridMatch(searchName, matchName) {
     return searchWords.some((w) => matchWords.has(w));
 }
 
-ipcMain.handle("fetch-online-cover", async (event, gameName) => {
+ipcMain.handle("fetch-online-cover", (event, gameName) => fetchOnlineCover(gameName));
+
+async function fetchOnlineCover(gameName) {
 
     // Skip the network round trip for a title already fetched before --
     // this now runs far more often than just the Installed library's
@@ -4472,7 +4565,7 @@ ipcMain.handle("fetch-online-cover", async (event, gameName) => {
         console.error("[cover] fetch-online-cover failed:", err.message || err);
         return null;
     }
-});
+}
 
 ipcMain.handle("select-cover-image", async (event, gameName) => {
 

@@ -1217,6 +1217,7 @@ const CHANGELOG = {
         "Changed: the section tabs, Free Games' platform buttons and Reading Room's tabs have a new look — the selected one has a slim glow in your theme's colours that slowly spins. The Store's reseller links glow while you point at them",
         "Changed: a new Login / Log out button — glassy, lit from above in your theme's colour, with a soft halo when you point at it",
         "Changed: the \"See all\" lists (Upcoming Movies and Games, In Theaters, New Series and Anime, streaming services, itch.io) show 100 at a time with page buttons, while the rest keeps loading in the background",
+        "Fixed: upcoming games (and any game card with no cover, a broken one or a sideways screenshot) now get their real box art — from Steam first, then SteamGridDB — for games already out and most still to come",
         "Fixed: most cities showed no cinemas — the list now comes from OpenStreetMap's search (fast and reliable), with the old source as a backup",
         "Fixed: no more white window flashing behind the opening animation",
         "Fixed: the cinema list retries when OpenStreetMap is busy, and the contact email is now riftgateappdev@zohomail.eu"
@@ -3376,7 +3377,7 @@ function buildCard(game, navList) {
 `;
 
     card.querySelector(".cover-img").alt = game.name;
-    if (category !== "app") watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
+    if (category !== "app") watchForLandscapeCover(card.querySelector(".cover-img"), game.name, { game: category === "game" || category === "vr" });
     card.querySelector(".game-info h3").textContent = game.name;
     card.querySelector(".game-desc").textContent = description;
 
@@ -5031,9 +5032,10 @@ const verticalCoverLookupQueue = [];
 
 function pumpVerticalCoverLookupQueue() {
     while (activeVerticalCoverLookups < MAX_CONCURRENT_VERTICAL_COVER_LOOKUPS && verticalCoverLookupQueue.length > 0) {
-        const { itemName, resolve } = verticalCoverLookupQueue.shift();
+        const { itemName, isGame, resolve } = verticalCoverLookupQueue.shift();
         activeVerticalCoverLookups++;
-        window.riftgate.invoke("fetch-online-cover", itemName)
+        // Games: Steam's own box art first, then SteamGridDB ("find-game-cover").
+        window.riftgate.invoke(isGame ? "find-game-cover" : "fetch-online-cover", itemName)
             .catch((err) => {
                 console.error("[cover] vertical replacement lookup failed:", err.message || err);
                 return null;
@@ -5046,24 +5048,36 @@ function pumpVerticalCoverLookupQueue() {
     }
 }
 
-function queueVerticalCoverLookup(itemName) {
+function queueVerticalCoverLookup(itemName, isGame = false) {
     return new Promise((resolve) => {
-        verticalCoverLookupQueue.push({ itemName, resolve });
+        verticalCoverLookupQueue.push({ itemName, isGame, resolve });
         pumpVerticalCoverLookupQueue();
     });
 }
 
-async function fetchVerticalCoverReplacement(img, itemName) {
+// A game card showing the "no cover" placeholder, or nothing at all.
+function isPlaceholderCover(img) {
+    const src = img.currentSrc || img.src || "";
+    return !src || /covers\/(default|no-cover[^/]*)\.jpg($|\?)/.test(src);
+}
+
+async function fetchVerticalCoverReplacement(img, itemName, isGame = false) {
     if (!itemName) return null;
-    if (!img.naturalWidth || !img.naturalHeight) return null;
-    if (img.naturalWidth <= img.naturalHeight) return null;
+    // A game with no cover at all (upcoming games often come without one,
+    // or with a broken link) gets its box art looked up too.
+    const missing = isGame && (isPlaceholderCover(img) || img.dataset.coverFailed === "1");
+    if (!missing) {
+        if (!img.naturalWidth || !img.naturalHeight) return null;
+        if (img.naturalWidth <= img.naturalHeight) return null;
+    }
     // One attempt per <img> element (a fresh one every time a card is
     // rebuilt) -- avoids re-searching SteamGridDB every time "load" fires
     // again, including the second "load" this same swap triggers.
     if (verticalCoverAttempted.has(img)) return null;
     verticalCoverAttempted.add(img);
 
-    return queueVerticalCoverLookup(itemName);
+    const found = await queueVerticalCoverLookup(itemName, isGame);
+    return found ? freeGameCoverCacheSrc(found) : null;
 }
 
 // Generic version for every card type that doesn't already have its own
@@ -5099,10 +5113,20 @@ function looksLikeBlankCover(img) {
     }
 }
 
-function watchForLandscapeCover(img, itemName) {
+// Swaps a sideways cover for real portrait box art when one can be found.
+// { game: true } marks game cards: those also get box art when they have no
+// cover at all or their image fails to load, and search Steam first.
+function watchForLandscapeCover(img, itemName, { game = false } = {}) {
+    if (game) {
+        img.addEventListener("error", () => {
+            if (img.dataset.coverFailed === "1") return;
+            img.dataset.coverFailed = "1";
+            check();
+        });
+    }
     const check = async () => {
         const original = img.currentSrc || img.src;
-        const replacement = await fetchVerticalCoverReplacement(img, itemName);
+        const replacement = await fetchVerticalCoverReplacement(img, itemName, game);
         if (!replacement) return;
         // If the replacement fails to load or comes out blank, go back to
         // the original (landscape) cover rather than showing nothing.
@@ -5192,7 +5216,7 @@ function buildFreeGameCard(game, navList) {
         }
     });
 
-    watchForLandscapeCover(freeGameCoverImgEl, game.name);
+    watchForLandscapeCover(freeGameCoverImgEl, game.name, { game: true });
 
     card.querySelector(".cover-img").alt = game.name;
     card.querySelector(".game-info h3").textContent = game.name;
@@ -9003,7 +9027,7 @@ function renderRelatedGames(rawGames) {
             </div>
         `;
         card.querySelector(".cover-img").alt = game.name;
-        watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
+        watchForLandscapeCover(card.querySelector(".cover-img"), game.name, { game: true });
         card.querySelector(".game-info h3").textContent = game.name;
         card.addEventListener("click", () => openGameDetailModal(game, "game", games));
         attachAdminRemoveButton(card, "game", game.id, game.name);
@@ -9402,7 +9426,7 @@ function buildUpcomingGameCard(game, navList) {
     `;
 
     card.querySelector(".cover-img").alt = game.name;
-    watchForLandscapeCover(card.querySelector(".cover-img"), game.name);
+    watchForLandscapeCover(card.querySelector(".cover-img"), game.name, { game: true });
     card.querySelector(".game-info h3").textContent = game.name;
     // Third-party platform names from RAWG — textContent, never innerHTML.
     const platformsEl = card.querySelector(".upcoming-game-platforms");
@@ -9534,7 +9558,7 @@ const SEE_ALL_KINDS = {
         mediaType: () => "game",
         name: (it) => it.name,
         date: (it) => it.releaseDate,
-        posters: false,
+        posters: true,
         build: (it, list) => buildUpcomingGameCard(it, list)
     },
     "provider": {
@@ -11807,7 +11831,7 @@ function buildStoreDealCard(deal) {
             coverImgEl.src = "covers/default.jpg";
         }
     });
-    watchForLandscapeCover(coverImgEl, deal.name);
+    watchForLandscapeCover(coverImgEl, deal.name, { game: true });
     coverImgEl.alt = deal.name;
 
     card.querySelector(".game-info h3").textContent = deal.name;
