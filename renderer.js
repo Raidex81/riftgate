@@ -11650,7 +11650,7 @@ document.getElementById("editAppDescriptionConfirmBtn").addEventListener("click"
 document.getElementById("suggestAppEmailBtn").addEventListener("click", () => {
     const subject = encodeURIComponent("Riftgate Applications suggestion");
     const body = encodeURIComponent("App name:\nLink (GitHub or other):\n");
-    window.riftgate.invoke("open-external", `mailto:canoaspt@gmail.com?subject=${subject}&body=${body}`);
+    window.riftgate.invoke("open-external", `mailto:riftgateappdev@zohomail.eu?subject=${subject}&body=${body}`);
 });
 
 // --- Shared Folder ------------------------------------------------------

@@ -23,6 +23,5 @@ project — is expected to help keep it that way.
 
 The maintainer may edit or remove comments, commits, issues and pull
 requests that break this code, and may temporarily or permanently block
-people who do so. To report a problem, contact the maintainer privately
-through their [GitHub profile](https://github.com/Raidex81). Reports are
-handled confidentially.
+people who do so. To report a problem, email the maintainers privately at
+[riftgateappdev@zohomail.eu](mailto:riftgateappdev@zohomail.eu). Reports are handled confidentially.

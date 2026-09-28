@@ -3,6 +3,9 @@ contact_links:
   - name: Report a security problem
     url: https://github.com/Raidex81/Riftgate/security/advisories/new
     about: Please report security issues privately, not as a public issue.
+  - name: Email the Riftgate team
+    url: https://github.com/Raidex81/Riftgate#contact
+    about: riftgateappdev@zohomail.eu — questions, suggestions or an app to list in Applications; anything that isn't a bug report.
   - name: Download Riftgate
     url: https://github.com/Raidex81/Riftgate/releases/latest
     about: The latest version for Windows and Mac.

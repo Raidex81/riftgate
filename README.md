@@ -128,6 +128,12 @@ friends, with automatic expiry.
 
 ---
 
+## Contact
+
+Questions, suggestions, or an app you'd like listed in Applications?
+Email the Riftgate team at **[riftgateappdev@zohomail.eu](mailto:riftgateappdev@zohomail.eu)**. Bugs and feature
+ideas are also welcome as [GitHub issues](https://github.com/Raidex81/Riftgate/issues).
+
 ## For developers
 
 Riftgate is open source under the [GNU GPL v3.0 or later](LICENSE), and

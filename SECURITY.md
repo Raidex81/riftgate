@@ -10,7 +10,8 @@ download the newest version.
 
 **Please don't open a public issue for security problems.** Report them
 privately through GitHub instead:
-[**Report a vulnerability**](https://github.com/Raidex81/Riftgate/security/advisories/new).
+[**Report a vulnerability**](https://github.com/Raidex81/Riftgate/security/advisories/new),
+or by email to [riftgateappdev@zohomail.eu](mailto:riftgateappdev@zohomail.eu).
 
 Please include what you found, how to reproduce it, and what an attacker
 could do with it. You'll get a reply as soon as possible, and credit in

@@ -116,3 +116,8 @@ request.
 Everyone taking part is expected to follow the
 [Code of Conduct](CODE_OF_CONDUCT.md). Security problems are reported
 privately — see [SECURITY.md](SECURITY.md).
+
+## Contact
+
+Anything that doesn't fit in an issue or pull request: email the Riftgate
+team at [riftgateappdev@zohomail.eu](mailto:riftgateappdev@zohomail.eu).
