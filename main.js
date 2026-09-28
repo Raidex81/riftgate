@@ -3718,7 +3718,9 @@ ipcMain.handle("set-tv-mode", (event, on) => {
 // kept on disk for two weeks (a day when nothing was found, so a city that
 // was just mapped shows up soon), and concurrent asks for the same city
 // share one request.
-const CINEMAS_CACHE_FILE = "cache-cinemas.json";
+// v2: lists saved by the old Overpass-only lookup are dropped — a busy
+// server could leave a city saved as "no cinemas" for a day.
+const CINEMAS_CACHE_FILE = "cache-cinemas-v2.json";
 const CINEMAS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const CINEMAS_EMPTY_TTL_MS = 24 * 60 * 60 * 1000;
 const cinemasInFlight = new Map();
