@@ -4119,6 +4119,9 @@ body.density-compact #moviesGrid.games-grid{
 .glow-tab:focus-visible{
     color:var(--text-primary);
 }
+.glow-tab:not(.active) .glow-tab-spin-inside{
+    opacity:0;
+}
 .glow-tab:not(.active):hover .glow-tab-spin-inside,
 .glow-tab:not(.active):focus-visible .glow-tab-spin-inside{
     opacity:.35;
