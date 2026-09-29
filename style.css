@@ -3421,9 +3421,40 @@ body.density-compact #moviesGrid.games-grid{
 }
 
 .section-subtitle{
-    margin:0 0 4px;
-    color:var(--text-secondary);
-    font-size:13px;
+    margin:0 0 8px;
+    padding:8px 0;
+    color:var(--text-primary);
+    font-size:18px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    background:linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:subtitleGlow 2s ease-in-out infinite;
+    text-shadow:0 0 10px rgba(176, 38, 255, 0.3);
+}
+
+@keyframes subtitleGlow{
+    0%, 100%{
+        opacity:1;
+    }
+    50%{
+        opacity:0.85;
+    }
+}
+
+.section-subtitle:hover{
+    animation:subtitleGlowIntense 0.6s ease-in-out;
+}
+
+@keyframes subtitleGlowIntense{
+    0%, 100%{
+        opacity:1;
+    }
+    50%{
+        opacity:0.9;
+    }
 }
 
 .section-info-toggle{
