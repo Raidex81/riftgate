@@ -6991,15 +6991,14 @@ async function loadBuyFreeBooks() {
     ]);
 
     if (cachedPopular.length || cachedMostSold.length || cachedNewReleases.length) {
-        const cachedPopularPaid = splitFree(cachedPopular).slice(0, 20);
-        const cachedMostSoldPaid = splitFree(cachedMostSold).slice(0, 20);
+        const cachedPopularPaid = splitFree(cachedPopular);
+        const cachedMostSoldPaid = splitFree(cachedMostSold);
         const cachedNewReleasesPaid = splitFree(cachedNewReleases);
 
         renderBuyFreeGrid(popularGrid, cachedPopularPaid);
         renderBuyFreeGrid(mostSoldGrid, cachedMostSoldPaid);
         renderBuyFreeGrid(newReleasesGrid, cachedNewReleasesPaid);
         preloadBookDescriptions(cachedNewReleasesPaid);
-        attachSeeMore(newReleasesGrid, 5);
 
         buyFreeBooksCache = { popular: cachedPopularPaid, mostSold: cachedMostSoldPaid, newReleases: cachedNewReleasesPaid };
         renderFreeFindsSection();
@@ -7017,8 +7016,8 @@ async function loadBuyFreeBooks() {
         buyFreeBooksLoaded = true;
     }
 
-    const popularPaid = popular.success ? splitFree(popular.books).slice(0, 20) : null;
-    const mostSoldPaid = mostSold.success ? splitFree(mostSold.books).slice(0, 20) : null;
+    const popularPaid = popular.success ? splitFree(popular.books) : null;
+    const mostSoldPaid = mostSold.success ? splitFree(mostSold.books) : null;
     const newReleasesPaid = newReleases.success ? splitFree(newReleases.books) : null;
 
     if (popularPaid) renderBuyFreeGrid(popularGrid, popularPaid, popular.error);
