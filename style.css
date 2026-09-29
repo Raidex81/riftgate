@@ -3116,9 +3116,15 @@ body.is-fullscreen #mainContent{
 }
 
 .subsection-hint{
-    color:var(--text-muted);
-    font-size:12px;
-    margin:18px 0 10px;
+    color:var(--text-secondary);
+    font-size:14px;
+    font-weight:500;
+    margin:12px 0 16px;
+    padding:8px 12px;
+    background:rgba(176, 38, 255, 0.08);
+    border-left:3px solid var(--accent-1);
+    border-radius:4px;
+    line-height:1.4;
 }
 
 .watch-provider-search-results{
