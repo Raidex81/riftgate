@@ -3825,6 +3825,7 @@ body.density-compact #moviesGrid.games-grid{
 
 /* ================= Collapsible "see more" grids (any section) ================= */
 
+/* DISABLED: "See more" button styles - replaced by pagination
 .games-grid.grid-collapsed{
     overflow:hidden;
 }
@@ -3846,6 +3847,7 @@ body.density-compact #moviesGrid.games-grid{
     background:var(--accent-1);
     color:#fff;
 }
+*/
 
 /* ================= Free Games controls ================= */
 

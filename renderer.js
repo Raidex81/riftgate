@@ -4932,6 +4932,21 @@ function renderPagedGrid(grid, items, buildCard, options = {}) {
 }
 
 function attachSeeMore(grid, rowsVisible = 2, expandedRowsCap = null) {
+    // "See more" dropdown is disabled. Large lists now use pagination instead.
+    // This function is kept for backward compatibility but does nothing.
+    // Remove any existing "See more" buttons and ensure grid is not collapsed.
+    const next = grid.nextElementSibling;
+    if (next && next.classList.contains("see-more-btn")) {
+        next.remove();
+    }
+    grid.classList.remove("grid-collapsed");
+    grid.style.maxHeight = "";
+    grid.style.overflowY = "";
+    return;
+}
+
+// DISABLED: Original attachSeeMore implementation
+function attachSeeMore_DISABLED(grid, rowsVisible = 2, expandedRowsCap = null) {
     // A paged list (see renderPagedGrid) already shows one manageable page
     // with its own page buttons; folding it as well would hide those.
     if (grid.dataset.paged === "1") {
