@@ -4223,177 +4223,315 @@ body.light-theme .free-games-tab.glow-tab{
    registered). Height is fixed and overflow:hidden already clips anything
    that doesn't fit — the info column below caps its own title/description
    growth so clipping should be rare, not the normal case. */
-.free-games-spotlight{
-    position:relative;
-    display:flex;
-    gap:28px;
-    align-items:stretch;
-    height:300px;
-    margin:0 auto 28px;
-    max-width:1100px;
-    padding:24px;
-    border-radius:18px;
-    background:var(--bg-secondary);
-    border:1px solid var(--border-color);
-    overflow:hidden;
-    isolation:isolate;
+/* Enhanced Free Games Spotlight Banner */
+.free-games-spotlight {
+    position: relative;
+    display: flex;
+    gap: 32px;
+    align-items: stretch;
+    height: 320px;
+    margin: 0 auto 32px;
+    max-width: 1200px;
+    padding: 28px;
+    border-radius: 16px;
+    background: linear-gradient(135deg,
+        rgba(25, 25, 35, 0.8) 0%,
+        rgba(35, 15, 50, 0.6) 50%,
+        rgba(20, 30, 45, 0.7) 100%);
+    border: 1px solid rgba(176, 38, 255, 0.25);
+    overflow: hidden;
+    isolation: isolate;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(176, 38, 255, 0.1);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
 }
 
-.free-games-spotlight::before{
-    content:"";
-    position:absolute;
-    inset:0;
-    background:var(--accent-gradient);
-    opacity:.14;
-    z-index:-1;
+.free-games-spotlight:hover {
+    border-color: rgba(176, 38, 255, 0.4);
+    box-shadow: 0 12px 48px rgba(176, 38, 255, 0.15),
+                inset 0 1px 0 rgba(176, 38, 255, 0.2);
 }
 
-.free-games-spotlight::after{
-    content:"";
-    position:absolute;
-    top:-45%;
-    right:-8%;
-    width:320px;
-    height:320px;
-    background:var(--accent-gradient);
-    opacity:.28;
-    filter:blur(75px);
-    border-radius:50%;
-    z-index:-1;
+.free-games-spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg,
+        var(--accent-1) 0%,
+        var(--accent-2) 50%,
+        var(--accent-1) 100%);
+    opacity: 0.08;
+    z-index: -1;
+    animation: gradientShift 8s ease-in-out infinite;
 }
 
-.free-games-spotlight-cover{
-    flex:0 0 260px;
-    border-radius:12px;
-    overflow:hidden;
-    box-shadow:0 12px 32px rgba(0,0,0,.35);
-    cursor:pointer;
+.free-games-spotlight::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    right: -15%;
+    width: 450px;
+    height: 450px;
+    background: radial-gradient(circle,
+        rgba(176, 38, 255, 0.25) 0%,
+        rgba(255, 47, 208, 0.15) 30%,
+        transparent 70%);
+    filter: blur(60px);
+    border-radius: 50%;
+    z-index: -1;
+    animation: float 6s ease-in-out infinite;
 }
 
-.free-games-spotlight-cover img{
-    width:100%;
-    height:100%;
-    /* Cropped to fill, same as the grid cards below (.cover-wrap
-       img.cover-img) and for the same reason — guarantees this box is
-       never left with an unfilled bar around a cover that doesn't match
-       its shape. */
-    object-fit:cover;
-    background:var(--bg-primary);
-    display:block;
+@keyframes gradientShift {
+    0%, 100% { opacity: 0.08; }
+    50% { opacity: 0.12; }
 }
 
-.free-games-spotlight-info{
-    flex:1;
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:10px;
-    /* Belt-and-suspenders alongside the fixed height on .free-games-spotlight
-       above and the h2 line-clamp below: this column is a flex child
-       stretched to that fixed height, so if some combination of a long
-       title, a wrapping meta row, and a full 3-line description ever adds
-       up to more than the box allows, clip it here rather than letting it
-       push the card's own bottom edge (and the CTA button with it) out
-       past the fixed-height banner. */
-    overflow:hidden;
+@keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(20px) translateX(-10px); }
 }
 
-.free-games-spotlight-eyebrow{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    align-self:flex-start;
-    padding:5px 12px;
-    border-radius:20px;
-    background:var(--accent-gradient);
-    color:#fff;
-    font-size:11px;
-    font-weight:700;
-    letter-spacing:.06em;
-    text-transform:uppercase;
+.free-games-spotlight-cover {
+    flex: 0 0 240px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(176, 38, 255, 0.2),
+                0 0 24px rgba(255, 47, 208, 0.1);
+    cursor: pointer;
+    border: 2px solid rgba(176, 38, 255, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
 }
 
-.free-games-spotlight-eyebrow .ui-icon{
-    width:12px;
-    height:12px;
+.free-games-spotlight-cover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+        rgba(176, 38, 255, 0.1) 0%,
+        transparent 100%);
+    z-index: 2;
+    pointer-events: none;
 }
 
-.free-games-spotlight-info h2{
-    margin:0;
-    font-size:26px;
-    font-weight:800;
-    color:var(--text-primary);
-    line-height:1.2;
-    cursor:pointer;
-    /* Capped the same way .free-games-spotlight-desc already was — an
-       uncapped title was the biggest single source of the banner's height
-       varying between rotations (a long name wraps to 2-3 lines, a short
-       one sits on 1), now fixed at .free-games-spotlight above. */
-    display:-webkit-box;
-    -webkit-line-clamp:2;
-    -webkit-box-orient:vertical;
-    overflow:hidden;
+.free-games-spotlight-cover:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(176, 38, 255, 0.3),
+                0 0 30px rgba(255, 47, 208, 0.2);
+    border-color: rgba(176, 38, 255, 0.5);
 }
 
-.free-games-spotlight-meta{
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    gap:10px;
-    font-size:12px;
-    color:var(--text-muted);
+.free-games-spotlight-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: linear-gradient(135deg, #2d1b3d 0%, #1a1f2e 100%);
+    display: block;
+    transition: transform 0.3s ease;
 }
 
-.free-games-spotlight-desc{
-    font-size:13px;
-    color:var(--text-muted);
-    max-width:560px;
-    display:-webkit-box;
-    -webkit-line-clamp:3;
-    -webkit-box-orient:vertical;
-    overflow:hidden;
+.free-games-spotlight-cover:hover img {
+    transform: scale(1.08);
 }
 
-.free-games-spotlight-cta{
-    margin-top:4px;
-    align-self:flex-start;
-    padding:11px 22px;
-    border:none;
-    border-radius:10px;
-    background:var(--accent-gradient);
-    color:#fff;
-    font-size:14px;
-    font-weight:700;
-    cursor:pointer;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    transition:filter .2s ease, transform .2s ease;
+.free-games-spotlight-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    overflow: hidden;
 }
 
-.free-games-spotlight-cta:hover{
-    filter:brightness(1.12);
-    transform:translateY(-1px);
+.free-games-spotlight-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    padding: 7px 16px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(176, 38, 255, 0.3);
+    animation: slideInDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@media (max-width: 720px){
-    .free-games-spotlight{
-        flex-direction:column;
-        /* The 300px fixed height above assumes the cover and info columns
-           sit side by side (align-items:stretch sharing one height) — once
-           this stacks them instead, that same 300px would only leave about
-           100px for the whole info column below a 200px cover, clipping it
-           hard. Taller fixed height here for the same reason as the 300px
-           value: stays constant across rotations, just sized for the
-           stacked layout instead of the side-by-side one. */
-        height:540px;
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
     }
-    .free-games-spotlight-cover{
-        flex:0 0 auto;
-        width:100%;
-        height:200px;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
+}
+
+.free-games-spotlight-eyebrow .ui-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.free-games-spotlight-info h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.2;
+    cursor: pointer;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    animation: slideInDown 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s backwards;
+}
+
+.free-games-spotlight-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    animation: slideInUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s backwards;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.free-games-spotlight-desc {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+    animation: slideInUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s backwards;
+}
+
+.free-games-spotlight-cta {
+    margin-top: 8px;
+    align-self: flex-start;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(176, 38, 255, 0.4);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+    animation: slideInUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s backwards;
+}
+
+.free-games-spotlight-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        transparent 100%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.free-games-spotlight-cta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 32px rgba(176, 38, 255, 0.5),
+                0 0 20px rgba(255, 47, 208, 0.3);
+}
+
+.free-games-spotlight-cta:active {
+    transform: translateY(-1px);
+}
+
+.free-games-spotlight-cta:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 1024px) {
+    .free-games-spotlight {
+        gap: 24px;
+        padding: 20px;
+        height: 280px;
+    }
+
+    .free-games-spotlight-cover {
+        flex: 0 0 200px;
+    }
+
+    .free-games-spotlight-info h2 {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 768px) {
+    .free-games-spotlight {
+        flex-direction: column;
+        height: auto;
+        gap: 16px;
+        margin: 0 auto 24px;
+    }
+
+    .free-games-spotlight-cover {
+        flex: 0 0 180px;
+        width: 100%;
+    }
+
+    .free-games-spotlight-info {
+        gap: 10px;
+    }
+
+    .free-games-spotlight-info h2 {
+        font-size: 22px;
+    }
+}
+
+body.light-theme .free-games-spotlight {
+    background: linear-gradient(135deg,
+        rgba(240, 240, 250, 0.9) 0%,
+        rgba(245, 235, 255, 0.8) 100%);
+    border-color: rgba(176, 38, 255, 0.3);
+}
+
+body.light-theme .free-games-spotlight-info h2 {
+    color: #1a1a2e;
+}
+
+body.light-theme .free-games-spotlight-meta,
+body.light-theme .free-games-spotlight-desc {
+    color: rgba(50, 50, 80, 0.8);
 }
 
 /* Free Games platform rows (including Newly Added, which shares this same
@@ -6848,4 +6986,188 @@ html body .sidebar-btn.refresh-btn{
 }
 body.light-theme .launchBtn:active:not(:disabled){
     color:rgba(255,255,255,.7);
+}
+
+/* ============================================================================
+   BUTTON CONTRAST FIXES - WCAG 2.1 COMPLIANCE
+   Fixes for light blue buttons with white text that fail accessibility
+   standards. Applied to Upcoming Movies, Theatre buttons, and platforms.
+   ============================================================================ */
+
+/* Theatre section buttons */
+.theatre-block-header .sectionOption,
+.theatre-block .theatre-tab,
+.theatre-block-header select,
+button[data-section="theatre"],
+.upcoming-movies-track .game-card button {
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(6, 182, 212, 0.5);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.theatre-block-header .sectionOption:hover,
+.theatre-block .theatre-tab:hover,
+button[data-section="theatre"]:hover {
+    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
+    border-color: rgba(6, 182, 212, 0.8);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+body.light-theme .theatre-block-header .sectionOption,
+body.light-theme .theatre-block .theatre-tab,
+body.light-theme button[data-section="theatre"] {
+    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
+    color: #ffffff !important;
+}
+
+body.light-theme .theatre-block-header .sectionOption:hover,
+body.light-theme .theatre-block .theatre-tab:hover,
+body.light-theme button[data-section="theatre"]:hover {
+    background: linear-gradient(135deg, #075985, #0e7490) !important;
+}
+
+/* Generic light blue button fix */
+button[style*="background: #"],
+button[style*="background-color: #"],
+.btn-light-blue,
+.light-button {
+    background-color: var(--accent-1, #0284c7) !important;
+    color: #ffffff !important;
+    border: none;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button[style*="background: #"]:hover,
+button[style*="background-color: #"]:hover,
+.btn-light-blue:hover,
+.light-button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+button[style*="background: #"]:focus-visible,
+button[style*="background-color: #"]:focus-visible,
+.btn-light-blue:focus-visible,
+.light-button:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
+}
+
+/* Specific theatre item buttons */
+.theatre-item-action-btn,
+.theatre-listing-btn,
+.cinema-btn,
+.showtimes-btn {
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(6, 182, 212, 0.6);
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.theatre-item-action-btn:hover,
+.theatre-listing-btn:hover,
+.cinema-btn:hover,
+.showtimes-btn:hover {
+    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
+    border-color: rgba(6, 182, 212, 0.8);
+    box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
+    transform: translateY(-2px);
+}
+
+.theatre-item-action-btn:active,
+.theatre-listing-btn:active,
+.cinema-btn:active,
+.showtimes-btn:active {
+    transform: translateY(0);
+}
+
+/* Disabled button states */
+button:disabled,
+button[aria-disabled="true"],
+.btn-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Focus states for keyboard navigation */
+button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Platform-specific buttons */
+.steam-btn,
+button.steam,
+[data-platform="steam"] {
+    background: linear-gradient(135deg, #1a1a2e, #16213e) !important;
+    border: 2px solid #1b9ad6;
+    color: #1b9ad6;
+    font-weight: 700;
+}
+
+.steam-btn:hover {
+    background: linear-gradient(135deg, #0f3460, #16213e) !important;
+    border-color: #2eb7e8;
+    color: #2eb7e8;
+    box-shadow: 0 0 16px rgba(30, 144, 255, 0.3);
+}
+
+.epic-btn,
+button.epic,
+[data-platform="epic"] {
+    background: linear-gradient(135deg, #3a3a3a, #4a4a4a) !important;
+    border: 2px solid #000;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.epic-btn:hover {
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
+}
+
+.gog-btn,
+button.gog,
+[data-platform="gog"] {
+    background: linear-gradient(135deg, #56189f, #6b2190) !important;
+    border: 2px solid #9a22a8;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.gog-btn:hover {
+    background: linear-gradient(135deg, #6b2190, #7a2a9f) !important;
+    box-shadow: 0 0 16px rgba(154, 34, 168, 0.3);
+}
+
+.itch-btn,
+button.itch,
+[data-platform="itch"] {
+    background: linear-gradient(135deg, #ff6b6b, #ff8787) !important;
+    border: 2px solid #ff6b6b;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.itch-btn:hover {
+    background: linear-gradient(135deg, #ff5252, #ff6b6b) !important;
+    box-shadow: 0 0 16px rgba(255, 107, 107, 0.3);
 }

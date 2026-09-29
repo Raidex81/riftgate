@@ -5663,11 +5663,11 @@ let freeGamesSpotlightRotationStarted = false;
 // One flagship game, always shown at the top of the section regardless of
 // the search/platform/genre/sort controls below it. Initially the single
 // most recently-added free game overall, so there's always something to
-// spot immediately without touching a filter — then, every 10 seconds,
-// automatically swaps in a random pick from the full cross-platform list,
-// so the banner keeps suggesting something new instead of sitting on the
-// same one game for as long as Free Games stays open. Hidden entirely if
+// spot immediately without touching a filter — then, automatically
+// rotates through featured games with smooth animations. Hidden entirely if
 // there's nothing free right now, or nothing with a cover to show.
+let freeGamesBannerInstance = null;
+
 function renderFreeGamesSpotlight() {
     const el = document.getElementById("freeGamesSpotlight");
     if (!el) return;
@@ -5676,27 +5676,36 @@ function renderFreeGamesSpotlight() {
     if (candidates.length === 0) {
         el.innerHTML = "";
         el.style.display = "none";
+        if (freeGamesBannerInstance) {
+            freeGamesBannerInstance.destroy();
+            freeGamesBannerInstance = null;
+        }
         return;
     }
 
-    const featured = [...candidates].sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))[0];
-    paintFreeGamesSpotlight(featured, candidates);
+    // Transform candidate data to banner format
+    const spotlightGames = candidates
+        .sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))
+        .slice(0, 5)
+        .map(game => ({
+            title: game.name,
+            image: game.image || game.fallbackImage,
+            description: game.description || `Free right now on ${game.source}.`,
+            platform: game.source,
+            genres: game.genres || [],
+            rating: null,
+            url: game.url,
+            isNew: game.firstSeenAt && Date.now() - game.firstSeenAt < 604800000 // 7 days
+        }));
 
-    if (!freeGamesSpotlightRotationStarted) {
-        freeGamesSpotlightRotationStarted = true;
-        setInterval(() => {
-            // Only the "All Platforms" view actually shows the spotlight
-            // (see renderFreeGames) — skip rotating into it while it's
-            // hidden behind a single-platform/VR view, so it doesn't pop
-            // back into view on its own.
-            if (freeGamesPlatformSelect.value !== "all") return;
-
-            const pool = getFreeGamesSpotlightCandidates();
-            if (pool.length === 0) return;
-            const randomPick = pool[Math.floor(Math.random() * pool.length)];
-            paintFreeGamesSpotlight(randomPick, pool);
-        }, 10000);
+    // Destroy old banner and create new one
+    if (freeGamesBannerInstance) {
+        freeGamesBannerInstance.destroy();
     }
+
+    freeGamesBannerInstance = new FreeGamesSpotlightBanner('freeGamesSpotlight');
+    el.style.display = "";
+    freeGamesBannerInstance.initialize(spotlightGames);
 }
 
 // Builds one arrow-scrolled carousel row (same theatre-block/hscroll-row
@@ -13885,4 +13894,243 @@ if (githubStarBtn) {
     });
     refreshGithubStars();
     window.addEventListener("focus", () => refreshGithubStars(true));
+}
+
+/**
+ * ============================================================================
+ * FREE GAMES SPOTLIGHT BANNER - ENHANCED RENDERER
+ * Displays featured free games with animations, automatic rotation,
+ * and smooth transitions.
+ * ============================================================================
+ */
+
+class FreeGamesSpotlightBanner {
+    constructor(containerId = 'freeGamesSpotlight') {
+        this.container = document.getElementById(containerId);
+        this.currentGameIndex = 0;
+        this.games = [];
+        this.rotationInterval = null;
+        this.rotationDuration = 8000;
+        this.maxGamesToRotate = 5;
+    }
+
+    async initialize(gamesList) {
+        if (!this.container) {
+            console.warn('Free Games Spotlight container not found');
+            return;
+        }
+
+        this.games = gamesList.slice(0, this.maxGamesToRotate);
+
+        if (this.games.length === 0) {
+            this.renderEmptyState();
+            return;
+        }
+
+        this.renderGame(this.currentGameIndex);
+
+        if (this.games.length > 1) {
+            this.startRotation();
+        }
+    }
+
+    renderGame(index) {
+        if (index >= this.games.length) {
+            index = 0;
+            this.currentGameIndex = 0;
+        }
+
+        const game = this.games[index];
+        const html = this.createGameHTML(game, index);
+
+        this.container.style.opacity = '0.8';
+
+        setTimeout(() => {
+            this.container.innerHTML = html;
+            this.container.style.opacity = '1';
+            this.attachEventListeners(game);
+        }, 200);
+    }
+
+    createGameHTML(game, index) {
+        const platformEmoji = this.getPlatformEmoji(game.platform);
+        const isNew = game.isNew ? ' (New This Week!)' : '';
+        const genres = game.genres ? game.genres.slice(0, 2).join(', ') : 'Free Game';
+        const gameUrl = game.url || 'javascript:void(0)';
+
+        return `
+            <div class="free-games-spotlight-cover" role="img" aria-label="${this.escapeHTML(game.title)}">
+                <img
+                    src="${game.image || 'covers/default.jpg'}"
+                    alt="${this.escapeHTML(game.title)}"
+                    loading="lazy"
+                    onerror="this.src='covers/default.jpg'"
+                />
+            </div>
+
+            <div class="free-games-spotlight-info">
+                <div class="free-games-spotlight-eyebrow">
+                    <span class="ui-icon">✨</span>
+                    <span>Free This Week${isNew}</span>
+                </div>
+
+                <h2 class="free-games-spotlight-title">${this.escapeHTML(game.title)}</h2>
+
+                <div class="free-games-spotlight-meta">
+                    <span>${platformEmoji} ${game.platform || 'Multiple'}</span>
+                    <span>•</span>
+                    <span>${genres}</span>
+                    ${game.rating ? `<span>•</span><span>⭐ ${game.rating.toFixed(1)}</span>` : ''}
+                </div>
+
+                <p class="free-games-spotlight-desc">
+                    ${this.escapeHTML(game.description || 'One of the hottest free games available right now.')}
+                </p>
+
+                <button
+                    class="free-games-spotlight-cta"
+                    data-game-url="${gameUrl}"
+                    data-game-platform="${game.platform || 'unknown'}"
+                    aria-label="Get ${this.escapeHTML(game.title)}"
+                >
+                    Get Free Now
+                </button>
+            </div>
+
+            <div class="free-games-spotlight-nav" style="position: absolute; bottom: 16px; right: 24px; display: flex; gap: 8px; z-index: 10;">
+                ${this.games.map((_, i) => `
+                    <button
+                        class="carousel-dot ${i === index ? 'active' : ''}"
+                        data-index="${i}"
+                        aria-label="Show game ${i + 1}"
+                        aria-current="${i === index ? 'true' : 'false'}"
+                    ></button>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getPlatformEmoji(platform) {
+        const platformMap = {
+            'steam': '🎮',
+            'epic': '⚡',
+            'gog': '📀',
+            'itch': '🎪',
+            'uplay': '🎯',
+            'gamepass': '🎁',
+            'default': '🎮'
+        };
+
+        if (!platform) return platformMap.default;
+
+        const normalized = platform.toLowerCase();
+        for (const [key, emoji] of Object.entries(platformMap)) {
+            if (normalized.includes(key)) return emoji;
+        }
+
+        return platformMap.default;
+    }
+
+    attachEventListeners(game) {
+        const ctaBtn = this.container.querySelector('.free-games-spotlight-cta');
+        if (ctaBtn) {
+            ctaBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleCTAClick(game);
+            });
+        }
+
+        const cover = this.container.querySelector('.free-games-spotlight-cover');
+        if (cover) {
+            cover.style.cursor = 'pointer';
+            cover.addEventListener('click', () => this.handleCTAClick(game));
+        }
+
+        const title = this.container.querySelector('.free-games-spotlight-title');
+        if (title) {
+            title.style.cursor = 'pointer';
+            title.addEventListener('click', () => this.handleCTAClick(game));
+        }
+
+        const dots = this.container.querySelectorAll('.carousel-dot');
+        dots.forEach((dot) => {
+            dot.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.goToGame(index);
+            });
+        });
+    }
+
+    handleCTAClick(game) {
+        if (game.url) {
+            window.riftgate.invoke("open-external", game.url);
+        }
+        this.pauseRotation();
+    }
+
+    goToGame(index) {
+        this.currentGameIndex = index;
+        this.pauseRotation();
+        this.renderGame(index);
+        this.resumeRotation();
+    }
+
+    startRotation() {
+        if (this.rotationInterval) {
+            clearInterval(this.rotationInterval);
+        }
+
+        this.rotationInterval = setInterval(() => {
+            this.currentGameIndex = (this.currentGameIndex + 1) % this.games.length;
+            this.renderGame(this.currentGameIndex);
+        }, this.rotationDuration);
+    }
+
+    pauseRotation() {
+        if (this.rotationInterval) {
+            clearInterval(this.rotationInterval);
+            this.rotationInterval = null;
+        }
+    }
+
+    resumeRotation() {
+        if (this.games.length > 1 && !this.rotationInterval) {
+            setTimeout(() => this.startRotation(), 3000);
+        }
+    }
+
+    renderEmptyState() {
+        this.container.innerHTML = `
+            <div style="
+                width: 100%;
+                padding: 40px;
+                text-align: center;
+                color: var(--text-muted);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 16px;
+                min-height: 200px;
+            ">
+                <div style="font-size: 48px;">🎮</div>
+                <h3 style="margin: 0; color: var(--text-primary);">No Free Games Available</h3>
+                <p>Check back soon for new free game offers!</p>
+            </div>
+        `;
+    }
+
+    escapeHTML(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    destroy() {
+        this.pauseRotation();
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+    }
 }
