@@ -159,13 +159,32 @@ async function mediaProxyGetJson(vendor, proxyPath, query) {
     return parsed;
 }
 
+// A vendor's own wording for "you've used up your plan's monthly request
+// allowance" (RAWG's exact message is "The monthly API limit reached") --
+// matched loosely enough to survive small wording changes, but narrow
+// enough not to also catch an ordinary short-lived rate limit ("try again
+// in a few seconds"), which needs a completely different message (wait a
+// bit) than a monthly cap (wait for next month / get a new key).
+function isQuotaExceededMessage(message) {
+    if (!message) return false;
+    const m = String(message).toLowerCase();
+    return m.includes("monthly") && (m.includes("limit") || m.includes("quota"));
+}
+
 // Mirrors the old httpsGetJsonPlain(vendorUrl) call sites: throws on
 // non-2xx, surfacing the vendor's own error message when there is one.
+// The thrown Error carries `vendor` and `quotaExceeded` so callers can
+// tell a real monthly-limit hit apart from any other failure and show a
+// specific message instead of a generic "couldn't load" one.
 async function mediaProxyGetJsonPlain(vendor, proxyPath, query) {
     const { statusCode, parsed } = await mediaProxyRaw(vendor, proxyPath, query);
     if (statusCode < 200 || statusCode >= 300) {
         const apiMessage = (parsed && parsed.error && (parsed.error.message || parsed.error)) || (parsed && parsed.status_message);
-        throw new Error(apiMessage || `HTTP ${statusCode}`);
+        const message = apiMessage || `HTTP ${statusCode}`;
+        const err = new Error(message);
+        err.vendor = vendor;
+        err.quotaExceeded = isQuotaExceededMessage(message);
+        throw err;
     }
     return parsed;
 }

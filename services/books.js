@@ -165,6 +165,56 @@ function mapOpenLibraryBook(doc) {
     };
 }
 
+// Paginated version of fetchOpenLibraryBooks above, for the "See all"
+// panel (get-full-list in main.js) -- same query/sort, but walks pages
+// via limit/offset and reports Open Library's own numFound so the panel
+// knows how many pages exist.
+async function fetchOpenLibraryBooksPage(query, sort, page, pageSize) {
+    pageSize = pageSize || 40;
+    const sortParam = sort ? `&sort=${sort}` : "";
+    const offset = (Math.max(1, page) - 1) * pageSize;
+    const data = await fetchWithRetry(
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
+        10000
+    );
+    const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
+    const items = docs.filter((d) => d.title).map(mapOpenLibraryBook);
+    const totalResults = (data && typeof data.numFound === "number") ? data.numFound : null;
+    const totalPages = totalResults !== null ? Math.max(1, Math.ceil(totalResults / pageSize)) : page;
+    return { items, totalResults, totalPages };
+}
+
+// New Releases specifically requires cover art (see
+// fetchOpenLibraryBooksWithCovers below), which filters out a variable
+// number of candidates per underlying Open Library page -- there's no
+// clean offset to hand back between calls. Instead, each page just asks
+// for enough covered candidates to cover every page up to and including
+// this one, then slices out the requested page. fetchOpenLibraryBooksWithCovers's
+// own maxPages/pageSize caps keep this bounded even for a high page number.
+// Generic version: any (query, sort, cover-filter) combination Buy
+// Books/Manga/Comics might want, paginated the same way. Used directly by
+// fetchOpenLibraryNewReleasesPage below (query="fiction", sort="new") and
+// by every Manga/Comics subsection (which need the excludeKeyword/
+// requireKeywords/minYear filters passed straight through too, since
+// their cover-art hit rate is bad enough that EVERY subsection needs the
+// same filtering New Releases uses, not just their own "new" one).
+async function fetchOpenLibraryBooksWithCoversPage(query, sort, page, pageSize, excludeKeyword, requireKeywords, minYear) {
+    pageSize = pageSize || 40;
+    const desiredCount = Math.max(1, page) * pageSize;
+    const all = await fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, excludeKeyword, requireKeywords, minYear);
+    const start = (Math.max(1, page) - 1) * pageSize;
+    const items = all.slice(start, start + pageSize);
+    // No reliable total from this source -- keep paging while a full
+    // page came back, the same "keep going until it comes up short" rule
+    // itch.io's endless list uses.
+    const totalPages = items.length >= pageSize ? page + 1 : page;
+    return { items, totalResults: null, totalPages };
+}
+
+async function fetchOpenLibraryNewReleasesPage(page, pageSize) {
+    return fetchOpenLibraryBooksWithCoversPage("fiction", "new", page, pageSize);
+}
+
 async function fetchOpenLibraryBooks(query, sort) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const data = await fetchWithRetry(
@@ -246,5 +296,8 @@ module.exports = {
     openLibraryDocHasSpecificManga,
     mapOpenLibraryBook,
     fetchOpenLibraryBooks,
+    fetchOpenLibraryBooksPage,
+    fetchOpenLibraryNewReleasesPage,
+    fetchOpenLibraryBooksWithCoversPage,
     fetchOpenLibraryBooksWithCovers
 };

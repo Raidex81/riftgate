@@ -10,13 +10,208 @@ const {
     supabaseRequest,
     supabaseSignedUpload,
     callAdminRpc,
-    mediaProxyGetJson,
-    mediaProxyGetJsonPlain,
+    mediaProxyGetJson: _mediaProxyGetJson,
+    mediaProxyGetJsonPlain: _mediaProxyGetJsonPlain,
     sendVerificationEmail,
     sendPasswordResetEmail,
     callEdgeFunction
 } = require("./services/supabase");
 const platform = require("./services/platform");
+
+// --- Per-vendor API usage tracking (local, best-effort) ---------------------
+// Riftgate has no way to see a vendor's real account-level quota or reset
+// date -- those only exist on the vendor's own site (e.g. rawg.io's account
+// page). This just counts requests RIFTGATE ITSELF has made in roughly the
+// last month, and remembers the first time a response looked like a
+// monthly-limit error, so that error can come with some context ("this has
+// been happening since X, here's about how many requests we've made")
+// instead of a bare "no results". It rolls over to a fresh count/window on
+// its own after ~30 days, since there's no way to know the vendor's actual
+// billing-cycle anchor date.
+const API_USAGE_FILE = "cache-api-usage.json";
+const API_USAGE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+function recordVendorRequest(vendor) {
+    try {
+        const usage = loadDataCache(API_USAGE_FILE) || {};
+        const now = Date.now();
+        if (!usage[vendor] || (now - usage[vendor].since) > API_USAGE_WINDOW_MS) {
+            usage[vendor] = { count: 0, since: now };
+        }
+        usage[vendor].count += 1;
+        saveDataCache(API_USAGE_FILE, usage);
+    } catch (err) {
+        // usage tracking is best-effort -- never worth failing a real request over
+    }
+}
+
+function recordVendorQuotaHit(vendor, message) {
+    try {
+        const usage = loadDataCache(API_USAGE_FILE) || {};
+        if (!usage[vendor]) usage[vendor] = { count: 0, since: Date.now() };
+        if (!usage[vendor].quotaFirstSeenAt) usage[vendor].quotaFirstSeenAt = Date.now();
+        usage[vendor].quotaLastSeenAt = Date.now();
+        usage[vendor].quotaMessage = message;
+        saveDataCache(API_USAGE_FILE, usage);
+    } catch (err) {
+        // best-effort
+    }
+}
+
+function getVendorUsage(vendor) {
+    try {
+        const usage = loadDataCache(API_USAGE_FILE) || {};
+        return usage[vendor] || null;
+    } catch (err) {
+        return null;
+    }
+}
+
+// Builds the user-facing message for a confirmed monthly-limit hit.
+// Deliberately never guesses a reset date: a vendor's real renewal date
+// depends on when THAT ACCOUNT was created/last billed, which Riftgate has
+// no way to know (the API's error response carries no such field, only a
+// plain message) -- an estimate based on "first noticed + ~30 days" was
+// tried and, confirmed in practice, was simply wrong. Better to say
+// plainly that only the vendor's own dashboard has the real date than to
+// state a guess that reads as a fact.
+function vendorQuotaMessage(vendor) {
+    const usage = getVendorUsage(vendor) || {};
+    const label = vendor.toUpperCase();
+    const parts = [`${label}'s monthly API limit has been reached.`];
+
+    if (usage.count) {
+        const since = usage.since ? new Date(usage.since).toLocaleDateString() : null;
+        parts.push(`Riftgate has made about ${usage.count.toLocaleString()} ${label} request${usage.count === 1 ? "" : "s"}${since ? ` since ${since}` : ""} (this only counts Riftgate's own calls -- it can't see usage from anywhere else on the same key).`);
+    }
+
+    if (usage.quotaFirstSeenAt) {
+        const firstSeen = new Date(usage.quotaFirstSeenAt);
+        parts.push(`First noticed ${firstSeen.toLocaleDateString()}.`);
+    }
+
+    parts.push(`These limits renew monthly, but only your ${label} account dashboard has the actual renewal date -- Riftgate has no way to see or predict it.`);
+    return parts.join(" ");
+}
+
+async function mediaProxyGetJson(vendor, proxyPath, query) {
+    recordVendorRequest(vendor);
+    return _mediaProxyGetJson(vendor, proxyPath, query);
+}
+
+async function mediaProxyGetJsonPlain(vendor, proxyPath, query) {
+    recordVendorRequest(vendor);
+    try {
+        return await _mediaProxyGetJsonPlain(vendor, proxyPath, query);
+    } catch (err) {
+        if (err && err.quotaExceeded) recordVendorQuotaHit(err.vendor || vendor, err.message);
+        throw err;
+    }
+}
+
+// --- "At most once a day" list refresh, app-wide -----------------------
+// Alfredo asked for every list-type fetch (RAWG, TMDB, Open Library,
+// Gutenberg -- everything that backs a "browse this" row) to only ever
+// hit the network once every 24 hours, persisted to disk so it survives
+// closing and reopening the app, not just staying alive for one running
+// session. Free Games and Store Deals already had their own version of
+// this (24h and 6h respectively -- Store Deals stays shorter since prices
+// and time-limited deals genuinely go stale faster than "what's upcoming"
+// content does); everything below extends the same idea to the rest.
+const LIST_REFRESH_MIN_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Books (Buy Books, Recommended Books, Manga, Comics, Discover Online's
+// Gutenberg lists) change far less often day to day than a release
+// calendar does, so Alfredo asked for these specifically to only refresh
+// once a week instead of once a day.
+const BOOKS_REFRESH_MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
+
+function readListRefreshMeta(name) {
+    return loadDataCache(`cache-last-refresh-${name}.json`) || {};
+}
+
+function markListRefreshed(name, scope) {
+    saveDataCache(`cache-last-refresh-${name}.json`, { lastRefreshedAt: Date.now(), scope: scope === undefined ? null : scope });
+}
+
+// True only when this list was refreshed within the window AND (for a
+// list whose content depends on something like a country code) for that
+// same scope -- a changed scope always forces a real fetch regardless of
+// how recently the old scope's list was refreshed. ttlMs defaults to the
+// standard 24h window; books-related callers pass BOOKS_REFRESH_MIN_AGE_MS.
+function isListFresh(name, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const meta = readListRefreshMeta(name);
+    if (!meta.lastRefreshedAt) return false;
+    if (scope !== undefined && meta.scope !== scope) return false;
+    return (Date.now() - meta.lastRefreshedAt) < ttlMs;
+}
+
+// Prints exactly when a list is served from disk with zero network
+// activity, and how much longer that'll keep being true -- visible,
+// checkable proof in the terminal that a fresh-enough list truly never
+// makes a request, rather than just taking that on faith.
+function logListCacheHit(name, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const meta = readListRefreshMeta(name);
+    const ageMs = Date.now() - (meta.lastRefreshedAt || 0);
+    const hoursLeft = Math.max(0, Math.ceil((ttlMs - ageMs) / (60 * 60 * 1000)));
+    const remaining = hoursLeft >= 24 ? `${Math.ceil(hoursLeft / 24)}d` : `${hoursLeft}h`;
+    console.log(`[list] "${name}"${scope ? ` (${scope})` : ""} served from cache, no request made -- refreshes again in ~${remaining}`);
+}
+
+// For the many handlers here that already return { success, books, error }
+// (or the same shape under a different key) and already save their own
+// result to `cacheFileName` on success: skips calling `fetchFn` at all
+// when a fresh-enough cache exists, and falls back to serving a stale
+// cache (never marking it as freshly refreshed, so the next load tries
+// again for real) rather than an error when a due refresh fails but
+// something is still on disk from before -- a day-old list beats an
+// empty one or a scary error.
+async function withDailyRefresh(name, cacheFileName, fetchFn, resultKey, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const cached = loadDataCache(cacheFileName);
+    const hasCached = Array.isArray(cached) && cached.length > 0;
+    if (hasCached && isListFresh(name, scope, ttlMs)) {
+        logListCacheHit(name, scope, ttlMs);
+        return { success: true, [resultKey]: cached };
+    }
+    const result = await fetchFn();
+    if (result && result.success) {
+        markListRefreshed(name, scope);
+        return result;
+    }
+    // A confirmed monthly-limit hit is worth showing plainly even when a
+    // stale cache exists to fall back on instead -- that's the whole point
+    // of that message, so it wins here rather than being silently masked
+    // by yesterday's list. Any OTHER failure (a network blip, a vendor
+    // hiccup) still falls back to the stale cache quietly, since serving
+    // slightly-old data is more resilient than alarming the user over
+    // something transient.
+    if (hasCached && !(result && result.quotaExceeded)) {
+        return { success: true, [resultKey]: cached };
+    }
+    return result;
+}
+
+// Same idea, for the handful of older handlers that just return a plain
+// array (no {success,...} wrapper) and never cached themselves to disk at
+// all before now -- "came back non-empty" stands in for success here.
+async function withDailyRefreshArray(name, cacheFileName, fetchFn, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const cached = loadDataCache(cacheFileName) || [];
+    if (cached.length > 0 && isListFresh(name, scope, ttlMs)) {
+        logListCacheHit(name, scope, ttlMs);
+        return cached;
+    }
+    try {
+        const fresh = await fetchFn();
+        if (fresh && fresh.length > 0) {
+            saveDataCache(cacheFileName, fresh);
+            markListRefreshed(name, scope);
+            return fresh;
+        }
+        return cached.length > 0 ? cached : fresh;
+    } catch (err) {
+        console.error(`[list] ${name} refresh failed:`, err.message || err);
+        return cached;
+    }
+}
 
 // Only one Riftgate may run at a time: two copies would read and rewrite
 // the same library/settings files underneath each other. A second launch
@@ -3201,7 +3396,7 @@ ipcMain.handle("get-store-source-counts", async () => readStoreDealsSourceCounts
 // --- Movies currently in theaters (TMDB — free public movie database) ---
 
 
-ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
+ipcMain.handle("get-now-playing-movies", async (event, countryCode) => withDailyRefreshArray("now-playing-movies", "cache-now-playing-movies.json", async () => {
 
     try {
         // Always English for the main listing — titles/descriptions are
@@ -3240,7 +3435,7 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => {
         console.error("[movies] now_playing fetch failed:", err.message || err);
         return [];
     }
-});
+}, countryCode || "US"));
 
 
 ipcMain.handle("get-movie-trailer", async (event, movieId) => {
@@ -3664,29 +3859,166 @@ async function fetchItchFreePage(page) {
     return { items, page, totalPages: items.length > 0 ? page + 1 : page, totalResults: null };
 }
 
-const FULL_LIST_KINDS = new Set(["upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch"]);
+// Buy Books' Most Popular / Best Seller / New Releases rows are each
+// capped at 40 -- these three back their "See all" panels the same way
+// upcoming games/movies etc. do above, just against Open Library instead
+// of RAWG/TMDB.
+const BUY_BOOKS_PAGE_SIZE = 40;
+
+async function fetchBuyBooksPopularPage(page) {
+    const { items, totalPages, totalResults } = await booksApi.fetchOpenLibraryBooksPage("fiction", "rating", page, BUY_BOOKS_PAGE_SIZE);
+    return { items, page, totalPages, totalResults };
+}
+
+async function fetchBuyBooksBestSellerPage(page) {
+    const { items, totalPages, totalResults } = await booksApi.fetchOpenLibraryBooksPage("bestseller", null, page, BUY_BOOKS_PAGE_SIZE);
+    return { items, page, totalPages, totalResults };
+}
+
+async function fetchBuyBooksNewReleasesPage(page) {
+    const { items, totalPages } = await booksApi.fetchOpenLibraryNewReleasesPage(page, BUY_BOOKS_PAGE_SIZE);
+    return { items, page, totalPages, totalResults: null };
+}
+
+// Recommended Books (My Library) -- same paginator as the other three,
+// against whichever author/fallback query getLibraryRecommendationBasis()
+// currently resolves to, with owned titles filtered out of every page.
+async function fetchLibraryRecommendedPage(page) {
+    const { query, sort, owned } = libraryRecommendationQuery();
+    const { items, totalPages, totalResults } = await booksApi.fetchOpenLibraryBooksPage(query, sort, page, BUY_BOOKS_PAGE_SIZE);
+    const filtered = items.filter((b) => !owned.has((b.title || "").trim().toLowerCase()));
+    return { items: filtered, page, totalPages, totalResults };
+}
+
+// Manga/Comics -- same three-subsection shape as Buy Books (Most Popular /
+// Best Seller / New Releases), just against subject:manga / subject:comics
+// with the same cover-art filtering the old single-grid version already
+// used for ALL its results (manga/comics have a much worse cover hit rate
+// than general fiction -- see services/books.js), applied here to every
+// subsection, not only "New Releases". Open Library has no real
+// "bestseller" signal for either, so that subsection uses sort=editions
+// (how many separate editions a work has -- a reasonable stand-in for
+// "stayed popular/kept getting reprinted" when there's no real sales data
+// to rank by).
+const MANGA_FILTER = { excludeKeyword: null, requireKeywords: booksApi.openLibraryDocHasSpecificManga, minYear: 1950 };
+const COMICS_FILTER = { excludeKeyword: "manga", requireKeywords: ["comic", "graphic novel"], minYear: 1930 };
+
+async function fetchGenreSubsectionPage(subjectQuery, sort, page, filter) {
+    const { items, totalPages, totalResults } = await booksApi.fetchOpenLibraryBooksWithCoversPage(
+        subjectQuery, sort, page, BUY_BOOKS_PAGE_SIZE, filter.excludeKeyword, filter.requireKeywords, filter.minYear
+    );
+    return { items, page, totalPages, totalResults };
+}
+
+async function fetchMangaPopularPage(page) { return fetchGenreSubsectionPage("subject:manga", "rating", page, MANGA_FILTER); }
+async function fetchMangaBestSellerPage(page) { return fetchGenreSubsectionPage("subject:manga", "editions", page, MANGA_FILTER); }
+async function fetchMangaNewReleasesPage(page) { return fetchGenreSubsectionPage("subject:manga", "new", page, MANGA_FILTER); }
+async function fetchComicsPopularPage(page) { return fetchGenreSubsectionPage("subject:comics", "rating", page, COMICS_FILTER); }
+async function fetchComicsBestSellerPage(page) { return fetchGenreSubsectionPage("subject:comics", "editions", page, COMICS_FILTER); }
+async function fetchComicsNewReleasesPage(page) { return fetchGenreSubsectionPage("subject:comics", "new", page, COMICS_FILTER); }
+
+const FULL_LIST_KINDS = new Set([
+    "upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch",
+    "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
+    "manga-popular", "manga-bestseller", "manga-new-releases",
+    "comics-popular", "comics-bestseller", "comics-new-releases"
+]);
+
+// Same set of "book" kinds as elsewhere -- these refresh weekly instead of
+// daily, so their "See all" panel pages need the longer TTL too.
+const BOOK_FULL_LIST_KINDS = new Set([
+    "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
+    "manga-popular", "manga-bestseller", "manga-new-releases",
+    "comics-popular", "comics-bestseller", "comics-new-releases"
+]);
+
+// "See all" panels can page through dozens of pages of a vendor's list --
+// each already-fetched (kind, scope, page) is cached for the same 24h
+// window as every other list here, so reopening a panel you've already
+// paged through (even after fully closing and reopening the app) serves
+// what's on disk instead of re-fetching page 1 (and every page after it)
+// all over again. Paging further into an already-open list only ever
+// costs whatever page hasn't been seen yet, not the ones already shown.
+// A failed page is deliberately never cached -- a quota hit should keep
+// retrying on the next attempt, not stay stuck showing that error for a
+// full day after the vendor's own limit has already lifted.
+function fullListCacheFile(kind) {
+    return `cache-full-list-${kind}.json`;
+}
+
+function readFullListCache(kind, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const stored = loadDataCache(fullListCacheFile(kind));
+    if (!stored) return null;
+    if (stored.scope !== scope) return null;
+    if ((Date.now() - (stored.cachedAt || 0)) >= ttlMs) return null;
+    return stored;
+}
+
+function getFullListCachedPage(kind, scope, page, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    const stored = readFullListCache(kind, scope, ttlMs);
+    const found = stored && stored.pages ? stored.pages[page] : undefined;
+    if (found) {
+        const ageMs = Date.now() - stored.cachedAt;
+        const hoursLeft = Math.max(0, Math.ceil((ttlMs - ageMs) / (60 * 60 * 1000)));
+        const remaining = hoursLeft >= 24 ? `${Math.ceil(hoursLeft / 24)}d` : `${hoursLeft}h`;
+        console.log(`[full-list] "${kind}" page ${page}${scope ? ` (${scope})` : ""} served from cache, no request made -- refreshes again in ~${remaining}`);
+    }
+    return found;
+}
+
+function saveFullListCachedPage(kind, scope, page, result, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
+    let stored = readFullListCache(kind, scope, ttlMs);
+    if (!stored) stored = { scope, cachedAt: Date.now(), pages: {} };
+    stored.pages[page] = result;
+    saveDataCache(fullListCacheFile(kind), stored);
+}
 
 ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, providerName } = {}) => {
     if (!FULL_LIST_KINDS.has(kind)) return { items: [], page: 1, totalPages: 0, totalResults: 0, error: "Unknown list" };
     const pageNum = Math.max(1, Math.min(FULL_LIST_MAX_PAGE, parseInt(page, 10) || 1));
     const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : "US";
+    const scope = kind === "provider" ? `${cc}:${providerName || ""}` : cc;
+
+    const ttlMs = BOOK_FULL_LIST_KINDS.has(kind) ? BOOKS_REFRESH_MIN_AGE_MS : LIST_REFRESH_MIN_AGE_MS;
+    const cachedPage = getFullListCachedPage(kind, scope, pageNum, ttlMs);
+    if (cachedPage) return cachedPage;
+
     try {
+        let result = null;
         switch (kind) {
-            case "upcoming-movies": return await fetchUpcomingMoviesPage(cc, pageNum);
-            case "now-playing": return await fetchNowPlayingPage(cc, pageNum);
-            case "new-series": return await fetchNewShowsPage(cc, pageNum, false);
-            case "new-anime": return await fetchNewShowsPage(cc, pageNum, true);
-            case "upcoming-games": return await fetchUpcomingGamesPage(pageNum);
-            case "itch": return await fetchItchFreePage(pageNum);
+            case "upcoming-movies": result = await fetchUpcomingMoviesPage(cc, pageNum); break;
+            case "now-playing": result = await fetchNowPlayingPage(cc, pageNum); break;
+            case "new-series": result = await fetchNewShowsPage(cc, pageNum, false); break;
+            case "new-anime": result = await fetchNewShowsPage(cc, pageNum, true); break;
+            case "upcoming-games": result = await fetchUpcomingGamesPage(pageNum); break;
+            case "itch": result = await fetchItchFreePage(pageNum); break;
             case "provider":
                 if (typeof providerName !== "string" || providerName.length > 80) {
                     return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
                 }
-                return await fetchProviderCatalogPage(providerName, cc, pageNum);
+                result = await fetchProviderCatalogPage(providerName, cc, pageNum);
+                break;
+            case "buy-books-popular": result = await fetchBuyBooksPopularPage(pageNum); break;
+            case "buy-books-bestseller": result = await fetchBuyBooksBestSellerPage(pageNum); break;
+            case "buy-books-new-releases": result = await fetchBuyBooksNewReleasesPage(pageNum); break;
+            case "library-recommended": result = await fetchLibraryRecommendedPage(pageNum); break;
+            case "manga-popular": result = await fetchMangaPopularPage(pageNum); break;
+            case "manga-bestseller": result = await fetchMangaBestSellerPage(pageNum); break;
+            case "manga-new-releases": result = await fetchMangaNewReleasesPage(pageNum); break;
+            case "comics-popular": result = await fetchComicsPopularPage(pageNum); break;
+            case "comics-bestseller": result = await fetchComicsBestSellerPage(pageNum); break;
+            case "comics-new-releases": result = await fetchComicsNewReleasesPage(pageNum); break;
+        }
+        if (result) {
+            saveFullListCachedPage(kind, scope, pageNum, result, ttlMs);
+            return result;
         }
     } catch (err) {
         console.error(`[full-list] ${kind} page ${pageNum} failed:`, err.message || err);
-        return { items: [], page: pageNum, totalPages: pageNum, totalResults: null, error: "Couldn't load this page — try again in a moment." };
+        const error = err && err.quotaExceeded
+            ? vendorQuotaMessage(err.vendor || kind)
+            : "Couldn't load this page — try again in a moment.";
+        return { items: [], page: pageNum, totalPages: pageNum, totalResults: null, error };
     }
     return { items: [], page: pageNum, totalPages: 0, totalResults: 0 };
 });
@@ -3896,7 +4228,7 @@ ipcMain.handle("get-cinemas", async (event, { countryCode, city, refresh } = {})
 
 // --- "NEW" section: upcoming movies, new TV shows, upcoming games ---------
 
-ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
+ipcMain.handle("get-upcoming-movies", async (event, countryCode) => withDailyRefreshArray("upcoming-movies", "cache-upcoming-movies.json", async () => {
     try {
         // The row shows the most popular upcoming films (first 2 pages of
         // the same list "See all" pages through). TMDB's own /movie/upcoming
@@ -3913,9 +4245,9 @@ ipcMain.handle("get-upcoming-movies", async (event, countryCode) => {
         console.error("[new] upcoming movies fetch failed:", err.message || err);
         return [];
     }
-});
+}, countryCode || "US"));
 
-ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
+ipcMain.handle("get-new-tv-shows", async (event, countryCode) => withDailyRefreshArray("new-tv-shows", "cache-new-tv-shows.json", async () => {
     try {
         // "air_date.lte: today" only ever excluded shows that haven't
         // aired yet — it never had a LOWER bound, so sorting the entire
@@ -3964,7 +4296,7 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => {
         console.error("[new] new TV shows fetch failed:", err.message || err);
         return [];
     }
-});
+}, countryCode || "US"));
 
 // Anime is very often catalogued on TMDB as a brand-new show entry per
 // SEASON (its own id, its own "first_air_date" set to when that season
@@ -3996,7 +4328,7 @@ function looksLikeSequelSeason(name) {
 // genuinely is anime, and it needs no extra API beyond what
 // get-new-tv-shows above already uses. Same 90-day "actually new" window
 // and popularity ordering as that handler, just scoped further.
-ipcMain.handle("get-new-anime", async (event, countryCode) => {
+ipcMain.handle("get-new-anime", async (event, countryCode) => withDailyRefreshArray("new-anime", "cache-new-anime.json", async () => {
     try {
         const today = new Date();
         const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
@@ -4035,7 +4367,7 @@ ipcMain.handle("get-new-anime", async (event, countryCode) => {
         console.error("[new] new anime fetch failed:", err.message || err);
         return [];
     }
-});
+}, countryCode || "US"));
 
 ipcMain.handle("get-tv-show-trailer", async (event, tmdbId) => {
     try {
@@ -4084,7 +4416,7 @@ ipcMain.handle("clear-new-section-cache", async () => {
     }
 });
 
-ipcMain.handle("get-upcoming-games", async () => {
+ipcMain.handle("get-upcoming-games", async () => withDailyRefresh("upcoming-games", "cache-upcoming-games-recent.json", async () => {
     try {
         const today = new Date();
         // "Upcoming" means strictly after today — a game releasing today
@@ -4140,12 +4472,15 @@ ipcMain.handle("get-upcoming-games", async () => {
         }
 
         saveDataCache("cache-upcoming-games-recent.json", combined);
-        return combined;
+        return { success: true, games: combined };
     } catch (err) {
         console.error("[new] upcoming games fetch failed:", err.message || err);
-        return [];
+        const error = err && err.quotaExceeded
+            ? vendorQuotaMessage(err.vendor || "rawg")
+            : "Couldn't reach RAWG right now -- check your connection and try again.";
+        return { success: false, games: [], error, quotaExceeded: !!(err && err.quotaExceeded) };
     }
-});
+}, "games"));
 
 // Fetches richer per-game detail (full description, platforms, minimum PC
 // specs) for the New tab's Upcoming Games hover-detail window. Kept as a
@@ -4483,6 +4818,36 @@ function isPlausibleSteamGridMatch(searchName, matchName) {
 
 ipcMain.handle("fetch-online-cover", (event, gameName) => fetchOnlineCover(gameName));
 
+// A found cover is already cached forever, as an actual saved file (see
+// fetchOnlineCover's own cache check below) -- but a title with genuinely
+// no cover art anywhere on SteamGridDB had no memory of that at all
+// before this, so every render of that same title (across every session)
+// re-ran the full search again for nothing. Same 3-day TTL as
+// find-game-cover's own miss cache above, for the same reason: short
+// enough that a title that gets real art added later is picked up again
+// within a few days, long enough that repeat renders in the meantime
+// don't re-search.
+const ONLINE_COVER_MISS_CACHE_FILE = "cache-online-cover-misses.json";
+const ONLINE_COVER_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+function isOnlineCoverMissCached(key) {
+    const misses = loadDataCache(ONLINE_COVER_MISS_CACHE_FILE) || {};
+    const at = misses[key];
+    return typeof at === "number" && (Date.now() - at) < ONLINE_COVER_MISS_TTL_MS;
+}
+
+function recordOnlineCoverMiss(key) {
+    const misses = loadDataCache(ONLINE_COVER_MISS_CACHE_FILE) || {};
+    misses[key] = Date.now();
+    // Keep this bounded the same way find-game-cover's own cache does --
+    // the 5,000 most recent misses, oldest dropped first.
+    const keys = Object.keys(misses);
+    if (keys.length > 5000) {
+        keys.sort((a, b) => misses[a] - misses[b]).slice(0, keys.length - 5000).forEach((k) => delete misses[k]);
+    }
+    saveDataCache(ONLINE_COVER_MISS_CACHE_FILE, misses);
+}
+
 async function fetchOnlineCover(gameName) {
 
     // Skip the network round trip for a title already fetched before --
@@ -4491,6 +4856,7 @@ async function fetchOnlineCover(gameName) {
     // tries this once, see watchForLandscapeCover in renderer.js), so
     // re-hitting SteamGridDB for the same title on every render would
     // burn API quota for nothing.
+    const missKey = safeFileName(gameName).toLowerCase();
     try {
         if (fs.existsSync(COVERS_FOLDER)) {
             const baseName = safeFileName(gameName);
@@ -4503,6 +4869,10 @@ async function fetchOnlineCover(gameName) {
     } catch (err) {
         // Fall through to a fresh online lookup if the cache check itself
         // fails for any reason.
+    }
+
+    if (isOnlineCoverMissCached(missKey)) {
+        return null;
     }
 
     console.log(`[cover] Looking up "${gameName}" on SteamGridDB...`);
@@ -4528,6 +4898,7 @@ async function fetchOnlineCover(gameName) {
 
         if (!match) {
             console.log(`[cover] No plausible match for "${gameName}" after trying: ${variants.join(", ")}`);
+            recordOnlineCoverMiss(missKey);
             return null;
         }
 
@@ -4541,6 +4912,7 @@ async function fetchOnlineCover(gameName) {
 
         if (!gridsResult.success || !gridsResult.data || gridsResult.data.length === 0) {
             console.log(`[cover] No grid images found for game id ${gameId}.`);
+            recordOnlineCoverMiss(missKey);
             return null;
         }
 
@@ -5847,7 +6219,7 @@ ipcMain.handle("check-missing-ebooks", async () => {
 // genuine popularity signal available across the sources considered for
 // this feature, which is why it's used for all three ranked lists below.
 
-ipcMain.handle("get-recommended-ebooks", async () => {
+ipcMain.handle("get-recommended-ebooks", async () => withDailyRefresh("get-recommended-ebooks", "cache-recommended-ebooks.json", async () => {
     try {
         const { books, error } = await booksApi.fetchGutenbergPages(3);
         if (books.length === 0) {
@@ -5865,9 +6237,9 @@ ipcMain.handle("get-recommended-ebooks", async () => {
         console.error("[ebooks] recommended fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-popular-ebooks", async () => {
+ipcMain.handle("get-popular-ebooks", async () => withDailyRefresh("get-popular-ebooks", "cache-popular-ebooks.json", async () => {
     try {
         const { books, error } = await booksApi.fetchGutenbergPages(2);
         if (books.length === 0) {
@@ -5880,9 +6252,9 @@ ipcMain.handle("get-popular-ebooks", async () => {
         console.error("[ebooks] popular fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-top-downloaded-ebooks", async () => {
+ipcMain.handle("get-top-downloaded-ebooks", async () => withDailyRefresh("get-top-downloaded-ebooks", "cache-top-downloaded-ebooks.json", async () => {
     try {
         const { books, error } = await booksApi.fetchGutenbergPages(4);
         if (books.length === 0) {
@@ -5898,7 +6270,7 @@ ipcMain.handle("get-top-downloaded-ebooks", async () => {
         console.error("[ebooks] top-downloaded fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
 // Instant retrieval of whatever was last successfully fetched, with no
 // network call — this is what lets the app show real content the
@@ -5981,7 +6353,7 @@ ipcMain.handle("search-gutenberg-books", async (event, query) => {
 // each other, since Open Library files plenty of manga under a generic
 // "comics" subject too. Checked against the raw search doc (subjects
 // aren't kept on the mapped book object).
-ipcMain.handle("get-openlibrary-popular", async () => {
+ipcMain.handle("get-openlibrary-popular", async () => withDailyRefresh("openlibrary-popular", "cache-openlibrary-popular.json", async () => {
     try {
         const books = await booksApi.fetchOpenLibraryBooks("fiction", "rating");
         saveDataCache("cache-openlibrary-popular.json", books);
@@ -5990,9 +6362,9 @@ ipcMain.handle("get-openlibrary-popular", async () => {
         console.error("[books] Open Library popular fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-openlibrary-most-sold", async () => {
+ipcMain.handle("get-openlibrary-most-sold", async () => withDailyRefresh("openlibrary-most-sold", "cache-openlibrary-most-sold.json", async () => {
     try {
         const books = await booksApi.fetchOpenLibraryBooks("bestseller");
         saveDataCache("cache-openlibrary-most-sold.json", books);
@@ -6001,9 +6373,9 @@ ipcMain.handle("get-openlibrary-most-sold", async () => {
         console.error("[books] Open Library most-sold fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-openlibrary-new-releases", async () => {
+ipcMain.handle("get-openlibrary-new-releases", async () => withDailyRefresh("openlibrary-new-releases", "cache-openlibrary-new-releases.json", async () => {
     try {
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("fiction", "new", 40);
         saveDataCache("cache-openlibrary-new-releases.json", books);
@@ -6012,7 +6384,60 @@ ipcMain.handle("get-openlibrary-new-releases", async () => {
         console.error("[books] Open Library new-releases fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+// --- My Library: Recommended Books --------------------------------------
+// Looks at what's already in the user's local Reading Room collection
+// (EBOOKS_FILE) and picks the author with the most books there, then
+// looks up more of that author's books on Open Library, filtering out
+// anything already owned by title. Falls back to a generic well-reviewed
+// list when the library has no reusable author signal yet (empty
+// library, every book by a different author, etc).
+function getLibraryRecommendationBasis() {
+    let entries = [];
+    try {
+        if (EBOOKS_FILE && fs.existsSync(EBOOKS_FILE)) entries = JSON.parse(fs.readFileSync(EBOOKS_FILE, "utf8"));
+    } catch (err) {
+        entries = [];
+    }
+    const ownedTitles = [...new Set(entries.map((e) => (e.title || "").trim().toLowerCase()).filter(Boolean))];
+    const authorCounts = new Map();
+    for (const e of entries) {
+        const author = (e.author || "").trim();
+        if (!author || /^unknown$/i.test(author)) continue;
+        authorCounts.set(author, (authorCounts.get(author) || 0) + 1);
+    }
+    let author = null;
+    let topCount = 0;
+    for (const [name, count] of authorCounts) {
+        if (count > topCount) { author = name; topCount = count; }
+    }
+    return { author, ownedTitles };
+}
+
+function libraryRecommendationQuery() {
+    const { author, ownedTitles } = getLibraryRecommendationBasis();
+    const owned = new Set(ownedTitles);
+    return {
+        query: author ? `author:"${author}"` : "fiction",
+        sort: author ? null : "rating",
+        owned
+    };
+}
+
+ipcMain.handle("get-cached-library-recommended-books", async () => loadDataCache("cache-library-recommended-books.json") || []);
+
+ipcMain.handle("get-library-recommended-books", async () => withDailyRefresh("library-recommended-books", "cache-library-recommended-books.json", async () => {
+    try {
+        const { query, sort, owned } = libraryRecommendationQuery();
+        const books = (await booksApi.fetchOpenLibraryBooks(query, sort)).filter((b) => !owned.has((b.title || "").trim().toLowerCase()));
+        saveDataCache("cache-library-recommended-books.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[library] recommended books fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
 // Manga/Comics sections — reuse the exact same Open Library machinery as
 // Buy Books (booksApi.fetchOpenLibraryBooks, booksApi.mapOpenLibraryBook, saveDataCache),
@@ -6023,7 +6448,7 @@ ipcMain.handle("get-openlibrary-new-releases", async () => {
 // the grid. Using the same cover-filtering fetch already built for New
 // Releases (which pages through candidates and keeps only the ones that
 // actually have cover art) fixes that the same way it did there.
-ipcMain.handle("get-manga-books", async () => {
+ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "cache-manga-books.json", async () => {
     try {
         // Scoped to the actual "manga" subject rather than a loose
         // keyword search, so this doesn't also pull in books that just
@@ -6040,11 +6465,11 @@ ipcMain.handle("get-manga-books", async () => {
         console.error("[books] Manga fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
 ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-books.json") || []);
 
-ipcMain.handle("get-comics-books", async () => {
+ipcMain.handle("get-comics-books", async () => withDailyRefresh("comics-books", "cache-comics-books.json", async () => {
     try {
         // Open Library files a lot of manga under the generic "comics"
         // subject too, so this excludes anything that mentions manga in
@@ -6059,9 +6484,97 @@ ipcMain.handle("get-comics-books", async () => {
         console.error("[books] Comics fetch failed:", err.message || err);
         return { success: false, books: [], error: err.message || String(err) };
     }
-});
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
 ipcMain.handle("get-cached-comics-books", async () => loadDataCache("cache-comics-books.json") || []);
+
+// Manga's three subsections -- same cover-art filtering as the original
+// single-grid version (see get-manga-books above), applied per subsection.
+ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular", "cache-manga-popular.json", async () => {
+    try {
+        // Rating-sorted -- Manga's "Most Popular".
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
+        saveDataCache("cache-manga-popular.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] manga-popular fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-manga-popular", async () => loadDataCache("cache-manga-popular.json") || []);
+
+ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bestseller", "cache-manga-bestseller.json", async () => {
+    try {
+        // Most editions -- Manga's "Best Seller" stand-in (see MANGA_FILTER's comment above).
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "editions", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
+        saveDataCache("cache-manga-bestseller.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] manga-bestseller fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-manga-bestseller", async () => loadDataCache("cache-manga-bestseller.json") || []);
+
+ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new-releases", "cache-manga-new-releases.json", async () => {
+    try {
+        // Newest first -- Manga's "New Releases".
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "new", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
+        saveDataCache("cache-manga-new-releases.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] manga-new-releases fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-manga-new-releases", async () => loadDataCache("cache-manga-new-releases.json") || []);
+
+// Comics' three subsections, same idea.
+ipcMain.handle("get-comics-popular", async () => withDailyRefresh("comics-popular", "cache-comics-popular.json", async () => {
+    try {
+        // Rating-sorted -- Comics' "Most Popular".
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:comics", "rating", 40, "manga", ["comic", "graphic novel"], 1930);
+        saveDataCache("cache-comics-popular.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] comics-popular fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-comics-popular", async () => loadDataCache("cache-comics-popular.json") || []);
+
+ipcMain.handle("get-comics-bestseller", async () => withDailyRefresh("comics-bestseller", "cache-comics-bestseller.json", async () => {
+    try {
+        // Most editions -- Comics' "Best Seller" stand-in.
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:comics", "editions", 40, "manga", ["comic", "graphic novel"], 1930);
+        saveDataCache("cache-comics-bestseller.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] comics-bestseller fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-comics-bestseller", async () => loadDataCache("cache-comics-bestseller.json") || []);
+
+ipcMain.handle("get-comics-new-releases", async () => withDailyRefresh("comics-new-releases", "cache-comics-new-releases.json", async () => {
+    try {
+        // Newest first -- Comics' "New Releases".
+        const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:comics", "new", 40, "manga", ["comic", "graphic novel"], 1930);
+        saveDataCache("cache-comics-new-releases.json", books);
+        return { success: true, books };
+    } catch (err) {
+        console.error("[books] comics-new-releases fetch failed:", err.message || err);
+        return { success: false, books: [], error: err.message || String(err) };
+    }
+}, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
+
+ipcMain.handle("get-cached-comics-new-releases", async () => loadDataCache("cache-comics-new-releases.json") || []);
+
 
 // Manga/Comics search, kept as its own endpoint (rather than reusing the
 // general search-openlibrary-books one below) specifically so a search

@@ -373,7 +373,7 @@
             <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
                 Search for any registered Riftgate user by their username to make them an admin, or manage existing admins below. Only you (as a super-admin) can access this.
             </p>
-            <input type="text" id="adminSearchInput" placeholder="Search all users..." class="subsection-filter" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
+            <input type="text" id="adminSearchInput" placeholder="Search all users..." class="search-glow subsection-filter" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
             <p id="adminManageError" style="color:#ff5f5f;font-size:12px;min-height:16px;margin:0 0 6px;"></p>
             <div id="adminList" class="suggestions-list" style="max-height:340px;"></div>
             <button id="openAllowlistFromAdminBtn" class="launchBtn" style="width:100%;margin-top:10px;padding:9px;">🔮 Manage The Vault Allowlist</button>
@@ -762,7 +762,7 @@
 
     <div class="topbar-row">
         <div class="global-search" id="globalSearchWrap">
-            <input type="text" id="globalSearchInput" placeholder="Search your games, free games, books, and shows…" autocomplete="off">
+            <input class="search-glow" type="text" id="globalSearchInput" placeholder="Search your games, free games, books, and shows…" autocomplete="off">
             <svg class="nav-icon global-search-icon"><use href="#icon-search"></use></svg>
             <div class="global-search-results" id="globalSearchResults" style="display:none;"></div>
         </div>
@@ -814,7 +814,7 @@
                 <option value="custom">Custom Order</option>
             </select>
 
-            <input
+            <input class="search-glow"
                 type="text"
                 id="searchInput"
                 placeholder="Search games..."
@@ -853,7 +853,7 @@
         <div id="freeGamesSpotlight" class="free-games-spotlight"></div>
         <div id="freeGamesPlatformTabs" class="free-games-tabs"></div>
         <div class="free-games-controls">
-            <input type="text" id="freeGamesSearchInput" placeholder="Search free games...">
+            <input class="search-glow" type="text" id="freeGamesSearchInput" placeholder="Search free games...">
             <select id="freeGamesPlatformSelect" style="display:none;" aria-hidden="true">
                 <option value="all">All Platforms</option>
             </select>
@@ -894,7 +894,7 @@
         <div id="storeResultCount" class="free-games-result-count"></div>
         <div class="topbar" id="storeTopbar" style="padding:0 16px;">
             <div class="actions">
-                <input type="text" id="storeSearchInput" placeholder="Search deals...">
+                <input class="search-glow" type="text" id="storeSearchInput" placeholder="Search deals...">
                 <select id="storePlatformSelect">
                     <option value="all">All Platforms</option>
                 </select>
@@ -942,7 +942,7 @@
     </div>
 
     <div class="topbar reading-room-search-bar" id="buyFreeSearchBar">
-        <input
+        <input class="search-glow"
             type="text"
             id="buyFreeSearchInput"
             placeholder="Search for any book online..."
@@ -955,7 +955,10 @@
     </div>
 
     <div class="category-section" id="mostPopularBooksSection">
-        <h2>🔥 Most Popular</h2>
+        <div class="reading-room-header">
+            <h2>🔥 Most Popular</h2>
+            <button type="button" class="see-all-btn" data-see-all="buy-books-popular">See all →</button>
+        </div>
         <div class="carousel-wrap">
             <button class="carousel-arrow carousel-arrow-left" id="mostPopularLeftArrow">‹</button>
             <div id="mostPopularBooksGrid" class="carousel-track"></div>
@@ -964,7 +967,10 @@
     </div>
 
     <div class="category-section" id="mostSoldBooksSection">
-        <h2>💰 Best Seller</h2>
+        <div class="reading-room-header">
+            <h2>💰 Best Seller</h2>
+            <button type="button" class="see-all-btn" data-see-all="buy-books-bestseller">See all →</button>
+        </div>
         <div class="carousel-wrap">
             <button class="carousel-arrow carousel-arrow-left" id="mostSoldLeftArrow">‹</button>
             <div id="mostSoldBooksGrid" class="carousel-track"></div>
@@ -973,12 +979,19 @@
     </div>
 
     <div class="category-section" id="newReleasesBooksSection">
-        <h2>🆕 New Releases</h2>
-        <div id="newReleasesBooksGrid" class="games-grid browse-grid"></div>
+        <div class="reading-room-header">
+            <h2>🆕 New Releases</h2>
+            <button type="button" class="see-all-btn" data-see-all="buy-books-new-releases">See all →</button>
+        </div>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="newReleasesLeftArrow">‹</button>
+            <div id="newReleasesBooksGrid" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="newReleasesRightArrow">›</button>
+        </div>
     </div>
 
     <div class="topbar reading-room-search-bar">
-        <input
+        <input class="search-glow"
             type="text"
             id="readingRoomSearchInput"
             placeholder="Search for any book..."
@@ -1062,6 +1075,18 @@
             <button class="carousel-arrow carousel-arrow-left" id="recentlyOpenedLeftArrow">‹</button>
             <div id="recentlyOpenedRow" class="carousel-track"></div>
             <button class="carousel-arrow carousel-arrow-right" id="recentlyOpenedRightArrow">›</button>
+        </div>
+    </div>
+
+    <div class="category-section" id="recommendedLibraryBooksSection" style="padding:0 16px;">
+        <div class="reading-room-header">
+            <h2>⭐ Recommended Books</h2>
+            <button type="button" class="see-all-btn" data-see-all="library-recommended">See all →</button>
+        </div>
+        <div class="carousel-wrap">
+            <button class="carousel-arrow carousel-arrow-left" id="recommendedLibraryBooksLeftArrow">‹</button>
+            <div id="recommendedLibraryBooksGrid" class="carousel-track"></div>
+            <button class="carousel-arrow carousel-arrow-right" id="recommendedLibraryBooksRightArrow">›</button>
         </div>
     </div>
 
@@ -1173,7 +1198,7 @@
 
         <div class="topbar" id="communityAppsTopbar" style="padding:0 16px;">
             <div class="actions">
-                <input type="text" id="communityAppsSearchInput" placeholder="Search apps...">
+                <input class="search-glow" type="text" id="communityAppsSearchInput" placeholder="Search apps...">
                 <select id="communityAppsSortSelect">
                     <option value="newest">Sort: Newest First</option>
                     <option value="visits">Sort: Most Visited</option>
@@ -1206,30 +1231,110 @@
 
     <div id="mangaContainer" class="secondary-section">
         <div class="topbar reading-room-search-bar" style="padding:0 16px 14px;">
-            <input type="text" id="mangaSearchInput" placeholder="Search manga...">
+            <input class="search-glow" type="text" id="mangaSearchInput" placeholder="Search manga...">
         </div>
         <div class="section-info">
             <p class="section-subtitle">🎨 Browse Manga — Covers, Authors & Stores</p>
             <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
             <p class="section-blurb">
-                🎨 Browse Manga — Covers, Authors & Stores Search or just scroll the default list below.
+                🎨 Browse Manga — Covers, Authors & Stores Search or just browse the lists below.
             </p>
         </div>
-        <div id="mangaGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
+
+        <div class="category-section" id="mangaSearchResultsSection" style="padding:0 16px;display:none;">
+            <h2 id="mangaSearchResultsHeading">🔍 Search Results</h2>
+            <div id="mangaSearchResultsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="category-section" id="mangaPopularSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>🔥 Most Popular</h2>
+                <button type="button" class="see-all-btn" data-see-all="manga-popular">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="mangaPopularLeftArrow">‹</button>
+                <div id="mangaPopularGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="mangaPopularRightArrow">›</button>
+            </div>
+        </div>
+
+        <div class="category-section" id="mangaBestsellerSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>💰 Best Seller</h2>
+                <button type="button" class="see-all-btn" data-see-all="manga-bestseller">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="mangaBestsellerLeftArrow">‹</button>
+                <div id="mangaBestsellerGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="mangaBestsellerRightArrow">›</button>
+            </div>
+        </div>
+
+        <div class="category-section" id="mangaNewReleasesSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>🆕 New Releases</h2>
+                <button type="button" class="see-all-btn" data-see-all="manga-new-releases">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="mangaNewReleasesLeftArrow">‹</button>
+                <div id="mangaNewReleasesGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="mangaNewReleasesRightArrow">›</button>
+            </div>
+        </div>
     </div>
 
     <div id="comicsContainer" class="secondary-section">
         <div class="topbar reading-room-search-bar" style="padding:0 16px 14px;">
-            <input type="text" id="comicsSearchInput" placeholder="Search comics...">
+            <input class="search-glow" type="text" id="comicsSearchInput" placeholder="Search comics...">
         </div>
         <div class="section-info">
             <p class="section-subtitle">💥 Browse Comics — Covers, Authors & Stores</p>
             <button type="button" class="section-info-toggle" aria-expanded="false">ⓘ About</button>
             <p class="section-blurb">
-                💥 Browse Comics — Covers, Authors & Stores Search or just scroll the default list below.
+                💥 Browse Comics — Covers, Authors & Stores Search or just browse the lists below.
             </p>
         </div>
-        <div id="comicsGrid" class="games-grid browse-grid" style="padding:0 16px;"></div>
+
+        <div class="category-section" id="comicsSearchResultsSection" style="padding:0 16px;display:none;">
+            <h2 id="comicsSearchResultsHeading">🔍 Search Results</h2>
+            <div id="comicsSearchResultsGrid" class="games-grid browse-grid"></div>
+        </div>
+
+        <div class="category-section" id="comicsPopularSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>🔥 Most Popular</h2>
+                <button type="button" class="see-all-btn" data-see-all="comics-popular">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="comicsPopularLeftArrow">‹</button>
+                <div id="comicsPopularGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="comicsPopularRightArrow">›</button>
+            </div>
+        </div>
+
+        <div class="category-section" id="comicsBestsellerSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>💰 Best Seller</h2>
+                <button type="button" class="see-all-btn" data-see-all="comics-bestseller">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="comicsBestsellerLeftArrow">‹</button>
+                <div id="comicsBestsellerGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="comicsBestsellerRightArrow">›</button>
+            </div>
+        </div>
+
+        <div class="category-section" id="comicsNewReleasesSection" style="padding:0 16px;">
+            <div class="reading-room-header">
+                <h2>🆕 New Releases</h2>
+                <button type="button" class="see-all-btn" data-see-all="comics-new-releases">See all →</button>
+            </div>
+            <div class="carousel-wrap">
+                <button class="carousel-arrow carousel-arrow-left" id="comicsNewReleasesLeftArrow">‹</button>
+                <div id="comicsNewReleasesGrid" class="carousel-track"></div>
+                <button class="carousel-arrow carousel-arrow-right" id="comicsNewReleasesRightArrow">›</button>
+            </div>
+        </div>
     </div>
 
     <div id="sharedFolderContainer" class="secondary-section">
@@ -1257,7 +1362,7 @@
         <div id="sharedFolderContent" style="display:none;">
             <div class="topbar" style="padding:0 16px;">
                 <div class="actions" style="flex-wrap:wrap;">
-                    <input type="text" id="vaultFilesSearchInput" placeholder="Search files...">
+                    <input class="search-glow" type="text" id="vaultFilesSearchInput" placeholder="Search files...">
                     <select id="vaultFilesSortSelect">
                         <option value="newest">Sort: Newest First</option>
                         <option value="expiring">Sort: Expiring Soonest</option>
@@ -1290,7 +1395,7 @@
 
             <div class="topbar" style="padding:0 16px;">
                 <div class="actions" style="flex-wrap:wrap;">
-                    <input type="text" id="vaultLinksSearchInput" placeholder="Search links...">
+                    <input class="search-glow" type="text" id="vaultLinksSearchInput" placeholder="Search links...">
                     <select id="vaultLinksSortSelect">
                         <option value="newest">Sort: Newest First</option>
                         <option value="expiring">Sort: Expiring Soonest</option>
@@ -1385,7 +1490,7 @@
         <div class="theatre-block">
             <div class="theatre-block-header">
                 <h2>🆕 Recently Released</h2>
-                <input type="text" id="recentEpisodesFilterInput" class="subsection-filter" placeholder="Filter by show name...">
+                <input type="text" id="recentEpisodesFilterInput" class="search-glow subsection-filter" placeholder="Filter by show name...">
             </div>
             <div id="recentEpisodesRow" class="recent-episodes-row"></div>
         </div>
@@ -1395,11 +1500,11 @@
                 <h2>📺 My Shows</h2>
             </div>
             <div class="show-search-row">
-                <input type="text" id="showSearchInput" placeholder="Search for a series to track...">
+                <input class="search-glow" type="text" id="showSearchInput" placeholder="Search for a series to track...">
                 <button id="showSearchBtn">Search</button>
             </div>
             <div id="showSearchResults" class="show-search-results"></div>
-            <input type="text" id="myShowsFilterInput" class="subsection-filter" placeholder="Filter your tracked shows...">
+            <input type="text" id="myShowsFilterInput" class="search-glow subsection-filter" placeholder="Filter your tracked shows...">
             <div id="myShowsGrid" class="games-grid browse-grid"></div>
         </div>
 
@@ -1413,7 +1518,7 @@
                     <select class="cinema-select" data-cinema-picker aria-label="Your cinema" hidden></select>
                 </div>
             </div>
-            <input type="text" id="moviesFilterInput" class="subsection-filter" placeholder="Filter movies by name...">
+            <input type="text" id="moviesFilterInput" class="search-glow subsection-filter" placeholder="Filter movies by name...">
             <div id="moviesGrid" class="games-grid browse-grid"></div>
         </div>
 
@@ -1434,7 +1539,7 @@
             </div>
             <p class="subsection-hint">Search any movie or show title to find all streaming services, rental options, and purchase links where it's available.</p>
             <div class="show-search-row">
-                <input type="text" id="watchProviderSearchInput" placeholder="e.g., Breaking Bad, The Matrix, Oppenheimer...">
+                <input class="search-glow" type="text" id="watchProviderSearchInput" placeholder="e.g., Breaking Bad, The Matrix, Oppenheimer...">
                 <button id="watchProviderSearchBtn">Search</button>
             </div>
             <div id="watchProviderSearchResults" class="watch-provider-search-results"></div>
@@ -1485,7 +1590,7 @@
             <div class="theatre-block-header">
                 <h2>📺 New Series</h2>
                 <button type="button" class="see-all-btn" data-see-all="new-series">See all →</button>
-                <input type="text" id="newShowsFilterInput" class="subsection-filter" placeholder="Filter by show name...">
+                <input type="text" id="newShowsFilterInput" class="search-glow subsection-filter" placeholder="Filter by show name...">
             </div>
             <div class="hscroll-row">
                 <button class="carousel-arrow carousel-arrow-left" id="newShowsLeftArrow" aria-label="Scroll left">‹</button>
@@ -1504,7 +1609,7 @@
             <div class="theatre-block-header">
                 <h2>🎌 New Anime</h2>
                 <button type="button" class="see-all-btn" data-see-all="new-anime">See all →</button>
-                <input type="text" id="newAnimeFilterInput" class="subsection-filter" placeholder="Filter by title...">
+                <input type="text" id="newAnimeFilterInput" class="search-glow subsection-filter" placeholder="Filter by title...">
             </div>
             <div class="hscroll-row">
                 <button class="carousel-arrow carousel-arrow-left" id="newAnimeLeftArrow" aria-label="Scroll left">‹</button>
@@ -1691,7 +1796,7 @@
                 <button type="button" id="seeAllCloseBtn" class="see-all-close" aria-label="Close">✕</button>
             </div>
             <div class="see-all-controls">
-                <input type="text" id="seeAllSearch" class="subsection-filter" placeholder="Search this list..." aria-label="Search this list">
+                <input type="text" id="seeAllSearch" class="search-glow subsection-filter" placeholder="Search this list..." aria-label="Search this list">
                 <select id="seeAllSort" aria-label="Sort"></select>
                 <span id="seeAllCount" class="see-all-count" aria-live="polite"></span>
             </div>

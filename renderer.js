@@ -4077,6 +4077,32 @@ sectionOptions.forEach((btn) => makeGlowButton(btn));
 document.querySelectorAll(".reading-room-tab").forEach((btn) => makeGlowButton(btn));
 const sidebarNavButtons = document.querySelectorAll(".sidebarNavBtn");
 
+// Every search/filter bar (see .search-glow in style.css): wraps the
+// plain <input class="search-glow"> in the decorative markup the
+// glowing-border/starfield effect needs, once at startup. The input
+// itself is only MOVED into the new wrapper (never cloned or replaced),
+// so its id, attributes and any event listeners already attached to it
+// stay exactly as they were -- every other place in this file can keep
+// calling document.getElementById(...) on these inputs as usual.
+function enhanceGlowSearchInputs(root = document) {
+    root.querySelectorAll("input.search-glow").forEach((input) => {
+        if (input.parentElement && input.parentElement.classList.contains("search-glow-wrap")) return;
+        const wrap = document.createElement("div");
+        wrap.className = "search-glow-wrap";
+        const starsWrap = document.createElement("div");
+        starsWrap.className = "search-glow-stars-wrap";
+        starsWrap.innerHTML = '<div class="search-glow-stars"></div>';
+        const glow = document.createElement("div");
+        glow.className = "search-glow-blobs";
+        glow.innerHTML = '<div class="search-glow-circle"></div><div class="search-glow-circle"></div>';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(starsWrap);
+        wrap.appendChild(glow);
+        wrap.appendChild(input);
+    });
+}
+enhanceGlowSearchInputs();
+
 // The "Start on section" dropdown (in Settings) used to keep its own
 // separately hand-written list of <option>s, which is exactly how it
 // silently fell out of sync and was missing The Vault after it was added
@@ -4345,6 +4371,9 @@ function showReadingRoomTab(tab) {
     readingRoomTopbar.style.display = isLibrary ? "" : "none";
     readingRoomBlurb.style.display = isLibrary ? "" : "none";
     readingRoomContainer.style.display = isLibrary ? "" : "none";
+    if (readingRoomContainer._listPagers) {
+        readingRoomContainer._listPagers.forEach((p) => { p.style.display = isLibrary ? "" : "none"; });
+    }
     // Its own tab now (eBook Apps) rather than tacked onto the bottom of
     // My Library, where it was easy to miss entirely.
     recommendedReadersSection.style.display = isApps ? "" : "none";
@@ -4366,6 +4395,8 @@ function showReadingRoomTab(tab) {
 
     renderRecentlyOpenedRow();
     renderFavoritesRow();
+    renderLibraryRecommendedRow();
+    if (isLibrary) loadLibraryRecommendedBooks();
 
     if (isDiscover) {
         loadEbookDiscovery();
@@ -4379,12 +4410,12 @@ function showReadingRoomTab(tab) {
 
     if (isManga && !mangaLoaded) {
         mangaLoaded = true;
-        loadGenericBrowseSection("manga");
+        loadMangaSection();
     }
 
     if (isComics && !comicsLoaded) {
         comicsLoaded = true;
-        loadGenericBrowseSection("comics");
+        loadComicsSection();
     }
 }
 
@@ -4613,12 +4644,27 @@ function performSectionSwitch(section) {
         }
         showReadingRoomTab(activeReadingRoomTab);
     } else {
+        // Leaving Reading Room always resets which subsection comes up
+        // next -- without this, activeReadingRoomTab just sits at
+        // whatever tab was open (Manga, My Library, ...) and coming back
+        // later from a different section would silently resume there
+        // instead of starting over at Buy Books, the first subsection.
+        activeReadingRoomTab = "buyfree";
         readingRoomTopbar.style.display = "none";
         readingRoomBlurb.style.display = "none";
         readingRoomContainer.style.display = "none";
+        // readingRoomContainer's own pager bars (see renderPagedGrid /
+        // grid._listPagers) are inserted as SIBLINGS before/after the
+        // grid, not children of it -- hiding the grid alone never hid
+        // these, so once the library passed 100 books its "‹ Previous /
+        // Next ›" bar kept showing on every other section.
+        if (readingRoomContainer._listPagers) {
+            readingRoomContainer._listPagers.forEach((p) => { p.style.display = "none"; });
+        }
         recommendedReadersSection.style.display = "none";
         document.getElementById("recentlyOpenedSection").style.display = "none";
         document.getElementById("favoritesSection").style.display = "none";
+        document.getElementById("recommendedLibraryBooksSection").style.display = "none";
         document.getElementById("freeFindsSection").style.display = "none";
         document.getElementById("buyBooksSearchResultsSection").style.display = "none";
         buyFreeSearchBar.style.display = "none";
@@ -6447,6 +6493,19 @@ function renderReadingRoom() {
     }
 
     renderPagedGrid(readingRoomContainer, filtered, (book) => buildEbookCard(book, filtered), { key: `${searchTerm}|${sortBy}`, searchText: (book) => `${book.title || ""} ${book.author || ""}`, searchPlaceholder: "Search your library…" });
+
+    // loadReadingRoom() (which calls this) always runs once per session
+    // the moment Reading Room is first opened, regardless of which of its
+    // tabs is actually showing -- so a freshly (re)created pager here is
+    // born visible even when My Library isn't the active tab, and the
+    // tab-switch visibility check in showReadingRoomTab already ran
+    // before this pager even existed to hide. Applying that same check
+    // again right here, every time renderPagedGrid may have just
+    // (re)built these pager bars, closes that timing gap.
+    if (readingRoomContainer._listPagers) {
+        const showPagers = currentSection === "reading-room" && activeReadingRoomTab === "library";
+        readingRoomContainer._listPagers.forEach((p) => { p.style.display = showPagers ? "" : "none"; });
+    }
 }
 
 async function loadReadingRoom() {
@@ -6454,6 +6513,7 @@ async function loadReadingRoom() {
     renderReadingRoom();
     renderRecentlyOpenedRow();
     renderFavoritesRow();
+    loadLibraryRecommendedBooks();
 }
 
 // --- Free eBooks discovery (Project Gutenberg) -----------------------------
@@ -6822,10 +6882,16 @@ function buildBuyFreeBookCard(book, section, navList) {
     return card;
 }
 
-function renderBuyFreeGrid(grid, books, errorMessage, kind) {
+function renderBuyFreeGrid(grid, books, errorMessage, kind, options = {}) {
     kind = kind || "book";
     const section = kind === "manga" ? "manga" : (kind === "comics" ? "comic" : "book");
-    const isAlphaGrid = kind === "manga" || kind === "comics";
+    // A Manga/Comics *subsection* (Most Popular/Best Seller/New Releases)
+    // is already ranked by the query itself (rating/editions/new) and
+    // needs to stay that way, unlike the old flat browse-everything grid
+    // this alpha-sort was built for -- options.alpha lets a caller opt
+    // out of it while keeping the "manga"/"comics" section (still needed
+    // for the right mature/removed lookup key).
+    const isAlphaGrid = options.alpha !== undefined ? options.alpha : (kind === "manga" || kind === "comics");
 
     grid.innerHTML = "";
     removeListPagers(grid);
@@ -6859,81 +6925,149 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind) {
 }
 
 // --- Manga / Comics --------------------------------------------------------
-// Both reuse the exact same Open Library-backed machinery as Buy Books
-// (renderBuyFreeGrid, buildBuyFreeBookCard, the get/search-openlibrary-books
-// IPC channels) — just scoped to different default queries, rather than a
-// separate integration with its own reliability to worry about.
+// Same three-subsection structure as Buy Books (reading-room-header +
+// carousel-wrap + "See all" per subsection), reusing the exact same
+// renderBuyFreeGrid/buildBuyFreeBookCard machinery — just against
+// subject:manga / subject:comics instead of general fiction.
 
 const mangaContainer = document.getElementById("mangaContainer");
 const comicsContainer = document.getElementById("comicsContainer");
-const mangaGrid = document.getElementById("mangaGrid");
-const comicsGrid = document.getElementById("comicsGrid");
 const mangaSearchInput = document.getElementById("mangaSearchInput");
 const comicsSearchInput = document.getElementById("comicsSearchInput");
 
 let mangaLoaded = false;
 let comicsLoaded = false;
-const genericBrowseSearchDebounce = {};
-const genericBrowseCache = { manga: [], comics: [] };
 
-function genericBrowseGrid(kind) {
-    return kind === "manga" ? mangaGrid : comicsGrid;
-}
+// Ranked by the query itself (rating/editions/new) -- alpha:false keeps
+// that order instead of renderBuyFreeGrid's default alpha-sort, which is
+// only right for an unordered flat browse list, not a ranked subsection.
+// Keeps its own last-rendered books per grid (genreSubsectionCache) so
+// reapplyMatureFilterEverywhere can re-render instantly from memory when
+// the mature-content setting or an admin removal changes, the same way
+// Buy Books' own three subsections already do.
+const genreSubsectionCache = {};
 
-async function loadGenericBrowseSection(kind) {
-    const grid = genericBrowseGrid(kind);
-    const cachedChannel = kind === "manga" ? "get-cached-manga-books" : "get-cached-comics-books";
-    const freshChannel = kind === "manga" ? "get-manga-books" : "get-comics-books";
-
+async function loadGenreSubsection(freshChannel, cachedChannel, gridId, sectionKind) {
+    const grid = document.getElementById(gridId);
     const cached = await window.riftgate.invoke(cachedChannel);
-    if (cached && cached.length > 0) {
-        genericBrowseCache[kind] = cached;
-        renderBuyFreeGrid(grid, cached, null, kind);
+    if (cached && cached.length) {
+        genreSubsectionCache[gridId] = { books: cached, sectionKind };
+        renderBuyFreeGrid(grid, cached, null, sectionKind, { alpha: false });
     } else {
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Loading ${kind}...</p>`;
+        // Manga/Comics' cover-art hit rate is low enough that a first-
+        // ever (no cache yet) fetch genuinely takes a few seconds per
+        // subsection -- a blank row during that wait reads as broken,
+        // not "loading", so this says so explicitly until real data (or
+        // an error) replaces it below.
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading…</p>`;
     }
 
     const result = await window.riftgate.invoke(freshChannel);
     if (result.success) {
-        genericBrowseCache[kind] = result.books;
-        renderBuyFreeGrid(grid, result.books, result.error, kind);
-    } else if (!cached || cached.length === 0) {
-        renderBuyFreeGrid(grid, [], result.error, kind);
+        genreSubsectionCache[gridId] = { books: result.books, sectionKind };
+        renderBuyFreeGrid(grid, result.books, result.error, sectionKind, { alpha: false });
+    } else if (!cached || !cached.length) {
+        renderBuyFreeGrid(grid, [], result.error, sectionKind, { alpha: false });
     }
 }
 
-function wireGenericBrowseSearch(kind, input) {
+function reapplyGenreSubsections() {
+    Object.keys(genreSubsectionCache).forEach((gridId) => {
+        const { books, sectionKind } = genreSubsectionCache[gridId];
+        const grid = document.getElementById(gridId);
+        if (grid && books && books.length) renderBuyFreeGrid(grid, books, null, sectionKind, { alpha: false });
+    });
+}
+
+function loadMangaSection() {
+    loadGenreSubsection("get-manga-popular", "get-cached-manga-popular", "mangaPopularGrid", "manga");
+    loadGenreSubsection("get-manga-bestseller", "get-cached-manga-bestseller", "mangaBestsellerGrid", "manga");
+    loadGenreSubsection("get-manga-new-releases", "get-cached-manga-new-releases", "mangaNewReleasesGrid", "manga");
+}
+
+function loadComicsSection() {
+    loadGenreSubsection("get-comics-popular", "get-cached-comics-popular", "comicsPopularGrid", "comics");
+    loadGenreSubsection("get-comics-bestseller", "get-cached-comics-bestseller", "comicsBestsellerGrid", "comics");
+    loadGenreSubsection("get-comics-new-releases", "get-cached-comics-new-releases", "comicsNewReleasesGrid", "comics");
+}
+
+// Search covers the whole catalog (search-genre-books, already scoped to
+// subject:manga / subject:comics with manga excluded from comics) rather
+// than just what's loaded in the three subsections above -- shown in its
+// own dedicated section, exactly like Buy Books' search, so it's never
+// confused with (or overwrites) them. The three subsections are only ever
+// hidden while a search is active, never cleared, so clearing the search
+// box just shows them again with nothing to re-fetch or re-render.
+function wireGenreSearch(kind, input, resultsSectionId, resultsHeadingId, resultsGridId, subsectionIds) {
+    let debounce = null;
     input.addEventListener("input", () => {
-        clearTimeout(genericBrowseSearchDebounce[kind]);
+        clearTimeout(debounce);
         const term = input.value.trim();
-        const grid = genericBrowseGrid(kind);
+        const resultsSection = document.getElementById(resultsSectionId);
+        const resultsHeading = document.getElementById(resultsHeadingId);
+        const resultsGrid = document.getElementById(resultsGridId);
 
         if (!term) {
-            // Already have this tab's default list cached — just
-            // re-render it locally instead of re-fetching over the
-            // network every time the search box is cleared (including
-            // when it's cleared automatically on a section/tab switch).
-            if (genericBrowseCache[kind] && genericBrowseCache[kind].length > 0) {
-                renderBuyFreeGrid(grid, genericBrowseCache[kind], null, kind);
-            } else {
-                loadGenericBrowseSection(kind);
-            }
+            resultsSection.style.display = "none";
+            resultsGrid.innerHTML = "";
+            subsectionIds.forEach((id) => { document.getElementById(id).style.display = ""; });
             return;
         }
 
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;text-align:center;grid-column:1/-1;">Searching...</p>`;
-        genericBrowseSearchDebounce[kind] = setTimeout(async () => {
-            // Scoped search (subject:manga / subject:comics, with manga
-            // excluded from comics results) so typing in one tab's
-            // search box never pulls in the other's results.
+        subsectionIds.forEach((id) => { document.getElementById(id).style.display = "none"; });
+        resultsSection.style.display = "";
+        resultsHeading.textContent = `🔍 Searching for "${term}"...`;
+        resultsGrid.innerHTML = "";
+
+        debounce = setTimeout(async () => {
             const result = await window.riftgate.invoke("search-genre-books", { term, kind });
-            renderBuyFreeGrid(grid, result.success ? result.books : [], result.error, kind);
+            resultsHeading.textContent = `🔍 Results for "${term}"`;
+            renderBuyFreeGrid(resultsGrid, result.success ? result.books : [], result.error, kind, { alpha: false });
         }, 500);
     });
 }
 
-wireGenericBrowseSearch("manga", mangaSearchInput);
-wireGenericBrowseSearch("comics", comicsSearchInput);
+wireGenreSearch("manga", mangaSearchInput, "mangaSearchResultsSection", "mangaSearchResultsHeading", "mangaSearchResultsGrid",
+    ["mangaPopularSection", "mangaBestsellerSection", "mangaNewReleasesSection"]);
+wireGenreSearch("comics", comicsSearchInput, "comicsSearchResultsSection", "comicsSearchResultsHeading", "comicsSearchResultsGrid",
+    ["comicsPopularSection", "comicsBestsellerSection", "comicsNewReleasesSection"]);
+
+document.getElementById("mangaPopularLeftArrow").addEventListener("click", () => {
+    document.getElementById("mangaPopularGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("mangaPopularRightArrow").addEventListener("click", () => {
+    document.getElementById("mangaPopularGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("mangaBestsellerLeftArrow").addEventListener("click", () => {
+    document.getElementById("mangaBestsellerGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("mangaBestsellerRightArrow").addEventListener("click", () => {
+    document.getElementById("mangaBestsellerGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("mangaNewReleasesLeftArrow").addEventListener("click", () => {
+    document.getElementById("mangaNewReleasesGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("mangaNewReleasesRightArrow").addEventListener("click", () => {
+    document.getElementById("mangaNewReleasesGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("comicsPopularLeftArrow").addEventListener("click", () => {
+    document.getElementById("comicsPopularGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("comicsPopularRightArrow").addEventListener("click", () => {
+    document.getElementById("comicsPopularGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("comicsBestsellerLeftArrow").addEventListener("click", () => {
+    document.getElementById("comicsBestsellerGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("comicsBestsellerRightArrow").addEventListener("click", () => {
+    document.getElementById("comicsBestsellerGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+document.getElementById("comicsNewReleasesLeftArrow").addEventListener("click", () => {
+    document.getElementById("comicsNewReleasesGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+document.getElementById("comicsNewReleasesRightArrow").addEventListener("click", () => {
+    document.getElementById("comicsNewReleasesGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
 
 let freeFindsCache = [];
 
@@ -7032,8 +7166,6 @@ async function loadBuyFreeBooks() {
     } else if (!cachedNewReleases.length) {
         renderBuyFreeGrid(newReleasesGrid, [], newReleases.error);
     }
-
-    attachSeeMore(newReleasesGrid, 5);
 
     buyFreeBooksCache = {
         popular: popularPaid || buyFreeBooksCache.popular,
@@ -7219,8 +7351,80 @@ document.getElementById("mostSoldRightArrow").addEventListener("click", () => {
     document.getElementById("mostSoldBooksGrid").scrollBy({ left: 600, behavior: "smooth" });
 });
 
+document.getElementById("newReleasesLeftArrow").addEventListener("click", () => {
+    document.getElementById("newReleasesBooksGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+
+document.getElementById("newReleasesRightArrow").addEventListener("click", () => {
+    document.getElementById("newReleasesBooksGrid").scrollBy({ left: 600, behavior: "smooth" });
+});
+
 document.getElementById("recentlyOpenedRightArrow").addEventListener("click", () => {
     document.getElementById("recentlyOpenedRow").scrollBy({ left: 600, behavior: "smooth" });
+});
+
+// --- My Library: Recommended Books --------------------------------------
+// Books from Open Library related to what's already in the Reading Room
+// (usually more by whichever author shows up most in the library), so
+// there's always something to look at even without leaving My Library.
+// Same "See all" panel/pagination as Buy Books' three rows.
+
+let libraryRecommendedCache = [];
+let libraryRecommendedLoaded = false;
+let libraryRecommendedLoadInProgress = false;
+
+function renderLibraryRecommendedRow() {
+    const grid = document.getElementById("recommendedLibraryBooksGrid");
+    const section = document.getElementById("recommendedLibraryBooksSection");
+
+    // Library-only — same rule as Recently Opened/Favorites above.
+    if (currentSection !== "reading-room" || activeReadingRoomTab !== "library") {
+        section.style.display = "none";
+        return;
+    }
+
+    if (libraryRecommendedCache.length === 0) {
+        if (libraryRecommendedLoadInProgress) {
+            section.style.display = "";
+            grid.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">Loading recommendations…</p>`;
+        } else {
+            section.style.display = "none";
+        }
+        return;
+    }
+
+    section.style.display = "";
+    renderBuyFreeGrid(grid, libraryRecommendedCache);
+}
+
+async function loadLibraryRecommendedBooks() {
+    if (libraryRecommendedLoaded || libraryRecommendedLoadInProgress) return;
+    libraryRecommendedLoadInProgress = true;
+    renderLibraryRecommendedRow();
+
+    const cached = await window.riftgate.invoke("get-cached-library-recommended-books");
+    if (cached && cached.length) {
+        libraryRecommendedCache = cached;
+        renderLibraryRecommendedRow();
+    }
+
+    const result = await window.riftgate.invoke("get-library-recommended-books");
+    libraryRecommendedLoadInProgress = false;
+    if (result.success) {
+        libraryRecommendedLoaded = true;
+        libraryRecommendedCache = result.books;
+    } else if (!cached || !cached.length) {
+        libraryRecommendedCache = [];
+    }
+    renderLibraryRecommendedRow();
+}
+
+document.getElementById("recommendedLibraryBooksLeftArrow").addEventListener("click", () => {
+    document.getElementById("recommendedLibraryBooksGrid").scrollBy({ left: -600, behavior: "smooth" });
+});
+
+document.getElementById("recommendedLibraryBooksRightArrow").addEventListener("click", () => {
+    document.getElementById("recommendedLibraryBooksGrid").scrollBy({ left: 600, behavior: "smooth" });
 });
 
 // Anything dropped into the watched folder while the app is running gets
@@ -7527,13 +7731,15 @@ function buildShowCard(show, navList) {
             <img class="cover-img" src="${freeGameCoverCacheSrc(show.image) || "covers/default.jpg"}" alt="">
             <span class="media-type-badge" hidden></span>
             <span class="media-rating-badge" hidden></span>
-            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
             <p class="media-next-episode" hidden></p>
             <p class="game-desc"></p>
+            <div class="card-footer">
+                <button class="launchBtn myShowsWhereToWatchBtn">📺 Where to Watch</button>
+                <button class="trailerBtn" title="Watch trailer"><svg class="trailerBtn-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></button>
+            </div>
         </div>
     `;
 
@@ -7560,13 +7766,6 @@ function buildShowCard(show, navList) {
         loadRecentEpisodes();
     });
 
-    card.querySelector(".soundToggle").addEventListener("click", (event) => {
-        event.stopPropagation();
-        soundEnabled = !soundEnabled;
-        updateAllSoundToggles();
-        applySoundToAllFrames();
-    });
-
     const descEl = card.querySelector(".game-desc");
     descEl.style.cursor = "pointer";
     descEl.addEventListener("click", () => openGameDetailModal(show, "show", navList));
@@ -7574,6 +7773,16 @@ function buildShowCard(show, navList) {
     const showCoverImgEl = card.querySelector(".cover-img");
     showCoverImgEl.style.cursor = "pointer";
     showCoverImgEl.addEventListener("click", () => openGameDetailModal(show, "show", navList));
+
+    // Same JustWatch-search link Recently Released uses (buildJustWatchSearchUrl,
+    // defined below) -- not a guaranteed deep link straight to this exact
+    // show's watch page (JustWatch has no public API for that), but it opens
+    // their own real site with the search already run for this title.
+    card.querySelector(".myShowsWhereToWatchBtn").addEventListener("click", (event) => {
+        event.stopPropagation();
+        const query = encodeURIComponent(show.name);
+        window.riftgate.invoke("open-external", buildJustWatchSearchUrl(query));
+    });
 
     if (!show.description) {
         window.riftgate.invoke("fetch-description", show.name).then(async (description) => {
@@ -7603,7 +7812,7 @@ function buildShowCard(show, navList) {
         return show.trailerId;
     }
 
-    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+    card.querySelector(".trailerBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const trailerId = await fetchShowTrailerOnce();
         if (trailerId) {
@@ -8278,8 +8487,6 @@ function buildMovieCard(movie, showReleaseDate, navList) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(movie.poster) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
-            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -8287,7 +8494,7 @@ function buildMovieCard(movie, showReleaseDate, navList) {
             <p class="game-desc"></p>
             <div class="movie-card-actions">
                 <button class="launchBtn ticketsBtn">🎟️ Find Tickets & Showtimes</button>
-                <button class="youtubeLinkBtn" title="Watch on YouTube">▶</button>
+                <button class="trailerBtn" title="Watch trailer"><svg class="trailerBtn-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></button>
             </div>
         </div>
     `;
@@ -8313,27 +8520,11 @@ function buildMovieCard(movie, showReleaseDate, navList) {
         return movieTrailerId;
     }
 
-    card.querySelector(".soundToggle").addEventListener("click", (event) => {
-        event.stopPropagation();
-        soundEnabled = !soundEnabled;
-        updateAllSoundToggles();
-        applySoundToAllFrames();
-    });
-
-    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+    card.querySelector(".trailerBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const trailerId = await fetchTrailerOnce();
         if (trailerId) {
             openTheaterMode(trailerId);
-        } else {
-            showCustomAlert("No trailer could be found for this title.");
-        }
-    });
-
-    card.querySelector(".youtubeLinkBtn").addEventListener("click", async () => {
-        const trailerId = await fetchTrailerOnce();
-        if (trailerId) {
-            window.riftgate.invoke("open-external", `https://www.youtube.com/watch?v=${trailerId}`);
         } else {
             showCustomAlert("No trailer could be found for this title.");
         }
@@ -8477,8 +8668,6 @@ function buildStreamingProviderCard(item, providerName) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(item.image) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
-            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -8486,6 +8675,7 @@ function buildStreamingProviderCard(item, providerName) {
             <p class="game-desc"></p>
             <div class="card-footer">
                 <button class="launchBtn watchOnProviderBtn">${uiIcon("link")} <span class="watchOnProviderBtnLabel"></span></button>
+                <button class="trailerBtn" title="Watch trailer"><svg class="trailerBtn-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></button>
             </div>
         </div>
     `;
@@ -8513,7 +8703,7 @@ function buildStreamingProviderCard(item, providerName) {
         return providerCardTrailerId;
     }
 
-    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+    card.querySelector(".trailerBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const trailerId = await fetchProviderCardTrailerOnce();
         if (trailerId) {
@@ -8521,13 +8711,6 @@ function buildStreamingProviderCard(item, providerName) {
         } else {
             showCustomAlert("No trailer could be found for this title.");
         }
-    });
-
-    card.querySelector(".soundToggle").addEventListener("click", (event) => {
-        event.stopPropagation();
-        soundEnabled = !soundEnabled;
-        updateAllSoundToggles();
-        applySoundToAllFrames();
     });
 
     card.querySelector(".watchOnProviderBtn").addEventListener("click", (event) => {
@@ -9171,8 +9354,16 @@ const HSCROLL_TRACK_CONFIG = new Map([
     ["newAnimeGrid", { minCardWidth: 210, gap: 14 }],
     ["mostPopularBooksGrid", { minCardWidth: 230, gap: 14 }],
     ["mostSoldBooksGrid", { minCardWidth: 230, gap: 14 }],
+    ["newReleasesBooksGrid", { minCardWidth: 230, gap: 14 }],
     ["favoritesRow", { minCardWidth: 230, gap: 14 }],
     ["recentlyOpenedRow", { minCardWidth: 230, gap: 14 }],
+    ["recommendedLibraryBooksGrid", { minCardWidth: 230, gap: 14 }],
+    ["mangaPopularGrid", { minCardWidth: 230, gap: 14 }],
+    ["mangaBestsellerGrid", { minCardWidth: 230, gap: 14 }],
+    ["mangaNewReleasesGrid", { minCardWidth: 230, gap: 14 }],
+    ["comicsPopularGrid", { minCardWidth: 230, gap: 14 }],
+    ["comicsBestsellerGrid", { minCardWidth: 230, gap: 14 }],
+    ["comicsNewReleasesGrid", { minCardWidth: 230, gap: 14 }],
     ["gameDetailRelatedRow", { minCardWidth: 230, gap: 14 }]
 ]);
 
@@ -9273,8 +9464,6 @@ function buildNewShowCard(show, navList) {
         <div class="cover-wrap">
             <img class="cover-img" src="${freeGameCoverCacheSrc(show.image) || "covers/default.jpg"}" alt="">
             <span class="media-rating-badge" hidden></span>
-            <button class="soundToggle" title="Toggle trailer sound">${uiIcon(soundEnabled ? "volume-2" : "volume-x")}</button>
-            <button class="enlargeBtn" title="Watch larger">${uiIcon("maximize")}</button>
         </div>
         <div class="game-info">
             <h3></h3>
@@ -9282,6 +9471,7 @@ function buildNewShowCard(show, navList) {
             <p class="game-desc"></p>
             <div class="card-footer">
                 <button class="launchBtn addToShowsBtn">➕ Add to My Shows</button>
+                <button class="trailerBtn" title="Watch trailer"><svg class="trailerBtn-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></button>
             </div>
         </div>
     `;
@@ -9320,7 +9510,7 @@ function buildNewShowCard(show, navList) {
         return newShowTrailerId;
     }
 
-    card.querySelector(".enlargeBtn").addEventListener("click", async (event) => {
+    card.querySelector(".trailerBtn").addEventListener("click", async (event) => {
         event.stopPropagation();
         const trailerId = await fetchNewShowTrailerOnce();
         if (trailerId) {
@@ -9328,13 +9518,6 @@ function buildNewShowCard(show, navList) {
         } else {
             showCustomAlert("No trailer could be found for this title.");
         }
-    });
-
-    card.querySelector(".soundToggle").addEventListener("click", (event) => {
-        event.stopPropagation();
-        soundEnabled = !soundEnabled;
-        updateAllSoundToggles();
-        applySoundToAllFrames();
     });
 
     // My Shows tracking runs on TVMaze IDs, but this feed comes from
@@ -9450,19 +9633,14 @@ async function loadNewAnime() {
     renderNewAnime();
 }
 
-async function preloadUpcomingGameDetails(games) {
-    for (const game of games) {
-        if (game.__detailsCache) continue;
-        try {
-            const details = await window.riftgate.invoke("get-upcoming-game-details", game.id);
-            game.__detailsCache = details;
-            if (details && details.description) game.description = details.description;
-        } catch (err) {
-            // Best-effort — the detail modal falls back to fetching it
-            // normally the moment it's opened.
-        }
-    }
-}
+// Upcoming Games' detail modal (openGameDetailModal) already fetches and
+// caches a game's details itself the first time it's opened, with a
+// proper "Loading…" state — this used to eagerly pre-fetch all 24 games'
+// details (2 RAWG requests each: the game itself, plus its "related"
+// row) the moment the row loaded, whether or not the user ever looked at
+// any of them. That's what was actually burning through RAWG's monthly
+// request quota, not the row's own single list fetch, so it's gone: a
+// game's details/related row are now only ever fetched on demand.
 
 // One Upcoming Games card (also used by the "See all" panel).
 function buildUpcomingGameCard(game, navList) {
@@ -9534,10 +9712,12 @@ async function loadUpcomingGames() {
     const grid = document.getElementById("upcomingGamesGrid");
     grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">Loading...</p>`;
 
-    const games = await window.riftgate.invoke("get-upcoming-games");
+    const result = await window.riftgate.invoke("get-upcoming-games");
+    const games = (result && result.games) || [];
 
-    if (!games || games.length === 0) {
-        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No results right now.</p>`;
+    if (games.length === 0) {
+        const message = (result && result.error) || "No results right now.";
+        grid.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">${message}</p>`;
         return;
     }
 
@@ -9546,7 +9726,6 @@ async function loadUpcomingGames() {
     const visibleGames = games.filter((g) => !isItemRemoved("game", g.id));
     const sortedGames = sortNoCoverLast(visibleGames, "image");
     upcomingGamesCache = sortedGames;
-    preloadUpcomingGameDetails(sortedGames);
 
     sortedGames.forEach((game) => grid.appendChild(buildUpcomingGameCard(game, upcomingGamesCache)));
 
@@ -9641,6 +9820,116 @@ const SEE_ALL_KINDS = {
         date: null,
         posters: false,
         build: (it, list) => buildFreeGameCard(it, list)
+    },
+    "buy-books-popular": {
+        title: () => "🔥 Most Popular",
+        noun: "books",
+        subtitle: () => "The full Most Popular list from Open Library, most acclaimed first",
+        mediaType: () => "book",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "book", list)
+    },
+    "buy-books-bestseller": {
+        title: () => "💰 Best Seller",
+        noun: "books",
+        subtitle: () => "The full Best Seller list from Open Library",
+        mediaType: () => "book",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "book", list)
+    },
+    "buy-books-new-releases": {
+        title: () => "🆕 New Releases",
+        noun: "books",
+        subtitle: () => "The full New Releases list from Open Library, newest first",
+        mediaType: () => "book",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "book", list)
+    },
+    "library-recommended": {
+        title: () => "⭐ Recommended Books",
+        noun: "books",
+        subtitle: () => "More from Open Library related to what's already in your library",
+        mediaType: () => "book",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "book", list)
+    },
+    "manga-popular": {
+        title: () => "🔥 Most Popular",
+        noun: "manga",
+        subtitle: () => "The full Most Popular manga list from Open Library, most acclaimed first",
+        mediaType: () => "manga",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "manga", list)
+    },
+    "manga-bestseller": {
+        title: () => "💰 Best Seller",
+        noun: "manga",
+        subtitle: () => "The full Best Seller manga list from Open Library",
+        mediaType: () => "manga",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "manga", list)
+    },
+    "manga-new-releases": {
+        title: () => "🆕 New Releases",
+        noun: "manga",
+        subtitle: () => "The full New Releases manga list from Open Library, newest first",
+        mediaType: () => "manga",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "manga", list)
+    },
+    "comics-popular": {
+        title: () => "🔥 Most Popular",
+        noun: "comics",
+        subtitle: () => "The full Most Popular comics list from Open Library, most acclaimed first",
+        mediaType: () => "comic",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "comic", list)
+    },
+    "comics-bestseller": {
+        title: () => "💰 Best Seller",
+        noun: "comics",
+        subtitle: () => "The full Best Seller comics list from Open Library",
+        mediaType: () => "comic",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "comic", list)
+    },
+    "comics-new-releases": {
+        title: () => "🆕 New Releases",
+        noun: "comics",
+        subtitle: () => "The full New Releases comics list from Open Library, newest first",
+        mediaType: () => "comic",
+        name: (it) => it.title,
+        date: (it) => it.publishedDate,
+        dateIsPast: true,
+        posters: false,
+        build: (it, list) => buildBuyFreeBookCard(it, "comic", list)
     }
 };
 
@@ -10587,9 +10876,10 @@ function reapplyMatureFilterEverywhere() {
         if (mostSoldGrid && buyFreeBooksCache.mostSold) renderBuyFreeGrid(mostSoldGrid, buyFreeBooksCache.mostSold);
         if (newReleasesGrid && buyFreeBooksCache.newReleases) {
             renderBuyFreeGrid(newReleasesGrid, buyFreeBooksCache.newReleases);
-            attachSeeMore(newReleasesGrid, 5);
         }
     }
+
+    if (libraryRecommendedCache.length) renderLibraryRecommendedRow();
 
     if (discoveryBooksCache) {
         if (discoveryBooksCache.recommended) renderEbookDiscoveryGrid(recommendedEbooksGrid, discoveryBooksCache.recommended);
@@ -10602,8 +10892,7 @@ function reapplyMatureFilterEverywhere() {
 
     renderFreeFindsSection();
 
-    if (genericBrowseCache.manga.length) renderBuyFreeGrid(mangaGrid, genericBrowseCache.manga, null, "manga");
-    if (genericBrowseCache.comics.length) renderBuyFreeGrid(comicsGrid, genericBrowseCache.comics, null, "comics");
+    reapplyGenreSubsections();
 }
 
 const THANK_YOU_MESSAGE = "Thank you for your suggestion! We truly appreciate you taking the time to share your ideas with us — feedback like yours is what helps shape the future of Riftgate. Our team will review it carefully and consider how it might fit into an upcoming update. We're grateful to have you as part of the Riftgate community.";

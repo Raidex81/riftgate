@@ -354,6 +354,189 @@ input{
     color:var(--text-primary);
 }
 
+/* ================= Glowing search bars (.search-glow) =================
+   Every search/filter bar in the app -- adapted from the "SPACE" button
+   by Uiverse.io (StealthWorm, MIT): an animated double gradient border,
+   two blurred colour blobs behind the field, and a slowly drifting
+   starfield. Colours are drawn entirely from the current theme
+   (var(--accent-1)/var(--accent-2)/var(--bg-tertiary)/var(--text-primary))
+   instead of the original's fixed yellow/pink/purple/blue palette, so it
+   automatically matches whichever colour theme and light/dark mode is
+   selected. enhanceGlowSearchInputs() in renderer.js wraps every
+   input.search-glow with the decorative markup once at startup -- the
+   input itself keeps its id/attributes/listeners untouched, only moved
+   inside the new wrapper. */
+.search-glow-wrap{
+    position:relative;
+    box-sizing:border-box;
+    display:inline-flex;
+    align-items:center;
+    isolation:isolate;
+    width:250px;
+    border-radius:999px;
+    overflow:hidden;
+    cursor:text;
+    background-size:300% 300%;
+    animation:searchGlowGradient 6s ease infinite;
+    border:double 3px transparent;
+    background-image:linear-gradient(var(--bg-tertiary), var(--bg-tertiary)),
+        linear-gradient(137deg, var(--accent-1) 12%, var(--accent-2) 50%, var(--accent-1) 88%);
+    background-origin:border-box;
+    background-clip:content-box, border-box;
+    transition:transform .2s ease, border-color .2s ease;
+}
+.search-glow-wrap:hover{
+    transform:scale(1.015);
+}
+.search-glow-wrap:focus-within{
+    border-color:var(--accent-2);
+    animation-play-state:paused;
+}
+.search-glow-wrap:focus-within .search-glow-circle{
+    background:var(--accent-2);
+}
+@media (prefers-reduced-motion:reduce){
+    .search-glow-wrap{ animation:none; transform:none !important; }
+}
+
+.search-glow-stars-wrap{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    border-radius:inherit;
+    pointer-events:none;
+}
+.search-glow-stars{
+    position:relative;
+    width:200rem;
+    height:200rem;
+}
+.search-glow-stars::before,
+.search-glow-stars::after{
+    content:"";
+    position:absolute;
+    background-image:radial-gradient(color-mix(in srgb, var(--text-primary) 55%, transparent) 1px, transparent 1%);
+    background-size:50px 50px;
+}
+.search-glow-stars::after{
+    top:-10rem;
+    left:-100rem;
+    width:100%;
+    height:100%;
+    animation:searchGlowStarRotate 90s linear infinite;
+}
+.search-glow-stars::before{
+    top:0;
+    left:-50%;
+    width:170%;
+    height:500%;
+    opacity:.5;
+    animation:searchGlowStarDrift 60s linear infinite;
+}
+@media (prefers-reduced-motion:reduce){
+    .search-glow-stars::before,
+    .search-glow-stars::after{ animation:none; }
+}
+
+.search-glow-blobs{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    display:flex;
+    align-items:center;
+    pointer-events:none;
+}
+.search-glow-circle{
+    width:100%;
+    height:55%;
+    filter:blur(1.3rem);
+    animation:searchGlowPulse 4s infinite;
+}
+.search-glow-circle:nth-of-type(1){
+    background:color-mix(in srgb, var(--accent-2) 65%, transparent);
+}
+.search-glow-circle:nth-of-type(2){
+    background:color-mix(in srgb, var(--accent-1) 65%, transparent);
+}
+@media (prefers-reduced-motion:reduce){
+    .search-glow-circle{ animation:none; }
+}
+
+.search-glow-wrap input{
+    position:relative;
+    z-index:2;
+    flex:1;
+    width:100%;
+    height:100%;
+    margin:0;
+    padding:11px 16px;
+    border:none;
+    border-radius:0;
+    background:transparent;
+    color:var(--text-primary);
+    font-size:14px;
+    outline:none;
+    box-sizing:border-box;
+}
+.search-glow-wrap input::placeholder{
+    color:var(--text-muted);
+}
+
+@keyframes searchGlowGradient{
+    0%{ background-position:0% 50%; }
+    50%{ background-position:100% 50%; }
+    100%{ background-position:0% 50%; }
+}
+@keyframes searchGlowPulse{
+    0%{ transform:scale(.8); }
+    70%{ transform:scale(1); }
+    100%{ transform:scale(.8); }
+}
+@keyframes searchGlowStarDrift{
+    from{ transform:translateY(0); }
+    to{ transform:translateY(-135rem); }
+}
+@keyframes searchGlowStarRotate{
+    from{ transform:rotate(360deg); }
+    to{ transform:rotate(0); }
+}
+
+/* Per-context sizing -- mirrors the width/flex each of these search bars
+   already had before it was wrapped, so the wrap swaps in visually with
+   no layout shift. */
+.global-search .search-glow-wrap{
+    width:100%;
+    max-width:100%;
+}
+.global-search .search-glow-wrap input{
+    padding-left:42px;
+}
+.reading-room-search-bar .search-glow-wrap{
+    width:100%;
+    max-width:420px;
+}
+.reading-room-search-bar .search-glow-wrap input{
+    text-align:center;
+}
+.free-games-controls .search-glow-wrap{
+    flex:1 1 200px;
+    width:auto;
+}
+.show-search-row .search-glow-wrap{
+    width:200px;
+}
+.search-glow-wrap:has(input.subsection-filter){
+    width:220px;
+}
+.see-all-controls .search-glow-wrap:has(input.subsection-filter){
+    width:260px;
+}
+.theatre-block-header .search-glow-wrap:has(input.subsection-filter){
+    width:200px;
+}
+
+
 /* "Add" buttons (Installed, Reading Room): a circle with a plus, drawn in
    the theme colour, that turns a quarter and fills on hover. Adapted from
    Uiverse.io by catraco (MIT), rewritten as plain CSS. */
@@ -517,6 +700,16 @@ body.light-theme .add-new-btn:hover svg{
 
 .category-section h2.heading-drag-over{
     outline:2px dashed var(--accent-1);
+}
+
+/* Wraps a category-section's h2 with a "See all" button, same layout as
+   .theatre-block-header -- used by Buy Books' Most Popular/Best
+   Seller/New Releases rows, each capped at 40 items. */
+.reading-room-header{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
 }
 
 /* Reordering the sections by drag: the tab being moved dims, and an
@@ -2839,27 +3032,14 @@ body.is-fullscreen #mainContent{
     transition:opacity .2s ease;
 }
 
-.global-search input{
-    /* border-box: with width:100% plus its padding and border the box used
-       to stick out ~60px past its column, under the Login button. */
-    box-sizing:border-box;
-    width:100%;
-    padding:11px 16px 11px 42px;
-    border-radius:999px;
-    background:var(--bg-secondary);
-    border:1.5px solid var(--border-color);
-    color:var(--text-primary);
-    font-size:14px;
-    outline:none;
-    transition:border-color .2s ease, box-shadow .2s ease;
-}
-
-.global-search input:focus{
-    border-color:var(--accent-1);
-    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-1) 18%, transparent);
-}
-
-.global-search input:focus ~ .global-search-icon{
+/* Now wrapped in .search-glow-wrap (see the glowing search bars section
+   near the top of this file), which owns the pill shape, background,
+   border and focus glow -- this selector only needs the one thing the
+   shared wrap styling can't know about: the icon needs more room, and
+   the icon's own opacity is driven off the wrap's :focus-within instead
+   of the input's :focus, since the icon is no longer the input's
+   sibling once it's inside the wrap. */
+.global-search .search-glow-wrap:focus-within ~ .global-search-icon{
     opacity:.9;
 }
 
@@ -3030,7 +3210,8 @@ body.is-fullscreen #mainContent{
    line on a narrower window, a single leftover item lands back at the
    LEFT edge instead of staying where it belongs, on the right. */
 .theatre-block-header select,
-.theatre-block-header .subsection-filter{
+.theatre-block-header .subsection-filter,
+.theatre-block-header .search-glow-wrap{
     margin-left:auto;
 }
 
@@ -3055,15 +3236,8 @@ body.is-fullscreen #mainContent{
     margin-bottom:14px;
 }
 
-.show-search-row input{
-    width:200px;
-    padding:8px 10px;
-    border-radius:8px;
-    border:none;
-    background:var(--bg-tertiary);
-    color:var(--text-primary);
-    font-size:12px;
-}
+/* Now wrapped in .search-glow-wrap -- see ".show-search-row
+   .search-glow-wrap" near the top of this file. */
 
 .show-search-row button{
     padding:8px 14px;
@@ -3775,20 +3949,71 @@ body.density-compact #moviesGrid.games-grid{
     background:var(--accent-1);
 }
 
-.youtubeLinkBtn{
-    background:transparent;
-    border:1px solid var(--border-color);
-    color:var(--text-muted);
-    border-radius:8px;
-    width:34px;
+/* ================= Trailer button (.trailerBtn) =================
+   Replaces the small corner "Watch larger" icon on every movie/show
+   card (In Theaters, Upcoming Movies, My Shows, New Series, New Anime,
+   Streaming Providers, Recently Released) with the YouTube icon on its
+   own, no caption -- the pill-outline-that-fills-on-hover interaction is
+   adapted from the "Play Trailer" button by Uiverse.io (Mangesh636,
+   MIT), and the icon itself is YouTube's own official logomark (a
+   single-colour glyph, via currentColor) since every trailer here is
+   fetched from YouTube. Kept in YouTube's own red rather than the
+   theme's accent colour, on purpose, in any colour theme. The icon's
+   own fill is currentColor, so it rides the exact same colour
+   transition as the button text used to (red normally, white once the
+   hover fill sweeps behind it) with no extra rule needed. Game/app
+   cards (Installed, Free Games, Store, Upcoming Games) keep the small
+   .enlargeBtn icon as before -- this is only for the Theatre section's
+   movie/show cards. */
+.trailerBtn{
+    position:relative;
+    isolation:isolate;
+    flex:none;
     flex-shrink:0;
+    align-self:center;
+    width:36px;
+    height:36px;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:transparent;
+    border:1px solid rgb(255 0 0);
+    border-radius:50%;
+    outline:none;
+    overflow:hidden;
+    color:rgb(255 0 0);
     cursor:pointer;
-    font-size:13px;
+    transition:color .3s .1s ease-out;
 }
-
-.youtubeLinkBtn:hover{
-    background:var(--bg-tertiary);
+.trailerBtn-icon{
+    position:relative;
+    z-index:1;
+    width:20px;
+    height:auto;
+    fill:currentColor;
+    flex-shrink:0;
+}
+/* The fill sits centred and already full-size while idle -- only its
+   box-shadow (invisible at rest) is what actually paints it, so it's
+   already "waiting" behind the icon exactly like the original button,
+   just centred instead of anchored off to one side, since this circle
+   IS the whole button now rather than a wide pill it has to sweep across. */
+.trailerBtn::before{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    content:"";
+    display:block;
+    border-radius:50%;
+    transition:box-shadow .5s ease-out;
+}
+.trailerBtn:hover{
     color:#fff;
+    border:1px solid rgb(255 0 0);
+}
+.trailerBtn:hover::before{
+    box-shadow:inset 0 0 0 3em rgb(255 0 0);
 }
 
 /* ================= Admin: role-preview switcher ================= */
@@ -3859,15 +4084,8 @@ body.density-compact #moviesGrid.games-grid{
     margin:0 auto 28px;
 }
 
-.free-games-controls input{
-    flex:1 1 200px;
-    padding:10px 12px;
-    border-radius:8px;
-    border:none;
-    background:var(--bg-tertiary);
-    color:var(--text-primary);
-    font-size:13px;
-}
+/* Now wrapped in .search-glow-wrap -- see ".free-games-controls
+   .search-glow-wrap" near the top of this file. */
 
 .free-games-controls select{
     flex:0 1 auto;
@@ -5442,22 +5660,9 @@ body.startup-locked{
     font-size:13px;
 }
 
-.reading-room-search-bar input{
-    width:100%;
-    max-width:420px;
-    padding:12px 18px;
-    border-radius:24px;
-    border:1.5px solid var(--border-color);
-    background:var(--bg-tertiary);
-    color:var(--text-primary);
-    font-size:14px;
-    text-align:center;
-}
-
-.reading-room-search-bar input:focus{
-    border-color:var(--accent-1);
-    outline:none;
-}
+/* Now wrapped in .search-glow-wrap -- see ".reading-room-search-bar
+   .search-glow-wrap" near the top of this file for sizing, and the
+   glowing search bars section for the shape/background/focus glow. */
 
 /* Recently Opened: fixed-size horizontal carousel, arrow-scrolled —
    deliberately NOT a wrapping grid, since items should stay the same
@@ -7040,7 +7245,6 @@ body.light-theme .launchBtn:active:not(:disabled){
 .theatre-block-header .sectionOption,
 .theatre-block .theatre-tab,
 .theatre-block-header select,
-button[data-section="theatre"],
 .upcoming-movies-track .game-card button {
     background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
     color: #ffffff !important;
@@ -7050,23 +7254,20 @@ button[data-section="theatre"],
 }
 
 .theatre-block-header .sectionOption:hover,
-.theatre-block .theatre-tab:hover,
-button[data-section="theatre"]:hover {
+.theatre-block .theatre-tab:hover {
     background: linear-gradient(135deg, #0284c7, #0891b2) !important;
     border-color: rgba(6, 182, 212, 0.8);
     box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
 }
 
 body.light-theme .theatre-block-header .sectionOption,
-body.light-theme .theatre-block .theatre-tab,
-body.light-theme button[data-section="theatre"] {
+body.light-theme .theatre-block .theatre-tab {
     background: linear-gradient(135deg, #0284c7, #0891b2) !important;
     color: #ffffff !important;
 }
 
 body.light-theme .theatre-block-header .sectionOption:hover,
-body.light-theme .theatre-block .theatre-tab:hover,
-body.light-theme button[data-section="theatre"]:hover {
+body.light-theme .theatre-block .theatre-tab:hover {
     background: linear-gradient(135deg, #075985, #0e7490) !important;
 }
 
