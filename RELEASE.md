@@ -47,32 +47,27 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.7.3):
+Quick pass on what changed this round (v1.8.0):
 
-- **Start-up** — no white window behind the opening animation. Right
-  after it, a "Where are you?" window asks for country and city (only
-  the first time). Type a city that isn't in the list (e.g. Almada) and
-  Save: In Theaters / Upcoming Movies show that city and its cinemas.
-- **Country / city lists** — next to In Theaters (Theatre) and Upcoming
-  Movies (New): change the country or city in one, the other follows.
-  "✏️ Other city…" opens the same window to type any city.
-- **Controller** — plug in an Xbox/PlayStation controller and press a
-  button: everything gets bigger (TV mode) and a bar of button hints
-  appears. D-pad moves the highlight, A opens, B goes back, LB/RB switch
-  sections, ☰ opens the side panel. Unplug it: back to normal size.
-- **Pages** — Free Games → GOG (or VR): 100 games per page with page
-  buttons above and below. Reading Room → Manga: page 1 of 2.
-  The search box beside the pages ("Search GOG games…") looks only in
-  that list.
-- **Card options** — with the controller/remote, select a card (A / OK):
-  the highlight goes inside (Details, sound, trailer, buttons); B leaves.
-  View / Share (or F1) opens the controls screen. Unplug the controller:
-  back to normal size straight away.
-- **Cinemas** — pick a few different cities (Braga, Coimbra, Faro,
-  Setúbal): each should list its cinemas within a few seconds.
-
-Then a quick general check that nothing else broke: log in, open Free
-Games (covers load), open an ebook in the Reading Room, and open Theatre.
+- **Color-coded buttons** — check all action buttons now use content-type
+  colors: Games (purple), Movies (cyan), Books (green), Apps (orange).
+  Launch, Get it Free, Find Tickets, Add to My Shows should all show
+  their respective colors based on content type.
+- **Theatre color differentiation** — in Theatre, Movies should display
+  with cyan buttons, Series with purple, and Anime with pink. Browse
+  through each category to verify the colors are distinct.
+- **Free Games layout** — Free Games rows should show a maximum of 20
+  items per row. If there are more than 20 games available, a "See all"
+  button should appear. Scroll down through different platforms (Steam,
+  Epic, GOG, itch.io) to verify the 20-item limit and see-all button.
+- **Browse All Free Games heading** — the heading should appear below
+  the Newly Added section (not above it), with clear visual separation
+  and a border-top divider between sections. Verify spacing looks clean.
+- **General functionality** — log in, open Free Games (covers load and
+  display color-coded buttons), browse Theatre with different content
+  types showing their designated colors, open Reading Room and Store to
+  verify buttons are color-coded there as well, and open Installed
+  library to check color consistency.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.

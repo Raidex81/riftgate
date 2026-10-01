@@ -1201,6 +1201,13 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.8.0": [
+        "New: content-type color coding — all action buttons (Launch, Get it Free, Find Tickets, Add to My Shows, etc.) now use color-coded buttons by content type for quick visual recognition: Games (purple), Movies (cyan), Books (green), Apps (orange)",
+        "New: Theatre section now distinguishes between different content types with unique colors — Movies (cyan), Series (purple), Anime (pink) — so you can see at a glance what type of content you're browsing",
+        "Changed: Free Games section now displays a maximum of 20 items per row with optimized layout — if there are more games available, a 'See all' button shows the complete collection without overwhelming the interface",
+        "Fixed: Browse All Free Games heading placement and layout — now properly positioned below the Newly Added section with clear visual separation and spacing between sections"
+    ],
+
     "1.7.3": [
         "New: play with a controller or a TV remote — the D-pad, stick or arrow keys move a highlight around everything on screen; A opens, B goes back, X plays or gets a game, LB/RB switch sections and ☰ Menu opens the side panel. Down and up go row by row, to the item right under (or the first one of a shorter row); lists like country and city change only after pressing A on them. Button hints show at the bottom",
         "New: TV mode makes the whole interface bigger for the couch. It turns on by itself while a controller is connected (or set it to Always on / Off in the side panel under Display)",
