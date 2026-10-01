@@ -61,6 +61,39 @@ body.theme-red{ --accent-1:#ff2d2d; --accent-2:#8b0000; }
 body.theme-frost{ --accent-1:#7dd3fc; --accent-2:#e0f2fe; }
 body.theme-venom{ --accent-1:#84cc16; --accent-2:#a21caf; }
 
+/* ================= Content type color scheme ================= */
+:root{
+    /* Games & Apps - Purple */
+    --color-games:#b026ff;
+    --color-games-light:#d966ff;
+    --color-games-dark:#7d1b99;
+
+    /* Movies & TV - Cyan/Blue */
+    --color-movies:#0ea5e9;
+    --color-movies-light:#38bdf8;
+    --color-movies-dark:#0369a1;
+
+    /* Series/TV Shows - Indigo/Purple */
+    --color-series:#a855f7;
+    --color-series-light:#c084fc;
+    --color-series-dark:#7e22ce;
+
+    /* Anime - Pink/Magenta */
+    --color-anime:#ec4899;
+    --color-anime-light:#f472b6;
+    --color-anime-dark:#be185d;
+
+    /* Books & Reading - Green */
+    --color-books:#22c55e;
+    --color-books-light:#4ade80;
+    --color-books-dark:#15803d;
+
+    /* Applications - Orange */
+    --color-apps:#f97316;
+    --color-apps-light:#fb923c;
+    --color-apps-dark:#c2410c;
+}
+
 body{
     margin:0;
     background:var(--bg-primary);
@@ -416,8 +449,8 @@ input{
 .search-glow-stars::after{
     content:"";
     position:absolute;
-    background-image:radial-gradient(color-mix(in srgb, var(--text-primary) 55%, transparent) 1px, transparent 1%);
-    background-size:50px 50px;
+    background-image:radial-gradient(color-mix(in srgb, var(--text-primary) 70%, transparent) 2px, transparent 3%);
+    background-size:40px 40px;
 }
 .search-glow-stars::after{
     top:-10rem;
@@ -879,8 +912,8 @@ body.density-compact .upcoming-movies-track .game-card{
 .game-card:hover, .game-card:focus-visible,
 .game-card.gp-show{
     border-color:var(--accent-1);
-    box-shadow:0 5px 20px rgba(0,0,0,.5), 0 0 0 1px var(--accent-1), 0 0 22px -6px var(--accent-1), 0 0 40px -12px var(--accent-2);
-    transform:translateY(-2px);
+    box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 2px var(--accent-1);
+    transform:translateY(-4px);
 }
 
 .game-card:has(.favoriteBtn.active){
@@ -889,7 +922,7 @@ body.density-compact .upcoming-movies-track .game-card{
 
 .game-card:has(.favoriteBtn.active):hover, .game-card:has(.favoriteBtn.active):focus-visible{
     border-color:#f4c542;
-    box-shadow:0 5px 20px rgba(0,0,0,.5), 0 0 0 1px #f4c542, 0 0 22px -6px #f4c542, 0 0 40px -12px var(--accent-2);
+    box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 2px #f4c542;
 }
 
 .game-card.dragging{
@@ -2027,6 +2060,41 @@ body.density-compact .upcoming-movies-track .game-card{
     text-align:right;
 }
 
+/* ================= Steam ID Input Enhancement ================= */
+
+#steamId64Input {
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    border: 2px solid var(--accent-1) !important;
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    font-size: 13px !important;
+    max-width: 180px !important;
+    text-align: center !important;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3), inset 0 0 5px rgba(0, 255, 255, 0.1) !important;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+#steamId64Input:hover {
+    border-color: var(--accent-2) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5), inset 0 0 8px rgba(0, 255, 255, 0.2) !important;
+    transform: scale(1.03) !important;
+}
+
+#steamId64Input:focus {
+    outline: none !important;
+    border-color: var(--accent-1) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.7), inset 0 0 12px rgba(0, 255, 255, 0.3) !important;
+    transform: scale(1.05) !important;
+}
+
+#steamId64Input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.6;
+}
+
 .sidebar-hint{
     margin:0 0 10px;
     font-size:11px;
@@ -2097,6 +2165,188 @@ body.density-compact .upcoming-movies-track .game-card{
 .sidebar-toggle input:checked + .switch::after{
     transform:translateX(18px);
     background:#fff;
+}
+
+/* ================= 3D Cyan Toggle Switches ================= */
+
+.sidebar-toggle-wrapper{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 0;
+    font-size:13px;
+    color:var(--text-secondary);
+}
+
+.switch-3d-cyan {
+  --w: 73px;
+  --h: 27px;
+  --knob-size: 13px;
+  --offset: 7px;
+
+  /* --- COLORS --- */
+  --cyan: #00ffff;
+  --white-glow: #ffffff;
+  --bg-off: #1a2a2a;
+  --bg-on: #0f0f1a;
+
+  /* Calculations */
+  --half-size: calc(var(--knob-size) / 2);
+
+  position: relative;
+  display: inline-block;
+  width: var(--w);
+  height: var(--h);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.switch-3d-cyan .switch-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The Track */
+.switch-3d-cyan .switch-track {
+  position: absolute;
+  inset: 0;
+  background-color: var(--bg-off);
+  border-radius: var(--h);
+  border: 1px solid #444;
+  transition: all 0.5s ease;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+}
+
+/* --- TEXT SETTINGS (White & Glowing) --- */
+.switch-3d-cyan .track-text {
+  position: absolute;
+  font-family: "Arial", sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--white-glow);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Position for "On" (Visible initially) */
+.switch-3d-cyan .text-3d {
+  left: 27px;
+  opacity: 1;
+}
+
+/* Position for "Off" (Hidden initially) */
+.switch-3d-cyan .text-2d {
+  left: 10px;
+  opacity: 0;
+  transform: translateX(-7px);
+}
+
+/* The Knob Wrapper */
+.switch-3d-cyan .switch-knob {
+  position: absolute;
+  top: var(--offset);
+  left: var(--offset);
+  width: var(--knob-size);
+  height: var(--knob-size);
+  perspective: 1200px;
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 2;
+}
+
+/* The Cube - ALWAYS SPINNING */
+.switch-3d-cyan .cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: spin 3s infinite linear;
+}
+
+/* Cube Faces - ALWAYS CYAN NOW */
+.switch-3d-cyan .face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid var(--cyan);
+  box-shadow:
+    0 0 4px var(--cyan),
+    inset 0 0 4px var(--cyan);
+  opacity: 0.8;
+  backface-visibility: visible;
+  transition: all 0.5s ease;
+}
+
+.switch-3d-cyan .front {
+  transform: translateZ(var(--half-size));
+}
+.switch-3d-cyan .back {
+  transform: rotateY(180deg) translateZ(var(--half-size));
+}
+.switch-3d-cyan .right {
+  transform: rotateY(90deg) translateZ(var(--half-size));
+}
+.switch-3d-cyan .left {
+  transform: rotateY(-90deg) translateZ(var(--half-size));
+}
+.switch-3d-cyan .top {
+  transform: rotateX(90deg) translateZ(var(--half-size));
+}
+.switch-3d-cyan .bottom {
+  transform: rotateX(-90deg) translateZ(var(--half-size));
+}
+
+/* --- CHECKED STATE --- */
+
+/* 1. Move knob */
+.switch-3d-cyan .switch-input:checked ~ .switch-track .switch-knob {
+  transform: translateX(
+    calc(var(--w) - var(--knob-size) - (var(--offset) * 2))
+  );
+}
+
+/* 2. TEXT SWAP LOGIC */
+.switch-3d-cyan .switch-input:checked ~ .switch-track .text-3d {
+  opacity: 0;
+  transform: translateX(7px);
+}
+.switch-3d-cyan .switch-input:checked ~ .switch-track .text-2d {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 3. Change Background & Border */
+.switch-3d-cyan .switch-input:checked ~ .switch-track {
+  background-color: var(--bg-on);
+  border-color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+/* 4. Intensify Cube Glow when ON */
+.switch-3d-cyan .switch-input:checked ~ .switch-track .face {
+  background: rgba(0, 255, 255, 0.15);
+  box-shadow:
+    0 0 8px var(--cyan),
+    inset 0 0 8px var(--cyan);
+}
+
+@keyframes spin {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg);
+  }
+  100% {
+    transform: rotateX(360deg) rotateY(360deg);
+  }
 }
 
 .sidebar-btn{
@@ -2281,11 +2531,17 @@ body.density-compact .upcoming-movies-track .game-card{
     position:sticky;
     top:0;
     z-index:40;
-    height:38px;
+    height:50px;
     overflow:hidden;
-    background:var(--bg-secondary);
-    border-bottom:1px solid var(--border-color);
-    transition:background .3s ease, border-color .3s ease;
+    background: linear-gradient(90deg,
+        rgba(176, 38, 255, 0.05) 0%,
+        rgba(176, 38, 255, 0.15) 50%,
+        rgba(255, 45, 208, 0.05) 100%);
+    border-bottom: 2px solid;
+    border-image: linear-gradient(90deg, var(--accent-1), var(--accent-2)) 1;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(176, 38, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
 }
 
 .fact-ticker-item{
@@ -2293,16 +2549,57 @@ body.density-compact .upcoming-movies-track .game-card{
     top:50%;
     left:0;
     white-space:nowrap;
-    color:var(--text-secondary);
-    font-size:14px;
-    font-weight:700;
-    letter-spacing:.3px;
-    animation:factSlide 34s linear forwards;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    animation: factSlide 36s linear forwards, factFadeInOut 36s ease-in-out forwards;
+    filter: drop-shadow(0 0 8px rgba(176, 38, 255, 0.4));
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.fact-ticker-item::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 0 12px rgba(176, 38, 255, 0.8);
+    flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes factSlide{
-    from{ transform:translate(100vw,-50%); }
-    to{ transform:translate(calc(-100vw - 100%),-50%); }
+    from { transform: translate(calc(100vw + 100%), -50%); }
+    to { transform: translate(calc(-100vw - 100%), -50%); }
+}
+
+@keyframes factFadeInOut{
+    0% { opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(176, 38, 255, 0.8),
+                    0 0 24px rgba(176, 38, 255, 0.4);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(176, 38, 255, 1),
+                    0 0 40px rgba(255, 45, 208, 0.6);
+        transform: scale(1.2);
+    }
 }
 
 /* ================= Topbar sort/surprise controls ================= */
@@ -2671,6 +2968,61 @@ body.is-fullscreen #mainContent{
     align-items:center;
     justify-content:center;
     padding:9px 12px;
+}
+
+/* ================= Notification Bell Animation ================= */
+
+#notifyBtn .nav-icon.bell-animate {
+    animation: bell-shake 0.5s ease-in-out;
+}
+
+@keyframes bell-shake {
+    0% {
+        opacity: 1;
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(25deg);
+    }
+
+    50% {
+        transform: rotate(-20deg) scale(1.2);
+    }
+
+    75% {
+        transform: rotate(15deg);
+    }
+
+    100% {
+        opacity: 1;
+        transform: rotate(0deg);
+    }
+}
+
+/* ================= Light Bulb Glow Effect ================= */
+
+#suggestBtn:hover .nav-icon {
+    filter: drop-shadow(0 0 6px rgba(255, 200, 0, 0.8)) drop-shadow(0 0 12px rgba(255, 180, 0, 0.6));
+    opacity: 1.1;
+}
+
+#suggestBtn:hover .nav-icon use {
+    animation: bulb-glow 0.3s ease-in-out forwards;
+}
+
+@keyframes bulb-glow {
+    0% {
+        filter: brightness(1);
+    }
+
+    50% {
+        filter: brightness(1.3);
+    }
+
+    100% {
+        filter: brightness(1.2);
+    }
 }
 
 /* ================= Wheel modal ================= */
@@ -3117,10 +3469,173 @@ body.is-fullscreen #mainContent{
     color:var(--text-primary);
 }
 
-.sectionOption.active{
+/* Section-specific colors */
+.sectionOption[data-section="new"].active,
+.sectionOption[data-section="installed"].active,
+.sectionOption[data-section="free-games"].active,
+.sectionOption[data-section="store"].active,
+.sectionOption[data-section="applications"].active{
     color:#fff;
-    background:var(--accent-gradient);
+    background:var(--color-games);
     border-color:transparent;
+}
+
+.sectionOption[data-section="theatre"].active{
+    color:#fff;
+    background:var(--color-movies);
+    border-color:transparent;
+}
+
+.sectionOption[data-section="reading-room"].active{
+    color:#fff;
+    background:var(--color-books);
+    border-color:transparent;
+}
+
+/* ================= Section-specific button colors ================= */
+
+/* Theatre section - Content type specific colors */
+
+/* Movies - Cyan buttons */
+#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn,
+#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-movies), var(--color-movies-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4) !important;
+}
+
+/* Series/TV - Purple buttons */
+#theatreContainer .theatre-block[data-content-type="series"] .launchBtn,
+#theatreContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-series), var(--color-series-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#theatreContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
+}
+
+/* Anime - Pink buttons */
+#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn,
+#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-anime), var(--color-anime-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4) !important;
+}
+
+/* New Container (What's New section) - Content type specific colors */
+
+/* Upcoming Movies - Cyan buttons */
+#newContainer .theatre-block[data-content-type="movies"] .launchBtn,
+#newContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-movies), var(--color-movies-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#newContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4) !important;
+}
+
+/* New Series - Purple buttons */
+#newContainer .theatre-block[data-content-type="series"] .launchBtn,
+#newContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-series), var(--color-series-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#newContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
+}
+
+/* New Anime - Pink buttons */
+#newContainer .theatre-block[data-content-type="anime"] .launchBtn,
+#newContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-anime), var(--color-anime-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#newContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4) !important;
+}
+
+/* Reading Room section (Books) - Green buttons */
+#readingRoomContainer .launchBtn,
+#readingRoomContainer .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-books), var(--color-books-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#readingRoomContainer .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4) !important;
+}
+
+/* Reading Room tabs - Green for active state */
+#readingRoomContainer .reading-room-tab.active {
+    background: var(--color-books) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+}
+
+#readingRoomContainer .reading-room-tab.active:hover {
+    background: var(--color-books-light) !important;
+}
+
+/* Game/App sections (Games) - Purple buttons */
+#installedContainer .launchBtn,
+#newContainer .launchBtn,
+#storeContainer .launchBtn,
+#freeGamesContainer .launchBtn,
+#installedContainer .launchBtn:hover,
+#newContainer .launchBtn:hover,
+#storeContainer .launchBtn:hover,
+#freeGamesContainer .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-games), var(--color-games-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#installedContainer .launchBtn:hover,
+#newContainer .launchBtn:hover,
+#storeContainer .launchBtn:hover,
+#freeGamesContainer .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(176, 38, 255, 0.4) !important;
+}
+
+/* Applications section - Orange buttons */
+#applicationsContainer .launchBtn,
+#applicationsContainer .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-apps), var(--color-apps-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#applicationsContainer .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4) !important;
+}
+
+/* Shared Folder / Vault section (Apps variant - Orange) */
+#sharedFolderContainer .launchBtn,
+#sharedFolderContainer .launchBtn:hover {
+    background: linear-gradient(135deg, var(--color-apps), var(--color-apps-dark)) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+#sharedFolderContainer .launchBtn:hover {
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4) !important;
 }
 
 .secondary-section{
@@ -5270,9 +5785,44 @@ body.startup-locked{
     will-change:transform;
 }
 
+/* Every 4th icon uses a horizontal animation instead of vertical */
+.ambient-icon:nth-child(4n){
+    animation-name:ambientFloatLeftToRight;
+}
+.ambient-icon:nth-child(4n+2){
+    animation-name:ambientFloatRightToLeft;
+}
+
+/* Every 6th icon grows larger as it passes (closer to viewer) */
+.ambient-icon:nth-child(6n){
+    animation-name:ambientFloatLarger;
+    z-index:10;
+}
+
+/* Vary durations for more natural, staggered movement */
+.ambient-icon:nth-child(3n){ animation-duration:12s; }
+.ambient-icon:nth-child(5n){ animation-duration:15s; }
+.ambient-icon:nth-child(7n){ animation-duration:18s; }
+
 @keyframes ambientFloat{
     0%{ transform:translateY(0) rotate(0deg); }
     100%{ transform:translateY(-135vh) rotate(30deg); }
+}
+
+@keyframes ambientFloatLeftToRight{
+    0%{ transform:translateX(-110vw) translateY(-50vh) rotate(0deg); }
+    100%{ transform:translateX(110vw) translateY(-60vh) rotate(45deg); }
+}
+
+@keyframes ambientFloatRightToLeft{
+    0%{ transform:translateX(110vw) translateY(-50vh) rotate(0deg); }
+    100%{ transform:translateX(-110vw) translateY(-60vh) rotate(-45deg); }
+}
+
+@keyframes ambientFloatLarger{
+    0%{ transform:translateY(0) rotate(0deg) scale(1); }
+    50%{ transform:translateY(-67.5vh) rotate(15deg) scale(2); }
+    100%{ transform:translateY(-135vh) rotate(30deg) scale(1); }
 }
 
 
@@ -5292,14 +5842,47 @@ body.startup-locked{
     text-align:left;
     padding:12px 14px;
     margin-bottom:8px;
-    border-radius:10px;
-    border:1.5px solid var(--border-color);
-    background:var(--bg-tertiary);
+    border-radius:6px;
+    border:3px ridge var(--accent-1);
+    background:transparent;
     color:var(--text-primary);
     font-size:14px;
     font-weight:700;
     cursor:pointer;
-    transition:.18s;
+    transition:1s;
+    position:relative;
+    outline:none;
+}
+
+.sidebarNavBtn::after{
+    content:"";
+    position:absolute;
+    top:-10px;
+    left:3%;
+    width:95%;
+    height:40%;
+    background-color:var(--bg-secondary);
+    transition:0.5s;
+    transform-origin:center;
+    pointer-events:none;
+}
+
+.sidebarNavBtn::before{
+    content:"";
+    transform-origin:center;
+    position:absolute;
+    top:80%;
+    left:3%;
+    width:95%;
+    height:40%;
+    background-color:var(--bg-secondary);
+    transition:0.5s;
+    pointer-events:none;
+}
+
+.sidebarNavBtn:hover::before,
+.sidebarNavBtn:hover::after{
+    transform:scale(0);
 }
 
 .nav-icon{
@@ -5307,6 +5890,8 @@ body.startup-locked{
     height:17px;
     flex-shrink:0;
     vertical-align:middle;
+    position:relative;
+    z-index:1;
 }
 
 .nav-icon-grad-stop-1{
@@ -5314,7 +5899,7 @@ body.startup-locked{
 }
 
 .nav-icon-grad-stop-2{
-    stop-color:var(--accent-2);
+    stop-color:var(--accent-1);
 }
 
 .sidebarNavBtn:last-child{
@@ -5322,15 +5907,19 @@ body.startup-locked{
 }
 
 .sidebarNavBtn:hover{
-    border-color:var(--accent-1);
-    transform:translateX(2px);
+    box-shadow:inset 0px 0px 25px var(--accent-1);
 }
 
 .sidebarNavBtn.active{
-    background:var(--accent-gradient);
+    background:var(--accent-1);
     border-color:transparent;
     color:#fff;
     box-shadow:0 4px 14px rgba(0,0,0,.4);
+}
+
+.sidebarNavBtn.active::before,
+.sidebarNavBtn.active::after{
+    display:none;
 }
 
 /* ================= Update popup ================= */
@@ -5406,7 +5995,10 @@ body.startup-locked{
     font-weight:700;
     color:var(--text-primary);
     padding:0 16px;
-    margin:4px 0 4px;
+    margin:24px 0 16px;
+    text-align:center;
+    border-top:1px solid var(--border-color);
+    padding-top:16px;
 }
 
 /* Admin login button — last item in the sidebar, deliberately understated */
@@ -5671,7 +6263,8 @@ body.startup-locked{
     position:relative;
     display:flex;
     align-items:center;
-    margin-bottom:24px;
+    padding:20px;
+    margin:-20px -20px 24px -20px;
 }
 
 .carousel-track{
@@ -5684,6 +6277,7 @@ body.startup-locked{
     align-items:stretch;
     gap:14px;
     overflow-x:auto;
+    overflow-y:visible;
     scroll-behavior:smooth;
     scrollbar-width:none;
     padding:4px 2px;
@@ -7413,4 +8007,58 @@ button.itch,
 .itch-btn:hover {
     background: linear-gradient(135deg, #ff5252, #ff6b6b) !important;
     box-shadow: 0 0 16px rgba(255, 107, 107, 0.3);
+}
+
+/* Remove Apps button with animated slide-in background */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.9rem 1.8rem;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    border: 3px solid var(--accent-1);
+    cursor: pointer;
+    position: relative;
+    background-color: transparent;
+    text-decoration: none;
+    overflow: hidden;
+    z-index: 1;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(176, 38, 255, 0.3);
+}
+
+.btn::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--accent-gradient);
+    transform: translateX(-100%);
+    transition: all 0.3s;
+    z-index: -1;
+}
+
+.btn:hover::before {
+    transform: translateX(0);
+    box-shadow: 0 0 16px var(--accent-1);
+}
+
+.btn:active::before {
+    transform: translateX(0) scale(0.95);
+}
+
+.btn-danger {
+    border-color: var(--accent-1);
+    color: var(--text-primary);
+}
+
+.btn-danger:hover {
+    color: white;
+    border-color: var(--accent-2);
+    box-shadow: 0 0 16px rgba(176, 38, 255, 0.6);
 }

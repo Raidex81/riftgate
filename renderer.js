@@ -183,7 +183,6 @@ let settings = {
     launchAtStartup: false,
     defaultCategory: "ask",
     confirmBeforeRemove: true,
-    gridDensity: "comfortable",
     trailerVolume: 50,
     runInBackground: false,
     categoryOrder: ["game", "vr", "app", "other"],
@@ -1555,6 +1554,16 @@ function renderChangelog() {
 function openChangelogModal() {
     renderChangelog();
     changelogModal.classList.add("active");
+
+    // Trigger bell animation
+    const bellIcon = notifyBtn.querySelector(".nav-icon");
+    if (bellIcon) {
+        bellIcon.classList.add("bell-animate");
+        // Remove the animation class after it completes (500ms)
+        setTimeout(() => {
+            bellIcon.classList.remove("bell-animate");
+        }, 500);
+    }
 }
 
 // Set only by checkForUpdatePopup, right before auto-opening the changelog
@@ -1788,7 +1797,7 @@ const GENERAL_TOUR = [
         section: null,
         selector: ".sidebar-handle",
         title: "Settings live here",
-        description: "Open this tab anytime for themes, grid density, backups, and more."
+        description: "Open this tab anytime for themes, backups, and more."
     }
 ];
 
@@ -2548,14 +2557,9 @@ const toggleLaunchAtStartup = document.getElementById("toggleLaunchAtStartup");
 const toggleConfirmRemove = document.getElementById("toggleConfirmRemove");
 const defaultCategorySelect = document.getElementById("defaultCategorySelect");
 const startupSectionSelect = document.getElementById("startupSectionSelect");
-const gridDensitySelect = document.getElementById("gridDensitySelect");
 
 const trailerVolumeSlider = document.getElementById("trailerVolumeSlider");
 const toggleRunInBackground = document.getElementById("toggleRunInBackground");
-
-function applyGridDensity(density) {
-    document.body.classList.toggle("density-compact", density === "compact");
-}
 
 toggleLaunchAtStartup.addEventListener("change", () => {
     saveSetting("launchAtStartup", toggleLaunchAtStartup.checked);
@@ -2577,11 +2581,6 @@ defaultCategorySelect.addEventListener("change", () => {
 
 startupSectionSelect.addEventListener("change", () => {
     saveSetting("startupSection", startupSectionSelect.value);
-});
-
-gridDensitySelect.addEventListener("change", () => {
-    applyGridDensity(gridDensitySelect.value);
-    saveSetting("gridDensity", gridDensitySelect.value);
 });
 
 function updateVolumeSliderFill() {
@@ -2616,11 +2615,8 @@ function applySettingsToUI() {
     toggleConfirmRemove.checked = settings.confirmBeforeRemove;
     defaultCategorySelect.value = settings.defaultCategory || "ask";
     startupSectionSelect.value = settings.startupSection || "new";
-    gridDensitySelect.value = settings.gridDensity || "comfortable";
     trailerVolumeSlider.value = settings.trailerVolume;
     updateVolumeSliderFill();
-
-    applyGridDensity(settings.gridDensity || "comfortable");
 
     movieCountrySelect.value = settings.country || settings.movieCountry || "US";
     populateCitySelect(movieCountrySelect.value, settings.movieCity);
@@ -3940,7 +3936,38 @@ const GAMING_FACTS = [
     "The Sims is the best-selling PC game franchise of all time.",
     "Speedrunning communities have completed some games in well under 10 minutes through frame-perfect tricks.",
     "The first esports tournament was held in 1972 at Stanford University for the game Spacewar!",
+    "Red Dead Redemption 2 contains over 500,000 individual animations.",
+    "The creator of Tetris, Alexey Pajitnov, didn't see a single kopeck from the game's massive profits for years.",
+    "E.T. the Extra-Terrestrial for Atari is considered one of the worst video games ever made, yet it was a commercial success.",
+    "The original Final Fantasy was Square's last attempt to make a game before going bankrupt — hence the name \"Final.\"",
+    "Video game music producer Koji Kondo created the iconic Super Mario Bros. theme on the NES in just two hours.",
+    "Fortnite's Battle Royale mode went from 0 to 200 million registered players in just 10 months.",
+    "The walking animation in Half-Life 2 took thousands of hours of motion capture to perfect.",
+    "Blizzard's World of Warcraft grossed over $5 billion in revenue across its lifetime.",
+    "The concept of \"quick-time events\" was popularized by Shenmue, which cost Sega over $70 million to develop.",
+    "Alan Wake's story was so complex that the game required novels and a TV show to explain the full narrative.",
+    "Nintendo's Game Boy had a battery life of approximately 30 hours, far surpassing competitors in the 90s.",
+    "The Konami Code (up, up, down, down, left, right, left, right, B, A, start) has been referenced in hundreds of games.",
+    "Sonic the Hedgehog was created to compete with Mario and appeal to older kids through his cool, rebellious attitude.",
+    "The Metal Gear Solid series broke the fourth wall so many times that it became a defining feature of the franchise.",
+    "Atari's video game crash of 1983 was so severe that it nearly killed the entire gaming industry.",
+    "The Legend of Zelda: Ocarina of Time is considered one of the greatest games ever made and revolutionized 3D gaming.",
+    "Bananas in Donkey Kong aren't actually bananas — Miyamoto ran out of animation frames so he used barrels instead.",
+    "The original Dungeons & Dragons helped inspire many RPG video games we know today.",
+    "Grand Theft Auto III was revolutionary for bringing open-world gaming to mainstream audiences.",
+    "League of Legends has over 180 million monthly active players, making it one of the most-played games ever.",
+    "The Last of Us Part II took over 2,000 days to develop, with a team of more than 2,000 people.",
+    "Valve has never released a third game in any of their main series — Half-Life 3 is an industry joke.",
+    "The Unreal Engine powers some of the most visually stunning games on the market.",
+    "Cyberpunk 2077 had one of the most infamous game launches due to its massive number of bugs.",
+    "FromSoftware's Dark Souls series revolutionized difficulty settings in games and spawned the \"Souls-like\" genre.",
+    "The Elder Scrolls V: Skyrim's main theme is considered one of the most iconic video game soundtracks of all time.",
+    "Fallout was originally going to be called \"Interplay's Post Nuclear Adventure\" before being shortened.",
+    "The Witcher 3: Wild Hunt has over 16 different endings based on player choices throughout the game.",
+    "Video game graphics have become so realistic that some games are now mistaken for reality in screenshots.",
+    "The gaming industry's revenue now exceeds that of movies and music combined globally.",
 ];
+
 
 const MOVIE_FACTS = [
     "The first movie ever made, \"Roundhay Garden Scene\" (1888), is only about 2 seconds long.",
@@ -3955,7 +3982,47 @@ const MOVIE_FACTS = [
     "Peter Jackson's Lord of the Rings trilogy was filmed almost entirely back-to-back before any film was released.",
     "Stan Lee has a cameo in nearly every Marvel Cinematic Universe film released during his lifetime.",
     "\"Game of Thrones\" was filmed across more countries than almost any other TV series, including Iceland, Croatia, and Morocco.",
+    "Stanley Kubrick was so meticulous that he made some actors do over 100 takes of a single scene.",
+    "The Wizard of Oz was actually a box office disappointment when it first released, only becoming beloved later.",
+    "Quentin Tarantino doesn't allow cell phones on his movie sets and bans actors from using them between takes.",
+    "The Shining was called \"the most misunderstood masterpiece\" by many after Stanley Kubrick refused to explain it.",
+    "Bruce Willis was originally cast as Zorro in a failed pitch that would have changed Hollywood.",
+    "Jurassic Park's T-Rex wasn't entirely CGI — a practical 40-foot animatronic was also used.",
+    "The Matrix's famous bullet-time effect required 100+ still cameras triggered in sequence.",
+    "Pirates of the Caribbean was originally pitched as a straight adventure film before the supernatural elements were added.",
+    "Johnny Depp ad-libbed Jack Sparrow's mannerisms, making the character unique and iconic.",
+    "Inception's famous spinning hallway sequence required a 100-foot rotating hallway set that cost millions.",
+    "The soundtrack for The Dark Knight's Joker role features intentionally chaotic and disturbing sounds.",
+    "Christopher Nolan doesn't use green screens when he can build sets instead.",
+    "The Lord of the Rings trilogy changed New Zealand's tourism forever.",
+    "Heath Ledger locked himself in a hotel room for weeks to prepare for his Joker role.",
+    "Steven Spielberg cast young Tom Cruise in Top Gun because of his natural charisma, not previous acting fame.",
+    "The 40-year-old Virgin's wedding ceremony scene was entirely improvised by the cast.",
+    "Denis Villeneuve made Dune with the intention of creating an epic that honored the source material.",
+    "The Truman Show explores themes of reality and free will within a constructed world.",
+    "Fight Club's twist ending was so controversial that it changed how audiences view twist endings forever.",
+    "Parasite's use of space and architecture tells the story without dialogue.",
+    "The Godfather made being a gangster film respectable in Hollywood's eyes.",
+    "Pulp Fiction's non-linear storytelling revolutionized how stories could be told in cinema.",
+    "Requiem for a Dream uses split-screens to show multiple perspectives simultaneously.",
+    "The Social Network was shot in an incredibly tight budget but became a massive success.",
+    "Moonlight was filmed with a very small budget but garnered massive critical acclaim.",
+    "Get Out revolutionized the horror genre by blending social commentary with scares.",
+    "Hereditary's psychological horror elements are deeply rooted in family trauma.",
+    "The Silence of the Lambs features one of cinema's most iconic villains in Hannibal Lecter.",
+    "Casablanca remains one of the most quotable films of all time with unforgettable dialogue.",
+    "Citizen Kane is frequently ranked as the greatest film ever made.",
+    "Psycho's shower scene was groundbreaking and changed how violence could be shown on screen.",
+    "The Exorcist was so disturbing upon release that priests were on standby at screenings.",
+    "Jaws essentially invented the summer blockbuster film.",
+    "E.T. made audiences cry over a rubber alien and became a cultural phenomenon.",
+    "Breakfast at Tiffany's defined Audrey Hepburn as a fashion icon and established her legacy.",
+    "Singin' in the Rain is often considered the greatest musical ever made.",
+    "Interstellar explores concepts of love, time, and space in a mind-bending narrative.",
+    "Arrival uses linguistics as the central theme to explore alien communication.",
+    "Oppenheimer became the highest-grossing R-rated film in history after its release.",
 ];
+
 
 const BOOK_FACTS = [
     "Project Gutenberg, launched in 1971, was the very first digital library and predates the World Wide Web by two decades.",
@@ -3970,6 +4037,44 @@ const BOOK_FACTS = [
     "E-books actually predate the modern internet — Michael Hart founded Project Gutenberg by typing out the Declaration of Independence in 1971.",
     "The Codex Sinaiticus, one of the oldest surviving Bibles, was handwritten in the 4th century and is now split across four institutions.",
     "\"Don Quixote,\" published in 1605, is widely regarded as the first modern novel and remains one of the best-selling books ever written.",
+    "Leo Tolstoy's \"War and Peace\" is so dense that it requires multiple readings to understand its full complexity.",
+    "Jane Austen never published a book under her own name during her lifetime — her works were attributed to \"A Lady.\"",
+    "George Orwell's \"1984\" was so influential that terms like \"Big Brother\" became part of everyday language.",
+    "J.R.R. Tolkien spent 12 years writing and revising \"The Lord of the Rings\" trilogy.",
+    "Stephen King has written over 60 novels and 200 short stories throughout his prolific career.",
+    "The Harry Potter series was turned down by multiple publishers before being accepted.",
+    "Toni Morrison was the first Black woman to win the Nobel Prize in Literature in 1993.",
+    "Margaret Atwood's \"The Handmaid's Tale\" predicted many dystopian elements that feel eerily relevant today.",
+    "Haruki Murakami's novels often blend magical realism with contemporary settings.",
+    "Gabriel García Márquez's \"One Hundred Years of Solitude\" is considered a masterpiece of magical realism.",
+    "Salman Rushdie's \"The Satanic Verses\" was so controversial it led to a fatwa against the author.",
+    "Chimamanda Ngozi Adichie explores themes of identity and feminism in her novels.",
+    "Khaled Hosseini's \"The Kite Runner\" became an international bestseller and changed how Afghan literature was viewed.",
+    "Yoko Ogawa creates intricate, elegant narratives that explore human connections.",
+    "The Library of Congress holds the largest collection of books in the world with over 17 million items.",
+    "The British Library contains over 14 million books and manuscripts.",
+    "Some of the oldest known written works come from ancient Mesopotamia and date back over 5,000 years.",
+    "The printing press, invented by Gutenberg in the 15th century, revolutionized the spread of knowledge.",
+    "Medieval monks spent years hand-copying books before the printing press existed.",
+    "The Dead Sea Scrolls are ancient Jewish texts that survived for over 2,000 years in sealed jars.",
+    "The first newspapers emerged in the 17th century and helped establish journalism as we know it.",
+    "Dystopian novels like \"Brave New World\" and \"Fahrenheit 451\" explore the dangers of censorship.",
+    "Science fiction authors often predict technological advances years before they become reality.",
+    "Fantasy literature has created entire worlds with their own languages, histories, and cultures.",
+    "Mystery novels have been a staple of literature since the detective fiction boom of the Victorian era.",
+    "Romance novels are the largest-selling genre of fiction in the publishing industry.",
+    "Young Adult literature has exploded in popularity and transformed how we publish for teenagers.",
+    "Graphic novels have legitimized comics as a serious art form and storytelling medium.",
+    "Manga, the Japanese comic art form, has become a global phenomenon rivaling traditional comics.",
+    "Audiobooks have revolutionized how people consume literature, especially for commuters and busy professionals.",
+    "Self-publishing has democratized the author industry and allowed indie authors to reach millions of readers.",
+    "Bookstagram and Booktubing have created massive communities of book lovers who influence publishing trends.",
+    "The Gutenberg Bible is one of the most valuable books in existence, worth millions of dollars.",
+    "Jane Austen wrote her novels with such social insight that literature professors still analyze her work centuries later.",
+    "The concept of 'stream of consciousness' was revolutionized by authors like James Joyce and Virginia Woolf.",
+    "Banned books lists reveal which themes society finds most challenging or threatening at different times.",
+    "Libraries have evolved from quiet repositories of books to community centers offering technology and programs.",
+    "The future of reading continues to evolve with e-readers, AI-generated summaries, and interactive narratives.",
 ];
 
 const factQueues = {}; // one shuffled queue per section, so facts don't repeat too soon
@@ -4598,7 +4703,7 @@ function performSectionSwitch(section) {
     // kept whatever scroll position the window happened to be at (e.g.
     // scrolled halfway down Theatre), leaving the newly-shown section
     // opened mid-way down instead of at its top.
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     resetAllSectionSearchBars();
     currentSection = section;
     passwordPromptCancelledIn = null;
@@ -5491,7 +5596,7 @@ const FREE_GAMES_PREVIEW_CAP = 20;
 // narrower one hides the ones that no longer fit. Cards are built from a
 // pool big enough for very wide screens and simply shown or hidden.
 const FREE_GAMES_PREVIEW_ROWS = 2;
-const FREE_GAMES_PREVIEW_POOL = 40;
+const FREE_GAMES_PREVIEW_POOL = 20;
 
 function fitFreeGamesPreviewToRows(grid) {
     const cards = Array.from(grid.children);
