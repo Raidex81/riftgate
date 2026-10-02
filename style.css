@@ -710,6 +710,8 @@ body.light-theme .add-new-btn:hover svg{
     align-items:center;
     gap:14px;
     flex-wrap:wrap;
+    position:relative;
+    z-index:2;
 }
 
 /* Reordering the sections by drag: the tab being moved dims, and an
@@ -876,27 +878,48 @@ body.density-compact .upcoming-movies-track .game-card{
    own gold-tinted frame instead, so favourites read as a distinct card
    state even before you hover — the "Favourite" variant in the reference
    sheet — layered with the same hover glow language everything else uses. */
-/* The glow is sized to stay inside the gap between cards (--card-glow
-   + the 2px ring stays under the 14px/18px gaps, and under compact
-   mode's 10px), so it never spills onto a neighbouring card. Rows that
-   scroll sideways clip anything outside their own box, so they get
-   --glow-room of padding on every side (see .carousel-track and
-   .hscroll-grid-2row) — enough for the glow plus the --card-lift. */
+/* Card glow: a bright ring at the frame that fades out through a softer
+   glow into a wide, faint halo (--card-glow-shadow, ~28px).
+   - It never covers another card: the hovered card drops *behind* its
+     neighbours (z-index below), so the glow shows in the gaps and fades
+     out underneath the next card instead of painting over it. Each row
+     or grid is its own stacking context (isolation), so this ordering
+     stays inside the row.
+   - It's never cut off: rows that scroll sideways clip anything outside
+     their box, so they get --glow-room of padding (see .carousel-track /
+     .hscroll-grid-2row), pulled back with negative margins so the page
+     spacing barely changes. */
 :root{
-    --card-glow:10px;
     --card-lift:3px;
-    --glow-room:16px;
+    --glow-room:32px;
+    --card-glow-shadow:
+        0 0 0 2px var(--accent-1),
+        0 0 8px 1px color-mix(in srgb, var(--accent-1) 85%, transparent),
+        0 0 18px 4px color-mix(in srgb, var(--accent-1) 45%, transparent),
+        0 0 28px 4px color-mix(in srgb, var(--accent-2) 22%, transparent);
 }
 body.density-compact{
-    --card-glow:7px;
+    --glow-room:28px;
+    --card-glow-shadow:
+        0 0 0 2px var(--accent-1),
+        0 0 6px 1px color-mix(in srgb, var(--accent-1) 85%, transparent),
+        0 0 13px 3px color-mix(in srgb, var(--accent-1) 45%, transparent),
+        0 0 20px 3px color-mix(in srgb, var(--accent-2) 22%, transparent);
+}
+
+.carousel-track, .hscroll-grid-2row, .games-grid{
+    isolation:isolate;
+}
+.carousel-track > .game-card, .hscroll-grid-2row > .game-card, .games-grid > .game-card{
+    z-index:1;
 }
 
 .game-card:hover, .game-card:focus-visible,
 .game-card.gp-show{
     border-color:var(--accent-1);
-    box-shadow:0 0 0 2px var(--accent-1),
-               0 0 var(--card-glow) 1px color-mix(in srgb, var(--accent-1) 85%, transparent);
+    box-shadow:var(--card-glow-shadow);
     transform:translateY(calc(-1 * var(--card-lift)));
+    z-index:0;
 }
 
 .game-card:has(.favoriteBtn.active){
@@ -906,7 +929,9 @@ body.density-compact{
 .game-card:has(.favoriteBtn.active):hover, .game-card:has(.favoriteBtn.active):focus-visible{
     border-color:#f4c542;
     box-shadow:0 0 0 2px #f4c542,
-               0 0 var(--card-glow) 1px rgba(244,197,66,.6);
+               0 0 8px 1px rgba(244,197,66,.85),
+               0 0 18px 4px rgba(244,197,66,.45),
+               0 0 28px 4px rgba(244,197,66,.2);
 }
 
 .game-card.dragging{
@@ -3497,6 +3522,10 @@ body.is-fullscreen #mainContent{
     gap:14px;
     margin-bottom:14px;
     flex-wrap:wrap;
+    /* Above the next row's glow room (see --glow-room), which reaches up
+       under this header, so its buttons and filters stay clickable. */
+    position:relative;
+    z-index:2;
 }
 
 .theatre-block-header h2{
@@ -6060,6 +6089,7 @@ body.startup-locked{
     scroll-behavior:smooth;
     scrollbar-width:none;
     padding:var(--glow-room);
+    margin-block:calc(8px - var(--glow-room));
     /* Snap with the card's glow still inside the row, not flush against
        the clipping edge. */
     scroll-padding-inline:var(--glow-room);
@@ -6166,6 +6196,7 @@ body.startup-locked{
     scroll-behavior:smooth;
     scrollbar-width:none;
     padding:var(--glow-room);
+    margin-block:calc(8px - var(--glow-room));
     scroll-padding-inline:var(--glow-room);
     /* Same reasoning as .carousel-track above — keeps the arrow buttons'
        fixed-pixel scrollBy (and manual scrolling) from ever resting with
@@ -7049,7 +7080,8 @@ body.see-all-open{
     flex:1;
     min-height:0;
     overflow-y:auto;
-    padding:16px 22px 22px;
+    /* Room for the card glow on the top row and the outer columns. */
+    padding:var(--glow-room) var(--glow-room) 22px;
 }
 
 /* Film and series posters in a fixed 2:3 box, like the rows they come
@@ -7169,8 +7201,8 @@ body.gp-nav select.gp-editing{
 body.gp-nav .game-card.gp-focus{
     outline:none !important;
     border-color:var(--accent-1);
-    box-shadow:0 0 0 3px var(--accent-1),
-               0 0 var(--card-glow) 1px color-mix(in srgb, var(--accent-2) 70%, transparent) !important;
+    box-shadow:0 0 0 3px var(--accent-1), var(--card-glow-shadow) !important;
+    z-index:0;
     transform:translateY(calc(-1 * var(--card-lift)));
     transition:transform .15s ease, box-shadow .15s ease;
 }

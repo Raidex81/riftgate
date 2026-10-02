@@ -1313,7 +1313,7 @@ wheelPlayBtn.addEventListener("click", async () => {
 
 const CHANGELOG = {
     "1.8.3": [
-        "Changed: cards glow in your theme's colour when you point at them or pick them with a controller — a soft glow sized to fit the space between cards, so it's never cut off by its row and never spills onto the next card",
+        "Changed: cards glow in your theme's colour when you point at them or pick them with a controller — a bright ring that fades out into a wide, soft halo. It's never cut off by its row, and it fades away underneath the cards next to it instead of covering them",
         "Fixed: the last card in a sideways row could be sliced at the edge — a whole number of cards now fills every row exactly",
         "Fixed: some games and apps showed a description of something else with the same name (Rust showed the iron oxide). Riftgate now looks for the game's or app's own page first and checks it's the right kind of thing; descriptions saved by the old lookup are fetched again once",
         "Fixed: Surprise Me in Free Games showed blank tiles and a blank result — it now uses the same covers as the cards"
