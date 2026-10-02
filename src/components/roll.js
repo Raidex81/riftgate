@@ -8,7 +8,8 @@ import { card } from "./card.js";
 import { Rift } from "./rift.js";
 import { openDetail } from "./detail.js";
 
-export function openRoll(items, title = "Open a random rift") {
+// opts: { onPick(item), back: { label, run }, onClose() }
+export function openRoll(items, title = "Open a random rift", opts = {}) {
     items = (items || []).filter((i) => i && i.title);
     if (items.length < 2) return false;
 
@@ -23,9 +24,14 @@ export function openRoll(items, title = "Open a random rift") {
     const wrap = h("div.rift-roll", { role: "dialog", "aria-modal": "true", "aria-label": title, onclick: (e) => { if (e.target === wrap) close(); } },
         canvas, h("div.stack", null, heading, reel, result));
     const rift = new Rift(canvas, { cx: .5, cy: .55, scale: 1.05, intensity: 1.5 });
-    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(opts.back ? "back" : "done"); } };
     document.addEventListener("keydown", onKey);
-    function close() { rift.destroy(); wrap.remove(); document.removeEventListener("keydown", onKey); }
+    // how: "done" (closed or opened it), "again" (roll again), "back"
+    function close(how = "done") {
+        rift.destroy(); wrap.remove(); document.removeEventListener("keydown", onKey);
+        if (how === "back" && opts.back) opts.back.run();
+        else if (how === "done" && opts.onClose) opts.onClose();
+    }
     document.body.appendChild(wrap);
 
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,10 +42,13 @@ export function openRoll(items, title = "Open a random rift") {
         const c = card(winner); c.classList.add("win"); c.onclick = () => { close(); openDetail(winner); };
         reel.appendChild(c);
         heading.textContent = winner.title;
+        if (opts.onPick) opts.onPick(winner);
         clear(result).append(
             h("button.btn.primary.lg", { type: "button", onclick: () => { close(); openDetail(winner); } }, icon("rift"), "Open it"),
-            h("button.btn.lg", { type: "button", onclick: () => { close(); openRoll(items, title); } }, icon("dice"), "Roll again"),
-            h("button.btn.lg.ghost", { type: "button", onclick: close }, "Close"));
+            h("button.btn.lg", { type: "button", onclick: () => { close("again"); openRoll(items, title, opts); } }, icon("dice"), "Roll again"),
+            opts.back ? h("button.btn.lg", { type: "button", onclick: () => close("back") }, icon("left"), opts.back.label) : null,
+            h("button.btn.lg.ghost", { type: "button", onclick: () => close() }, "Close"));
+        result.firstChild.focus();
     }
 
     if (reduced) { land(); return true; }

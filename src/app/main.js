@@ -8,7 +8,9 @@ import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
 import { openPalette, setCommands } from "../components/palette.js";
 import { openRoll } from "../components/roll.js";
+import { openToday, MOODS } from "../components/today.js";
 import { toast } from "../components/toast.js";
+import * as interests from "./interests.js";
 
 import nexus from "../views/nexus.js";
 import library from "../views/library.js";
@@ -16,6 +18,7 @@ import free from "../views/free.js";
 import deals from "../views/deals.js";
 import theatre from "../views/theatre.js";
 import reading from "../views/reading.js";
+import apps from "../views/apps.js";
 import journalView from "../views/journal.js";
 import settings from "../views/settings.js";
 
@@ -24,10 +27,11 @@ setDetailOpener(openDetail);
 // Sections, in rail order. `roll` returns the list Surprise Me picks from.
 const VIEWS = [
     { id: "nexus", label: "Nexus", icon: "nexus", view: nexus, group: "Discover" },
-    { id: "free", label: "Free games", icon: "gift", view: free, group: "Discover" },
-    { id: "deals", label: "Deals", icon: "tag", view: deals, group: "Discover" },
-    { id: "theatre", label: "Theatre", icon: "film", view: theatre, group: "Discover" },
-    { id: "reading", label: "Reading room", icon: "book", view: reading, group: "Discover" },
+    { id: "free", interests: ["free"], label: "Free games", icon: "gift", view: free, group: "Discover" },
+    { id: "deals", interests: ["deals"], label: "Deals", icon: "tag", view: deals, group: "Discover" },
+    { id: "theatre", interests: ["screen", "anime"], label: "Theatre", icon: "film", view: theatre, group: "Discover" },
+    { id: "reading", interests: ["books"], label: "Reading room", icon: "book", view: reading, group: "Discover" },
+    { id: "apps", label: "Applications", icon: "app", view: apps, group: "Discover" },
     { id: "library", label: "Library", icon: "library", view: library, group: "Yours" },
     { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" }
 ];
@@ -57,10 +61,14 @@ function buildTitlebar() {
 // ---- Rail -----------------------------------------------------------------------
 const navButtons = new Map();
 const node = h("div.rift-node");
+// Sections you said aren't for you leave the rail (still one Ctrl K away).
+const shownViews = () => VIEWS.filter((v) => !v.interests || interests.wants(...v.interests) || v.id === current);
 function buildRail() {
+    clear(rail);
+    navButtons.clear();
     const nav = h("div.nav");
     let group = null;
-    VIEWS.forEach((v) => {
+    shownViews().forEach((v) => {
         if (v.group !== group) { group = v.group; nav.appendChild(h("div.nav-group-label", null, group)); }
         const b = h("a.nav-item", { href: `#${v.id}`, title: v.label }, icon(v.icon), h("span", null, v.label));
         navButtons.set(v.id, b);
@@ -76,8 +84,9 @@ function buildRail() {
         h("div.brand", null, brandGem(), h("span.brand-word", null, "RIFTGATE"), h("span.brand-two", null, "2")),
         nav,
         h("div.rail-foot", null,
-            h("button.btn.primary", { type: "button", onclick: rollHere, title: "Open a random rift (R)" }, icon("dice"), h("span", null, "Surprise me")),
+            h("button.btn.primary.today-btn", { type: "button", onclick: () => openToday(), title: "What do you want to do today? (R)" }, icon("dice"), h("span", null, "Surprise me")),
             settingsBtn, version));
+    navButtons.get(current)?.setAttribute("aria-current", "page");
 }
 
 function brandGem() {
@@ -133,13 +142,16 @@ document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "/") { e.preventDefault(); openPalette(); }
-    else if (e.key.toLowerCase() === "r" && !document.querySelector(".rift-roll, .detail, .palette, .browser")) rollHere();
-    else if (/^[1-7]$/.test(e.key) && !document.querySelector(".detail, .palette, .browser")) location.hash = VIEWS[Number(e.key) - 1].id;
+    else if (e.key.toLowerCase() === "r" && !document.querySelector(".today, .rift-roll, .detail, .palette, .browser")) openToday();
+    else if (/^[1-9]$/.test(e.key) && !document.querySelector(".detail, .palette, .browser, .today, .interests-portal")) { const v = shownViews()[Number(e.key) - 1]; if (v) location.hash = v.id; }
 });
 
 setCommands([
     ...ALL.map((v) => ({ title: `Go to ${v.label}`, icon: v.icon, run: () => { location.hash = v.id; } })),
-    { title: "Open a random rift (Surprise me)", icon: "dice", run: rollHere }
+    { title: "What do you want to do today? (Surprise me)", icon: "dice", run: () => openToday() },
+    ...MOODS.filter((m) => m.id !== "any").map((m) => ({ title: `Surprise me: ${m.label.toLowerCase()} (${m.hint.toLowerCase()})`, icon: m.icon, run: () => openToday(m.id) })),
+    { title: "Random pick from this section", icon: "rift", run: rollHere },
+    { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() }
 ]);
 
 // ---- Engine events ---------------------------------------------------------------------
@@ -149,11 +161,17 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
 // ---- Start ---------------------------------------------------------------------------
 (async function start() {
     buildTitlebar();
-    buildRail();
     await journal.load();
+    buildRail();
+    // Interests change the rail and what Nexus leads with
+    interests.onChange(() => {
+        buildRail(); moveNode(current);
+        if (current === "nexus") { const c = current; current = null; location.hash = c; route(); }
+    });
     const accent = journal.pref("accent", "rift");
     if (accent && accent !== "rift") document.documentElement.dataset.accent = accent;
     window.addEventListener("hashchange", route);
     window.addEventListener("resize", () => moveNode(current));
-    route();
+    await route();
+    if (!interests.chosen()) setTimeout(() => interests.openInterests({ first: true }), 900);
 })();

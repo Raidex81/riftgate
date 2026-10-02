@@ -4012,11 +4012,26 @@ async function fetchComicsPopularPage(page) { return fetchGenreSubsectionPage("s
 async function fetchComicsBestSellerPage(page) { return fetchGenreSubsectionPage("subject:comics", "editions", page, COMICS_FILTER); }
 async function fetchComicsNewReleasesPage(page) { return fetchGenreSubsectionPage("subject:comics", "new", page, COMICS_FILTER); }
 
+// Free classics (Project Gutenberg, most downloaded first), one Gutendex
+// page (32 books) at a time, for Riftgate 2's "See all".
+async function fetchClassicsPage(page) {
+    const data = await fetchWithRetry(`https://gutendex.com/books/?sort=popular&page=${page}`, 12000);
+    const results = (data && Array.isArray(data.results)) ? data.results : [];
+    const items = results.filter((b) => b.formats && b.formats["application/epub+zip"]).map(booksApi.mapGutenbergBook);
+    const total = data && typeof data.count === "number" ? data.count : null;
+    return {
+        items,
+        page,
+        totalPages: total !== null ? Math.min(FULL_LIST_MAX_PAGE, Math.max(1, Math.ceil(total / 32))) : (data && data.next ? page + 1 : page),
+        totalResults: total
+    };
+}
+
 const FULL_LIST_KINDS = new Set([
     "upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch",
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases"
+    "comics-popular", "comics-bestseller", "comics-new-releases", "classics"
 ]);
 
 // Same set of "book" kinds as elsewhere -- these refresh weekly instead of
@@ -4024,7 +4039,7 @@ const FULL_LIST_KINDS = new Set([
 const BOOK_FULL_LIST_KINDS = new Set([
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases"
+    "comics-popular", "comics-bestseller", "comics-new-releases", "classics"
 ]);
 
 // "See all" panels can page through dozens of pages of a vendor's list --
@@ -4103,6 +4118,7 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
             case "comics-popular": result = await fetchComicsPopularPage(pageNum); break;
             case "comics-bestseller": result = await fetchComicsBestSellerPage(pageNum); break;
             case "comics-new-releases": result = await fetchComicsNewReleasesPage(pageNum); break;
+            case "classics": result = await fetchClassicsPage(pageNum); break;
         }
         if (result) {
             saveFullListCachedPage(kind, scope, pageNum, result, ttlMs);
@@ -8651,6 +8667,105 @@ console.log("=====================================");
 console.log("Riftgate started");
 console.log("Online cover fetch (SteamGridDB): via Supabase media-proxy Edge Function.");
 console.log("=====================================");
+
+
+// --- Riftgate 2: which service streams each show (New series / New anime) --
+// TMDB /tv/{id}/watch/providers for the user's region: subscription first,
+// then free/with ads, then rent/buy. Remembered on disk for 3 days.
+const R2_TV_PROVIDERS_FILE = "cache-r2-tv-providers.json";
+const R2_TV_PROVIDERS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+ipcMain.handle("r2-tv-providers", async (event, { ids, countryCode, mediaType } = {}) => {
+    const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : "US";
+    const kind = mediaType === "movie" ? "movie" : "tv";
+    const list = (Array.isArray(ids) ? ids : []).map((n) => parseInt(n, 10)).filter((n) => n > 0).slice(0, 120);
+    const cache = loadDataCache(R2_TV_PROVIDERS_FILE) || {};
+    const out = {};
+    const todo = [];
+    for (const id of list) {
+        const hit = cache[`${kind}:${cc}:${id}`];
+        if (hit && Date.now() - (hit.at || 0) < R2_TV_PROVIDERS_TTL_MS) out[id] = hit.p;
+        else todo.push(id);
+    }
+    let i = 0;
+    const worker = async () => {
+        while (i < todo.length) {
+            const id = todo[i++];
+            try {
+                const data = await mediaProxyGetJsonPlain("tmdb", `/${kind}/${id}/watch/providers`, {});
+                const r = (data && data.results && data.results[cc]) || {};
+                const pick = (r.flatrate && r.flatrate[0]) || (r.free && r.free[0]) || (r.ads && r.ads[0]) || (r.rent && r.rent[0]) || (r.buy && r.buy[0]) || null;
+                const p = pick ? {
+                    name: pick.provider_name,
+                    logo: pick.logo_path ? `https://image.tmdb.org/t/p/w92${pick.logo_path}` : null,
+                    how: r.flatrate && r.flatrate[0] ? "stream" : ((r.free && r.free[0]) || (r.ads && r.ads[0]) ? "free" : "buy")
+                } : null;
+                out[id] = p;
+                cache[`${kind}:${cc}:${id}`] = { p, at: Date.now() };
+            } catch (err) {
+                out[id] = null;
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, todo.length) }, worker));
+    if (todo.length) {
+        const keys = Object.keys(cache);
+        if (keys.length > 4000) keys.sort((a, b) => (cache[a].at || 0) - (cache[b].at || 0)).slice(0, keys.length - 4000).forEach((k) => delete cache[k]);
+        saveDataCache(R2_TV_PROVIDERS_FILE, cache);
+    }
+    return out;
+});
+
+// --- Riftgate 2: promote your own app ----------------------------------------
+// Anyone can put an app they made forward for Applications. Publishing
+// stays with admins (add-community-app needs their credentials), so a
+// submission goes into the existing suggestions queue, clearly marked, for
+// an admin to review and publish with the tools they already have.
+// r2-app-preview fills the form from a GitHub link (owner, description, stars).
+let r2LastAppSubmitAt = 0;
+ipcMain.handle("r2-app-preview", async (event, rawUrl) => {
+    const repoPath = typeof rawUrl === "string" ? github.extractRepoPath(rawUrl.trim()) : null;
+    if (!repoPath) return { github: false };
+    try {
+        const data = await fetchWithRetry(`https://api.github.com/repos/${repoPath}`, 8000, 1);
+        return {
+            github: true,
+            name: data && data.name ? String(data.name) : repoPath.split("/")[1],
+            author: repoPath.split("/")[0],
+            description: (data && typeof data.description === "string" && data.description.trim()) || null,
+            stars: data && typeof data.stargazers_count === "number" ? data.stargazers_count : null,
+            language: (data && data.language) || null,
+            homepage: (data && data.homepage) || null
+        };
+    } catch (err) {
+        return { github: true, author: repoPath.split("/")[0], name: repoPath.split("/")[1] };
+    }
+});
+ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, contact } = {}) => {
+    const clip = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const n = clip(name, 80), u = clip(url, 300), a = clip(author, 80), d = clip(description, 600), c = clip(contact, 120);
+    if (!n || !u) return { success: false, error: "Your app needs a name and a link." };
+    let parsed;
+    try { parsed = new URL(u); } catch { return { success: false, error: "That link doesn't look right. Include https://" }; }
+    if (parsed.protocol !== "https:") return { success: false, error: "Use an https:// link." };
+    if (Date.now() - r2LastAppSubmitAt < 60 * 1000) return { success: false, error: "One moment: wait a minute between submissions." };
+    const lines = [
+        "[App submission]",
+        `Name: ${n}`,
+        `Link: ${u}`,
+        `Author: ${a || github.extractRepoPath(u)?.split("/")[0] || "not given"}`,
+        `Description: ${d || "not given"}`,
+        c ? `Contact: ${c}` : null,
+        "Sent from Riftgate 2 (Applications > Promote your app). Add it under Applications when approved."
+    ].filter(Boolean);
+    try {
+        const result = await supabaseRequest("suggestions", "POST", { username: a || null, suggestion_text: lines.join("\n") });
+        if (result.statusCode === 201) { r2LastAppSubmitAt = Date.now(); return { success: true }; }
+        return { success: false, error: "The submission didn't go through. Try again in a moment." };
+    } catch (err) {
+        console.error("[apps] submission failed:", err.message || err);
+        return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+});
 
 // --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------
 require("./services/r2-store").register(ipcMain, app);

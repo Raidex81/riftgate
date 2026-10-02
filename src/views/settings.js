@@ -5,14 +5,10 @@ import { call, settings, saveSettings, forget } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
+import { COUNTRIES } from "../app/regions.js";
+import * as interests from "../app/interests.js";
 
-const COUNTRIES = [
-    ["US", "United States"], ["GB", "United Kingdom"], ["PT", "Portugal"], ["BR", "Brazil"], ["ES", "Spain"], ["FR", "France"],
-    ["DE", "Germany"], ["IT", "Italy"], ["NL", "Netherlands"], ["BE", "Belgium"], ["IE", "Ireland"], ["CA", "Canada"],
-    ["MX", "Mexico"], ["AR", "Argentina"], ["AU", "Australia"], ["NZ", "New Zealand"], ["JP", "Japan"], ["KR", "South Korea"],
-    ["IN", "India"], ["PL", "Poland"], ["SE", "Sweden"], ["NO", "Norway"], ["DK", "Denmark"], ["FI", "Finland"],
-    ["CH", "Switzerland"], ["AT", "Austria"], ["TR", "Türkiye"], ["ZA", "South Africa"]
-];
+
 const ACCENTS = [
     ["rift", "Rift", "linear-gradient(135deg,#8b3dff,#e03cff)"],
     ["cyan", "Cyan", "linear-gradient(135deg,#2fb7ff,#7a5cff)"],
@@ -32,6 +28,11 @@ export default {
         const box = h("div.settings");
         root.appendChild(box);
 
+        // Interests
+        box.appendChild(h("section.setting.wide", null,
+            h("div.grow", null, h("h3", null, "Your interests"), h("p", null, "Riftgate leads with what you love. Anything set to “Not for me” leaves the menu and Nexus (still one Ctrl K away).")),
+            interests.interestPicker()));
+
         // Region
         const sel = h("select.input", { "aria-label": "Your country" }, COUNTRIES.map(([c, n]) => h("option", { value: c }, n)));
         if (!COUNTRIES.some(([c]) => c === s.country) && s.country) sel.prepend(h("option", { value: s.country }, s.country));
@@ -41,7 +42,7 @@ export default {
             forget(""); toast("Region saved. Cinemas, streaming and prices now follow it.");
             setTimeout(() => location.reload(), 600);
         });
-        box.appendChild(setting("Your region", "Cinemas, streaming services, release dates and store prices follow this country.", sel));
+        box.appendChild(setting("Your region", "Cinemas, streaming services, release dates and store prices follow this country. Set your city and streaming services in the Theatre.", sel));
 
         // Accent
         const sw = h("div.swatches", { role: "group", "aria-label": "Accent colour" });
@@ -56,6 +57,14 @@ export default {
         };
         paintSw();
         box.appendChild(setting("Accent", "The colour of the rift: glows, selections and the portal follow it.", sw));
+
+        // Row order
+        const resetBtn = h("button.btn", { type: "button" }, icon("refresh"), "Restore default order");
+        resetBtn.onclick = async () => {
+            await Promise.all(["nexus", "free", "deals", "theatre", "reading"].map((v) => journal.setPref(`order:${v}`, null)));
+            toast("Every section is back to its original row order");
+        };
+        box.appendChild(setting("Row order", "Drag any row by the grip beside its title (or focus the grip and press ↑ ↓) to reorder a section. Each section remembers its order.", resetBtn));
 
         // Import
         const info = await call("r2-riftgate-available");

@@ -163,6 +163,8 @@ select.input option { background: var(--nebula); }
 .tag.right { left: auto; right: var(--s2); }
 .tag.hot { background: var(--energy); color: #fff; }
 .tag.score { color: #ffd76a; }
+.tag.provider { display: inline-flex; align-items: center; gap: 5px; padding-left: 3px; max-width: calc(64% - var(--s2)); }
+.tag.provider img { width: 15px; height: 15px; border-radius: 3px; flex: none; }
 
 /* Card states — the board's Default / Hover / Selected / Favourite / Continue / Featured */
 .card:hover, .card:focus-visible {
@@ -233,6 +235,22 @@ select.input option { background: var(--nebula); }
 .row-head .see-all:hover { color: #fff; }
 .row-head .row-note { color: var(--dust); font-size: var(--t-sm); }
 .row-head .row-tools { margin-left: auto; display: flex; gap: var(--s2); align-items: center; }
+
+/* Reorderable rows (shelf.js): a grip appears beside each title */
+.row-grip { display: none; }
+.shelf .row-grip {
+    display: grid; place-items: center;
+    width: 22px; height: 30px; margin-left: -30px; margin-right: -8px;
+    color: var(--dust-2); cursor: grab; opacity: 0;
+    transition: opacity var(--fast), color var(--fast);
+}
+.shelf .row-grip svg { width: 16px; height: 16px; }
+.shelf .row:hover .row-grip, .shelf .row-grip:focus-visible, .shelf.is-sorting .row-grip { opacity: 1; }
+.shelf .row-grip:hover { color: var(--amethyst-soft); }
+.shelf .row-grip:active { cursor: grabbing; }
+.shelf .row.dragging { opacity: .45; outline: 1px dashed var(--amethyst); outline-offset: 8px; }
+.shelf.is-sorting .row-track { pointer-events: none; }
+.page-jump { width: 84px; height: 34px; }
 .row-track {
     display: flex; gap: var(--s4);
     overflow-x: auto; overflow-y: hidden;

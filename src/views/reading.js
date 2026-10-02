@@ -6,6 +6,7 @@ import { call } from "../app/api.js";
 import * as D from "../app/data.js";
 import { fromBook } from "../app/items.js";
 import { row } from "../components/row.js";
+import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 
@@ -34,14 +35,17 @@ export default {
                 h("div.actions", null, search, add)),
             results, shelves);
 
-        shelves.append(
+        shelves.append(shelf("reading", [
             row({ title: "Your eBooks", icon: "book", items: D.ebooks(), hideEmpty: true }),
-            row({ title: "Most popular", icon: "flame", items: D.booksPopular() }),
-            row({ title: "Best sellers", icon: "trophy", items: D.booksBest() }),
-            row({ title: "New releases", icon: "sparkles", items: D.booksNew() }),
-            row({ title: "Manga", icon: "book", items: D.mangaPopular() }),
-            row({ title: "Comics", icon: "book", items: D.comicsPopular() }),
-            row({ title: "Free classics", icon: "gift", note: "Public domain, free to read", items: D.classics() }));
+            row({ title: "Most popular", icon: "flame", items: () => D.booksPopular(), full: { kind: "buy-books-popular" }, seeAllTitle: "Most popular books" }),
+            row({ title: "Best sellers", icon: "trophy", items: () => D.booksBest(), full: { kind: "buy-books-bestseller" }, seeAllTitle: "Best-selling books" }),
+            row({ title: "New releases", icon: "sparkles", items: () => D.booksNew(), full: { kind: "buy-books-new-releases" }, seeAllTitle: "New books" }),
+            row({ title: "Manga", icon: "book", items: () => D.mangaPopular(), full: { kind: "manga-popular" }, seeAllTitle: "Popular manga" }),
+            row({ title: "New manga", icon: "sparkles", items: () => D.mangaNew(), full: { kind: "manga-new-releases" }, hideEmpty: true }),
+            row({ title: "Comics", icon: "book", items: () => D.comicsPopular(), full: { kind: "comics-popular" }, seeAllTitle: "Popular comics" }),
+            row({ title: "New comics", icon: "sparkles", items: () => D.comicsNew(), full: { kind: "comics-new-releases" }, hideEmpty: true }),
+            row({ title: "Free classics", icon: "gift", note: "Public domain, free to read", items: () => D.classics(), full: { kind: "classics" }, seeAllTitle: "Free classics" })
+        ]));
 
         search.addEventListener("input", debounce(async () => {
             const q = search.value.trim();
@@ -53,7 +57,7 @@ export default {
             if (search.value.trim() !== q) return;
             clear(results);
             const items = ((r && r.books) || []).map(fromBook);
-            results.append(h("h2", { style: { marginBottom: "20px" } }, `Books matching “${q}”`), pagedGrid(items, null, results));
+            results.append(h("h2", { style: { marginBottom: "20px" } }, `Books matching “${q}”`), pagedGrid(items, {}, results));
         }, 400));
 
         add.onclick = async () => {

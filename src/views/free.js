@@ -6,6 +6,7 @@ import { h, icon, clear, debounce } from "../app/dom.js";
 import { call, forget } from "../app/api.js";
 import * as D from "../app/data.js";
 import { row } from "../components/row.js";
+import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
@@ -58,21 +59,28 @@ export default {
             if (platform !== "all") {
                 const items = platform === "VR" ? vr : (by.get(platform) || []);
                 body.appendChild(h("h2", { style: { marginBottom: "20px" } }, `${platform} · ${plural(items.length, "game")}`));
-                body.appendChild(pagedGrid(items.sort((a, b) => (b.popularity || 0) - (a.popularity || 0)), null, body));
+                body.appendChild(pagedGrid(items.slice().sort((a, b) => (b.popularity || 0) - (a.popularity || 0)), {}, body));
                 return;
             }
             const fresh = list.filter((g) => !g.alwaysFree && g.firstSeenAt && Date.now() - g.firstSeenAt < WEEK)
                 .sort((a, b) => b.firstSeenAt - a.firstSeenAt);
-            if (fresh.length) body.appendChild(row({ title: "Newly added", icon: "sparkles", items: fresh, seeAllTitle: "Free games added this week" }));
-            if (vr.length) body.appendChild(row({ title: "VR", icon: "vr", items: vr, seeAllTitle: "Free VR games" }));
+            const rows = [];
+            if (fresh.length) rows.push(row({ title: "Newly added", icon: "sparkles", items: fresh, seeAllTitle: "Free games added this week" }));
+            if (vr.length) rows.push(row({ title: "VR", icon: "vr", items: vr, seeAllTitle: "Free VR games" }));
             [...by.entries()].sort((a, b) => b[1].length - a[1].length).forEach(([src, l]) => {
-                body.appendChild(row({ title: src, icon: "gift", items: l.sort((a, b) => (b.popularity || 0) - (a.popularity || 0)), seeAllTitle: `Free on ${src}` }));
+                // itch.io has far more free games than any list can hold: its See all pages through all of them
+                const itch = /^itch/i.test(src) && !q;
+                rows.push(row({ title: src, icon: "gift", items: l.slice().sort((a, b) => (b.popularity || 0) - (a.popularity || 0)),
+                    seeAllTitle: itch ? "Free on itch.io, newest and popular" : `Free on ${src}`, full: itch ? { kind: "itch" } : null }));
             });
+            if (rows.length) body.appendChild(shelf("free", rows));
             if (!list.length) body.appendChild(h("div.empty", null, icon("gift"), h("h3", null, q ? `No free game matches “${query}”` : "No free games loaded yet"), h("p", null, q ? "Try another name." : "Press Refresh to check every store now.")));
         }
 
         search.addEventListener("input", debounce(() => { query = search.value; paint(); }, 150));
         refresh.onclick = () => load(true);
+        // The last known list shows at once; the fresh one repaints when it lands
+        const off = D.onChange((name) => { if (!root.isConnected) return off(); if (name === "free") load(false); });
         await load(false);
     },
     rollTitle: "Free game time",

@@ -217,4 +217,26 @@ export function fromSearchHit(r) {
     };
 }
 
+// An app from the community Applications list. GitHub projects get their
+// social card as artwork.
+export function fromCommunityApp(a) {
+    let repo = null;
+    try { const u = new URL(a.url); if (/(^|\.)github\.com$/i.test(u.hostname)) { const p = u.pathname.split("/").filter(Boolean); if (p.length >= 2) repo = `${p[0]}/${p[1]}`; } } catch {}
+    const og = repo ? `https://opengraph.githubassets.com/riftgate/${repo}` : null;
+    return {
+        key: journalKey("app", a.name),
+        kind: "community", type: "app",
+        title: a.name,
+        sub: a.author ? `by ${a.author}` : (repo ? `by ${repo.split("/")[0]}` : "Community app"),
+        desc: a.description || "",
+        image: og, backdrop: og,
+        url: a.url,
+        source: repo ? "GitHub" : (() => { try { return new URL(a.url).hostname.replace(/^www\./, ""); } catch { return null; } })(),
+        visits: typeof a.visit_count === "number" ? a.visit_count : (typeof a.visits === "number" ? a.visits : 0),
+        date: a.created_at || null,
+        appId: a.id,
+        raw: a
+    };
+}
+
 export const TYPE_LABEL = { game: "Game", app: "App", film: "Film", series: "Series", anime: "Anime", book: "Book" };

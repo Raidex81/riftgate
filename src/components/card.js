@@ -2,7 +2,7 @@
 // states from the Riftgate board: default, hover, favourite, continue
 // (progress ring), featured. Journal status shows as a crystal on the art.
 
-import { h, icon, art } from "../app/dom.js";
+import { h, icon, art, coverSrc } from "../app/dom.js";
 import * as journal from "../app/store.js";
 import { money, score, hours } from "../app/format.js";
 import { TYPE_LABEL } from "../app/items.js";
@@ -55,7 +55,8 @@ function paintJournal(el, item) {
     if (e.status === "progress" && e.progress > 0) artEl.appendChild(ring(e.progress));
 }
 
-export function card(item, opts = {}) {
+export function card(item, opts) {
+    opts = opts || {};
     const el = h("button.card", {
         type: "button",
         class: [opts.wide ? "wide" : "", opts.featured ? "is-featured" : ""].filter(Boolean).join(" ") || undefined,
@@ -68,8 +69,12 @@ export function card(item, opts = {}) {
     const a = art(image, item.title, item.fallback);
 
     // Top-left: where it's from (or the content type when mixing kinds)
+    // (a series or anime shows the service it streams on, with its logo)
     const tagText = opts.showType ? TYPE_LABEL[item.type] : (item.source || null);
-    if (tagText) a.appendChild(h("span.tag", null, tagText));
+    if (!opts.showType && item.provider && item.provider.name) {
+        a.appendChild(h("span.tag.provider", { title: `${item.provider.how === "buy" ? "Rent or buy on" : "Streaming on"} ${item.provider.name}` },
+            item.provider.logo ? h("img", { src: coverSrc(item.provider.logo), alt: "" }) : null, item.provider.name));
+    } else if (tagText) a.appendChild(h("span.tag", null, tagText));
 
     // Top-right: the one number that matters for this kind
     if (item.price && item.price.discount) a.appendChild(h("span.tag.right.hot", null, `−${item.price.discount}%`));
@@ -98,6 +103,9 @@ function footFor(item, opts) {
         return h("div.card-foot", null,
             item.price.original ? h("s.muted", null, money(item.price.original, item.price.currency)) : null,
             h("b", null, money(item.price.final, item.price.currency)));
+    }
+    if (item.kind === "community" && item.visits) {
+        return h("div.card-foot", null, icon("arrow"), `${item.visits.toLocaleString()} ${item.visits === 1 ? "visit" : "visits"}`);
     }
     if (item.kind === "library" && item.playtime) {
         return h("div.card-foot", null, icon("clock"), hours(item.playtime));

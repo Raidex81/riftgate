@@ -2,7 +2,8 @@
 // trailer, what you can do with it here, and the Journal controls.
 
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";
-import { call, cached, openExternal, forget } from "../app/api.js";
+import { showtimesUrl } from "../app/regions.js";
+import { call, cached, openExternal, forget, country } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { TYPE_LABEL } from "../app/items.js";
 import { hours, ago, dateLong, money, score } from "../app/format.js";
@@ -64,6 +65,12 @@ export function openDetail(item) {
     if (!item.desc) fillDescription(item, desc);
 }
 
+// JustWatch in your own country (it calls the UK "uk")
+async function openWhereToWatch(title) {
+    const cc = (await country()).toLowerCase();
+    openExternal(`https://www.justwatch.com/${cc === "gb" ? "uk" : cc}/search?q=${encodeURIComponent(title)}`);
+}
+
 // ---- Actions per kind --------------------------------------------------------
 function buildActions(item, box, cover) {
     const add = (el) => box.appendChild(el);
@@ -84,12 +91,12 @@ function buildActions(item, box, cover) {
             add(btn(`View deal on ${item.source || "store"}`, "tag", () => openExternal(item.url), true));
             break;
         case "film":
-            add(btn("Find tickets", "ticket", () => openExternal(`https://www.google.com/search?q=${encodeURIComponent(item.title + " showtimes")}`), true));
-            add(btn("Where to watch", "tv", () => openExternal(`https://www.justwatch.com/us/search?q=${encodeURIComponent(item.title)}`)));
+            add(btn("Find tickets", "ticket", () => openExternal(showtimesUrl(item.title)), true));
+            add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             break;
         case "series": case "anime": case "show": case "episode":
             add(trackButton(item));
-            add(btn("Where to watch", "tv", () => openExternal(`https://www.justwatch.com/us/search?q=${encodeURIComponent(item.title)}`)));
+            add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             break;
         case "ebook":
             add(btn("Read", "book", () => call("launch-ebook", item.raw.path), true));
@@ -97,11 +104,17 @@ function buildActions(item, box, cover) {
         case "book": case "search":
             if (item.url) add(btn(item.access === "public" ? "Read free" : "Open", "book", () => openExternal(item.url), true));
             break;
+        case "community":
+            add(btn(item.source === "GitHub" ? "Open on GitHub" : "Visit", "external", () => {
+                if (item.appId != null) call("increment-community-app-visit", item.appId);
+                openExternal(item.url);
+            }, true));
+            break;
         case "upcoming":
             if (item.url) add(btn("Open on RAWG", "external", () => openExternal(item.url), true));
             break;
     }
-    if (item.url && !["free", "deal", "upcoming", "book", "search"].includes(item.kind)) {
+    if (item.url && !["free", "deal", "upcoming", "book", "search", "community"].includes(item.kind)) {
         add(h("button.icon-btn", { type: "button", "aria-label": "Open web page", title: "Open web page", onclick: () => openExternal(item.url) }, icon("external")));
     }
     trailerButton(item, box, cover);
@@ -141,17 +154,27 @@ async function trailerButton(item, box, cover) {
     if (!raw || !box.isConnected) return;
     const isUrl = /^https:\/\/[\w.-]+\.steamstatic\.com\//i.test(raw);
     if (!isUrl && !/^[\w-]{6,20}$/.test(raw)) return;
-    box.appendChild(h("button.btn.lg", { type: "button", onclick: () => {
-        cover.querySelectorAll("iframe, video").forEach((n) => n.remove());
-        cover.appendChild(isUrl
-            ? h("video", { src: raw, autoplay: true, controls: true, style: { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, background: "#000" } })
-            : h("iframe", {
-                src: `https://www.youtube.com/embed/${raw}?autoplay=1&rel=0&modestbranding=1`,
-                allow: "autoplay; encrypted-media; picture-in-picture; fullscreen",
-                allowfullscreen: true, title: `${item.title} trailer`
-            }));
-        cover.style.height = "420px";
-    } }, icon("play"), "Watch trailer"));
+    box.appendChild(h("button.btn.lg", { type: "button", onclick: () => playTrailer(raw, isUrl, item.title) }, icon("play"), "Watch trailer"));
+}
+
+// Trailers play in a large theatre overlay, never squeezed into the panel:
+// the bigger player lets YouTube pick HD, and nothing sits on top of it.
+function playTrailer(raw, isUrl, title) {
+    const player = isUrl
+        ? h("video", { src: raw, autoplay: true, controls: true })
+        : h("iframe", {
+            src: `https://www.youtube.com/embed/${raw}?autoplay=1&rel=0&modestbranding=1&vq=hd1080&playsinline=1`,
+            allow: "autoplay; encrypted-media; picture-in-picture; fullscreen",
+            allowfullscreen: true, title: `${title} trailer`
+        });
+    const stage = h("div.trailer-stage", { role: "dialog", "aria-modal": "true", "aria-label": `${title} trailer`, onclick: (e) => { if (e.target === stage) close(); } },
+        h("div.trailer-frame", null, player),
+        h("button.icon-btn.trailer-close", { type: "button", "aria-label": "Close trailer", onclick: () => close() }, icon("x")));
+    // Esc closes the trailer only (the panel underneath stays open)
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(); } };
+    window.addEventListener("keydown", onKey, true);
+    function close() { window.removeEventListener("keydown", onKey, true); stage.remove(); }
+    document.body.appendChild(stage);
 }
 
 async function fillDescription(item, el) {

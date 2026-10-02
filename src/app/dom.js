@@ -74,13 +74,14 @@ export function coverSrc(url) {
 // Image that degrades to a typographic gem placeholder instead of a broken icon.
 export function art(url, title, fallbackUrl) {
     const wrap = h("div.card-art");
+    let img = null;
     const fb = () => {
         if (img) img.remove();
         wrap.prepend(h("div.art-fallback", null, title || ""));
     };
     if (!url) { fb(); return wrap; }
     let triedFallback = false;
-    const img = h("img", { src: coverSrc(url), alt: "", loading: "lazy", decoding: "async" });
+    img = h("img", { src: coverSrc(url), alt: "", loading: "lazy", decoding: "async" });
     img.addEventListener("error", () => {
         if (!triedFallback && fallbackUrl) { triedFallback = true; img.src = coverSrc(fallbackUrl); return; }
         fb();

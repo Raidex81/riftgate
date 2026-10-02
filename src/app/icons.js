@@ -3,6 +3,7 @@
 // only (see dom.js icon()).
 
 export const ICONS = {
+    grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
     gem: '<path d="M12 2.5 20 8l-3 11.5H7L4 8z"/><path d="M4 8h16M9 8l3 11.5L15 8M9 8l3-5.5L15 8"/>',
     nexus: '<path d="M12 2 21 9.5l-9 12.5L3 9.5z"/><path d="M3 9.5h18M12 2v20M7.5 9.5 12 22l4.5-12.5"/>',
     library: '<path d="M6.5 9h3M8 7.5v3"/><circle cx="15.5" cy="9.2" r=".9"/><circle cx="17.6" cy="11.3" r=".9"/><path d="M7 4h10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.3 2.1L14.5 13h-5l-1.2 1.6A3.5 3.5 0 0 1 2 12.5V9a5 5 0 0 1 5-5z"/>',

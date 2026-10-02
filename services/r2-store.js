@@ -15,10 +15,10 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SECTIONS = new Set(["journal", "prefs"]);
 const KEY_RE = /^[a-z]+:[^\s]{1,400}$/i;
 
-// Files from the original Riftgate worth bringing over (user data only —
-// caches are rebuilt fresh so Riftgate 2's richer data, like film
-// backdrops, comes in from the start).
+// Files from the original Riftgate worth bringing over: user data, plus
+// (CACHE_RE) its last known lists, copied only where Riftgate 2 has none.
 const IMPORT_FILES = ["games.json", "watchlist.json", "ebooks.json", "settings.json", "overrides.json", "trailer-cache.json", "freegames-vr.json", "freegames-verified.json"];
+const CACHE_RE = /^(cache-[\w-]+|freegames-[\w-]+|store-deals-[\w-]+)\.json$/;
 const IMPORT_FOLDERS = ["covers", "downloaded-ebooks"];
 
 function register(ipcMain, app) {
@@ -88,6 +88,15 @@ function register(ipcMain, app) {
             for (const f of IMPORT_FILES) {
                 const src = path.join(dir, f);
                 if (fs.existsSync(src)) { fs.copyFileSync(src, path.join(dest, f)); copied.push(f); }
+            }
+            // Last known lists (free games, deals, books, films...) so the
+            // first launch shows everything at once instead of waiting on
+            // every store; Riftgate 2 refreshes them in the background.
+            // Never overwrites a list Riftgate 2 already has.
+            for (const f of fs.readdirSync(dir)) {
+                if (!CACHE_RE.test(f)) continue;
+                const to = path.join(dest, f);
+                if (!fs.existsSync(to)) { fs.copyFileSync(path.join(dir, f), to); copied.push(f); }
             }
             for (const folder of IMPORT_FOLDERS) {
                 const src = path.join(dir, folder);
