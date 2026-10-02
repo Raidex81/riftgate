@@ -3690,6 +3690,7 @@ ipcMain.handle("search-watch-providers", async (event, { query, countryCode } = 
 // the source doesn't say).
 
 const FULL_LIST_MAX_PAGE = 500; // TMDB refuses anything past page 500
+const LIST_PAGE_SIZE = 100; // Items per page in "See all" modals
 
 function isoDate(d) {
     return d.toISOString().slice(0, 10);
