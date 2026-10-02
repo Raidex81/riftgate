@@ -857,7 +857,7 @@ body.density-compact .upcoming-movies-track .game-card{
     background:var(--bg-secondary);
     border-radius:12px;
     overflow:hidden;
-    box-shadow:0 5px 20px rgba(0,0,0,.5);
+    box-shadow:0 4px 12px rgba(0,0,0,.45);
     border:1.5px solid transparent;
     display:flex;
     flex-direction:column;
@@ -876,11 +876,27 @@ body.density-compact .upcoming-movies-track .game-card{
    own gold-tinted frame instead, so favourites read as a distinct card
    state even before you hover — the "Favourite" variant in the reference
    sheet — layered with the same hover glow language everything else uses. */
+/* The glow is sized to stay inside the gap between cards (--card-glow
+   + the 2px ring stays under the 14px/18px gaps, and under compact
+   mode's 10px), so it never spills onto a neighbouring card. Rows that
+   scroll sideways clip anything outside their own box, so they get
+   --glow-room of padding on every side (see .carousel-track and
+   .hscroll-grid-2row) — enough for the glow plus the --card-lift. */
+:root{
+    --card-glow:10px;
+    --card-lift:3px;
+    --glow-room:16px;
+}
+body.density-compact{
+    --card-glow:7px;
+}
+
 .game-card:hover, .game-card:focus-visible,
 .game-card.gp-show{
     border-color:var(--accent-1);
-    box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 2px var(--accent-1);
-    transform:translateY(-4px);
+    box-shadow:0 0 0 2px var(--accent-1),
+               0 0 var(--card-glow) 1px color-mix(in srgb, var(--accent-1) 85%, transparent);
+    transform:translateY(calc(-1 * var(--card-lift)));
 }
 
 .game-card:has(.favoriteBtn.active){
@@ -889,7 +905,8 @@ body.density-compact .upcoming-movies-track .game-card{
 
 .game-card:has(.favoriteBtn.active):hover, .game-card:has(.favoriteBtn.active):focus-visible{
     border-color:#f4c542;
-    box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 2px #f4c542;
+    box-shadow:0 0 0 2px #f4c542,
+               0 0 var(--card-glow) 1px rgba(244,197,66,.6);
 }
 
 .game-card.dragging{
@@ -6042,7 +6059,10 @@ body.startup-locked{
     overflow-y:visible;
     scroll-behavior:smooth;
     scrollbar-width:none;
-    padding:4px 2px;
+    padding:var(--glow-room);
+    /* Snap with the card's glow still inside the row, not flush against
+       the clipping edge. */
+    scroll-padding-inline:var(--glow-room);
     /* Without this, the arrow buttons' fixed 600px scrollBy (renderer.js)
        — or just a manual trackpad/wheel scroll — can land mid-card,
        leaving a sliced-off card sitting right at the edge next to the
@@ -6057,6 +6077,10 @@ body.startup-locked{
 
 .carousel-track .game-card{
     flex:0 0 auto;
+    /* The width fitHscrollTrack sets includes the card's border, so a
+       whole number of cards fills the row exactly (with content-box the
+       border was added on top, and the last card got sliced). */
+    box-sizing:border-box;
     /* .game-card's own width:100% img rule only resolves correctly inside
        something that constrains the card's width in the first place — the
        wrapping .games-grid does that via grid-template-columns, but a flex
@@ -6141,7 +6165,8 @@ body.startup-locked{
     overflow-x:auto;
     scroll-behavior:smooth;
     scrollbar-width:none;
-    padding:4px 2px;
+    padding:var(--glow-room);
+    scroll-padding-inline:var(--glow-room);
     /* Same reasoning as .carousel-track above — keeps the arrow buttons'
        fixed-pixel scrollBy (and manual scrolling) from ever resting with
        a movie poster sliced off at the edge. */
@@ -7137,9 +7162,17 @@ body.gp-nav select.gp-editing{
     outline-style:dashed !important;
     background:color-mix(in srgb, var(--accent-1) 22%, var(--bg-tertiary)) !important;
 }
+/* A card picked with the controller glows like a hovered one — a
+   slightly thicker ring so it reads from the couch, but within the same
+   room as the mouse glow, so it isn't cut off by its row or spilled onto
+   the next card (no outline/scale here, those grew past the gaps). */
 body.gp-nav .game-card.gp-focus{
-    transform:translateY(-4px) scale(1.035);
-    transition:transform .15s ease;
+    outline:none !important;
+    border-color:var(--accent-1);
+    box-shadow:0 0 0 3px var(--accent-1),
+               0 0 var(--card-glow) 1px color-mix(in srgb, var(--accent-2) 70%, transparent) !important;
+    transform:translateY(calc(-1 * var(--card-lift)));
+    transition:transform .15s ease, box-shadow .15s ease;
 }
 body.gp-nav{
     cursor:none;

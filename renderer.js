@@ -809,6 +809,11 @@ function wheelItemName(item) {
 function wheelItemImage(item) {
     if (wheelMode === "movie") return item.poster || "covers/default.jpg";
     if (wheelMode === "readinglibrary" || wheelMode === "readingdiscover" || wheelMode === "readingbuy") return item.cover || "covers/no-cover-book.jpg";
+    // Free games load their covers through the same local cover cache as
+    // their cards (covercache://, see freeGameCoverCacheSrc) -- several of
+    // their image hosts (itch.io's CDN among them) don't serve the raw
+    // link to the app directly, which left the reel and the result blank.
+    if (wheelMode === "freegames") return freeGameCoverCacheSrc(item.image) || "covers/default.jpg";
     return item.image || "covers/default.jpg";
 }
 
@@ -1307,6 +1312,12 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.8.3": [
+        "Changed: cards glow in your theme's colour when you point at them or pick them with a controller — a soft glow sized to fit the space between cards, so it's never cut off by its row and never spills onto the next card",
+        "Fixed: the last card in a sideways row could be sliced at the edge — a whole number of cards now fills every row exactly",
+        "Fixed: some games and apps showed a description of something else with the same name (Rust showed the iron oxide). Riftgate now looks for the game's or app's own page first and checks it's the right kind of thing; descriptions saved by the old lookup are fetched again once",
+        "Fixed: Surprise Me in Free Games showed blank tiles and a blank result — it now uses the same covers as the cards"
+    ],
     "1.8.2": [
         "Changed: every Free Games row — Newly Added and each platform, Steam included — is now a sideways carousel like the New tab's rows, with ‹ › arrows that move a whole screenful at a time",
         "Changed: the \"See all →\" button now sits right beside each row's title, the same as in New, in Free Games and in the Store",
@@ -7967,7 +7978,7 @@ function buildShowCard(show, navList) {
     });
 
     if (!show.description) {
-        window.riftgate.invoke("fetch-description", show.name).then(async (description) => {
+        window.riftgate.invoke("fetch-description", show.name, "show").then(async (description) => {
             const finalText = description || "No description available.";
             show.description = finalText;
             descEl.textContent = finalText;
@@ -9483,7 +9494,12 @@ function renderRelatedGames(rawGames) {
 // measured until it's visible again.
 function fitHscrollTrack(trackEl, minCardWidth, gap) {
     if (!trackEl) return;
-    const containerWidth = trackEl.clientWidth;
+    // clientWidth includes the row's padding (the room kept for the card
+    // glow, --glow-room in style.css) -- cards only get the space inside it.
+    const trackStyle = getComputedStyle(trackEl);
+    const containerWidth = trackEl.clientWidth
+        - (parseFloat(trackStyle.paddingLeft) || 0)
+        - (parseFloat(trackStyle.paddingRight) || 0);
     if (containerWidth <= 0) return; // not visible right now -- nothing to measure
 
     const isGrid2Row = trackEl.classList.contains("hscroll-grid-2row");

@@ -1069,28 +1069,46 @@ async function resolveCanonicalName(gameName) {
     }
 }
 
-async function getWikipediaSummary(title) {
+// What a Wikipedia page has to say about itself for it to count as a
+// library item's (game, app, VR title) or a TV show's description. A bare
+// name can land on an unrelated article -- "Rust" is the iron oxide, not
+// the game -- so the page's short description (e.g. "2018 video game",
+// "Type of iron oxide") plus its opening lines must read like the right
+// kind of thing.
+const WIKI_LIBRARY_ITEM_RE = /\b(video ?games?|games?|gaming|software|applications?|apps?|programs?|platforms?|services?|clients?|launchers?|browsers?|emulators?|engines?|players?|editors?|tools?|utilit(?:y|ies)|operating systems?|virtual reality|VR|mods?|messaging|VoIP|streaming|file (?:archiver|manager|sharing|synchroni[sz]ation)|archivers?|open[- ]source|freeware|shareware|proprietary|cross-platform|digital distribution|developed by|published by|Windows|macOS|Linux|Android|iOS)\b/i;
+const WIKI_SHOW_RE = /\b(television|TV|series|anime|sitcom|miniseries|drama|animated|streaming|episodes?|season)\b/i;
 
+function wikiPageMatchesKind(page, kind) {
+    const text = `${page.description || ""} ${(page.extract || "").slice(0, 300)}`;
+    return (kind === "show" ? WIKI_SHOW_RE : WIKI_LIBRARY_ITEM_RE).test(text);
+}
+
+async function getWikipediaPage(title) {
     try {
         const encodedTitle = encodeURIComponent(title.trim());
         const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodedTitle}`;
-
         const summary = await httpsGetJson(url, {
             "User-Agent": "GameLauncherApp/1.0 (personal desktop app)"
         });
-
-        if (!summary || summary.type === "disambiguation" || !summary.extract) {
-            return null;
-        }
-
-        // Full text is kept (no hard cutoff here) so the hover popup can
-        // show the complete description — the card itself only shows a
-        // few lines via CSS line-clamp, this doesn't need its own limit.
-        return summary.extract.trim();
-
+        if (!summary || summary.type === "disambiguation" || !summary.extract) return null;
+        return { title: summary.title || title, description: summary.description || "", extract: summary.extract.trim() };
     } catch (err) {
         return null;
     }
+}
+
+// The most specific page first ("Rust (video game)", "Dark (TV series)"),
+// then the plain name -- each only if it reads like the right kind of
+// thing (see wikiPageMatchesKind).
+async function findWikipediaDescription(name, kind) {
+    const candidates = kind === "show"
+        ? [`${name} (TV series)`, `${name} (anime)`, name]
+        : [`${name} (video game)`, `${name} (software)`, name];
+    for (const title of candidates) {
+        const page = await getWikipediaPage(title);
+        if (page && wikiPageMatchesKind(page, kind)) return page.extract;
+    }
+    return null;
 }
 
 let win;
@@ -1198,6 +1216,33 @@ function startLocalServer() {
     });
 }
 
+// Descriptions saved before 1.8.3 came from a plain-name Wikipedia lookup
+// that could land on the wrong article ("Rust" -> iron oxide). Once, drop
+// any saved library description that doesn't read like a game or app, so
+// the card fetches it again with the checked lookup above.
+function clearUnrelatedDescriptionsOnce(userDataDir) {
+    const marker = path.join(userDataDir, "descriptions-checked-v1.json");
+    if (fs.existsSync(marker)) return;
+    try {
+        if (fs.existsSync(GAMES_FILE)) {
+            const games = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8"));
+            let cleared = 0;
+            games.forEach((g) => {
+                if (g && typeof g.description === "string" && g.description !== "No description available."
+                    && !WIKI_LIBRARY_ITEM_RE.test(g.description.slice(0, 300))) {
+                    delete g.description;
+                    cleared++;
+                }
+            });
+            if (cleared > 0) fs.writeFileSync(GAMES_FILE, JSON.stringify(games, null, 2));
+            console.log(`[desc] Cleared ${cleared} unrelated description(s) for a fresh lookup.`);
+        }
+        fs.writeFileSync(marker, JSON.stringify({ checkedAt: new Date().toISOString() }));
+    } catch (err) {
+        console.error("[desc] description check failed:", err.message || err);
+    }
+}
+
 // Sets up (or reuses) a writable data folder in the OS's per-user AppData
 // area. This is what makes the installed app work: Program Files is
 // read-only for a normal user, so games.json and downloaded covers can't
@@ -1233,6 +1278,8 @@ function initUserData() {
     if (!fs.existsSync(COVERS_FOLDER)) {
         fs.mkdirSync(COVERS_FOLDER, { recursive: true });
     }
+
+    clearUnrelatedDescriptionsOnce(userDataDir);
 
     if (!fs.existsSync(FREEGAMES_COVER_CACHE_FOLDER)) {
         fs.mkdirSync(FREEGAMES_COVER_CACHE_FOLDER, { recursive: true });
@@ -5006,17 +5053,23 @@ ipcMain.handle("select-cover-image", async (event, gameName) => {
     return relativePath;
 });
 
-ipcMain.handle("fetch-description", async (event, gameName) => {
+ipcMain.handle("fetch-description", async (event, gameName, kind) => {
+    if (typeof gameName !== "string" || !gameName.trim() || gameName.length > 200) return null;
+    const lookupKind = kind === "show" ? "show" : "item";
 
-    console.log(`[desc] Looking up description for "${gameName}"...`);
+    console.log(`[desc] Looking up description for "${gameName}" (${lookupKind})...`);
 
     try {
-        let text = await getWikipediaSummary(gameName);
+        let text = await findWikipediaDescription(gameName, lookupKind);
 
         if (text) {
             console.log(`[desc] Found description for "${gameName}".`);
             return text;
         }
+
+        // Shows are already looked up by their real title (from TVMaze);
+        // the name resolver below is SteamGridDB, which only knows games.
+        if (lookupKind === "show") return null;
 
         console.log(`[desc] No direct match for "${gameName}", trying to resolve full name...`);
 
@@ -5029,7 +5082,7 @@ ipcMain.handle("fetch-description", async (event, gameName) => {
 
         console.log(`[desc] Resolved "${gameName}" -> "${canonicalName}", retrying...`);
 
-        text = await getWikipediaSummary(canonicalName);
+        text = await findWikipediaDescription(canonicalName, lookupKind);
 
         if (text) {
             console.log(`[desc] Found description for "${gameName}" via "${canonicalName}".`);
