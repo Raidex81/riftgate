@@ -6015,7 +6015,7 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     if (items.length > displayLimit) {
         const seeAllBtn = document.createElement("button");
         seeAllBtn.type = "button";
-        seeAllBtn.className = "see-all-button";
+        seeAllBtn.className = "see-all-btn";
 
         // Create SVG arrow icon
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -6040,7 +6040,7 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
         seeAllBtn.addEventListener("click", () => {
             // Use "all" scope for Newly Added row (when platformName is undefined)
             const scopeName = platformName || "all";
-            openSeeAll("free-games-platform", { platformName: scopeName });
+            openSeeAll("free-games-platform", { platformName: scopeName, platformLabel: headingText });
         });
         headerContent.appendChild(seeAllBtn);
     }
@@ -6101,7 +6101,7 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
     // Add "See all" button in the header (right side)
     const seeAllBtn = document.createElement("button");
     seeAllBtn.type = "button";
-    seeAllBtn.className = "see-all-button";
+    seeAllBtn.className = "see-all-btn";
 
     // Create SVG arrow icon
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -6128,7 +6128,7 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
             openSeeAll("itch");
             return;
         }
-        openSeeAll("free-games-platform", { platformName });
+        openSeeAll("free-games-platform", { platformName, platformLabel: headingText });
     });
     headerContent.appendChild(seeAllBtn);
 
@@ -12361,7 +12361,7 @@ function buildStoreSpotlightSection(container, headingText, items, kind = null) 
     if (items.length > displayLimit && kind) {
         const seeAllBtn = document.createElement("button");
         seeAllBtn.type = "button";
-        seeAllBtn.className = "see-all-button";
+        seeAllBtn.className = "see-all-btn";
 
         // Create SVG arrow icon
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

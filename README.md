@@ -159,7 +159,7 @@ the server. The database changes and server functions live in
 [OpenStreetMap](https://www.openstreetmap.org/copyright) (© OpenStreetMap
 contributors) and is cached for two weeks per city.
 
-Size, as of version 1.8.0 (counted with `wc -l`, blank lines and comments
+Size, as of version 1.8.1 (counted with `wc -l`, blank lines and comments
 included):
 
 | Part | Lines |

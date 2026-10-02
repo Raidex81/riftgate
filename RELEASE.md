@@ -47,27 +47,25 @@ If Riftgate is already open (including the installed version), close it
 completely first (⏻ → Close Completely) — only one copy can run at a
 time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.8.0):
+Quick pass on what changed this round (v1.8.1):
 
-- **Color-coded buttons** — check all action buttons now use content-type
-  colors: Games (purple), Movies (cyan), Books (green), Apps (orange).
-  Launch, Get it Free, Find Tickets, Add to My Shows should all show
-  their respective colors based on content type.
-- **Theatre color differentiation** — in Theatre, Movies should display
-  with cyan buttons, Series with purple, and Anime with pink. Browse
-  through each category to verify the colors are distinct.
-- **Free Games layout** — Free Games rows should show a maximum of 20
-  items per row. If there are more than 20 games available, a "See all"
-  button should appear. Scroll down through different platforms (Steam,
-  Epic, GOG, itch.io) to verify the 20-item limit and see-all button.
-- **Browse All Free Games heading** — the heading should appear below
-  the Newly Added section (not above it), with clear visual separation
-  and a border-top divider between sections. Verify spacing looks clean.
-- **General functionality** — log in, open Free Games (covers load and
-  display color-coded buttons), browse Theatre with different content
-  types showing their designated colors, open Reading Room and Store to
-  verify buttons are color-coded there as well, and open Installed
-  library to check color consistency.
+- **Cinema selector styling** — in Theatre's Upcoming Movies and In Theaters,
+  check the cinema, city, and country dropdowns now use Riftgate theme colors
+  (purple #b026ff to pink #ff2fd0 gradient). Click on the dropdowns to verify
+  the options are readable with dark backgrounds showing cinema names clearly.
+- **Unlimited pagination** — open "See all" from any section (Free Games, 
+  Upcoming Movies, New Series, Upcoming Games, etc.) to verify all items load
+  on one page with no pagination caps. Scroll through complete lists without
+  hitting "Next Page" buttons.
+- **Free Games platform support** — in Free Games, verify "See all" now shows
+  games from all platforms (Steam, Epic, GOG, itch.io, and others) with full
+  pagination working smoothly across all 10,000+ available games.
+- **Dropdown readability** — specifically test Cinema, City, and Country
+  selectors in Theatre to confirm white text on dark background is now readable,
+  with proper contrast and no text visibility issues.
+- **General functionality** — log in, verify Free Games loads all items without
+  caps, open Theatre and test cinema selector dropdown readability, and browse
+  all "See all" sections to confirm unlimited pagination works everywhere.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.

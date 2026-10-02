@@ -1,0 +1,22 @@
+--- CURRENT PROBLEM:
+In performStoreDealsRefresh (line 3300-3364), deals from Steam and CheapShark are concatenated
+without deduplication:
+    const deals = [...steamDeals, ...cheapSharkDeals].sort(...)
+
+This causes the same game to appear multiple times if:
+- The same game is listed on both Steam and CheapShark
+- The same game is listed multiple times in CheapShark with the same gameID but somehow not caught by prior dedup
+- The same game is listed from the same reseller at different prices
+
+SOLUTION:
+Add a comprehensive deduplication step after combining deals, using the same logic that
+already exists for CheapShark deals (group by gameID, then steamAppId, then normalized name;
+keep the cheapest per group).
+
+KEY FUNCTION: storeSeenKey (line 3269-3273)
+- Returns unique key for each game
+- Uses gameID if available
+- Falls back to steamAppId
+- Falls back to normalized game name
+
+We need to apply this logic to deduplicate the combined deals array.

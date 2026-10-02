@@ -4005,7 +4005,7 @@ function saveFullListCachedPage(kind, scope, page, result, ttlMs = LIST_REFRESH_
     saveDataCache(fullListCacheFile(kind), stored);
 }
 
-ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, providerName } = {}) => {
+ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, providerName, platformName } = {}) => {
     if (!FULL_LIST_KINDS.has(kind)) return { items: [], page: 1, totalPages: 0, totalResults: 0, error: "Unknown list" };
     const pageNum = Math.max(1, Math.min(FULL_LIST_MAX_PAGE, parseInt(page, 10) || 1));
     const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : "US";
@@ -4039,6 +4039,22 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
             case "manga-new-releases": result = await fetchMangaNewReleasesPage(pageNum); break;
             case "comics-popular": result = await fetchComicsPopularPage(pageNum); break;
             case "comics-bestseller": result = await fetchComicsBestSellerPage(pageNum); break;
+            case "free-games-platform": {
+                const platformName_v = platformName || "all";
+                const allGames = loadDataCache("cache-free-games.json") || [];
+                const platformGames = platformName_v === "all" 
+                    ? allGames 
+                    : allGames.filter(g => (g.source || "").toLowerCase() === (platformName_v || "").toLowerCase());
+                const items = platformGames.slice((pageNum - 1) * LIST_PAGE_SIZE, pageNum * LIST_PAGE_SIZE);
+                const totalPages = Math.ceil((platformGames.length || 1) / LIST_PAGE_SIZE);
+                result = {
+                    items,
+                    page: pageNum,
+                    totalPages,
+                    totalResults: platformGames.length
+                };
+                break;
+            }
             case "comics-new-releases": result = await fetchComicsNewReleasesPage(pageNum); break;
         }
         if (result) {
