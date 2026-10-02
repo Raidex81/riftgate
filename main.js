@@ -264,7 +264,8 @@ const {
     getCuratedAlwaysFreeGames,
     fetchCuratedAlwaysFreeGames,
     normalizeGameName,
-    dedupeCuratedAgainstLive
+    dedupeCuratedAgainstLive,
+    liveWithoutCuratedDuplicates
 } = require("./services/free-games");
 const {
     TMDB_LANGUAGE_BY_COUNTRY,
@@ -2510,7 +2511,13 @@ function mergeFreshCuratedGames(cachedGames) {
     // same live-vs-curated dedup runFreeGamesRefresh uses, so a curated
     // entry doesn't get re-added as a duplicate of a live one that's
     // already sitting in cache representing the same game.
-    const liveGames = (cachedGames || []).filter((g) => !String(g.id).startsWith("curated-"));
+    // A live listing of a game that has its own curated entry (Steam's copy
+    // of The Sims 4, War Thunder...) gives way to that entry, so the game
+    // shows once, in its publisher's row (see liveWithoutCuratedDuplicates).
+    const liveGames = liveWithoutCuratedDuplicates(
+        (cachedGames || []).filter((g) => !String(g.id).startsWith("curated-")),
+        curatedGames
+    );
     const curatedGamesDeduped = dedupeCuratedAgainstLive(curatedGames, liveGames);
     const freshCurated = curatedGamesDeduped.map((g) => ({
         ...g,
@@ -2740,9 +2747,9 @@ async function runFreeGamesRefreshForPlatform(platform) {
     // Curated entries belonging to this platform get the same live-vs-
     // curated dedup a full refresh runs — checked against this platform's
     // fresh live results plus whatever's already cached for every OTHER
-    // platform, so e.g. a curated EA/Ubisoft title that's also legitimately
-    // findable on Steam still gets dropped in favor of the live listing,
-    // exactly like a full refresh would.
+    // platform. (The Steam copy of a curated EA/Ubisoft/Gaijin title is then
+    // left out by mergeFreshCuratedGames, which every result goes through,
+    // so the game shows once, in its publisher's row.)
     const curatedForPlatform = platform === "VR"
         ? []
         : getCuratedAlwaysFreeGames().filter((g) => g.source === platform);
@@ -2810,14 +2817,14 @@ ipcMain.handle("get-free-games", async () => {
     console.log("[get-free-games] Cache missing or stale, triggering refresh...");
     const result = await performFreeGamesRefresh();
     console.log("[get-free-games] Refresh complete, got", result.length, "games");
-    return result;
+    return mergeFreshCuratedGames(result);
 });
 
 // Backs the manual "Refresh" button in Free Games — always does a real
 // fetch-and-verify pass regardless of how recently the last one ran, for
 // when the user specifically wants an up-to-date list right now rather
 // than waiting out the rest of the 24h window.
-ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh(true));
+ipcMain.handle("force-refresh-free-games", async () => mergeFreshCuratedGames(await performFreeGamesRefresh(true)));
 
 // Backs the same manual Refresh button, but for when the Free Games view
 // is scoped to one platform (or the VR lens) — only that platform's live
@@ -2826,9 +2833,9 @@ ipcMain.handle("force-refresh-free-games", async () => performFreeGamesRefresh(t
 // calls this without a valid platform string.
 ipcMain.handle("force-refresh-free-games-platform", async (event, platform) => {
     if (typeof platform !== "string" || !platform || platform === "all") {
-        return performFreeGamesRefresh(true);
+        return mergeFreshCuratedGames(await performFreeGamesRefresh(true));
     }
-    return performFreeGamesRefreshForPlatform(platform);
+    return mergeFreshCuratedGames(await performFreeGamesRefreshForPlatform(platform));
 });
 
 // Instant retrieval of the last successfully fetched Free Games list —

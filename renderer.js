@@ -1316,7 +1316,9 @@ const CHANGELOG = {
         "Changed: cards glow in your theme's colour when you point at them or pick them with a controller — a bright ring that fades out into a wide, soft halo. It's never cut off by its row, and it fades away underneath the cards next to it instead of covering them",
         "Fixed: the last card in a sideways row could be sliced at the edge — a whole number of cards now fills every row exactly",
         "Fixed: some games and apps showed a description of something else with the same name (Rust showed the iron oxide). Riftgate now looks for the game's or app's own page first and checks it's the right kind of thing; descriptions saved by the old lookup are fetched again once",
-        "Fixed: Surprise Me in Free Games showed blank tiles and a blank result — it now uses the same covers as the cards"
+        "Fixed: Surprise Me in Free Games showed blank tiles and a blank result — it now uses the same covers as the cards",
+        "New in Free Games: Warcraft Rumble (Battle.net); Battlefield REDSEC, skate., The Sims 4 and Star Wars: The Old Republic (EA); World of Tanks: HEAT (Wargaming); Star Conflict, Modern Warships and CRSED: Cuisine Royale (Gaijin) — all checked as permanently free on PC",
+        "Changed: a free game that has its own publisher row (EA, Ubisoft Connect, Gaijin.net…) now shows there once, instead of under Steam — so EA finally gets its own row"
     ],
     "1.8.2": [
         "Changed: every Free Games row — Newly Added and each platform, Steam included — is now a sideways carousel like the New tab's rows, with ‹ › arrows that move a whole screenful at a time",

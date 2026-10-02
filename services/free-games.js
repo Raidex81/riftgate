@@ -448,6 +448,20 @@ function getCuratedAlwaysFreeGames() {
             releaseDate: "2020",
             tags: ["Battle Royale"]
         },
+        // Warcraft Rumble — added Oct 2026: Battle.net's own shop page lists it
+        // as "Now Also Available on PC — Play For Free" (PC since Dec 2024).
+        // Blizzard stopped making new content for it in July 2025, but it's
+        // still offered and playable.
+        {
+            id: "curated-battlenet-warcraft-rumble",
+            name: "Warcraft Rumble",
+            description: "Blizzard's free-to-play action-strategy game — lead Warcraft armies in quick battles, with cross-play and shared progress between PC and mobile.",
+            image: "https://blz-contentstack-images.akamaized.net/v3/assets/blt7dfe5c83c8dfe10f/bltda3b6d261bf4b7b8/64c29759c08cca00b49b2a29/WR_Updated_News_Trailer_Thumbnail_1920x1080.png",
+            url: "https://warcraftrumble.blizzard.com/en-us/",
+            source: "Battle.net",
+            releaseDate: "2024",
+            tags: ["Strategy"]
+        },
 
         // EA / EA App (Origin) — Apex Legends is EA's flagship permanently
         // free PC title. EA's other officially-listed free-to-play games
@@ -462,6 +476,53 @@ function getCuratedAlwaysFreeGames() {
             source: "EA",
             releaseDate: "2019",
             tags: ["Battle Royale"]
+        },
+        // Added Oct 2026, each checked free on its own EA page and on Steam
+        // (free on the EA app, Steam and Epic): Battlefield REDSEC (the
+        // standalone free battle royale — no Battlefield 6 purchase needed),
+        // skate. (free since its Sept 2025 early-access launch), The Sims 4
+        // (the base game has been free since Oct 2022; only packs cost money)
+        // and Star Wars: The Old Republic (free to play through the whole
+        // story, with an optional subscription).
+        {
+            id: "curated-ea-battlefield-redsec",
+            name: "Battlefield REDSEC",
+            description: "EA's free-to-play Battlefield — Battle Royale, Gauntlet and Portal, standalone with no Battlefield 6 purchase needed.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3028330/7f156ef258b0b34011363f8da61b7e2a714232c7/header.jpg",
+            url: "https://www.ea.com/games/battlefield/redsec",
+            source: "EA",
+            releaseDate: "2025",
+            tags: ["Shooter"]
+        },
+        {
+            id: "curated-ea-skate",
+            name: "skate.",
+            description: "The return of EA's skateboarding series — free to play, with physics-based Flick-It controls and a shared open city.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3354750/79c5a87b61a396cc6e6b69e3a083727f175dea83/header.jpg",
+            url: "https://www.ea.com/games/skate/skate",
+            source: "EA",
+            releaseDate: "2025",
+            tags: ["Sports"]
+        },
+        {
+            id: "curated-ea-the-sims-4",
+            name: "The Sims 4",
+            description: "The life-simulation game — the base game is free for everyone; only the optional expansion packs cost money.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222670/library_600x900.jpg",
+            url: "https://www.ea.com/games/the-sims/the-sims-4",
+            source: "EA",
+            releaseDate: "2014",
+            tags: ["Simulation"]
+        },
+        {
+            id: "curated-ea-swtor",
+            name: "Star Wars: The Old Republic",
+            description: "The story-driven Star Wars MMO — free to play through every class story, with an optional subscription for extras.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1286830/library_600x900.jpg",
+            url: "https://www.swtor.com/",
+            source: "EA",
+            releaseDate: "2011",
+            tags: ["MMO"]
         },
 
         // Riot Games — every one of Riot's PC releases is permanently free
@@ -691,6 +752,20 @@ function getCuratedAlwaysFreeGames() {
             releaseDate: "2014",
             tags: ["MMO"]
         },
+        // World of Tanks: HEAT — added Oct 2026: Wargaming's standalone
+        // free-to-play tactical vehicle shooter, launched May 26, 2026 on the
+        // Wargaming Game Center and Steam. (Steel Hunters was left out: it was
+        // shut down a few months after launch.)
+        {
+            id: "curated-wargaming-wot-heat",
+            name: "World of Tanks: HEAT",
+            description: "Wargaming's free-to-play tactical vehicle shooter — fast team battles with hero commanders and upgradable tanks.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2100280/library_600x900.jpg",
+            url: "https://wotheat.com/",
+            source: "Wargaming.net",
+            releaseDate: "2026",
+            tags: ["Shooter"]
+        },
 
         // Gaijin.net — Gaijin Entertainment's own launcher for its
         // permanently free-to-play combined-arms MMO.
@@ -723,6 +798,39 @@ function getCuratedAlwaysFreeGames() {
             source: "Gaijin.net",
             releaseDate: "2017",
             tags: ["Action"]
+        },
+        // Added Oct 2026 from Gaijin's own catalog (gaijin.net), each checked
+        // free on Steam: Star Conflict, Modern Warships (PC release June 2026)
+        // and CRSED: Cuisine Royale. Gaijin's mobile-only titles are left out.
+        {
+            id: "curated-gaijin-star-conflict",
+            name: "Star Conflict",
+            description: "Gaijin's free-to-play space combat MMO — PvP and PvE battles with more than 100 ships.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/212070/library_600x900.jpg",
+            url: "https://star-conflict.com/en/",
+            source: "Gaijin.net",
+            releaseDate: "2013",
+            tags: ["MMO"]
+        },
+        {
+            id: "curated-gaijin-modern-warships",
+            name: "Modern Warships",
+            description: "Free-to-play modern naval combat — cruisers, submarines, guided missiles, jets and helicopters.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3144230/library_600x900.jpg",
+            url: "https://modernwarships.com/",
+            source: "Gaijin.net",
+            releaseDate: "2026",
+            tags: ["Action"]
+        },
+        {
+            id: "curated-gaijin-crsed",
+            name: "CRSED: Cuisine Royale",
+            description: "Gaijin's free-to-play battle royale — realistic weapons mixed with supernatural powers.",
+            image: "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/884660/library_600x900.jpg",
+            url: "https://crsed.net/en/",
+            source: "Gaijin.net",
+            releaseDate: "2019",
+            tags: ["Battle Royale"]
         },
 
         // Grinding Gear Games — Path of Exile is free-to-play with no
@@ -1574,9 +1682,9 @@ function normalizeGameName(name) {
 // name-based dedup below and make the ENTIRE platform disappear even
 // though the "duplicate" wasn't really the same listing at all. Curated
 // entries on these platforms skip the dedup check entirely and always
-// show. (Epic Games, EA, and Ubisoft Connect are deliberately left out —
-// Apex Legends and Rainbow Six Siege really are also legitimately
-// findable live on Steam, so those DO need the dedup check.)
+// show. (Since 1.8.3 the other direction matters more: a live listing of a
+// curated title gives way to the curated entry, so it shows once, in its
+// publisher's row — see liveWithoutCuratedDuplicates below.)
 const CURATED_ONLY_PLATFORMS = new Set([
     "Battle.net", "Riot Games", "Wargaming.net", "Gaijin.net", "Grinding Gear Games", "Meta Quest"
 ]);
@@ -1588,7 +1696,22 @@ function dedupeCuratedAgainstLive(curatedGames, liveGames) {
     );
 }
 
+// A game that has a hand-checked entry under its own publisher's row (EA,
+// Ubisoft Connect, Gaijin.net...) shows there, not a second time in the
+// Steam (or another live) row -- Steam's free-games search lists every
+// free-to-play game on Steam, so without this The Sims 4, Apex Legends or
+// War Thunder sat under Steam and the publisher's own row was missing or
+// repeated them. Meta Quest is left out: a Quest title and the PC VR game
+// of the same name on Steam are different versions, both worth showing.
+function liveWithoutCuratedDuplicates(liveGames, curatedGames) {
+    const curatedNames = new Set(curatedGames
+        .filter((g) => g.source !== "Meta Quest")
+        .map((g) => normalizeGameName(g.name)));
+    return liveGames.filter((g) => !curatedNames.has(normalizeGameName(g.name)));
+}
+
 module.exports = {
+    liveWithoutCuratedDuplicates,
     fetchEpicFreeGames,
     fetchGogFreeGames,
     decodeHtmlEntities,
