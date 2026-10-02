@@ -1,3 +1,109 @@
+// Inject Riftgate-themed "See all" button styles
+if (!document.getElementById("riftgate-see-all-styles")) {
+    const styleEl = document.createElement("style");
+    styleEl.id = "riftgate-see-all-styles";
+    styleEl.textContent = `
+        .see-all-button {
+            background-color: #ffffff00 !important;
+            color: #b026ff !important;
+            border: 1px solid #b026ff !important;
+            border-radius: 4px !important;
+            padding: 3px 6px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            flex-shrink: 0 !important;
+            margin-left: 8px !important;
+            white-space: nowrap !important;
+        }
+
+        .see-all-button:hover {
+            background-color: #b026ff !important;
+            color: #ffffff !important;
+            border-color: #ff2fd0 !important;
+        }
+
+        .see-all-button svg {
+            width: 12px !important;
+            height: 12px !important;
+            transition: transform 0.3s ease !important;
+            flex-shrink: 0 !important;
+            stroke: currentColor !important;
+            stroke-width: 2 !important;
+        }
+
+        .see-all-button:hover svg {
+            transform: translateX(2px) !important;
+        }
+
+        .see-all-button:active {
+            transform: scale(0.95) !important;
+        }
+
+        .see-all-button-text {
+            white-space: nowrap !important;
+        }
+
+        .see-all-btn {
+            background-color: #ffffff00 !important;
+            color: #b026ff !important;
+            border: 1px solid #b026ff !important;
+            border-radius: 4px !important;
+            padding: 3px 6px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
+        }
+
+        .see-all-btn:hover {
+            background-color: #b026ff !important;
+            color: #ffffff !important;
+            border-color: #ff2fd0 !important;
+        }
+
+        .see-all-btn svg {
+            width: 12px !important;
+            height: 12px !important;
+            transition: transform 0.3s ease !important;
+            flex-shrink: 0 !important;
+            stroke: currentColor !important;
+            stroke-width: 2 !important;
+        }
+
+        .see-all-btn:hover svg {
+            transform: translateX(2px) !important;
+        }
+
+        .see-all-btn:active {
+            transform: scale(0.95) !important;
+        }
+
+        .see-all-btn-text {
+            white-space: nowrap !important;
+        }
+
+        .reading-room-header {
+            margin-bottom: 16px !important;
+        }
+
+        .theatre-block-header {
+            margin-bottom: 12px !important;
+        }
+    `;
+    document.head.appendChild(styleEl);
+    console.log("[Riftgate] See all button styles injected successfully");
+}
+
 const libraryContainer = document.getElementById("libraryContainer");
 const addBtn = document.getElementById("addBtn");
 const ambientBg = document.getElementById("ambientBg");
@@ -5893,58 +5999,66 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     // the platform drag-reorder since there's nothing to reorder it against.
     if (platformName) section.dataset.platform = platformName;
 
+    // Create a flex container for heading and "See all" button
     const header = document.createElement("div");
     header.className = "theatre-block-header";
+    const headerContent = document.createElement("div");
+    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px;";
+
     const heading = document.createElement("h2");
     heading.textContent = headingText;
-    header.appendChild(heading);
-    section.appendChild(header);
+    heading.style.cssText = "flex: 1; margin: 0;";
+    headerContent.appendChild(heading);
 
-    const row = document.createElement("div");
-    row.className = "hscroll-row";
+    // Add "See all" button if more than 20 items
+    const displayLimit = 20;
+    if (items.length > displayLimit) {
+        const seeAllBtn = document.createElement("button");
+        seeAllBtn.type = "button";
+        seeAllBtn.className = "see-all-button";
 
-    const leftArrow = document.createElement("button");
-    leftArrow.type = "button";
-    leftArrow.className = "carousel-arrow carousel-arrow-left";
-    leftArrow.setAttribute("aria-label", "Scroll left");
-    leftArrow.textContent = "‹";
+        // Create SVG arrow icon
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("stroke-width", "1.5");
+        svg.setAttribute("stroke", "currentColor");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("stroke-linejoin", "round");
+        path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
+        svg.appendChild(path);
 
-    const track = document.createElement("div");
-    track.className = "carousel-track free-games-track";
+        // Create text div
+        const textDiv = document.createElement("div");
+        textDiv.className = "see-all-button-text";
+        textDiv.textContent = "See all";
 
-    const rightArrow = document.createElement("button");
-    rightArrow.type = "button";
-    rightArrow.className = "carousel-arrow carousel-arrow-right";
-    rightArrow.setAttribute("aria-label", "Scroll right");
-    rightArrow.textContent = "›";
+        seeAllBtn.appendChild(svg);
+        seeAllBtn.appendChild(textDiv);
 
-    leftArrow.addEventListener("click", () => track.scrollBy({ left: -700, behavior: "smooth" }));
-    rightArrow.addEventListener("click", () => track.scrollBy({ left: 700, behavior: "smooth" }));
-
-    // A long row (Newly Added holds every game on a fresh install) builds
-    // its cards LIST_PAGE_SIZE at a time: the next batch is added as the
-    // row is scrolled near its end, instead of thousands up front.
-    let shown = 0;
-    const appendBatch = () => {
-        const fragment = document.createDocumentFragment();
-        items.slice(shown, shown + LIST_PAGE_SIZE).forEach((g) => fragment.appendChild(buildFreeGameCard(g, items)));
-        shown = Math.min(items.length, shown + LIST_PAGE_SIZE);
-        track.appendChild(fragment);
-        if (track.isConnected) fitFreeGamesTrack(track);
-    };
-    appendBatch();
-    if (items.length > shown) {
-        track.addEventListener("scroll", () => {
-            if (shown < items.length && track.scrollLeft + track.clientWidth * 2.5 >= track.scrollWidth) appendBatch();
-        }, { passive: true });
+        seeAllBtn.addEventListener("click", () => {
+            // Use "all" scope for Newly Added row (when platformName is undefined)
+            const scopeName = platformName || "all";
+            openSeeAll("free-games-platform", { platformName: scopeName });
+        });
+        headerContent.appendChild(seeAllBtn);
     }
 
-    row.appendChild(leftArrow);
-    row.appendChild(track);
-    row.appendChild(rightArrow);
-    section.appendChild(row);
+    header.appendChild(headerContent);
+    section.appendChild(header);
+
+    // Always use grid layout instead of carousel
+    const grid = document.createElement("div");
+    grid.className = "games-grid browse-grid";
+    items.slice(0, displayLimit).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
+    section.appendChild(grid);
+
+    // Observe for layout adjustments
+    freeGamesTrackObserver.observe(grid);
+    if (platformName) fitFreeGamesPreviewToRows(grid);
+
     container.appendChild(section);
-    freeGamesTrackObserver.observe(track);
 }
 
 // Sideways rows (Newly Added and the smaller platforms): size the cards so
@@ -5973,11 +6087,52 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
     section.className = "theatre-block free-games-platform-block";
     section.dataset.platform = platformName;
 
+    // Create a flex container for heading and "See all" button
     const header = document.createElement("div");
     header.className = "theatre-block-header";
+    const headerContent = document.createElement("div");
+    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px;";
+
     const heading = document.createElement("h2");
     heading.textContent = headingText;
-    header.appendChild(heading);
+    heading.style.cssText = "flex: 1; margin: 0;";
+    headerContent.appendChild(heading);
+
+    // Add "See all" button in the header (right side)
+    const seeAllBtn = document.createElement("button");
+    seeAllBtn.type = "button";
+    seeAllBtn.className = "see-all-button";
+
+    // Create SVG arrow icon
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("stroke-width", "1.5");
+    svg.setAttribute("stroke", "currentColor");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
+    svg.appendChild(path);
+
+    // Create text div
+    const textDiv = document.createElement("div");
+    textDiv.className = "see-all-button-text";
+    textDiv.textContent = platformName === "itch.io" ? "View all" : "See all";
+
+    seeAllBtn.appendChild(svg);
+    seeAllBtn.appendChild(textDiv);
+
+    seeAllBtn.addEventListener("click", () => {
+        if (platformName === "itch.io") {
+            openSeeAll("itch");
+            return;
+        }
+        openSeeAll("free-games-platform", { platformName });
+    });
+    headerContent.appendChild(seeAllBtn);
+
+    header.appendChild(headerContent);
     section.appendChild(header);
 
     const grid = document.createElement("div");
@@ -5986,23 +6141,6 @@ function buildFreeGamesPreviewSection(container, headingText, items, platformNam
     section.appendChild(grid);
     freeGamesPreviewObserver.observe(grid);
     fitFreeGamesPreviewToRows(grid);
-
-    const viewAllBtn = document.createElement("button");
-    viewAllBtn.type = "button";
-    viewAllBtn.className = "free-games-view-all-btn";
-    viewAllBtn.textContent = platformName === "itch.io" ? "View all on itch.io →" : `View all ${items.length} →`;
-    viewAllBtn.addEventListener("click", () => {
-        // itch.io has well over a million free games; Riftgate keeps its
-        // first page, and the full list opens in the "See all" panel.
-        if (platformName === "itch.io") {
-            openSeeAll("itch");
-            return;
-        }
-        freeGamesPlatformSelect.value = platformName;
-        updateFreeGamesGenreOptions();
-        renderFreeGames();
-    });
-    section.appendChild(viewAllBtn);
 
     container.appendChild(section);
 }
@@ -7023,10 +7161,32 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind, options = {}) {
         ? [...visibleBooks].sort((a, b) => (a.title || "").localeCompare(b.title || ""))
         : sortNoCoverLast(visibleBooks, "cover");
 
-    renderPagedGrid(grid, ordered, (book) => buildBuyFreeBookCard(book, section, ordered), {
-        key: listIdentity(ordered), searchText: (book) => `${book.title || ""} ${book.author || ""}`,
+    // For Buy Books sections, limit to 20 items and add "See all" button
+    const isBuyBooks = kind === "book" && !isAlphaGrid;
+    const displayLimit = 20;
+    const itemsToDisplay = isBuyBooks ? ordered.slice(0, displayLimit) : ordered;
+    const shouldShowSeeAll = isBuyBooks && ordered.length > displayLimit;
+
+    renderPagedGrid(grid, itemsToDisplay, (book) => buildBuyFreeBookCard(book, section, ordered), {
+        key: listIdentity(itemsToDisplay), searchText: (book) => `${book.title || ""} ${book.author || ""}`,
         searchPlaceholder: kind === "manga" ? "Search manga…" : kind === "comics" ? "Search comics…" : "Search these books…"
     });
+
+    // Add "See all" button for Buy Books if there are more than 20 items
+    if (shouldShowSeeAll && grid.parentElement) {
+        const header = grid.parentElement.querySelector(".reading-room-header");
+        if (header && !header.querySelector(".see-all-button")) {
+            // Determine the kind for the SEE_ALL_KINDS lookup
+            let seeAllKind = "buy-books-popular";
+            if (grid.id === "mostSoldBooksGrid") {
+                seeAllKind = "buy-books-bestseller";
+            } else if (grid.id === "newReleasesBooksGrid") {
+                seeAllKind = "buy-books-new-releases";
+            }
+            const seeAllBtn = makeSeeAllButton(seeAllKind);
+            header.appendChild(seeAllBtn);
+        }
+    }
 
     // Manga/Comics specifically get a much bigger list than before, so
     // this keeps that from dominating the screen by default — same
@@ -8703,7 +8863,17 @@ function renderMovies() {
     }
 
     const sortedMovies = sortNoCoverLast(filtered, "poster");
-    sortedMovies.forEach((movie) => moviesGrid.appendChild(buildMovieCard(movie, false, sortedMovies)));
+    const displayLimit = 20;
+    sortedMovies.slice(0, displayLimit).forEach((movie) => moviesGrid.appendChild(buildMovieCard(movie, false, sortedMovies)));
+
+    // Add "See all" button if more than 20 items
+    if (sortedMovies.length > displayLimit && moviesGrid.parentElement) {
+        const header = moviesGrid.parentElement.querySelector(".theatre-block-header");
+        if (header && !header.querySelector(".see-all-button")) {
+            const seeAllBtn = makeSeeAllButton("now-playing");
+            header.appendChild(seeAllBtn);
+        }
+    }
 }
 
 moviesFilterInput.addEventListener("input", renderMovies);
@@ -9544,8 +9714,17 @@ function renderUpcomingMovies() {
 
     grid.innerHTML = "";
     const sortedUpcomingMovies = sortNoCoverLast(visible, "poster");
-    sortedUpcomingMovies.forEach((movie) => grid.appendChild(buildMovieCard(movie, true, sortedUpcomingMovies)));
-    fitHscrollTrack(grid, 210, 14);
+    const displayLimit = 20;
+    sortedUpcomingMovies.slice(0, displayLimit).forEach((movie) => grid.appendChild(buildMovieCard(movie, true, sortedUpcomingMovies)));
+
+    // Add "See all" button if more than 20 items
+    if (sortedUpcomingMovies.length > displayLimit && grid.parentElement) {
+        const header = grid.parentElement.querySelector(".theatre-block-header");
+        if (header && !header.querySelector(".see-all-button")) {
+            const seeAllBtn = makeSeeAllButton("upcoming-movies");
+            header.appendChild(seeAllBtn);
+        }
+    }
 }
 
 async function loadUpcomingMovies() {
@@ -9672,9 +9851,17 @@ function renderNewShows() {
     grid.innerHTML = "";
 
     const sortedNewShows = sortNoCoverLast(filtered, "image");
-    sortedNewShows.forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewShows)));
+    const displayLimit = 20;
+    sortedNewShows.slice(0, displayLimit).forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewShows)));
 
-    fitHscrollTrack(grid, 210, 14);
+    // Add "See all" button if more than 20 items
+    if (sortedNewShows.length > displayLimit && grid.parentElement) {
+        const header = grid.parentElement.querySelector(".theatre-block-header");
+        if (header && !header.querySelector(".see-all-button")) {
+            const seeAllBtn = makeSeeAllButton("new-series");
+            header.appendChild(seeAllBtn);
+        }
+    }
 }
 
 newShowsFilterInput.addEventListener("input", renderNewShows);
@@ -9723,9 +9910,17 @@ function renderNewAnime() {
     grid.innerHTML = "";
 
     const sortedNewAnime = sortNoCoverLast(filtered, "image");
-    sortedNewAnime.forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewAnime)));
+    const displayLimit = 20;
+    sortedNewAnime.slice(0, displayLimit).forEach((show) => grid.appendChild(buildNewShowCard(show, sortedNewAnime)));
 
-    fitHscrollTrack(grid, 210, 14);
+    // Add "See all" button if more than 20 items
+    if (sortedNewAnime.length > displayLimit && grid.parentElement) {
+        const header = grid.parentElement.querySelector(".theatre-block-header");
+        if (header && !header.querySelector(".see-all-button")) {
+            const seeAllBtn = makeSeeAllButton("new-anime");
+            header.appendChild(seeAllBtn);
+        }
+    }
 }
 
 newAnimeFilterInput.addEventListener("input", renderNewAnime);
@@ -10042,6 +10237,51 @@ const SEE_ALL_KINDS = {
         dateIsPast: true,
         posters: false,
         build: (it, list) => buildBuyFreeBookCard(it, "comic", list)
+    },
+    // Store subsections
+    "store-newly-added": {
+        title: () => "🆕 Newly Added",
+        noun: "deals",
+        subtitle: () => "The newest game deals added in the last 3 days",
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: (it) => it.firstSeenAt ? new Date(it.firstSeenAt).toISOString().split("T")[0] : null,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildStoreDealCard(it)
+    },
+    "store-most-popular": {
+        title: () => "🔥 Most Popular",
+        noun: "deals",
+        subtitle: () => "The most reviewed games with current deals, by popularity",
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: (it) => it.firstSeenAt ? new Date(it.firstSeenAt).toISOString().split("T")[0] : null,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildStoreDealCard(it)
+    },
+    "store-recommended": {
+        title: () => "⭐ Recommended",
+        noun: "deals",
+        subtitle: () => "Well-reviewed games with great deals (40% off or more)",
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: (it) => it.firstSeenAt ? new Date(it.firstSeenAt).toISOString().split("T")[0] : null,
+        dateIsPast: true,
+        posters: true,
+        build: (it, list) => buildStoreDealCard(it)
+    },
+    // Free Games by platform - dynamic platforms like steam, epic, gog, etc.
+    "free-games-platform": {
+        title: (ctx) => `${ctx.icon || "🎁"} ${ctx.platformLabel || ctx.platformName}`,
+        noun: "games",
+        subtitle: (ctx) => `All free games from ${ctx.platformName}`,
+        mediaType: () => "game",
+        name: (it) => it.name,
+        date: null,
+        posters: true,
+        build: (it, list) => buildFreeGameCard(it, list)
     }
 };
 
@@ -10162,7 +10402,8 @@ async function loadSeeAllPage() {
         kind: state.kind,
         page: state.nextPage,
         countryCode: seeAllCountry(),
-        providerName: state.ctx.providerName
+        providerName: state.ctx.providerName,
+        platformName: state.ctx.platformName
     });
     if (!seeAllState || seeAllState.token !== token) return; // closed or reopened meanwhile
     state.loading = false;
@@ -10297,7 +10538,27 @@ function makeSeeAllButton(kind, ctx) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "see-all-btn";
-    btn.textContent = "See all →";
+
+    // Create SVG arrow icon
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("stroke-width", "1.5");
+    svg.setAttribute("stroke", "currentColor");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
+    svg.appendChild(path);
+
+    // Create text div
+    const textDiv = document.createElement("div");
+    textDiv.className = "see-all-btn-text";
+    textDiv.textContent = "See all";
+
+    btn.appendChild(svg);
+    btn.appendChild(textDiv);
+
     btn.addEventListener("click", (event) => {
         event.stopPropagation();
         openSeeAll(kind, ctx);
@@ -12079,21 +12340,62 @@ function formatStorePrice(amount, currency, isConverted) {
 // fixed-width carousel row, so cards always reflow to fit the window
 // instead of getting clipped at the edge and needing an arrow click to
 // see the rest of one.
-function buildStoreSpotlightSection(container, headingText, items) {
+function buildStoreSpotlightSection(container, headingText, items, kind = null) {
     if (items.length === 0) return;
 
     const section = document.createElement("div");
     section.className = "theatre-block free-games-platform-block";
     const header = document.createElement("div");
     header.className = "theatre-block-header";
+
+    // Create a flex container for heading and "See all" button
+    const headerContent = document.createElement("div");
+    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%;";
+
     const h2 = document.createElement("h2");
     h2.textContent = headingText;
-    header.appendChild(h2);
+    headerContent.appendChild(h2);
+
+    // Add "See all" button if more than 20 items and kind is specified
+    const displayLimit = 20;
+    if (items.length > displayLimit && kind) {
+        const seeAllBtn = document.createElement("button");
+        seeAllBtn.type = "button";
+        seeAllBtn.className = "see-all-button";
+
+        // Create SVG arrow icon
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("stroke-width", "1.5");
+        svg.setAttribute("stroke", "currentColor");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("stroke-linejoin", "round");
+        path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
+        svg.appendChild(path);
+
+        // Create text div
+        const textDiv = document.createElement("div");
+        textDiv.className = "see-all-button-text";
+        textDiv.textContent = "See all";
+
+        seeAllBtn.appendChild(svg);
+        seeAllBtn.appendChild(textDiv);
+
+        seeAllBtn.addEventListener("click", () => {
+            openSeeAll(kind);
+        });
+        headerContent.appendChild(seeAllBtn);
+    }
+
+    header.appendChild(headerContent);
     section.appendChild(header);
 
     const grid = document.createElement("div");
     grid.className = "games-grid browse-grid";
-    items.forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
+    // Limit display to 20 items
+    items.slice(0, displayLimit).forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
     section.appendChild(grid);
 
     container.appendChild(section);
@@ -12169,7 +12471,7 @@ function renderStoreDeals() {
         .sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1))
         .slice(0, STORE_SPOTLIGHT_POOL);
     if (newlyAdded.length > 0) {
-        buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded);
+        buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded, "store-newly-added");
     }
 
     const query = document.getElementById("storeSearchInput").value.trim().toLowerCase();
@@ -12234,8 +12536,8 @@ function renderStoreDeals() {
             .sort((a, b) => b.popularity - a.popularity)
             .slice(0, STORE_SPOTLIGHT_POOL);
 
-        if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular);
-        if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended);
+        if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular, "store-most-popular");
+        if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended, "store-recommended");
     }
 
     if (newRow.children.length > 0) browseHeading.style.display = "";

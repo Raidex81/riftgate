@@ -2424,6 +2424,7 @@ let freeGamesRefreshIsFull = false;
 // that flipped from free back to paid within the last 7 days could stay
 // listed even right after an explicit "give me a fresh list" click.
 async function performFreeGamesRefresh(forceFullCheck) {
+    console.log("[performFreeGamesRefresh] Started, forceFullCheck:", forceFullCheck);
     if (freeGamesRefreshPromise) {
         if (!forceFullCheck || freeGamesRefreshIsFull) {
             return freeGamesRefreshPromise;
@@ -2472,6 +2473,7 @@ function mergeFreshCuratedGames(cachedGames) {
 }
 
 async function runFreeGamesRefresh(forceFullCheck) {
+    console.log("[runFreeGamesRefresh] Starting full refresh, forceFullCheck:", forceFullCheck);
     // allSettled instead of all — one store's fetch failing outright must
     // never take the others down with it.
     const results = await Promise.allSettled([
@@ -2485,6 +2487,7 @@ async function runFreeGamesRefresh(forceFullCheck) {
         fetchCheapSharkFreeGames()
     ]);
 
+    console.log("[runFreeGamesRefresh] All store fetches completed");
     results.forEach((r, i) => {
         if (r.status === "rejected") {
             const storeName = ["Epic", "Steam", "GOG", "GamerPower", "itch.io", "itch.io VR", "Curated", "CheapShark"][i];
@@ -2580,8 +2583,10 @@ async function runFreeGamesRefresh(forceFullCheck) {
         console.log(`[free-games] Pruned ${removedCount} game(s) no longer free from the "first seen" cache.`);
     }
 
+    console.log("[runFreeGamesRefresh] About to save", allFree.length, "games to cache");
     fs.writeFileSync(FREEGAMES_SEEN_FILE, JSON.stringify(prunedCache, null, 2));
     saveDataCache("cache-free-games.json", allFree);
+    console.log("[runFreeGamesRefresh] Saved cache successfully, returning", allFree.length, "games");
     saveFreeGamesLastRefresh(Date.now());
 
     return allFree;
@@ -2622,6 +2627,7 @@ function withoutCheapSharkDuplicates(cheapSharkGames, dedicatedGames) {
 
 async function runFreeGamesRefreshForPlatform(platform) {
     const cached = loadDataCache("cache-free-games.json") || [];
+    console.log("[get-free-games] Loaded cached games:", cached.length, "items");
 
     const isTouched = platform === "VR" ? (g) => !!g.vr : (g) => g.source === platform;
     const untouched = cached.filter((g) => !isTouched(g));
@@ -2737,19 +2743,27 @@ async function performFreeGamesRefreshForPlatform(platform) {
 }
 
 ipcMain.handle("get-free-games", async () => {
+    console.log("[get-free-games] Handler invoked");
     // Riftgate already has last run's list on disk (cache-free-games.json)
     // — there's no reason to re-hit Steam/Epic/GOG (and re-verify every
     // Steam game) every single time this section is opened. Only do that
     // real work if it's actually been at least a day since the last one;
     // otherwise just hand back what's already there, unchanged.
     const cached = loadDataCache("cache-free-games.json") || [];
+    console.log("[get-free-games] Loaded cached games:", cached.length, "items");
     const lastRefreshedAt = readFreeGamesLastRefresh();
+    const ageMs = Date.now() - lastRefreshedAt;
+    console.log("[get-free-games] Last refresh was", Math.round(ageMs / 1000 / 60), "minutes ago, min age:", Math.round(FREEGAMES_FULL_REFRESH_MIN_AGE_MS / 1000 / 60), "minutes");
 
     if (cached.length > 0 && (Date.now() - lastRefreshedAt) < FREEGAMES_FULL_REFRESH_MIN_AGE_MS) {
+        console.log("[get-free-games] Cache is fresh, returning cached:", cached.length, "games");
         return mergeFreshCuratedGames(cached);
     }
 
-    return performFreeGamesRefresh();
+    console.log("[get-free-games] Cache missing or stale, triggering refresh...");
+    const result = await performFreeGamesRefresh();
+    console.log("[get-free-games] Refresh complete, got", result.length, "games");
+    return result;
 });
 
 // Backs the manual "Refresh" button in Free Games — always does a real
@@ -3305,7 +3319,24 @@ async function performStoreDealsRefresh(countryCode) {
         // see its own comment) and deliberately left out of this list
         // rather than called for a guaranteed-empty result every refresh.
         const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(countryCode), fetchCheapSharkDeals()]);
-        const deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        let deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+
+        // Deduplicate deals: the same game can appear from multiple sources
+        // or multiple resellers. Keep only the cheapest deal per game using
+        // the same grouping logic as the CheapShark-only dedup (gameID,
+        // steamAppId, or normalized name). This ensures users see each game
+        // once at its best price.
+        const bestDealByGame = new Map();
+        for (const deal of deals) {
+            const key = storeSeenKey(deal);
+            const existing = bestDealByGame.get(key);
+            // Keep the cheaper deal (lower finalPrice wins)
+            const dealIsCheaper = deal.finalPrice != null && (existing?.finalPrice == null || deal.finalPrice < existing.finalPrice);
+            if (!existing || dealIsCheaper) {
+                bestDealByGame.set(key, deal);
+            }
+        }
+        deals = Array.from(bestDealByGame.values()).sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
         // Steam already comes back priced in the target currency (via its
         // own cc= region param above); anything still priced in a
@@ -3921,7 +3952,8 @@ const FULL_LIST_KINDS = new Set([
     "upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch",
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases"
+    "comics-popular", "comics-bestseller", "comics-new-releases",
+    "free-games-platform"
 ]);
 
 // Same set of "book" kinds as elsewhere -- these refresh weekly instead of

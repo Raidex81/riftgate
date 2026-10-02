@@ -61,39 +61,6 @@ body.theme-red{ --accent-1:#ff2d2d; --accent-2:#8b0000; }
 body.theme-frost{ --accent-1:#7dd3fc; --accent-2:#e0f2fe; }
 body.theme-venom{ --accent-1:#84cc16; --accent-2:#a21caf; }
 
-/* ================= Content type color scheme ================= */
-:root{
-    /* Games & Apps - Purple */
-    --color-games:#b026ff;
-    --color-games-light:#d966ff;
-    --color-games-dark:#7d1b99;
-
-    /* Movies & TV - Cyan/Blue */
-    --color-movies:#0ea5e9;
-    --color-movies-light:#38bdf8;
-    --color-movies-dark:#0369a1;
-
-    /* Series/TV Shows - Indigo/Purple */
-    --color-series:#a855f7;
-    --color-series-light:#c084fc;
-    --color-series-dark:#7e22ce;
-
-    /* Anime - Pink/Magenta */
-    --color-anime:#ec4899;
-    --color-anime-light:#f472b6;
-    --color-anime-dark:#be185d;
-
-    /* Books & Reading - Green */
-    --color-books:#22c55e;
-    --color-books-light:#4ade80;
-    --color-books-dark:#15803d;
-
-    /* Applications - Orange */
-    --color-apps:#f97316;
-    --color-apps-light:#fb923c;
-    --color-apps-dark:#c2410c;
-}
-
 body{
     margin:0;
     background:var(--bg-primary);
@@ -3469,173 +3436,10 @@ body.is-fullscreen #mainContent{
     color:var(--text-primary);
 }
 
-/* Section-specific colors */
-.sectionOption[data-section="new"].active,
-.sectionOption[data-section="installed"].active,
-.sectionOption[data-section="free-games"].active,
-.sectionOption[data-section="store"].active,
-.sectionOption[data-section="applications"].active{
+.sectionOption.active{
     color:#fff;
-    background:var(--color-games);
+    background:var(--accent-gradient);
     border-color:transparent;
-}
-
-.sectionOption[data-section="theatre"].active{
-    color:#fff;
-    background:var(--color-movies);
-    border-color:transparent;
-}
-
-.sectionOption[data-section="reading-room"].active{
-    color:#fff;
-    background:var(--color-books);
-    border-color:transparent;
-}
-
-/* ================= Section-specific button colors ================= */
-
-/* Theatre section - Content type specific colors */
-
-/* Movies - Cyan buttons */
-#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn,
-#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-movies), var(--color-movies-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#theatreContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4) !important;
-}
-
-/* Series/TV - Purple buttons */
-#theatreContainer .theatre-block[data-content-type="series"] .launchBtn,
-#theatreContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-series), var(--color-series-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#theatreContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
-}
-
-/* Anime - Pink buttons */
-#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn,
-#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-anime), var(--color-anime-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#theatreContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4) !important;
-}
-
-/* New Container (What's New section) - Content type specific colors */
-
-/* Upcoming Movies - Cyan buttons */
-#newContainer .theatre-block[data-content-type="movies"] .launchBtn,
-#newContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-movies), var(--color-movies-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#newContainer .theatre-block[data-content-type="movies"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4) !important;
-}
-
-/* New Series - Purple buttons */
-#newContainer .theatre-block[data-content-type="series"] .launchBtn,
-#newContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-series), var(--color-series-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#newContainer .theatre-block[data-content-type="series"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
-}
-
-/* New Anime - Pink buttons */
-#newContainer .theatre-block[data-content-type="anime"] .launchBtn,
-#newContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-anime), var(--color-anime-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#newContainer .theatre-block[data-content-type="anime"] .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4) !important;
-}
-
-/* Reading Room section (Books) - Green buttons */
-#readingRoomContainer .launchBtn,
-#readingRoomContainer .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-books), var(--color-books-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#readingRoomContainer .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4) !important;
-}
-
-/* Reading Room tabs - Green for active state */
-#readingRoomContainer .reading-room-tab.active {
-    background: var(--color-books) !important;
-    color: #fff !important;
-    border-color: transparent !important;
-}
-
-#readingRoomContainer .reading-room-tab.active:hover {
-    background: var(--color-books-light) !important;
-}
-
-/* Game/App sections (Games) - Purple buttons */
-#installedContainer .launchBtn,
-#newContainer .launchBtn,
-#storeContainer .launchBtn,
-#freeGamesContainer .launchBtn,
-#installedContainer .launchBtn:hover,
-#newContainer .launchBtn:hover,
-#storeContainer .launchBtn:hover,
-#freeGamesContainer .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-games), var(--color-games-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#installedContainer .launchBtn:hover,
-#newContainer .launchBtn:hover,
-#storeContainer .launchBtn:hover,
-#freeGamesContainer .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(176, 38, 255, 0.4) !important;
-}
-
-/* Applications section - Orange buttons */
-#applicationsContainer .launchBtn,
-#applicationsContainer .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-apps), var(--color-apps-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#applicationsContainer .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4) !important;
-}
-
-/* Shared Folder / Vault section (Apps variant - Orange) */
-#sharedFolderContainer .launchBtn,
-#sharedFolderContainer .launchBtn:hover {
-    background: linear-gradient(135deg, var(--color-apps), var(--color-apps-dark)) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-#sharedFolderContainer .launchBtn:hover {
-    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4) !important;
 }
 
 .secondary-section{
@@ -5842,47 +5646,14 @@ body.startup-locked{
     text-align:left;
     padding:12px 14px;
     margin-bottom:8px;
-    border-radius:6px;
-    border:3px ridge var(--accent-1);
-    background:transparent;
+    border-radius:10px;
+    border:1.5px solid var(--border-color);
+    background:var(--bg-tertiary);
     color:var(--text-primary);
     font-size:14px;
     font-weight:700;
     cursor:pointer;
-    transition:1s;
-    position:relative;
-    outline:none;
-}
-
-.sidebarNavBtn::after{
-    content:"";
-    position:absolute;
-    top:-10px;
-    left:3%;
-    width:95%;
-    height:40%;
-    background-color:var(--bg-secondary);
-    transition:0.5s;
-    transform-origin:center;
-    pointer-events:none;
-}
-
-.sidebarNavBtn::before{
-    content:"";
-    transform-origin:center;
-    position:absolute;
-    top:80%;
-    left:3%;
-    width:95%;
-    height:40%;
-    background-color:var(--bg-secondary);
-    transition:0.5s;
-    pointer-events:none;
-}
-
-.sidebarNavBtn:hover::before,
-.sidebarNavBtn:hover::after{
-    transform:scale(0);
+    transition:.18s;
 }
 
 .nav-icon{
@@ -5890,8 +5661,6 @@ body.startup-locked{
     height:17px;
     flex-shrink:0;
     vertical-align:middle;
-    position:relative;
-    z-index:1;
 }
 
 .nav-icon-grad-stop-1{
@@ -5899,7 +5668,7 @@ body.startup-locked{
 }
 
 .nav-icon-grad-stop-2{
-    stop-color:var(--accent-1);
+    stop-color:var(--accent-2);
 }
 
 .sidebarNavBtn:last-child{
@@ -5907,19 +5676,15 @@ body.startup-locked{
 }
 
 .sidebarNavBtn:hover{
-    box-shadow:inset 0px 0px 25px var(--accent-1);
+    border-color:var(--accent-1);
+    transform:translateX(2px);
 }
 
 .sidebarNavBtn.active{
-    background:var(--accent-1);
+    background:var(--accent-gradient);
     border-color:transparent;
     color:#fff;
     box-shadow:0 4px 14px rgba(0,0,0,.4);
-}
-
-.sidebarNavBtn.active::before,
-.sidebarNavBtn.active::after{
-    display:none;
 }
 
 /* ================= Update popup ================= */
@@ -5995,10 +5760,7 @@ body.startup-locked{
     font-weight:700;
     color:var(--text-primary);
     padding:0 16px;
-    margin:24px 0 16px;
-    text-align:center;
-    border-top:1px solid var(--border-color);
-    padding-top:16px;
+    margin:4px 0 4px;
 }
 
 /* Admin login button — last item in the sidebar, deliberately understated */
@@ -7840,29 +7602,41 @@ body.light-theme .launchBtn:active:not(:disabled){
 .theatre-block .theatre-tab,
 .theatre-block-header select,
 .upcoming-movies-track .game-card button {
-    background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
+    background: linear-gradient(135deg, #b026ff, #ff2fd0) !important;
     color: #ffffff !important;
-    border: 1px solid rgba(6, 182, 212, 0.5);
+    border: 1px solid rgba(255, 45, 208, 0.5);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     transition: all 0.2s ease;
 }
 
+.theatre-block-header select option {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    padding: 8px !important;
+}
+
+.theatre-block-header select option:checked {
+    background: linear-gradient(#b026ff, #b026ff) !important;
+    background-color: #b026ff !important;
+    color: #ffffff !important;
+}
+
 .theatre-block-header .sectionOption:hover,
 .theatre-block .theatre-tab:hover {
-    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
-    border-color: rgba(6, 182, 212, 0.8);
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    background: linear-gradient(135deg, #a020f0, #f020c0) !important;
+    border-color: rgba(255, 45, 208, 0.8);
+    box-shadow: 0 4px 12px rgba(176, 38, 255, 0.3);
 }
 
 body.light-theme .theatre-block-header .sectionOption,
 body.light-theme .theatre-block .theatre-tab {
-    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
+    background: linear-gradient(135deg, #a020f0, #f020c0) !important;
     color: #ffffff !important;
 }
 
 body.light-theme .theatre-block-header .sectionOption:hover,
 body.light-theme .theatre-block .theatre-tab:hover {
-    background: linear-gradient(135deg, #075985, #0e7490) !important;
+    background: linear-gradient(135deg, #8a1ae0, #d01ab0) !important;
 }
 
 /* Generic light blue button fix */
@@ -7906,7 +7680,7 @@ button[style*="background-color: #"]:focus-visible,
 .theatre-listing-btn,
 .cinema-btn,
 .showtimes-btn {
-    background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
+    background: linear-gradient(135deg, #b026ff, #ff2fd0) !important;
     color: #ffffff !important;
     border: 1px solid rgba(6, 182, 212, 0.6);
     font-weight: 600;
@@ -7921,8 +7695,8 @@ button[style*="background-color: #"]:focus-visible,
 .theatre-listing-btn:hover,
 .cinema-btn:hover,
 .showtimes-btn:hover {
-    background: linear-gradient(135deg, #0284c7, #0891b2) !important;
-    border-color: rgba(6, 182, 212, 0.8);
+    background: linear-gradient(135deg, #a020f0, #f020c0) !important;
+    border-color: rgba(255, 45, 208, 0.8);
     box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
     transform: translateY(-2px);
 }
