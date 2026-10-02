@@ -1,0 +1,28 @@
+# Builds the Windows installer on GitHub's own Windows machine and uploads
+# it into the GitHub Release for the version in package.json — no personal
+# token or local build needed. Create the release on GitHub first (see
+# RELEASE.md), then run this and "Publish macOS Release".
+name: Publish Windows Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Build and publish Windows installer
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Upload into the existing release even if it was created more
+          # than 2 hours ago.
+          EP_GH_IGNORE_TIME: "true"

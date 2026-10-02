@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Required for Electron/V8 itself to run under the hardened runtime
+         that notarization requires (see build.mac.hardenedRuntime in
+         package.json). Without these, the app crashes on launch once
+         signed with hardened runtime enabled. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- Riftgate calls out to Supabase, TMDB, TVmaze, SteamGridDB, and its
+         own GitHub-hosted auto-updater — all outbound network. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+  </dict>
+</plist>

@@ -1,0 +1,49 @@
+# Never commit real API keys
+secrets.local.js
+
+# Dependencies and build output — these get rebuilt from source, don't
+# belong in version control
+node_modules/
+dist/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+
+# Local scratch/backup files created while iterating on changes — not
+# meant to be tracked, just safety copies kept during editing
+*.bak-*
+_to_delete/
+strix_runs/
+
+# Private working notes and local audit data — never published
+.refactor/
+_private/
+
+# Test/coverage output and local environment files
+test-results/
+playwright-report/
+coverage/
+*.log
+.env*
+.venv/
+
+# Stray local files that aren't part of the project
+/nul
+/git
+/BeatSaberVersion.txt
+Claude outputs/
+secrets.example.js
+games.json
+
+# Release/build leftovers and local helper files — never part of the app
+*.bundle
+*.blockmap
+/latest.yml
+/latest-mac.yml
+*.patch
+*.sed
+/build-release.bat
+/new.jpg
+/DEPLOYMENT*.md
+/DEPLOYMENT*.txt
