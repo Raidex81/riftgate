@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riftgate 2</title>
+<link rel="stylesheet" href="src/styles/tokens.css">
+<link rel="stylesheet" href="src/styles/base.css">
+<link rel="stylesheet" href="src/styles/layout.css">
+<link rel="stylesheet" href="src/styles/components.css">
+<link rel="stylesheet" href="src/styles/surfaces.css">
+<link rel="stylesheet" href="src/styles/views.css">
+</head>
+<body>
+<!-- Shared SVG paint servers (progress rings use the energy gradient) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="energyGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--amethyst, #8b3dff)"/>
+      <stop offset="1" style="stop-color: var(--rift-pink, #e03cff)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+  <header class="titlebar" id="titlebar"></header>
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+  <main class="stage" id="stage" tabindex="-1"></main>
+</div>
+
+<script type="module" src="src/app/main.js"></script>
+</body>
+</html>

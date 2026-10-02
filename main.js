@@ -8520,7 +8520,7 @@ app.whenReady().then(async () => {
     // this process (main.js, over Node's https module) and results are
     // relayed to the renderer over IPC, so the page has nothing to reach
     // out to on its own.
-    const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self'; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
+    const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self' https://*.steamstatic.com; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
     // BUG FIXED: this originally had no URL filter, so it rewrote the
     // Content-Security-Policy header on EVERY response in the whole
     // session — including the YouTube trailer iframe's own page and

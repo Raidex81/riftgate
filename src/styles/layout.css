@@ -1,0 +1,171 @@
+/* Riftgate 2 — app frame: title bar, rail with the rift line, main stage. */
+
+.app {
+    display: grid;
+    grid-template-columns: var(--rail-w) 1fr;
+    grid-template-rows: var(--titlebar-h) 1fr;
+    height: 100vh;
+    background:
+        radial-gradient(1200px 700px at 78% -10%, color-mix(in srgb, var(--amethyst) 14%, transparent), transparent 60%),
+        radial-gradient(900px 600px at -10% 110%, color-mix(in srgb, var(--rift-pink) 8%, transparent), transparent 60%),
+        var(--void);
+}
+
+/* ---- Title bar (frameless window) --------------------------------------- */
+.titlebar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: var(--s4);
+    padding-left: var(--s4);
+    -webkit-app-region: drag;
+    user-select: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+    background: color-mix(in srgb, var(--void) 70%, transparent);
+    backdrop-filter: blur(12px);
+    position: relative;
+    z-index: 30;
+}
+.titlebar .search-trigger { -webkit-app-region: no-drag; }
+.titlebar-spacer { flex: 1; }
+.win-controls { display: flex; height: 100%; -webkit-app-region: no-drag; }
+.win-btn {
+    width: 46px; height: 100%;
+    display: grid; place-items: center;
+    color: var(--dust);
+    transition: background var(--fast), color var(--fast);
+}
+.win-btn:hover { background: var(--nebula-3); color: var(--starlight); }
+.win-btn.close:hover { background: #c42b4a; color: #fff; }
+.win-btn svg { width: 14px; height: 14px; }
+
+/* The search trigger sits in the title bar like a command line into the rift */
+.search-trigger {
+    display: flex; align-items: center; gap: var(--s3);
+    width: min(520px, 46vw);
+    height: 28px;
+    margin-left: calc(var(--rail-w) - var(--s4) - 2px);
+    padding: 0 var(--s3);
+    color: var(--dust);
+    background: var(--nebula);
+    border: 1px solid var(--line);
+    clip-path: polygon(var(--cut-sm) 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%, 0 var(--cut-sm));
+    font-size: var(--t-sm);
+    transition: border-color var(--fast), color var(--fast);
+}
+.search-trigger:hover { border-color: var(--line-strong); color: var(--starlight-2); }
+.search-trigger svg { width: 15px; height: 15px; flex: none; }
+.search-trigger .grow { flex: 1; text-align: left; }
+kbd {
+    font-family: var(--font);
+    font-size: var(--t-xs);
+    color: var(--dust);
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    background: var(--void);
+}
+
+/* ---- Rail -------------------------------------------------------------- */
+.rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: var(--s5) 0 var(--s4);
+    border-right: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--nebula) 85%, transparent), color-mix(in srgb, var(--void) 90%, transparent));
+    overflow: hidden;
+}
+
+.brand {
+    display: flex; align-items: center; gap: var(--s3);
+    padding: 0 var(--s5) var(--s6);
+}
+.brand-gem { width: 34px; height: 34px; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--amethyst) 70%, transparent)); }
+.brand-word {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: .16em;
+    background: linear-gradient(180deg, #fff 10%, var(--amethyst-soft) 95%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    line-height: 1;
+}
+.brand-two {
+    font-family: var(--font-display);
+    font-size: 12px; font-weight: 700;
+    color: var(--void);
+    background: var(--energy);
+    padding: 1px 5px 0;
+    clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+    align-self: flex-start;
+    margin-top: 1px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--s3); }
+.nav-group-label {
+    font-size: var(--t-xs); color: var(--dust-2);
+    padding: var(--s5) var(--s3) var(--s2);
+}
+.nav-item {
+    position: relative;
+    display: flex; align-items: center; gap: var(--s3);
+    height: 40px;
+    padding: 0 var(--s3);
+    color: var(--dust);
+    font-size: var(--t-md);
+    transition: color var(--fast), background var(--fast);
+    clip-path: polygon(var(--cut-sm) 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%, 0 var(--cut-sm));
+}
+.nav-item svg { width: 19px; height: 19px; flex: none; }
+.nav-item:hover { color: var(--starlight); background: color-mix(in srgb, var(--nebula-3) 70%, transparent); }
+.nav-item[aria-current="page"] {
+    color: #fff;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--amethyst) 26%, transparent), transparent 85%);
+}
+.nav-item[aria-current="page"] svg { color: var(--amethyst-soft); filter: drop-shadow(0 0 6px var(--amethyst)); }
+.nav-item .count { margin-left: auto; font-size: var(--t-xs); color: var(--dust-2); }
+
+/* The rift line: a thin energy seam down the rail's edge. Its bright node
+   travels to whichever section is open. */
+.rift-line {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--amethyst) 35%, transparent) 20%, color-mix(in srgb, var(--rift-pink) 25%, transparent) 80%, transparent);
+    pointer-events: none;
+}
+.rift-node {
+    position: absolute; left: -1px; width: 4px; height: 40px;
+    background: var(--energy);
+    box-shadow: 0 0 12px var(--amethyst), 0 0 28px color-mix(in srgb, var(--rift-pink) 70%, transparent);
+    transition: transform var(--slow) var(--ease);
+    border-radius: 2px;
+}
+
+.rail-foot { margin-top: auto; padding: var(--s4) var(--s3) 0; display: flex; flex-direction: column; gap: var(--s2); }
+.rail-version { font-size: var(--t-xs); color: var(--dust-2); padding: var(--s2) var(--s3) 0; }
+
+/* ---- Stage --------------------------------------------------------------- */
+.stage {
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+}
+.view {
+    padding: var(--s8) var(--gutter) var(--s16);
+    max-width: 1880px;
+    animation: view-in var(--mid) var(--ease);
+}
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.view-head { display: flex; align-items: flex-end; gap: var(--s6); margin-bottom: var(--s8); flex-wrap: wrap; }
+.view-head h1 { font-size: var(--t-3xl); }
+.view-head p { color: var(--dust); max-width: 62ch; margin-top: var(--s2); }
+.view-head .actions { margin-left: auto; display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+    :root { --rail-w: 76px; --gutter: 24px; }
+    .brand-word, .brand-two, .nav-item span, .nav-group-label, .nav-item .count, .rail-version { display: none; }
+    .nav-item { justify-content: center; padding: 0; }
+    .brand { justify-content: center; padding: 0 0 var(--s6); }
+}
