@@ -6002,13 +6002,10 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     // Create a flex container for heading and "See all" button
     const header = document.createElement("div");
     header.className = "theatre-block-header";
-    const headerContent = document.createElement("div");
-    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px;";
 
     const heading = document.createElement("h2");
     heading.textContent = headingText;
-    heading.style.cssText = "flex: 1; margin: 0;";
-    headerContent.appendChild(heading);
+    header.appendChild(heading);
 
     // Add "See all" button if more than 20 items
     const displayLimit = 20;
@@ -6016,54 +6013,54 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
         const seeAllBtn = document.createElement("button");
         seeAllBtn.type = "button";
         seeAllBtn.className = "see-all-btn";
-
-        // Create SVG arrow icon
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("fill", "none");
-        svg.setAttribute("viewBox", "0 0 24 24");
-        svg.setAttribute("stroke-width", "1.5");
-        svg.setAttribute("stroke", "currentColor");
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("stroke-linecap", "round");
-        path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
-        svg.appendChild(path);
-
-        // Create text div
-        const textDiv = document.createElement("div");
-        textDiv.className = "see-all-button-text";
-        textDiv.textContent = "See all";
-
-        seeAllBtn.appendChild(svg);
-        seeAllBtn.appendChild(textDiv);
+        seeAllBtn.textContent = "See all →";
 
         seeAllBtn.addEventListener("click", () => {
             // Use "all" scope for Newly Added row (when platformName is undefined)
             const scopeName = platformName || "all";
             openSeeAll("free-games-platform", { platformName: scopeName, platformLabel: headingText });
         });
-        headerContent.appendChild(seeAllBtn);
+        header.appendChild(seeAllBtn);
     }
 
-    header.appendChild(headerContent);
     section.appendChild(header);
 
-    // Always use grid layout instead of carousel
-    const grid = document.createElement("div");
-    grid.className = "games-grid browse-grid";
-    items.slice(0, displayLimit).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
-    section.appendChild(grid);
+    // Create carousel section like "New Series" and "New Anime"
+    const carouselRow = document.createElement("div");
+    carouselRow.className = "hscroll-row";
+    
+    // Left arrow button
+    const leftArrow = document.createElement("button");
+    leftArrow.className = "carousel-arrow carousel-arrow-left";
+    leftArrow.setAttribute("aria-label", "Scroll left");
+    leftArrow.textContent = "‹";
+    carouselRow.appendChild(leftArrow);
+    
+    // Carousel track
+    const track = document.createElement("div");
+    track.className = "carousel-track free-games-track";
+    items.slice(0, displayLimit).forEach((g) => track.appendChild(buildFreeGameCard(g, items)));
+    carouselRow.appendChild(track);
+    
+    // Right arrow button
+    const rightArrow = document.createElement("button");
+    rightArrow.className = "carousel-arrow carousel-arrow-right";
+    rightArrow.setAttribute("aria-label", "Scroll right");
+    rightArrow.textContent = "›";
+    carouselRow.appendChild(rightArrow);
+    
+    section.appendChild(carouselRow);
+    
+    // Observe for layout adjustments
+    freeGamesTrackObserver.observe(track);
+    if (platformName) fitFreeGamesTrack(track);
+
 
     // Observe for layout adjustments
     freeGamesTrackObserver.observe(grid);
     if (platformName) fitFreeGamesPreviewToRows(grid);
 
     container.appendChild(section);
-}
-
-// Sideways rows (Newly Added and the smaller platforms): size the cards so
-// a whole number of them exactly fills the visible width at any window
-// size, like the New tab's rows, instead of a card sliced off at the edge
 // or a gap after the last visible one.
 function fitFreeGamesTrack(track) {
     const compact = document.body.classList.contains("density-compact");
