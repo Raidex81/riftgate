@@ -19,11 +19,11 @@ suggestions).
 │  Main process (Node.js)                                     │
 │                                                               │
 │   main.js  ──requires──▶  services/                         │
-│   (~7,800 lines:            supabase.js   http.js           │
+│   (~8,600 lines:            supabase.js   http.js           │
 │    window/app lifecycle,    steam.js      tvmaze.js         │
-│    ~175 ipcMain handlers,   books.js      github.js         │
+│    ~190 ipcMain handlers,   books.js      github.js         │
 │    IPC validation, CSP,     tmdb.js       free-games.js     │
-│    local HTTP server)       content-filters.js              │
+│    local HTTP server)       content-filters.js cinemas.js   │
 │                             platform/ (windows.js, mac.js)  │
 │                                                               │
 │   Serves the UI over http://127.0.0.1:<random port>/         │
@@ -31,7 +31,7 @@ suggestions).
                              │ preload.js (contextBridge, channel allowlists)
 ┌───────────────────────────▼───────────────────────────────────┐
 │  Renderer (sandboxed, contextIsolation: true, nodeIntegration: │
-│  false) — index.html + renderer.js (~13,100 lines), the UI     │
+│  false) — index.html + renderer.js (~14,700 lines), the UI     │
 └─────────────────────────────────────────────────────────────┘
                              │
                              ▼ (all external calls happen in the
@@ -72,9 +72,9 @@ is refused too — must answer with an image, and is capped at 15 MB and
 
 **Codebase layout**, roughly in the order you'd want to read it:
 
-- `main.js` — app/window lifecycle, IPC handler wiring (~175
+- `main.js` — app/window lifecycle, IPC handler wiring (~190
   `ipcMain.handle` calls), the local server, CSP and IPC-sender
-  validation. Still the largest file by a wide margin; see
+  validation. Still the largest main-process file by a wide margin; see
   [Roadmap](#roadmap).
 - `preload.js` — the only bridge between the two; see
   [IPC architecture](#ipc-architecture).
@@ -176,7 +176,7 @@ and it's checked at both ends:
    `window.riftgate.invoke("something-not-on-the-list")` throws before it
    ever reaches the main process.
 2. **`main.js`** wraps `ipcMain.handle`/`on`/`once` themselves, so
-   *every* handler — all ~175 of them — is checked without having to
+   *every* handler — all ~190 of them — is checked without having to
    remember to add a check inside each one individually
    (`isTrustedIpcSender`, below). This is a second, independent layer:
    even a channel that's legitimately allowlisted in step 1 gets
@@ -368,7 +368,8 @@ npm run release    # electron-builder --publish always            — build + pu
 installer (`oneClick`, per-user, desktop + Start Menu shortcuts), flips the
 Electron fuses described above, and packs only the app's real files —
 `build.files` in `package.json` leaves out private notes, `supabase/`,
-docs, old backup copies and the retired banner video. `release` publishes
+docs, old backup copies, the retired banner video and local release
+leftovers (git bundles, `.blockmap`/`latest.yml` files, patches). `release` publishes
 to the GitHub Release matching the version in `package.json`, using a
 short-lived `GH_TOKEN` set only in the terminal window doing the release;
 the release itself is created on GitHub first (see `RELEASE.md` for why).
@@ -396,7 +397,7 @@ _(to be added)_
 
 Reflects the active backlog, roughly in priority order:
 
-- **Split `renderer.js` (next major architecture project)** — ~13,100
+- **Split `renderer.js` (next major architecture project)** — ~14,700
   lines in one file, organised only by `// --- Section ---` comment
   headers (about 50 of them). Target layout:
 
@@ -423,7 +424,7 @@ Reflects the active backlog, roughly in priority order:
   variables keep working, one section per commit; (3) only then, turn
   the files into ES modules with explicit imports and replace the shared
   globals with a small state module.
-- **Architecture** — split `main.js`'s remaining ~7,800 lines by
+- **Architecture** — split `main.js`'s remaining ~8,600 lines by
   subsystem (`ipc/`, `windows/`, `games/`, `free-games/`, `media/`,
   `vault/`, `auth/`, `system/`, alongside the existing `services/`)
   rather than one large file. The services extraction above is the first
@@ -466,7 +467,7 @@ Reflects the active backlog, roughly in priority order:
   click-through testing per release (see `RELEASE.md`) — CI now builds
   both platforms on every push, but that only catches build breakage,
   not behavioral bugs.
-- **`main.js` is still large** (~7,800 lines) despite the services
+- **`main.js` is still large** (~8,600 lines) despite the services
   extraction — IPC wiring, window/app lifecycle, and per-feature logic
   are still interleaved in one file. See [Roadmap](#roadmap).
 - **Mac build only partly verified.** The Mac Smoke Test workflow

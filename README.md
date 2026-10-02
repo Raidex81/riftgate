@@ -64,7 +64,7 @@ games, films coming to cinemas in your region, new series and new anime,
 with hover trailers. Every row has a **See all** button that opens the
 complete list — every film releasing in your country over the next 12
 months, every upcoming game, every series and anime that started in the
-last 90 days — with search and sorting.
+last 90 days — 100 per page, with search and sorting.
 
 **📀 Installed** — every game, app and VR title you run, on one shelf.
 Drag a shortcut or `.exe` onto the window to add it, or let Riftgate
@@ -78,16 +78,20 @@ anything you install later.
 keep or free to play right now: Steam, Epic Games, every free game on
 GOG, itch.io, giveaway trackers like GamerPower, and the big
 free-to-play titles from Battle.net, EA, Riot, Ubisoft and more — with a
-dedicated VR view, genre filters and search. Rows always fill your
-window, whatever its width.
+dedicated VR view, genre filters and search. Newly Added and every
+platform get their own sideways row of 20 games that always fills your
+window; **See all** next to each row's name opens that row's complete
+list, 100 games per page.
 
 ![Free Games](screenshots/free-games.png)
 
 **🛒 Store** — the biggest current discounts on PC games from Steam and
 dozens of other stores (GOG, Epic, Humble, Fanatical, GreenManGaming and
-more) in one searchable, sortable grid. Every deal shows its discount, a
-review-score badge (Steam rating or Metacritic) and a trailer, with a
-link straight to the store. Prices and currency follow your region.
+more) in one searchable, sortable grid, topped by Newly Added, Most
+Popular and Recommended rows — each with **See all** for every matching
+deal. Every deal shows its discount, a review-score badge (Steam rating
+or Metacritic) and a trailer, with a link straight to the store. Prices
+and currency follow your region.
 
 ![Store](screenshots/store.png)
 
@@ -128,7 +132,10 @@ controller is connected. Every button, per controller type:
 
 **🎨 Make it yours** — nine color themes (the whole look follows the one
 you pick), light and dark mode, adjustable card size, a first-run tour,
-and automatic updates on Windows.
+and automatic updates on Windows. Buttons are colour-coded by content
+type — games, films, books and apps each have their own colour, and
+Theatre tells films, series and anime apart — so you can tell at a
+glance what you're looking at.
 
 **🔒 Coming soon: The Vault** — private file and link sharing between
 friends, with automatic expiry.
@@ -159,13 +166,13 @@ the server. The database changes and server functions live in
 [OpenStreetMap](https://www.openstreetmap.org/copyright) (© OpenStreetMap
 contributors) and is cached for two weeks per city.
 
-Size, as of version 1.8.1 (counted with `wc -l`, blank lines and comments
+Size, as of version 1.8.2 (counted with `wc -l`, blank lines and comments
 included):
 
 | Part | Lines |
 |---|---|
-| App JavaScript (main process, UI logic, controller navigation, services) | 26,930 |
-| UI markup and styles (`index.html`, `style.css`) | 8,256 |
+| App JavaScript (main process, UI logic, controller navigation, services) | 28,742 |
+| UI markup and styles (`index.html`, `style.css`) | 9,955 |
 | Backend (Supabase Edge Functions, SQL migrations and rollbacks) | 2,508 |
 
 For a deeper technical look — the Electron process model, IPC and
