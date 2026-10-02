@@ -3690,7 +3690,6 @@ ipcMain.handle("search-watch-providers", async (event, { query, countryCode } = 
 // the source doesn't say).
 
 const FULL_LIST_MAX_PAGE = 500; // TMDB refuses anything past page 500
-const LIST_PAGE_SIZE = 100; // Items per page in "See all" modals
 
 function isoDate(d) {
     return d.toISOString().slice(0, 10);
@@ -3953,8 +3952,7 @@ const FULL_LIST_KINDS = new Set([
     "upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch",
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases",
-    "free-games-platform"
+    "comics-popular", "comics-bestseller", "comics-new-releases"
 ]);
 
 // Same set of "book" kinds as elsewhere -- these refresh weekly instead of
@@ -4040,22 +4038,6 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
             case "manga-new-releases": result = await fetchMangaNewReleasesPage(pageNum); break;
             case "comics-popular": result = await fetchComicsPopularPage(pageNum); break;
             case "comics-bestseller": result = await fetchComicsBestSellerPage(pageNum); break;
-            case "free-games-platform": {
-                const platformName_v = platformName || "all";
-                const allGames = loadDataCache("cache-free-games.json") || [];
-                const platformGames = platformName_v === "all" 
-                    ? allGames 
-                    : allGames.filter(g => (g.source || "").toLowerCase() === (platformName_v || "").toLowerCase());
-                const items = platformGames.slice((pageNum - 1) * LIST_PAGE_SIZE, pageNum * LIST_PAGE_SIZE);
-                const totalPages = Math.ceil((platformGames.length || 1) / LIST_PAGE_SIZE);
-                result = {
-                    items,
-                    page: pageNum,
-                    totalPages,
-                    totalResults: platformGames.length
-                };
-                break;
-            }
             case "comics-new-releases": result = await fetchComicsNewReleasesPage(pageNum); break;
         }
         if (result) {

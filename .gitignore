@@ -35,3 +35,15 @@ coverage/
 Claude outputs/
 secrets.example.js
 games.json
+
+# Release/build leftovers and local helper files — never part of the app
+*.bundle
+*.blockmap
+/latest.yml
+/latest-mac.yml
+*.patch
+*.sed
+/build-release.bat
+/new.jpg
+/DEPLOYMENT*.md
+/DEPLOYMENT*.txt

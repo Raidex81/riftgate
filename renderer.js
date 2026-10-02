@@ -1307,6 +1307,14 @@ wheelPlayBtn.addEventListener("click", async () => {
 // --- Changelog / what's new ------------------------------------------------
 
 const CHANGELOG = {
+    "1.8.2": [
+        "Changed: every Free Games row — Newly Added and each platform, Steam included — is now a sideways carousel like the New tab's rows, with ‹ › arrows that move a whole screenful at a time",
+        "Changed: the \"See all →\" button now sits right beside each row's title, the same as in New, in Free Games and in the Store",
+        "Fixed: \"See all\" in Free Games opens exactly that row's games — before, a platform could open another platform's list, Newly Added opened every free game and VR opened nothing. Every list shows 100 games per page, with page buttons and a search box",
+        "Fixed: the Store's Newly Added, Most Popular and Recommended \"See all\" lists failed to open; they now show every matching deal (no longer capped at 48), 100 per page",
+        "Fixed: \"See all\" buttons could be added twice to a row after filtering",
+        "Changed: a smaller download — leftover build files are no longer packed into the installer"
+    ],
     "1.8.0": [
         "New: content-type color coding — all action buttons (Launch, Get it Free, Find Tickets, Add to My Shows, etc.) now use color-coded buttons by content type for quick visual recognition: Games (purple), Movies (cyan), Books (green), Apps (orange)",
         "New: Theatre section now distinguishes between different content types with unique colors — Movies (cyan), Series (purple), Anime (pink) — so you can see at a glance what type of content you're browsing",
@@ -5698,38 +5706,6 @@ const PLATFORM_ICONS = {
     "Meta Quest": "🥽"
 };
 
-// Platforms whose row is shown as a small "preview" (capped, no arrows,
-// with a "View all" button into the single-platform full-list view)
-// instead of a scrollable carousel — anything with more items than a
-// carousel can reasonably be scrolled through by hand.
-const FREE_GAMES_PREVIEW_CAP = 20;
-
-// A preview row shows exactly two full lines of cards at the current
-// window width: a wider window reveals more of the platform's games, a
-// narrower one hides the ones that no longer fit. Cards are built from a
-// pool big enough for very wide screens and simply shown or hidden.
-const FREE_GAMES_PREVIEW_ROWS = 2;
-const FREE_GAMES_PREVIEW_POOL = 20;
-
-function fitFreeGamesPreviewToRows(grid) {
-    const cards = Array.from(grid.children);
-    if (cards.length === 0) return;
-    const tracks = getComputedStyle(grid).gridTemplateColumns;
-    const columns = tracks && tracks !== "none" ? tracks.split(" ").filter(Boolean).length : 0;
-    if (columns < 1) return; // not laid out yet (tab hidden) -- the observer re-runs this
-    let show = Math.min(cards.length, FREE_GAMES_PREVIEW_ROWS * columns);
-    // Not enough games for two full lines: drop the half-empty last one.
-    if (show > columns && show % columns !== 0) show -= show % columns;
-    cards.forEach((card, i) => { card.style.display = i < show ? "" : "none"; });
-}
-
-const freeGamesPreviewObserver = new ResizeObserver((entries) => {
-    entries.forEach((entry) => {
-        if (entry.target.isConnected) fitFreeGamesPreviewToRows(entry.target);
-        else freeGamesPreviewObserver.unobserve(entry.target);
-    });
-});
-
 // The platform dropdown's own options depend on what's actually in the
 // cache right now — new sources (GamerPower/itch.io, or whatever
 // GamerPower starts covering next) appear automatically instead of being
@@ -5991,6 +5967,13 @@ function renderFreeGamesSpotlight() {
 // pattern as the New tab's Upcoming Games/New Series rows) and appends it
 // to `container`. Used for both the Newly Added row and each platform's
 // row below it.
+// Every Free Games row (Newly Added and each platform) is the same
+// sideways carousel as the New tab's rows: the heading with its "See all →"
+// button right beside it, then arrows around a track of the first
+// FREE_GAMES_ROW_LIMIT cards. "See all" opens the full-list panel on exactly
+// this row's games (already in memory), 100 per page.
+const FREE_GAMES_ROW_LIMIT = 20;
+
 function buildFreeGamesCarouselSection(container, headingText, items, platformName) {
     const section = document.createElement("div");
     section.className = "theatre-block free-games-platform-block";
@@ -5999,69 +5982,73 @@ function buildFreeGamesCarouselSection(container, headingText, items, platformNa
     // the platform drag-reorder since there's nothing to reorder it against.
     if (platformName) section.dataset.platform = platformName;
 
-    // Create a flex container for heading and "See all" button
     const header = document.createElement("div");
     header.className = "theatre-block-header";
-
     const heading = document.createElement("h2");
     heading.textContent = headingText;
     header.appendChild(heading);
 
-    // Add "See all" button if more than 20 items
-    const displayLimit = 20;
-    if (items.length > displayLimit) {
+    // itch.io's row only holds the first page of a catalogue of well over a
+    // million games, so its "See all" pages through itch.io itself instead.
+    if (platformName === "itch.io" || items.length > FREE_GAMES_ROW_LIMIT) {
         const seeAllBtn = document.createElement("button");
         seeAllBtn.type = "button";
         seeAllBtn.className = "see-all-btn";
         seeAllBtn.textContent = "See all →";
-
-        seeAllBtn.addEventListener("click", () => {
-            // Use "all" scope for Newly Added row (when platformName is undefined)
-            const scopeName = platformName || "all";
-            openSeeAll("free-games-platform", { platformName: scopeName, platformLabel: headingText });
+        seeAllBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (platformName === "itch.io") {
+                openSeeAll("itch");
+                return;
+            }
+            openSeeAll("free-games-platform", {
+                platformLabel: headingText.replace(/\s*\(\d[\d,.]*\)\s*$/, ""),
+                subtitle: platformName ? `Every free game in this row — ${items.length.toLocaleString()} in total` : `Free games added in the last 7 days — ${items.length.toLocaleString()} in total`,
+                items
+            });
         });
         header.appendChild(seeAllBtn);
     }
-
     section.appendChild(header);
 
-    // Create carousel section like "New Series" and "New Anime"
-    const carouselRow = document.createElement("div");
-    carouselRow.className = "hscroll-row";
-    
-    // Left arrow button
+    const row = document.createElement("div");
+    row.className = "hscroll-row";
+
     const leftArrow = document.createElement("button");
+    leftArrow.type = "button";
     leftArrow.className = "carousel-arrow carousel-arrow-left";
     leftArrow.setAttribute("aria-label", "Scroll left");
     leftArrow.textContent = "‹";
-    carouselRow.appendChild(leftArrow);
-    
-    // Carousel track
+
     const track = document.createElement("div");
     track.className = "carousel-track free-games-track";
-    items.slice(0, displayLimit).forEach((g) => track.appendChild(buildFreeGameCard(g, items)));
-    carouselRow.appendChild(track);
-    
-    // Right arrow button
+    const fragment = document.createDocumentFragment();
+    items.slice(0, FREE_GAMES_ROW_LIMIT).forEach((g) => fragment.appendChild(buildFreeGameCard(g, items)));
+    track.appendChild(fragment);
+
     const rightArrow = document.createElement("button");
+    rightArrow.type = "button";
     rightArrow.className = "carousel-arrow carousel-arrow-right";
     rightArrow.setAttribute("aria-label", "Scroll right");
     rightArrow.textContent = "›";
-    carouselRow.appendChild(rightArrow);
-    
-    section.appendChild(carouselRow);
-    
-    // Observe for layout adjustments
-    freeGamesTrackObserver.observe(track);
-    if (platformName) fitFreeGamesTrack(track);
 
+    // One click moves a whole screenful of cards, like turning a page.
+    leftArrow.addEventListener("click", () => track.scrollBy({ left: -(track.clientWidth || 600), behavior: "smooth" }));
+    rightArrow.addEventListener("click", () => track.scrollBy({ left: track.clientWidth || 600, behavior: "smooth" }));
 
-    // Observe for layout adjustments
-    freeGamesTrackObserver.observe(grid);
-    if (platformName) fitFreeGamesPreviewToRows(grid);
-
+    row.appendChild(leftArrow);
+    row.appendChild(track);
+    row.appendChild(rightArrow);
+    section.appendChild(row);
     container.appendChild(section);
-// or a gap after the last visible one.
+
+    freeGamesTrackObserver.observe(track);
+    fitFreeGamesTrack(track);
+}
+
+// Sideways rows: size the cards so a whole number of them exactly fills the
+// visible width at any window size, like the New tab's rows, instead of a
+// card sliced off at the edge or a gap after the last visible one.
 function fitFreeGamesTrack(track) {
     const compact = document.body.classList.contains("density-compact");
     fitHscrollTrack(track, compact ? 160 : 230, 14);
@@ -6073,74 +6060,6 @@ const freeGamesTrackObserver = new ResizeObserver((entries) => {
         else freeGamesTrackObserver.unobserve(entry.target);
     });
 });
-
-// For platforms with more games than a carousel can reasonably be scrolled
-// through by hand (see FREE_GAMES_PREVIEW_CAP): a plain wrapping grid
-// showing just the first N, plus a button that jumps straight into the
-// single-platform full-list view (see renderFreeGames) for the rest —
-// no left/right arrows here at all.
-function buildFreeGamesPreviewSection(container, headingText, items, platformName) {
-    const section = document.createElement("div");
-    section.className = "theatre-block free-games-platform-block";
-    section.dataset.platform = platformName;
-
-    // Create a flex container for heading and "See all" button
-    const header = document.createElement("div");
-    header.className = "theatre-block-header";
-    const headerContent = document.createElement("div");
-    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px;";
-
-    const heading = document.createElement("h2");
-    heading.textContent = headingText;
-    heading.style.cssText = "flex: 1; margin: 0;";
-    headerContent.appendChild(heading);
-
-    // Add "See all" button in the header (right side)
-    const seeAllBtn = document.createElement("button");
-    seeAllBtn.type = "button";
-    seeAllBtn.className = "see-all-btn";
-
-    // Create SVG arrow icon
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("stroke-width", "1.5");
-    svg.setAttribute("stroke", "currentColor");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("stroke-linecap", "round");
-    path.setAttribute("stroke-linejoin", "round");
-    path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
-    svg.appendChild(path);
-
-    // Create text div
-    const textDiv = document.createElement("div");
-    textDiv.className = "see-all-button-text";
-    textDiv.textContent = platformName === "itch.io" ? "View all" : "See all";
-
-    seeAllBtn.appendChild(svg);
-    seeAllBtn.appendChild(textDiv);
-
-    seeAllBtn.addEventListener("click", () => {
-        if (platformName === "itch.io") {
-            openSeeAll("itch");
-            return;
-        }
-        openSeeAll("free-games-platform", { platformName, platformLabel: headingText });
-    });
-    headerContent.appendChild(seeAllBtn);
-
-    header.appendChild(headerContent);
-    section.appendChild(header);
-
-    const grid = document.createElement("div");
-    grid.className = "games-grid browse-grid";
-    items.slice(0, FREE_GAMES_PREVIEW_POOL).forEach((g) => grid.appendChild(buildFreeGameCard(g, items)));
-    section.appendChild(grid);
-    freeGamesPreviewObserver.observe(grid);
-    fitFreeGamesPreviewToRows(grid);
-
-    container.appendChild(section);
-}
 
 // One-click platform buttons — the primary way to jump straight to a
 // single platform's full list (or back to the all-platforms overview)
@@ -6233,7 +6152,6 @@ function renderFreeGames() {
     }
 
     newRow.innerHTML = "";
-    restRow.querySelectorAll(".games-grid").forEach((g) => freeGamesPreviewObserver.unobserve(g));
     document.querySelectorAll("#freeGamesContainer .free-games-track").forEach((t) => freeGamesTrackObserver.unobserve(t));
     restRow.innerHTML = "";
     browseHeading.style.display = "none";
@@ -6368,10 +6286,9 @@ function renderFreeGames() {
     // Below that, the list is always divided by platform, each as its own
     // row — a separate, independent grouping from the platform and genre
     // dropdowns above, which just narrow which games appear in each row
-    // rather than replacing this separation with a flat list. Platforms
-    // with more than FREE_GAMES_PREVIEW_CAP games (Steam, typically) get a
-    // capped preview + "View all" button instead of a scrollable carousel —
-    // scrolling through hundreds of games with arrows isn't practical.
+    // rather than replacing this separation with a flat list. Every row,
+    // however long, is a carousel of its first 20 games with a "See all"
+    // button that pages through the whole row, 100 at a time.
     //
     // Every platform row lists ALL of that platform's matching games, new
     // ones included — leaving this week's additions out (they're also in
@@ -6428,11 +6345,7 @@ function renderFreeGames() {
             : (PLATFORM_LABELS[platformName] || platformName.toUpperCase());
         const icon = PLATFORM_ICONS[platformName] || "🎁";
         const headingText = `${icon} ${label} (${items.length})`;
-        if (items.length > FREE_GAMES_PREVIEW_CAP) {
-            buildFreeGamesPreviewSection(restRow, headingText, items, platformName);
-        } else {
-            buildFreeGamesCarouselSection(restRow, headingText, items, platformName);
-        }
+        buildFreeGamesCarouselSection(restRow, headingText, items, platformName);
     });
 
     wireFreeGamesPlatformDragReorder();
@@ -7172,7 +7085,7 @@ function renderBuyFreeGrid(grid, books, errorMessage, kind, options = {}) {
     // Add "See all" button for Buy Books if there are more than 20 items
     if (shouldShowSeeAll && grid.parentElement) {
         const header = grid.parentElement.querySelector(".reading-room-header");
-        if (header && !header.querySelector(".see-all-button")) {
+        if (header && !header.querySelector(".see-all-btn")) {
             // Determine the kind for the SEE_ALL_KINDS lookup
             let seeAllKind = "buy-books-popular";
             if (grid.id === "mostSoldBooksGrid") {
@@ -8866,7 +8779,7 @@ function renderMovies() {
     // Add "See all" button if more than 20 items
     if (sortedMovies.length > displayLimit && moviesGrid.parentElement) {
         const header = moviesGrid.parentElement.querySelector(".theatre-block-header");
-        if (header && !header.querySelector(".see-all-button")) {
+        if (header && !header.querySelector(".see-all-btn")) {
             const seeAllBtn = makeSeeAllButton("now-playing");
             header.appendChild(seeAllBtn);
         }
@@ -9717,7 +9630,7 @@ function renderUpcomingMovies() {
     // Add "See all" button if more than 20 items
     if (sortedUpcomingMovies.length > displayLimit && grid.parentElement) {
         const header = grid.parentElement.querySelector(".theatre-block-header");
-        if (header && !header.querySelector(".see-all-button")) {
+        if (header && !header.querySelector(".see-all-btn")) {
             const seeAllBtn = makeSeeAllButton("upcoming-movies");
             header.appendChild(seeAllBtn);
         }
@@ -9854,7 +9767,7 @@ function renderNewShows() {
     // Add "See all" button if more than 20 items
     if (sortedNewShows.length > displayLimit && grid.parentElement) {
         const header = grid.parentElement.querySelector(".theatre-block-header");
-        if (header && !header.querySelector(".see-all-button")) {
+        if (header && !header.querySelector(".see-all-btn")) {
             const seeAllBtn = makeSeeAllButton("new-series");
             header.appendChild(seeAllBtn);
         }
@@ -9913,7 +9826,7 @@ function renderNewAnime() {
     // Add "See all" button if more than 20 items
     if (sortedNewAnime.length > displayLimit && grid.parentElement) {
         const header = grid.parentElement.querySelector(".theatre-block-header");
-        if (header && !header.querySelector(".see-all-button")) {
+        if (header && !header.querySelector(".see-all-btn")) {
             const seeAllBtn = makeSeeAllButton("new-anime");
             header.appendChild(seeAllBtn);
         }
@@ -10237,6 +10150,7 @@ const SEE_ALL_KINDS = {
     },
     // Store subsections
     "store-newly-added": {
+        local: true,
         title: () => "🆕 Newly Added",
         noun: "deals",
         subtitle: () => "The newest game deals added in the last 3 days",
@@ -10248,6 +10162,7 @@ const SEE_ALL_KINDS = {
         build: (it, list) => buildStoreDealCard(it)
     },
     "store-most-popular": {
+        local: true,
         title: () => "🔥 Most Popular",
         noun: "deals",
         subtitle: () => "The most reviewed games with current deals, by popularity",
@@ -10259,6 +10174,7 @@ const SEE_ALL_KINDS = {
         build: (it, list) => buildStoreDealCard(it)
     },
     "store-recommended": {
+        local: true,
         title: () => "⭐ Recommended",
         noun: "deals",
         subtitle: () => "Well-reviewed games with great deals (40% off or more)",
@@ -10269,11 +10185,13 @@ const SEE_ALL_KINDS = {
         posters: true,
         build: (it, list) => buildStoreDealCard(it)
     },
-    // Free Games by platform - dynamic platforms like steam, epic, gog, etc.
+    // Free Games rows: the row's own games, already in memory (local: no
+    // fetching), so the panel shows exactly what the row was cut from.
     "free-games-platform": {
-        title: (ctx) => `${ctx.icon || "🎁"} ${ctx.platformLabel || ctx.platformName}`,
+        local: true,
+        title: (ctx) => ctx.platformLabel || "Free Games",
         noun: "games",
-        subtitle: (ctx) => `All free games from ${ctx.platformName}`,
+        subtitle: (ctx) => ctx.subtitle || "",
         mediaType: () => "game",
         name: (it) => it.name,
         date: null,
@@ -10392,6 +10310,14 @@ function renderSeeAllAppend() {
 async function loadSeeAllPage() {
     const state = seeAllState;
     if (!state || state.loading || !state.hasMore) return;
+    if (SEE_ALL_KINDS[state.kind].local) {
+        state.items = (state.ctx.items || []).slice();
+        state.totalResults = state.items.length;
+        state.hasMore = false;
+        state.autoLoad = false;
+        renderSeeAll();
+        return;
+    }
     state.loading = true;
     updateSeeAllStatus();
     const token = state.token;
@@ -10535,27 +10461,7 @@ function makeSeeAllButton(kind, ctx) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "see-all-btn";
-
-    // Create SVG arrow icon
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("stroke-width", "1.5");
-    svg.setAttribute("stroke", "currentColor");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("stroke-linecap", "round");
-    path.setAttribute("stroke-linejoin", "round");
-    path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
-    svg.appendChild(path);
-
-    // Create text div
-    const textDiv = document.createElement("div");
-    textDiv.className = "see-all-btn-text";
-    textDiv.textContent = "See all";
-
-    btn.appendChild(svg);
-    btn.appendChild(textDiv);
-
+    btn.textContent = "See all →";
     btn.addEventListener("click", (event) => {
         event.stopPropagation();
         openSeeAll(kind, ctx);
@@ -12344,97 +12250,58 @@ function buildStoreSpotlightSection(container, headingText, items, kind = null) 
     section.className = "theatre-block free-games-platform-block";
     const header = document.createElement("div");
     header.className = "theatre-block-header";
-
-    // Create a flex container for heading and "See all" button
-    const headerContent = document.createElement("div");
-    headerContent.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%;";
-
     const h2 = document.createElement("h2");
     h2.textContent = headingText;
-    headerContent.appendChild(h2);
+    header.appendChild(h2);
 
-    // Add "See all" button if more than 20 items and kind is specified
-    const displayLimit = 20;
-    if (items.length > displayLimit && kind) {
+    if (kind && items.length > STORE_ROW_LIMIT) {
         const seeAllBtn = document.createElement("button");
         seeAllBtn.type = "button";
         seeAllBtn.className = "see-all-btn";
-
-        // Create SVG arrow icon
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("fill", "none");
-        svg.setAttribute("viewBox", "0 0 24 24");
-        svg.setAttribute("stroke-width", "1.5");
-        svg.setAttribute("stroke", "currentColor");
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("stroke-linecap", "round");
-        path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("d", "M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75");
-        svg.appendChild(path);
-
-        // Create text div
-        const textDiv = document.createElement("div");
-        textDiv.className = "see-all-button-text";
-        textDiv.textContent = "See all";
-
-        seeAllBtn.appendChild(svg);
-        seeAllBtn.appendChild(textDiv);
-
-        seeAllBtn.addEventListener("click", () => {
-            openSeeAll(kind);
+        seeAllBtn.textContent = "See all →";
+        seeAllBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openSeeAll(kind, { items });
         });
-        headerContent.appendChild(seeAllBtn);
+        header.appendChild(seeAllBtn);
     }
-
-    header.appendChild(headerContent);
     section.appendChild(header);
 
-    const grid = document.createElement("div");
-    grid.className = "games-grid browse-grid";
-    // Limit display to 20 items
-    items.slice(0, displayLimit).forEach((deal) => grid.appendChild(buildStoreDealCard(deal)));
-    section.appendChild(grid);
-
+    const row = document.createElement("div");
+    row.className = "hscroll-row";
+    const leftArrow = document.createElement("button");
+    leftArrow.type = "button";
+    leftArrow.className = "carousel-arrow carousel-arrow-left";
+    leftArrow.setAttribute("aria-label", "Scroll left");
+    leftArrow.textContent = "‹";
+    const track = document.createElement("div");
+    track.className = "carousel-track free-games-track";
+    const fragment = document.createDocumentFragment();
+    items.slice(0, STORE_ROW_LIMIT).forEach((deal) => fragment.appendChild(buildStoreDealCard(deal)));
+    track.appendChild(fragment);
+    const rightArrow = document.createElement("button");
+    rightArrow.type = "button";
+    rightArrow.className = "carousel-arrow carousel-arrow-right";
+    rightArrow.setAttribute("aria-label", "Scroll right");
+    rightArrow.textContent = "›";
+    leftArrow.addEventListener("click", () => track.scrollBy({ left: -(track.clientWidth || 600), behavior: "smooth" }));
+    rightArrow.addEventListener("click", () => track.scrollBy({ left: track.clientWidth || 600, behavior: "smooth" }));
+    row.appendChild(leftArrow);
+    row.appendChild(track);
+    row.appendChild(rightArrow);
+    section.appendChild(row);
     container.appendChild(section);
-    storeSpotlightGridObserver.observe(grid);
-    fitStoreSpotlightToFullRows(grid);
+
+    freeGamesTrackObserver.observe(track);
+    fitFreeGamesTrack(track);
 }
 
-// How many days a deal counts as "newly added", and roughly how many cards
-// each spotlight row previews -- these are curated highlights, not full
-// lists. Each row gets a larger pool of candidates (STORE_SPOTLIGHT_POOL)
-// and then shows exactly enough of them to fill its last line of cards,
-// so a row never ends with empty slots (see fitStoreSpotlightToFullRows).
+// Each Store spotlight row is a carousel of the first STORE_ROW_LIMIT deals;
+// its "See all" panel pages through the complete list, 100 per page.
+const STORE_ROW_LIMIT = 20;
+
+// How many days a deal counts as "newly added".
 const STORE_NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
-const STORE_SPOTLIGHT_ROWS = 2;
-const STORE_SPOTLIGHT_POOL = 48;
-
-// Shows exactly STORE_SPOTLIGHT_ROWS full lines of cards at the current
-// window width, same as Free Games' platform previews: a wider window
-// reveals more deals from the pool, a narrower one hides the ones that no
-// longer fit. If the pool runs out before that, the half-empty last line
-// is dropped instead (unless the row has less than one line to begin with).
-function fitStoreSpotlightToFullRows(grid) {
-    const cards = Array.from(grid.children);
-    if (cards.length === 0) return;
-    const tracks = getComputedStyle(grid).gridTemplateColumns;
-    const columns = tracks && tracks !== "none" ? tracks.split(" ").filter(Boolean).length : 0;
-    if (columns < 1) return; // not laid out yet (tab hidden) -- the observer re-runs this
-    let show = Math.min(cards.length, STORE_SPOTLIGHT_ROWS * columns);
-    if (show > columns && show % columns !== 0) show -= show % columns;
-    cards.forEach((card, i) => { card.style.display = i < show ? "" : "none"; });
-    const h2 = grid.parentElement && grid.parentElement.querySelector(".theatre-block-header h2");
-    if (h2) h2.textContent = h2.textContent.replace(/\(\d+\)$/, `(${show})`);
-}
-
-// Re-fits every spotlight row whenever its width changes (window resize,
-// sidebar toggle, or the Store tab first becoming visible).
-const storeSpotlightGridObserver = new ResizeObserver((entries) => {
-    entries.forEach((entry) => {
-        if (entry.target.isConnected) fitStoreSpotlightToFullRows(entry.target);
-        else storeSpotlightGridObserver.unobserve(entry.target);
-    });
-});
 
 function renderStoreDeals() {
     const grid = document.getElementById("storeGrid");
@@ -12444,7 +12311,6 @@ function renderStoreDeals() {
     const noResults = document.getElementById("storeNoResults");
     const resultCount = document.getElementById("storeResultCount");
     grid.innerHTML = "";
-    newRow.querySelectorAll(".games-grid").forEach((g) => storeSpotlightGridObserver.unobserve(g));
     newRow.innerHTML = "";
     browseHeading.style.display = "none";
 
@@ -12466,7 +12332,7 @@ function renderStoreDeals() {
     const newlyAdded = storeDealsCache
         .filter((d) => (d.firstSeenAt || 0) > now - STORE_NEW_WINDOW_MS)
         .sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1))
-        .slice(0, STORE_SPOTLIGHT_POOL);
+;
     if (newlyAdded.length > 0) {
         buildStoreSpotlightSection(newRow, `🆕 Newly Added (${newlyAdded.length})`, newlyAdded, "store-newly-added");
     }
@@ -12521,7 +12387,7 @@ function renderStoreDeals() {
         const mostPopular = deals
             .filter((d) => d.popularity != null)
             .sort((a, b) => b.popularity - a.popularity)
-            .slice(0, STORE_SPOTLIGHT_POOL);
+    ;
 
         // "Recommended" here means well-reviewed games (a real Steam
         // popularity signal, not a guess) that also happen to be a
@@ -12531,7 +12397,7 @@ function renderStoreDeals() {
         const recommended = deals
             .filter((d) => d.popularity != null && (d.discountPercent || 0) >= 40)
             .sort((a, b) => b.popularity - a.popularity)
-            .slice(0, STORE_SPOTLIGHT_POOL);
+    ;
 
         if (mostPopular.length > 0) buildStoreSpotlightSection(newRow, `🔥 Most Popular (${mostPopular.length})`, mostPopular, "store-most-popular");
         if (recommended.length > 0) buildStoreSpotlightSection(newRow, `⭐ Recommended (${recommended.length})`, recommended, "store-recommended");

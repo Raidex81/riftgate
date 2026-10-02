@@ -1,6 +1,6 @@
 {
   "name": "riftgate",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Riftgate - all your worlds, one gateway: a personal entertainment hub for your games, movies, TV, anime, books, apps, free content and deals.",
   "main": "main.js",
   "scripts": {
@@ -67,7 +67,16 @@
       "!**/*.bak-*",
       "!**/*.bak.*",
       "!**/*.orig",
-      "!assets/riftgate-banner*"
+      "!assets/riftgate-banner*",
+      "!**/*.bundle",
+      "!**/*.blockmap",
+      "!latest.yml",
+      "!latest-mac.yml",
+      "!**/*.patch",
+      "!**/*.sed",
+      "!build-release.bat",
+      "!new.jpg",
+      "!*.exe"
     ],
     "asarUnpack": [
       "icons/**/*"
