@@ -4,6 +4,7 @@
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";
 import { showtimesUrl } from "../app/regions.js";
 import * as seen from "../app/seen.js";
+import { manageBox } from "../app/library-tools.js";
 import { call, cached, openExternal, forget, country } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { TYPE_LABEL } from "../app/items.js";
@@ -54,7 +55,8 @@ export function openDetail(item) {
         cover, closeBtn,
         h("div.detail-main", null, poster, head),
         journalBox(item),
-        h("div.detail-section", null, h("h3", null, "About"), desc));
+        h("div.detail-section", null, h("h3", null, "About"), desc),
+        item.kind === "library" ? manageBox(item, () => closeDetail()) : null);
 
     const onKey = (e) => { if (e.key === "Escape") closeDetail(); };
     document.addEventListener("keydown", onKey);

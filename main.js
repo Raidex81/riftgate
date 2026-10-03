@@ -8936,5 +8936,21 @@ ipcMain.handle("r2-theme-unpublish", async (event, id) => {
     return { ok: !!(r.success && r.result === true) };
 });
 
+// --- Riftgate 2: show a library item in its folder ------------------------------
+// Only for paths that are actually in the library (never an arbitrary path).
+ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
+    try {
+        if (typeof itemPath !== "string" || !fs.existsSync(GAMES_FILE)) return false;
+        const games = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8"));
+        if (!games.some((g) => g.path === itemPath)) return false;
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(itemPath) && !/^file:/i.test(itemPath)) return false; // steam:// etc.
+        if (!fs.existsSync(itemPath)) return false;
+        shell.showItemInFolder(itemPath);
+        return true;
+    } catch (err) {
+        return false;
+    }
+});
+
 // --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------
 require("./services/r2-store").register(ipcMain, app);

@@ -6,6 +6,7 @@ import * as D from "../app/data.js";
 import { card } from "../components/card.js";
 import { toast } from "../components/toast.js";
 import { hours, ago, plural } from "../app/format.js";
+import { missingNotice } from "../app/library-tools.js";
 
 const FILTERS = [
     { id: "all", label: "Everything", test: () => true },
@@ -28,6 +29,10 @@ export default {
         const sortSel = h("select.input", { "aria-label": "Sort" }, Object.entries(SORTS).map(([k, s]) => h("option", { value: k }, s.label)));
         const search = h("input.input", { type: "search", placeholder: "Filter your library", "aria-label": "Filter your library", style: { width: "220px" } });
         const summary = h("p");
+        const notices = h("div");
+        missingNotice(() => reload(true)).then((n) => { if (n && root.isConnected) notices.appendChild(n); });
+        const onChanged = () => { if (!root.isConnected) return window.removeEventListener("r2-library-changed", onChanged); reload(true); };
+        window.addEventListener("r2-library-changed", onChanged);
 
         root.append(
             h("div.view-head", null,
@@ -35,8 +40,10 @@ export default {
                 h("div.actions", null,
                     h("button.btn", { type: "button", onclick: () => scanPc(reload) }, icon("search"), "Scan this PC"),
                     h("button.btn.primary", { type: "button", onclick: () => addOne(reload) }, icon("plus"), "Add a game or app"))),
+            notices,
             h("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", marginBottom: "28px" } }, chips, h("div", { style: { flex: 1 } }), search, sortSel),
-            grid);
+            grid,
+            h("p.muted.drop-hint", null, icon("plus"), "Tip: drop a game, app or shortcut anywhere on the window to add it."));
 
         let all = [];
         async function reload(fresh) {

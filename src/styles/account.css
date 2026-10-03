@@ -194,7 +194,9 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .controls-row-note { color: var(--dust); font-style: italic; }
 
 /* ---- Already watched ---------------------------------------------------------------------- */
-.watch-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 3px 9px; font-size: var(--t-xs); font-weight: 600;
+.card-info:has(.watch-toggle) { flex: 1; }
+.card-info:has(.watch-toggle) .card-sub { margin-bottom: 8px; }
+.watch-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: auto; flex: none; padding: 3px 9px; font-size: var(--t-xs); font-weight: 600;
     color: var(--starlight-2); background: var(--nebula-3); border: 1px solid var(--line); cursor: pointer; width: max-content; border-radius: 999px; }
 .watch-toggle svg { width: 12px; height: 12px; }
 .watch-toggle:hover { color: var(--hi); border-color: var(--amethyst); }
@@ -217,3 +219,29 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .cl-badge { fill: #3a2c5c; stroke: rgba(255,255,255,.35); stroke-width: 1; }
 .cl-badge-text { fill: #fff; font: 800 13px "Segoe UI", system-ui, sans-serif; }
 .cl-text { fill: #f4f0ff; font: 700 14px "Segoe UI", system-ui, sans-serif; letter-spacing: .05em; }
+
+/* ---- Library tools -------------------------------------------------------------------------- */
+.drop-veil { position: fixed; inset: 0; z-index: 97; display: grid; place-items: center; pointer-events: none;
+    background: color-mix(in srgb, var(--void) 70%, transparent); outline: 3px dashed var(--amethyst); outline-offset: -18px; }
+.drop-veil > div { display: grid; justify-items: center; gap: 8px; text-align: center; }
+.drop-veil svg { width: 54px; height: 54px; color: var(--amethyst-soft); }
+.drop-veil b { font-family: var(--font-display); font-size: var(--t-2xl); }
+.drop-veil span { color: var(--dust); }
+.drop-hint { display: flex; align-items: center; gap: 6px; margin-top: var(--s8); font-size: var(--t-sm); }
+.drop-hint svg { width: 14px; height: 14px; }
+.new-installs { position: fixed; right: var(--s6); bottom: var(--s6); z-index: 90; width: min(420px, 92vw); padding: var(--s4) var(--s5); display: grid; gap: var(--s2);
+    background: var(--nebula); border: 1px solid var(--amethyst); box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: fade var(--mid) var(--ease); }
+.ni-head { display: flex; align-items: center; gap: var(--s2); }
+.ni-head svg { width: 18px; height: 18px; color: var(--amethyst-soft); }
+.ni-head .icon-btn { margin-left: auto; }
+.ni-list, .missing-list { display: grid; gap: 6px; margin-top: 6px; }
+.ni-row { display: flex; align-items: center; gap: var(--s2); }
+.ni-row > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ni-row .btn { height: 30px; padding: 0 var(--s3); font-size: var(--t-sm); }
+.ni-row.done { opacity: .5; }
+.notice.missing { align-items: flex-start; }
+.manage { display: grid; gap: var(--s3); }
+.manage-row { display: flex; gap: var(--s4); align-items: flex-end; flex-wrap: wrap; }
+.manage-row .field { width: 160px; }
+.manage-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.manage-actions .btn { height: 34px; padding: 0 var(--s3); font-size: var(--t-sm); }
