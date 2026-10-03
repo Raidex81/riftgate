@@ -347,6 +347,7 @@ function startInstallWatcher(getGamesFilePath, onDetected) {
     };
     setTimeout(run, 20 * 1000);   // shortly after launch
     setInterval(run, 3600000);    // then once an hour
+    return { checkNow: run };
 }
 
 // Mac apps update in place inside the same .app bundle rather than the

@@ -27,7 +27,7 @@ import themesView from "../views/themes.js";
 import suggestionsView from "../views/suggestions.js";
 import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
 import * as gamepad from "./gamepad.js";
-import { enableDrop, watchNewInstalls } from "./library-tools.js";
+import { enableDrop, watchNewInstalls, watchUninstalls } from "./library-tools.js";
 import settings from "../views/settings.js";
 
 setDetailOpener(openDetail);
@@ -190,6 +190,7 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     gamepad.start();
     enableDrop((p) => reading.addEbook(p).then((ok) => { if (ok) { location.hash = "reading"; } return ok; }));
     watchNewInstalls();
+    watchUninstalls();
     buildRail();
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {

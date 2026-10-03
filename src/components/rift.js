@@ -426,7 +426,7 @@ export class Rift {
             ctx.restore();
         };
         spin(ring.inner, t * .08, 1.1);
-        spin(ring.outer, t * .12 + .4, .8);
+        spin(ring.outer, -t * .12 + .4, .8); // the outer ring turns the other way, a bit faster
         ctx.globalCompositeOperation = "source-over";
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to

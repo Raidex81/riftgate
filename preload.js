@@ -216,7 +216,7 @@ const LISTENABLE_CHANNELS = new Set([
     "dropzone-file-detected",
     "fullscreen-changed",
     "maximize-changed",
-    "new-install-detected",
+    "new-install-detected", "r2-missing-detected",
     "update-available",
     "update-download-progress",
     "update-downloaded",

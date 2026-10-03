@@ -351,3 +351,8 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .addlib-foot .grow { flex: 1; }
 .addlib-note { font-size: var(--t-sm); color: var(--dust); }
 @media (max-width: 560px) { .addlib-item { grid-template-columns: 64px 1fr auto; } .addlib-cats { grid-template-columns: repeat(2, 1fr); } }
+/* Uninstalled from this PC (same family as Add to your library) */
+.gone-mark { background: linear-gradient(135deg, #ff5a6e, var(--rift-pink)); box-shadow: 0 0 22px color-mix(in srgb, #ff5a6e 60%, transparent); }
+.addlib-cats.three { grid-template-columns: repeat(3, 1fr); }
+.addlib-name.static { padding: 8px 0 2px; display: block; }
+.ni-all { margin-top: var(--s2); width: 100%; justify-content: center; }

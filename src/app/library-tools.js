@@ -6,7 +6,8 @@
 //   • per item: notes, category, cover, show in folder, find mods,
 //     uninstall, remove from Riftgate.
 
-import { h, icon, clear } from "./dom.js";
+import { h, icon, clear, art } from "./dom.js";
+import * as journal from "./store.js";
 import { call, forget, on, openExternal } from "./api.js";
 import * as D from "./data.js";
 import { toast } from "../components/toast.js";
@@ -86,17 +87,110 @@ export function watchNewInstalls() {
         const panel = h("aside.new-installs", { role: "dialog", "aria-label": "New on this PC" },
             h("div.ni-head", null, icon("sparkles"), h("b", null, candidates.length === 1 ? "Just installed" : `${candidates.length} new on this PC`),
                 h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: () => panel.remove() }, icon("x"))),
-            h("p.muted", null, "Add them to your library?"), list);
+            h("p.muted", null, "Add them to your library?"), list,
+            candidates.length > 1 ? h("button.btn.primary.ni-all", { type: "button", onclick: async () => { if (await openAddDialog(candidates.map((c) => c.path))) panel.remove(); } }, icon("plus"), `Add all ${candidates.length}…`) : null);
         candidates.forEach((c) => {
             const add = h("button.btn.primary", { type: "button" }, icon("plus"), "Add");
             const no = h("button.btn.ghost", { type: "button", title: "Don't ask again for this one" }, "Not interested");
             const row = h("div.ni-row", null, h("span", null, c.name || nameFromPath(c.path)), add, no);
-            add.onclick = async () => { add.disabled = no.disabled = true; await addFromPath(c.path, c.category || "game"); row.classList.add("done"); };
+            // through the same popup as a drop: cover, name and a detected category to confirm
+            add.onclick = async () => { if (await openAddDialog([c.path])) { row.remove(); if (!list.children.length) panel.remove(); } };
             no.onclick = async () => { await call("dismiss-import", c.path); row.remove(); if (!list.children.length) panel.remove(); };
             list.appendChild(row);
         });
         document.body.appendChild(panel);
     });
+}
+
+// ---- Uninstalled from this PC ------------------------------------------------------------------
+// The engine notices when something in your library is gone from the PC
+// (right after an uninstaller removes its shortcut, when you come back to
+// Riftgate, and hourly) and Riftgate asks what to do: remove it here too,
+// keep it (never asked again for it), or point to where it is now.
+const askedThisSession = new Set();
+export function watchUninstalls() {
+    on("r2-missing-detected", async (missing) => {
+        if (!Array.isArray(missing) || !missing.length) return;
+        await journal.load();
+        const kept = new Set(journal.pref("missing:kept", []) || []);
+        const fresh = missing.filter((m) => m && m.path && !kept.has(m.path) && !askedThisSession.has(m.path));
+        if (!fresh.length) return;
+        fresh.forEach((m) => askedThisSession.add(m.path));
+        openUninstalledDialog(fresh);
+    });
+}
+
+let goneOpen = null;
+function openUninstalledDialog(items) {
+    if (goneOpen) { items.forEach((m) => goneOpen.add(m)); return; }
+    const entries = [];
+    const list = h("div.addlib-list");
+    const apply = h("button.btn.primary.lg", { type: "button" }, icon("check"), h("span", null, "Apply"));
+    const later = h("button.btn.ghost.lg", { type: "button", onclick: () => close() }, "Ask me later");
+    const box = h("div.addlib-box.gone-box", { role: "dialog", "aria-modal": "true", "aria-label": "Uninstalled from this PC" },
+        h("div.addlib-head", null,
+            h("div.addlib-mark.gone-mark", null, icon("trash")),
+            h("div", null, h("h2", null, items.length === 1 ? "Uninstalled from this PC" : `${items.length} uninstalled from this PC`),
+                h("p.muted", null, "They're no longer on this computer. Remove them from Riftgate too?")),
+            h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: () => close() }, icon("x"))),
+        list,
+        h("div.addlib-foot", null, h("p.addlib-note", null, "Your Journal notes and ratings stay either way."), h("div.grow"), later, apply));
+    const wrap = h("div.addlib", { onclick: (e) => { if (e.target === wrap) close(); } }, box);
+    const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } };
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    function close() { document.removeEventListener("keydown", onKey, true); wrap.classList.add("closing"); setTimeout(() => wrap.remove(), 180); goneOpen = null; }
+    const CHOICES = [{ id: "remove", label: "Remove", icon: "trash", hint: "From Riftgate" }, { id: "keep", label: "Keep", icon: "check", hint: "Don't ask again" }, { id: "locate", label: "Locate…", icon: "folder", hint: "It moved" }];
+    const paintApply = () => {
+        const live = entries.filter((e) => !e.done);
+        const n = live.filter((e) => e.choice === "remove").length;
+        apply.querySelector("span").textContent = n ? `Remove ${n} from Riftgate` : "Done";
+        if (!live.length) close();
+    };
+    async function add(m) {
+        const e = { ...m, choice: "remove" };
+        entries.push(e);
+        const games = (await call("load-games")) || [];
+        const g = games.find((x) => x.path === m.path) || {};
+        const why = h("p.addlib-why");
+        const choices = h("div.addlib-cats.three", { role: "radiogroup", "aria-label": "What to do" });
+        const paint = () => {
+            clear(choices);
+            CHOICES.forEach((c) => choices.appendChild(h("button.addlib-cat", { type: "button", role: "radio", "aria-checked": String(e.choice === c.id), "aria-pressed": String(e.choice === c.id),
+                onclick: async () => {
+                    if (c.id === "locate") {
+                        const exe = await call("select-exe");
+                        if (!exe) return;
+                        await call("save-game", { ...g, path: exe });
+                        await call("remove-game", m.path);
+                        changed();
+                        e.done = true; row.dataset.state = "ready"; clear(why).append(icon("check"), `Found: ${exe}`);
+                        choices.remove(); paintApply();
+                        return;
+                    }
+                    e.choice = c.id; paint(); paintApply();
+                } }, icon(c.icon), h("b", null, c.label), h("small", null, c.hint))));
+        };
+        clear(why).append(icon("info"), `It was at ${m.path}`);
+        const row = h("article.addlib-item", { dataset: { state: "ready" } },
+            h("div.addlib-cover", null, art(g.image && g.image !== "covers/default.jpg" ? g.image : null, m.name)),
+            h("div.addlib-info", null, h("b.addlib-name.static", null, m.name || "Unknown"), why, choices), h("span"));
+        list.appendChild(row);
+        paint(); paintApply();
+    }
+    apply.onclick = async () => {
+        apply.disabled = later.disabled = true;
+        const live = entries.filter((e) => !e.done);
+        const removed = live.filter((e) => e.choice === "remove");
+        const keep = live.filter((e) => e.choice === "keep").map((e) => e.path);
+        for (const e of removed) await call("remove-game", e.path);
+        if (keep.length) await journal.setPref("missing:kept", [...new Set([...(journal.pref("missing:kept", []) || []), ...keep])]);
+        if (removed.length) { changed(); toast(removed.length === 1 ? `Removed ${removed[0].name} from Riftgate` : `Removed ${removed.length} from Riftgate`); }
+        else if (keep.length) toast("Kept. Riftgate won't ask about them again.");
+        close();
+    };
+    goneOpen = { add };
+    items.forEach(add);
 }
 
 // ---- Missing games -------------------------------------------------------------------------

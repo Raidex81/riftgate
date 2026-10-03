@@ -4724,14 +4724,52 @@ ipcMain.handle("select-exe", async () => {
 // behind platform.isProcessRunning() and platform.startInstallWatcher().
 // Both platforms now compare snapshots once an hour: Desktop/Start Menu
 // shortcut targets on Windows, /Applications on Mac.
-platform.startInstallWatcher(
-    () => GAMES_FILE,
-    (candidates) => {
-        if (win && !win.isDestroyed()) {
-            win.webContents.send("new-install-detected", candidates);
-        }
+// Riftgate 2: the watcher also reacts within seconds to shortcut / Steam
+// library changes, and every check also looks for store installs (Steam,
+// Epic manifests) and for library items that were uninstalled.
+const r2SendToWindow = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
+function r2StoreInstallCheck() {
+    try {
+        const snapFile = path.join(app.getPath("userData"), "r2-store-snapshot.json");
+        const found = platform.scanStoreManifests() || [];
+        let previous = null;
+        try { previous = new Set(JSON.parse(fs.readFileSync(snapFile, "utf8")).map((p) => String(p).toLowerCase())); } catch (e) { previous = null; }
+        fs.writeFileSync(snapFile, JSON.stringify(found.map((g) => g.path)));
+        if (!previous) return; // first run: this is the baseline
+        let inLibrary = new Set(), dismissed = new Set();
+        try { inLibrary = new Set(JSON.parse(fs.readFileSync(GAMES_FILE, "utf8")).map((g) => String(g.path || "").toLowerCase())); } catch (e) { /* none yet */ }
+        try { dismissed = new Set((JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")).dismissedImports || []).map((p) => String(p).toLowerCase())); } catch (e) { /* none */ }
+        const fresh = found.filter((g) => g.path && !previous.has(g.path.toLowerCase()) && !inLibrary.has(g.path.toLowerCase()) && !dismissed.has(g.path.toLowerCase()))
+            .map((g) => ({ name: g.name, path: g.path, source: g.source, category: "game" }));
+        if (fresh.length) r2SendToWindow("new-install-detected", fresh);
+    } catch (err) {
+        console.error("[r2-install-detect]", err.message || err);
     }
+}
+let r2MissingBusy = false;
+async function r2MissingCheck() {
+    if (r2MissingBusy) return;
+    r2MissingBusy = true;
+    try {
+        const missing = await r2FindMissingGames();
+        if (missing.length) r2SendToWindow("r2-missing-detected", missing);
+    } finally { r2MissingBusy = false; }
+}
+const r2InstallWatcher = platform.startInstallWatcher(
+    () => GAMES_FILE,
+    (candidates) => r2SendToWindow("new-install-detected", candidates),
+    () => { r2StoreInstallCheck(); r2MissingCheck(); }
 );
+setTimeout(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 25 * 1000);
+setInterval(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 3600000);
+// coming back to Riftgate is a good moment to look again (at most every 10 minutes)
+let r2LastFocusCheck = 0;
+app.on("browser-window-focus", () => {
+    if (Date.now() - r2LastFocusCheck < 10 * 60 * 1000) return;
+    r2LastFocusCheck = Date.now();
+    if (r2InstallWatcher && r2InstallWatcher.checkNow) r2InstallWatcher.checkNow();
+    r2StoreInstallCheck(); r2MissingCheck();
+});
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];
@@ -6971,7 +7009,7 @@ ipcMain.handle("download-free-ebook", async (event, book) => {
 // platform.findRelocatedApp() — Mac apps don't use this update scheme, so
 // mac.js's version is a no-op that always returns null.
 
-ipcMain.handle("check-missing-games", async () => {
+async function r2FindMissingGames() {
     if (!fs.existsSync(GAMES_FILE)) return [];
 
     try {
@@ -7017,7 +7055,8 @@ ipcMain.handle("check-missing-games", async () => {
         console.error("[missing-games] check failed:", err.message || err);
         return [];
     }
-});
+}
+ipcMain.handle("check-missing-games", () => r2FindMissingGames());
 
 ipcMain.handle("remove-game", async (event, gamePath) => {
 
