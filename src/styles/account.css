@@ -372,3 +372,7 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .wp-field > span { font-size: var(--t-xs); color: var(--dust); text-transform: uppercase; letter-spacing: .08em; }
 .match-btn { width: 100%; justify-content: center; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 45%, transparent); color: var(--hi); }
 .match-btn.busy svg { animation: spin 1s linear infinite; }
+
+/* Picked for you: why each one is there */
+.card-foot.reason { color: var(--amethyst-soft); font-size: var(--t-xs); flex-wrap: nowrap; min-width: 0; }
+.card-foot.reason span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

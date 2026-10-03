@@ -5,6 +5,7 @@ import { call, openExternal } from "../app/api.js";
 import { openTickets } from "../app/regions.js";
 import * as D from "../app/data.js";
 import { firstWithLandscape } from "../app/landscape.js";
+import * as foryou from "../app/foryou.js";
 import * as seen from "../app/seen.js";
 import * as journal from "../app/store.js";
 import { hero } from "../components/hero.js";
@@ -128,6 +129,8 @@ export default {
         const noMature = (l) => l.filter((x) => !x.mature);
         const rows = [
             row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true }, seeAllTitle: "Your journey: everything you added", seeAll: () => journey().then((j) => j.all) }),
+            row({ title: "Picked for you", icon: "sparkles", items: () => foryou.picks({ limit: 60 }), hideEmpty: true, cardOpts: { showType: true, reasons: true },
+                note: "From what you play, watch, read and open", seeAllTitle: "Picked for you" }),
             row({ title: "Free right now", icon: "gift", seeAllTitle: "All free games",
                 items: () => D.freeGames().then((l) => l.filter((g) => !g.alwaysFree).sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))) }),
             row({ title: "New episodes", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), hideEmpty: true }),

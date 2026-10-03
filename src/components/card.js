@@ -117,6 +117,7 @@ export function card(item, opts) {
 
 function footFor(item, opts) {
     if (opts.foot) return h("div.card-foot", null, opts.foot);
+    if (opts.reasons && item.reason) return h("div.card-foot.reason", { title: item.reason }, icon("sparkles"), h("span", null, item.reason));
     if (item.price && typeof item.price.final === "number") {
         return h("div.card-foot", null,
             item.price.original ? h("s.muted", null, money(item.price.original, item.price.currency)) : null,

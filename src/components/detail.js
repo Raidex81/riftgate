@@ -11,6 +11,7 @@ import { TYPE_LABEL } from "../app/items.js";
 import { hours, ago, dateLong, money, score, countdown, tickCountdowns } from "../app/format.js";
 import { toast } from "./toast.js";
 import { coverQuery } from "./card.js";
+import { recordView } from "../app/foryou.js";
 
 let current = null;
 
@@ -24,6 +25,7 @@ export function closeDetail() {
 
 export function openDetail(item) {
     closeDetail();
+    recordView(item); // what you look at shapes "Picked for you" (kept on this PC only)
     const returnFocus = document.activeElement;
 
     const cover = h("div.detail-cover");
