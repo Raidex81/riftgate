@@ -6,11 +6,22 @@
 const memo = new Map();
 const bridge = () => window.riftgate;
 
+// When the interface is newer than the engine still running in the tray
+// (the window reloads from disk, the engine only on a real restart), new
+// features fail with "No handler registered" or a blocked channel. Say so.
+export const RESTART_HINT = "Riftgate needs a full restart to finish updating: right-click its icon in the system tray, choose Quit, then open it again.";
+let warnedOutdated = false;
+export function engineOutdated() { return warnedOutdated; }
+
 export async function call(channel, ...args) {
     try {
         return await bridge().invoke(channel, ...args);
     } catch (err) {
         console.error(`[r2] ${channel} failed:`, err);
+        if (/No handler registered|not an allowed invoke channel/i.test(String(err && err.message))) {
+            if (!warnedOutdated) window.dispatchEvent(new CustomEvent("r2-engine-outdated"));
+            warnedOutdated = true;
+        }
         return null;
     }
 }

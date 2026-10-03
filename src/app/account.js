@@ -3,7 +3,7 @@
 // and puts your name on what you share. The engine keeps the session token;
 // this side only knows your username.
 
-import { call } from "./api.js";
+import { call, engineOutdated, RESTART_HINT } from "./api.js";
 
 let state = { signedIn: false, username: null, checked: false };
 const listeners = new Set();
@@ -18,7 +18,7 @@ export async function restore() {
 }
 async function done(r) {
     if (r && r.ok) set({ signedIn: true, username: r.username, offline: false });
-    return r || { ok: false, error: "Something went wrong. Try again." };
+    return r || { ok: false, error: engineOutdated() ? RESTART_HINT : "Riftgate couldn't finish that. Check your connection and try again." };
 }
 export const signIn = (username, password) => call("r2-account-sign-in", { username, password }).then(done);
 export const signUp = (username, password, dateOfBirth) => call("r2-account-sign-up", { username, password, dateOfBirth }).then(done);

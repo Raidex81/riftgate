@@ -167,6 +167,8 @@ setCommands([
     { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") }
 ]);
 
+window.addEventListener("r2-engine-outdated", () => toast("Riftgate was updated. Quit it from the system tray (right-click its icon, Quit) and open it again to finish.", "err", 15000));
+
 // ---- Engine events ---------------------------------------------------------------------
 on("update-available", (info) => toast(`Riftgate ${info && info.version ? info.version : "update"} is available`));
 on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to your Library"); });
