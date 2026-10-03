@@ -12,9 +12,8 @@
     clip-path: polygon(var(--cut-lg) 0, 100% 0, 100% calc(100% - var(--cut-lg)), calc(100% - var(--cut-lg)) 100%, 0 100%, 0 var(--cut-lg));
     box-shadow: 0 30px 90px rgba(0,0,0,.5);
 }
-.account-gem { justify-self: center; width: 56px; height: 56px; display: grid; place-items: center; color: var(--on-accent); background: var(--energy);
-    clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
-.account-gem svg { width: 28px; height: 28px; }
+.account-gem { justify-self: center; width: 60px; height: 66px; object-fit: contain;
+    filter: var(--logo-filter, none) drop-shadow(0 0 16px color-mix(in srgb, var(--amethyst) 60%, transparent)); }
 .account-box h2 { font-size: var(--t-2xl); }
 .account-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--nebula-2); padding: 4px; }
 .account-tabs button { height: 34px; color: var(--dust); }

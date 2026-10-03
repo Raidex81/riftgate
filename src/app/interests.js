@@ -59,7 +59,8 @@ export function openInterests({ first = false } = {}) {
     const done = h("button.btn.primary.xl", { type: "button", onclick: () => close() }, icon("check"), first ? "That's me" : "Done");
     const wrap = h("div.interests-portal", { role: "dialog", "aria-modal": "true", "aria-label": "Make Riftgate yours" },
         h("div.interests-box", null,
-            h("p.today-kicker", null, icon("gem"), first ? "Welcome to Riftgate 2" : "Your interests"),
+            first ? h("img.account-gem", { src: "assets/riftgate-gem-mark.png", alt: "" }) : null,
+            h("p.today-kicker", null, icon("gem"), first ? "Welcome to Riftgate" : "Your interests"),
             h("h1.today-title", null, "What are you into?"),
             h("p.muted", null, "Riftgate leads with what you love and keeps out of the way what you don't. Change it any time in Settings."),
             interestPicker(),

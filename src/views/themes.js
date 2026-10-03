@@ -217,7 +217,7 @@ export default {
         async function exportFile(t) {
             const theme = { ...t }; ["builtin", "publishedId", "communityId"].forEach((k) => delete theme[k]);
             const r = await call("r2-theme-export", { name: t.name, theme });
-            if (r && r.ok) toast(`Saved ${t.name}. Send the file to anyone with Riftgate 2.`);
+            if (r && r.ok) toast(`Saved ${t.name}. Send the file to anyone with Riftgate.`);
         }
         async function importFile() {
             const r = await call("r2-theme-import");

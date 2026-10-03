@@ -78,7 +78,8 @@ export function tokens(t) {
         "--dust": c.muted, "--dust-2": mix(c.muted, c.bg, 62),
         "--hi": light ? c.text : "#ffffff",
         "--on-accent": safeColor(t.onAccent, "#ffffff"),
-        "--font": font.body, "--font-display": font.display
+        "--font": font.body, "--font-display": font.display,
+        "--logo-filter": logoFilterFor(c.accent)
     };
 }
 
@@ -162,6 +163,14 @@ export function paletteFrom(accent, tone = "dark") {
     return tone === "light"
         ? { bg: H(95, 30), panel: H(97, 30), card: "#ffffff", hover: H(91, 35), line: H(84, 30), accent: hex, accent2: second, text: H(14, 30), muted: H(42, 15) }
         : { bg: H(4, 40), panel: H(8, 42), card: H(11, 40), hover: H(15, 40), line: H(21, 38), accent: hex, accent2: second, text: H(94, 60), muted: H(65, 18) };
+}
+// The logo is violet (hue 266): turn it to the theme's accent hue, and
+// drain it for grey accents (Mono Noir)
+function logoFilterFor(accent) {
+    if (!/^#[0-9a-f]{6}$/i.test(accent)) return "none";
+    const [hh, ss] = hsl(accent);
+    const turn = ((hh - 266) % 360 + 360) % 360;
+    return `hue-rotate(${turn}deg) saturate(${Math.max(0, Math.min(1.3, ss / 85)).toFixed(2)})`;
 }
 function hsl(hex) {
     let r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;

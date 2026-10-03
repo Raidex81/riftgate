@@ -18,7 +18,7 @@ function setting(title, desc, control) {
 export default {
     async render(root) {
         const s = await settings({ fresh: true });
-        root.append(h("div.view-head", null, h("div", null, h("h1", null, "Settings"), h("p", null, "Your region, the look of Riftgate 2, and your data."))));
+        root.append(h("div.view-head", null, h("div", null, h("h1", null, "Settings"), h("p", null, "Your region, the look of Riftgate, and your data."))));
         const box = h("div.settings");
         root.appendChild(box);
 
@@ -61,7 +61,7 @@ export default {
         };
         paintAcct(account.current());
         const offAcct = account.onChange((st) => { if (!acct.isConnected) return offAcct(); paintAcct(st); });
-        box.appendChild(setting("Your Riftgate account", "One account for Riftgate and Riftgate 2. Optional: sign in to share your themes with everyone. Your password is never stored on this PC.", acct));
+        box.appendChild(setting("Your Riftgate account", "Optional: sign in to share your themes with everyone. Your password is never stored on this PC.", acct));
 
         // Row order
         const resetBtn = h("button.btn", { type: "button" }, icon("refresh"), "Restore default order");
@@ -78,11 +78,11 @@ export default {
             b.onclick = async () => {
                 b.disabled = true;
                 const r = await call("r2-import-riftgate");
-                if (r && r.ok) { toast("Imported from Riftgate"); forget(""); setTimeout(() => location.reload(), 600); }
+                if (r && r.ok) { toast("Your earlier Riftgate data is here"); forget(""); setTimeout(() => location.reload(), 600); }
                 else { toast(`Import didn't finish: ${(r && r.error) || "unknown error"}`, "err"); b.disabled = false; }
             };
-            box.appendChild(setting("Import from Riftgate",
-                `Copies your library (${plural(info.games, "item")}), ${plural(info.shows, "tracked show")}, ${plural(info.books, "book")}, settings and covers. The original Riftgate keeps working; nothing is moved.`, b));
+            box.appendChild(setting("Bring over your earlier Riftgate",
+                `Copies your library (${plural(info.games, "item")}), ${plural(info.shows, "tracked show")}, ${plural(info.books, "book")}, settings and covers from your earlier version of Riftgate. It keeps working; nothing is moved.`, b));
         }
 
         // Steam playtime
@@ -99,7 +99,7 @@ export default {
         box.appendChild(setting("Steam playtime", "Your public Steam profile's hours, shown on your games. Find your SteamID64 on steamid.io.", h("div", { style: { display: "flex", gap: "8px" } }, steamIn, steamBtn)));
 
         // Data
-        box.appendChild(setting("Your data", "Library, Journal, covers and settings live in Riftgate 2's own folder on this PC.",
+        box.appendChild(setting("Your data", "Library, Journal, covers and settings live in Riftgate's data folder on this PC.",
             h("button.btn", { type: "button", onclick: () => call("open-data-folder") }, icon("folder"), "Open data folder")));
     }
 };

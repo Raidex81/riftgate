@@ -35,7 +35,7 @@ function register(ipcMain, app) {
     };
     const write = (data) => {
         const json = JSON.stringify(data);
-        if (Buffer.byteLength(json) > MAX_FILE_BYTES) throw new Error("Riftgate 2 data is too large");
+        if (Buffer.byteLength(json) > MAX_FILE_BYTES) throw new Error("Your Journal data is too large to save");
         const tmp = dataFile() + ".tmp";
         fs.writeFileSync(tmp, json);
         fs.renameSync(tmp, dataFile());

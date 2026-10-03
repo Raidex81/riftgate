@@ -88,7 +88,7 @@
 :root:not([data-surface="gem"]) :is(.btn, .chip, .input, .search-trigger, .nav-item, .card-frame, .card-body, .tag, .row-arrow,
     .notice, .pulse-item, .browser, .palette, .mood, .mood-gem, .interest, .interest-gem, .interest-levels button, .setting, .stat,
     .journal-box, .services, .promote, .pager button, .icon-btn, .today-chip, .hero, .studio-panel, .theme-tile, .account-box,
-    .brand-two, .chip.lg, .trailer-frame) {
+    .chip.lg, .trailer-frame) {
     clip-path: none;
     border-radius: var(--radius);
 }

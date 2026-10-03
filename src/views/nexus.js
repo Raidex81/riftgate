@@ -86,18 +86,18 @@ function pulse() {
 async function importNotice(root) {
     const info = await call("r2-riftgate-available");
     if (!info || !info.available || info.alreadyImported) return;
-    const btn = h("button.btn.primary", { type: "button" }, icon("import"), "Import from Riftgate");
+    const btn = h("button.btn.primary", { type: "button" }, icon("import"), "Bring it over");
     const n = h("div.notice", null, icon("import"),
         h("div.grow", null,
-            h("strong", null, "Bring your Riftgate with you"),
-            h("p", null, `Found ${plural(info.games, "item")} in your library, ${plural(info.shows, "tracked show")} and ${plural(info.books, "book")}. Riftgate 2 copies them; the original app keeps working untouched.`)),
+            h("strong", null, "Bring your library with you"),
+            h("p", null, `Your earlier version of Riftgate has ${plural(info.games, "item")} in its library, ${plural(info.shows, "tracked show")} and ${plural(info.books, "book")}. Bring them here: they're copied, so it keeps working untouched.`)),
         btn,
         h("button.icon-btn", { type: "button", "aria-label": "Not now", onclick: () => { n.remove(); journal.setPref("import-dismissed", true); } }, icon("x")));
     if (journal.pref("import-dismissed", false)) return;
     btn.onclick = async () => {
         btn.disabled = true; btn.lastChild.textContent = "Importing…";
         const r = await call("r2-import-riftgate");
-        if (r && r.ok) { toast("Imported from Riftgate"); D.refreshAll(); location.reload(); }
+        if (r && r.ok) { toast("Your library is here"); D.refreshAll(); location.reload(); }
         else { toast(`Import didn't finish: ${(r && r.error) || "unknown error"}`, "err"); btn.disabled = false; btn.lastChild.textContent = "Try again"; }
     };
     root.prepend(n);

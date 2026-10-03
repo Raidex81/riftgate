@@ -83,11 +83,14 @@ function buildRail() {
     const settingsBtn = h("a.nav-item", { href: "#settings", title: "Settings" }, icon("settings"), h("span", null, "Settings"));
     navButtons.set("settings", settingsBtn);
     const version = h("div.rail-version");
-    call("get-app-version").then((v) => { if (v) version.textContent = `Riftgate 2 · ${typeof v === "string" ? v : v.version || ""}`; });
+    call("get-app-version").then((v) => { if (v) version.textContent = `Riftgate ${typeof v === "string" ? v : v.version || ""}`; });
 
     rail.append(
         h("div.rift-line", null, node),
-        h("div.brand", null, brandGem(), h("span.brand-word", null, "RIFTGATE"), h("span.brand-two", null, "2")),
+        h("a.brand", { href: "#nexus", title: "Riftgate" }, brandGem(),
+            h("span.brand-text", null,
+                h("span.brand-word", null, "RIFTGATE"),
+                h("span.brand-tagline", null, "All your worlds. One gateway."))),
         nav,
         h("div.rail-foot", null,
             h("button.btn.primary.today-btn", { type: "button", onclick: () => openToday(), title: "What do you want to do today? (R)" }, icon("dice"), h("span", null, "Surprise me")),
@@ -95,10 +98,9 @@ function buildRail() {
     navButtons.get(current)?.setAttribute("aria-current", "page");
 }
 
+// Riftgate's own gem, the same mark as the original app, tinted by the theme
 function brandGem() {
-    const g = icon("gem", "brand-gem");
-    g.setAttribute("stroke", "url(#energyGrad)");
-    return g;
+    return h("img.brand-gem", { src: "assets/riftgate-gem-mark.png", alt: "", draggable: "false" });
 }
 
 function moveNode(id) {

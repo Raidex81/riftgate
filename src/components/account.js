@@ -19,7 +19,7 @@ export function openAccount(mode = "in", { reason } = {}) {
     const pw = (ph, auto) => h("input.input", { type: "password", placeholder: ph, autocomplete: auto, maxlength: 128 });
     const status = () => h("p.account-status", { role: "status" });
     const busy = (btn, on, label) => { btn.disabled = on; btn.lastChild.textContent = on ? "One moment…" : label; };
-    const head = (title, sub) => [h("div.account-gem", null, icon("gem")), h("h2", null, title), sub ? h("p.muted", null, sub) : null];
+    const head = (title, sub) => [h("img.account-gem", { src: "assets/riftgate-gem-mark.png", alt: "" }), h("h2", null, title), sub ? h("p.muted", null, sub) : null];
     const tabs = (cur) => h("div.account-tabs", { role: "tablist" },
         h("button", { type: "button", role: "tab", "aria-selected": String(cur === "in"), onclick: () => signInView() }, "Sign in"),
         h("button", { type: "button", role: "tab", "aria-selected": String(cur === "up"), onclick: () => signUpView() }, "Create account"));
@@ -39,7 +39,7 @@ export function openAccount(mode = "in", { reason } = {}) {
         } },
             field("Username", user), field("Password", pass), go, st,
             h("button.link-btn", { type: "button", onclick: () => forgotView(user.value.trim()) }, "Forgot your password?"));
-        clear(box).append(...head("Welcome back", reason || "Your Riftgate account works in both Riftgate apps."), tabs("in"), form);
+        clear(box).append(...head("Welcome back", reason || "Sign in with your Riftgate account."), tabs("in"), form);
         (prefill ? pass : user).focus();
     }
 
@@ -69,7 +69,7 @@ export function openAccount(mode = "in", { reason } = {}) {
             field("Password", pass), meter, field("Confirm password", pass2),
             field("Date of birth (optional)", dob, "Only used to decide whether mature titles can show, as in Riftgate."),
             go, st);
-        clear(box).append(...head("Join Riftgate", "Share your themes and keep one account across both apps."), tabs("up"), form);
+        clear(box).append(...head("Join Riftgate", "Share your themes with everyone on Riftgate."), tabs("up"), form);
         user.focus();
     }
 

@@ -10,6 +10,16 @@ function cssColor(name, fallback) {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return v || fallback;
 }
+// Riftgate's logo, shared by every rift on screen
+const logo = new Image();
+logo.src = "assets/riftgate-gem-mark.png";
+let filterCache = { at: 0, v: "none" };
+function logoFilter() {
+    const now = performance.now();
+    if (now - filterCache.at > 600) filterCache = { at: now, v: getComputedStyle(document.documentElement).getPropertyValue("--logo-filter").trim() || "none" };
+    return filterCache.v;
+}
+
 function rgba(hex, a) {
     const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
     if (!m) return `rgba(139,61,255,${a})`;
@@ -160,23 +170,33 @@ export class Rift {
         }
         ctx.restore();
 
-        // The gem: a hexagonal crystal seen from the front, lit from the top-left
+        // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to
+        // the theme's accent; a drawn crystal stands in until it has loaded.
         const gr = R * .78;
-        const hex = Array.from({ length: 6 }, (_, i) => { const an = -Math.PI / 2 + i * TAU / 6; return [Math.cos(an) * gr, Math.sin(an) * gr]; });
         const core = [0, gr * .08];
-        const facet = (p1, p2, light) => {
-            const fg = ctx.createLinearGradient(p1[0], p1[1], p2[0], p2[1]);
-            fg.addColorStop(0, rgba(light > .5 ? soft : a, .55 + light * .4));
-            fg.addColorStop(1, rgba(light > .5 ? a : "#2a0f5c", .65 + light * .3));
-            ctx.fillStyle = fg;
-            ctx.beginPath(); ctx.moveTo(core[0], core[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.closePath(); ctx.fill();
-            ctx.strokeStyle = rgba("#ffffff", .18 + light * .25); ctx.lineWidth = 1; ctx.stroke();
-        };
-        const lights = [.95, .6, .25, .1, .3, .75];
-        const glint = (Math.sin(t * .9) + 1) / 2;
-        for (let i = 0; i < 6; i++) facet(hex[i], hex[(i + 1) % 6], Math.min(1, lights[i] + (i === Math.floor(t * .5) % 6 ? glint * .3 : 0)));
-        ctx.strokeStyle = rgba(soft, .9); ctx.lineWidth = 1.5;
-        ctx.beginPath(); hex.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
+        if (logo.complete && logo.naturalWidth) {
+            const hgt = gr * 2.05, wid = hgt * logo.naturalWidth / logo.naturalHeight;
+            ctx.save();
+            ctx.filter = logoFilter();
+            ctx.globalAlpha = .96;
+            ctx.drawImage(logo, -wid / 2, -hgt / 2 + core[1] * .4, wid, hgt);
+            ctx.restore();
+        } else {
+            const hex = Array.from({ length: 6 }, (_, i) => { const an = -Math.PI / 2 + i * TAU / 6; return [Math.cos(an) * gr, Math.sin(an) * gr]; });
+            const facet = (p1, p2, light) => {
+                const fg = ctx.createLinearGradient(p1[0], p1[1], p2[0], p2[1]);
+                fg.addColorStop(0, rgba(light > .5 ? soft : a, .55 + light * .4));
+                fg.addColorStop(1, rgba(light > .5 ? a : "#2a0f5c", .65 + light * .3));
+                ctx.fillStyle = fg;
+                ctx.beginPath(); ctx.moveTo(core[0], core[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = rgba("#ffffff", .18 + light * .25); ctx.lineWidth = 1; ctx.stroke();
+            };
+            const lights = [.95, .6, .25, .1, .3, .75];
+            const glint = (Math.sin(t * .9) + 1) / 2;
+            for (let i = 0; i < 6; i++) facet(hex[i], hex[(i + 1) % 6], Math.min(1, lights[i] + (i === Math.floor(t * .5) % 6 ? glint * .3 : 0)));
+            ctx.strokeStyle = rgba(soft, .9); ctx.lineWidth = 1.5;
+            ctx.beginPath(); hex.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
+        }
         // inner glow
         g = ctx.createRadialGradient(core[0], core[1], 0, core[0], core[1], gr * .7);
         g.addColorStop(0, rgba("#ffffff", .35 * pulse)); g.addColorStop(1, rgba(a, 0));

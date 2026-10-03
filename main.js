@@ -1499,7 +1499,7 @@ async function createWindow() {
         height: 900,
         minWidth: 1000,
         minHeight: 700,
-        title: "Riftgate 2",
+        title: "Riftgate",
         autoHideMenuBar: true,
         frame: false,
         // Opening hidden and only showing once maximized (see the
@@ -1664,7 +1664,7 @@ function createTray() {
     }
 
     tray = new Tray(trayImage);
-    tray.setToolTip("Riftgate 2");
+    tray.setToolTip("Riftgate");
 
     const menu = Menu.buildFromTemplate([
         { label: "Show Riftgate", click: () => { win.show(); } },
@@ -8755,7 +8755,7 @@ ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, 
         `Author: ${a || github.extractRepoPath(u)?.split("/")[0] || "not given"}`,
         `Description: ${d || "not given"}`,
         c ? `Contact: ${c}` : null,
-        "Sent from Riftgate 2 (Applications > Promote your app). Add it under Applications when approved."
+        "Sent from Riftgate (Applications > Promote your app). Add it under Applications when approved."
     ].filter(Boolean);
     try {
         const result = await supabaseRequest("suggestions", "POST", { username: a || null, suggestion_text: lines.join("\n") });
