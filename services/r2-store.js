@@ -79,6 +79,22 @@ function register(ipcMain, app) {
         };
     });
 
+    // Your themes (with their pictures) live in their own file, so the
+    // Journal file stays small and quick to save.
+    const themesFile = () => path.join(app.getPath("userData"), "r2-themes.json");
+    ipcMain.handle("r2-themes-local-get", () => {
+        try { const t = JSON.parse(fs.readFileSync(themesFile(), "utf8")); return Array.isArray(t) ? t : []; } catch { return []; }
+    });
+    ipcMain.handle("r2-themes-local-set", (event, themes) => {
+        if (!Array.isArray(themes) || themes.length > 200) return { ok: false, error: "Too many themes." };
+        const json = JSON.stringify(themes);
+        if (json.length > 80 * 1024 * 1024) return { ok: false, error: "Your themes' pictures are too large together. Remove one." };
+        const tmp = themesFile() + ".tmp";
+        fs.writeFileSync(tmp, json);
+        fs.renameSync(tmp, themesFile());
+        return { ok: true };
+    });
+
     ipcMain.handle("r2-import-riftgate", () => {
         const dir = originalDataDirs()[0];
         if (!dir) return { ok: false, error: "Riftgate's data folder wasn't found on this computer." };

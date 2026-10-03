@@ -87,7 +87,7 @@ kbd {
     font-weight: 700;
     font-size: 19px;
     letter-spacing: .16em;
-    background: linear-gradient(180deg, #fff 10%, var(--amethyst-soft) 95%);
+    background: linear-gradient(180deg, var(--hi) 10%, var(--amethyst-soft) 95%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     line-height: 1;
 }
@@ -120,7 +120,7 @@ kbd {
 .nav-item svg { width: 19px; height: 19px; flex: none; }
 .nav-item:hover { color: var(--starlight); background: color-mix(in srgb, var(--nebula-3) 70%, transparent); }
 .nav-item[aria-current="page"] {
-    color: #fff;
+    color: var(--hi);
     background: linear-gradient(90deg, color-mix(in srgb, var(--amethyst) 26%, transparent), transparent 85%);
 }
 .nav-item[aria-current="page"] svg { color: var(--amethyst-soft); filter: drop-shadow(0 0 6px var(--amethyst)); }

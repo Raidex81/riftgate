@@ -27,7 +27,7 @@
 
 /* Primary: the portal button — solid energy, used once per view at most */
 .btn.primary {
-    color: #fff;
+    color: var(--on-accent);
     background: var(--energy);
     border: 0;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
@@ -63,7 +63,7 @@
 }
 .chip:hover { color: var(--starlight); border-color: var(--line-strong); }
 .chip[aria-pressed="true"] {
-    color: #fff;
+    color: var(--hi);
     border-color: transparent;
     background: linear-gradient(135deg, color-mix(in srgb, var(--amethyst) 55%, var(--nebula)), color-mix(in srgb, var(--rift-pink) 35%, var(--nebula)));
 }
@@ -161,7 +161,7 @@ select.input option { background: var(--nebula); }
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tag.right { left: auto; right: var(--s2); }
-.tag.hot { background: var(--energy); color: #fff; }
+.tag.hot { background: var(--energy); color: var(--on-accent); }
 .tag.score { color: #ffd76a; }
 .tag.provider { display: inline-flex; align-items: center; gap: 5px; padding-left: 3px; max-width: calc(64% - var(--s2)); }
 .tag.provider img { width: 15px; height: 15px; border-radius: 3px; flex: none; }
@@ -232,7 +232,7 @@ select.input option { background: var(--nebula); }
 .row-head h2 { font-size: var(--t-xl); display: flex; align-items: center; gap: var(--s3); }
 .row-head h2 svg { width: 20px; height: 20px; color: var(--amethyst-soft); }
 .row-head .see-all { font-size: var(--t-sm); color: var(--amethyst-soft); display: inline-flex; align-items: center; gap: 4px; }
-.row-head .see-all:hover { color: #fff; }
+.row-head .see-all:hover { color: var(--hi); }
 .row-head .row-note { color: var(--dust); font-size: var(--t-sm); }
 .row-head .row-tools { margin-left: auto; display: flex; gap: var(--s2); align-items: center; }
 
@@ -268,7 +268,7 @@ select.input option { background: var(--nebula); }
     border: 1px solid var(--line);
     clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
 }
-.row-arrow:hover { color: #fff; border-color: var(--amethyst); }
+.row-arrow:hover { color: var(--hi); border-color: var(--amethyst); }
 .row-arrow svg { width: 15px; height: 15px; }
 .row-empty { color: var(--dust); padding: var(--s4) 0; font-size: var(--t-sm); }
 

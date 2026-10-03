@@ -8767,5 +8767,174 @@ ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, 
     }
 });
 
+// --- Riftgate 2: account ------------------------------------------------------
+// One Riftgate account for both apps (same server). The password goes to
+// the server once and is swapped for a session token; only that token is
+// kept, encrypted with the OS (session.dat), and it never reaches the
+// interface: the interface only ever learns the username.
+const R2_USERNAME_RE = /^[A-Za-z0-9_.-]{3,24}$/;
+async function r2DeviceId() {
+    let id = readDeviceIdSync();
+    if (id) return id;
+    let current = {};
+    try { current = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")); } catch {}
+    current.deviceId = crypto.randomUUID();
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(current, null, 2));
+    return current.deviceId;
+}
+async function r2StartSession(username, password) {
+    if (!safeStorage.isEncryptionAvailable()) return { ok: true, username, remembered: false };
+    const created = await createServerSession(username, password);
+    if (!created.ok) return created.refused ? { ok: false, error: "Wrong username or password." } : { ok: false, error: "Couldn't reach the server. Check your connection." };
+    const previous = readSessionFile();
+    if (previous && previous.token) revokeServerSession(previous.username, previous.token);
+    writeSessionFile({ username, token: created.token });
+    return { ok: true, username, remembered: true };
+}
+function r2Session() {
+    const s = readSessionFile();
+    return s && typeof s.username === "string" && typeof s.token === "string" ? s : null;
+}
+
+ipcMain.handle("r2-account-restore", async () => {
+    const s = r2Session();
+    if (!s) return { signedIn: false };
+    const r = await callAdminRpc("redeem_login_session", { input_username: s.username, input_token: s.token });
+    if (!r.success) return { signedIn: true, username: s.username, offline: true }; // can't check now: trust it until we can
+    if (r.result !== true) { deleteSessionFile(); return { signedIn: false, expired: true }; }
+    return { signedIn: true, username: s.username };
+});
+
+ipcMain.handle("r2-account-sign-in", async (event, { username, password } = {}) => {
+    username = String(username || "").trim();
+    if (!username || typeof password !== "string" || !password) return { ok: false, error: "Enter your username and password." };
+    const setup = await callAdminRpc("login_needs_password_setup", { input_username: username });
+    if (setup.success && setup.result === true) return { ok: false, needsSetup: true, username };
+    return r2StartSession(username, password);
+});
+
+ipcMain.handle("r2-account-sign-up", async (event, { username, password, dateOfBirth } = {}) => {
+    username = String(username || "").trim();
+    if (!R2_USERNAME_RE.test(username)) return { ok: false, error: "Usernames are 3 to 24 letters, numbers, dots, dashes or underscores." };
+    if (hasReservedAdminSuffix(username)) return { ok: false, error: "That ending is reserved for admins. Pick another username." };
+    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
+    if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return { ok: false, error: "That date of birth doesn't look right." };
+    try {
+        const taken = await supabaseRequest(`usernames?username=eq.${encodeURIComponent(username)}&select=id`, "GET");
+        if (taken.statusCode === 200 && Array.isArray(taken.body) && taken.body.length) return { ok: false, error: "That username is taken. Try another." };
+        const deviceId = await r2DeviceId();
+        const reg = await supabaseRequest("usernames", "POST", { username, device_id: deviceId, date_of_birth: dateOfBirth || null });
+        if (reg.statusCode === 409) return { ok: false, error: "That username was just taken. Try another." };
+        if (reg.statusCode !== 201) return { ok: false, error: "Couldn't create the account. Try again in a moment." };
+        const pw = await callAdminRpc("set_own_login_password", { input_username: username, new_password: password, input_device_id: deviceId });
+        if (!pw.success || pw.result !== true) return { ok: false, error: "Your username is saved, but the password wasn't. Sign in to set it." };
+        return r2StartSession(username, password);
+    } catch (err) {
+        console.error("[account] sign-up failed:", err.message || err);
+        return { ok: false, error: "Couldn't reach the server. Check your connection." };
+    }
+});
+
+// An account registered in Riftgate without a password yet (same device only)
+ipcMain.handle("r2-account-set-password", async (event, { username, password } = {}) => {
+    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
+    const deviceId = await r2DeviceId();
+    const r = await callAdminRpc("set_own_login_password", { input_username: String(username || ""), new_password: password, input_device_id: deviceId });
+    if (!r.success || r.result !== true) return { ok: false, error: "This account's password can only be set from the computer that created it." };
+    return r2StartSession(String(username), password);
+});
+
+ipcMain.handle("r2-account-sign-out", async () => {
+    const s = r2Session();
+    if (s) await revokeServerSession(s.username, s.token);
+    deleteSessionFile();
+    return { ok: true };
+});
+
+// --- Riftgate 2: themes ---------------------------------------------------------
+// Pictures and theme files come through the system file dialogs; the
+// community gallery lives in public.r2_themes (supabase migration 0009).
+// Publishing is checked against the signed-in session on the server.
+const R2_IMAGE_TYPES = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif" };
+ipcMain.handle("r2-theme-pick-picture", async () => {
+    const r = await dialog.showOpenDialog(win, { title: "Choose a picture for your theme", properties: ["openFile"], filters: [{ name: "Pictures", extensions: Object.keys(R2_IMAGE_TYPES).map((e) => e.slice(1)) }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const file = r.filePaths[0];
+    const type = R2_IMAGE_TYPES[path.extname(file).toLowerCase()];
+    if (!type) return { error: "That isn't a picture Riftgate can use." };
+    if (fs.statSync(file).size > 30 * 1024 * 1024) return { error: "That picture is over 30 MB. Pick a smaller one." };
+    return { dataUrl: `data:${type};base64,${fs.readFileSync(file).toString("base64")}`, name: path.basename(file) };
+});
+ipcMain.handle("r2-theme-export", async (event, { name, theme } = {}) => {
+    const safe = String(name || "theme").replace(/[^\w .-]+/g, "").trim().slice(0, 60) || "theme";
+    const r = await dialog.showSaveDialog(win, { title: "Share this theme as a file", defaultPath: `${safe}.riftgate-theme`, filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme"] }] });
+    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(r.filePath, JSON.stringify({ riftgateTheme: 1, theme }, null, 1));
+    return { ok: true, path: r.filePath };
+});
+ipcMain.handle("r2-theme-import", async () => {
+    const r = await dialog.showOpenDialog(win, { title: "Open a Riftgate theme", properties: ["openFile"], filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme", "json"] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+        if (fs.statSync(r.filePaths[0]).size > 40 * 1024 * 1024) return { error: "That file is too big to be a theme." };
+        const data = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8"));
+        if (!data || data.riftgateTheme !== 1 || typeof data.theme !== "object") return { error: "That file isn't a Riftgate theme." };
+        return { theme: data.theme };
+    } catch (err) {
+        return { error: "That file couldn't be read as a theme." };
+    }
+});
+function r2ThemesMissing(res) {
+    const b = res && res.body;
+    return res && (res.statusCode === 404 || (b && (b.code === "42P01" || b.code === "PGRST205" || b.code === "PGRST202")));
+}
+ipcMain.handle("r2-themes-gallery", async (event, { sort, query, page } = {}) => {
+    const order = sort === "new" ? "created_at.desc" : "uses.desc,created_at.desc";
+    const p = Math.max(0, Math.min(200, parseInt(page, 10) || 0));
+    let q = `r2_themes?select=id,author,name,theme,thumb,uses,created_at&order=${order}&limit=48&offset=${p * 48}`;
+    const text = String(query || "").replace(/[^\w .-]/g, "").trim().slice(0, 40);
+    if (text) q += `&or=(name.ilike.*${encodeURIComponent(text)}*,author.ilike.*${encodeURIComponent(text)}*)`;
+    try {
+        const res = await supabaseRequest(q, "GET");
+        if (r2ThemesMissing(res)) return { available: false, themes: [] };
+        if (res.statusCode !== 200 || !Array.isArray(res.body)) return { available: true, themes: [], error: "The gallery didn't answer. Try again in a moment." };
+        return { available: true, themes: res.body };
+    } catch (err) {
+        return { available: true, themes: [], error: "Couldn't reach the gallery. Check your connection." };
+    }
+});
+ipcMain.handle("r2-theme-download", async (event, id) => {
+    const n = parseInt(id, 10);
+    if (!(n > 0)) return null;
+    try {
+        const res = await supabaseRequest(`r2_themes?id=eq.${n}&select=wallpaper`, "GET");
+        supabaseRequest("rpc/r2_use_theme", "POST", { p_id: n }).catch(() => {});
+        return { wallpaper: res.statusCode === 200 && Array.isArray(res.body) && res.body[0] ? res.body[0].wallpaper || null : null };
+    } catch (err) {
+        return { wallpaper: null };
+    }
+});
+ipcMain.handle("r2-theme-publish", async (event, { name, theme, thumb, wallpaper } = {}) => {
+    const s = r2Session();
+    if (!s) return { ok: false, signIn: true, error: "Sign in to share themes with everyone." };
+    const json = JSON.stringify(theme || {});
+    if (json.length > 16000) return { ok: false, error: "This theme has too much in it to share." };
+    if (wallpaper && String(wallpaper).length > 700000) return { ok: false, error: "The picture is too large to share. Try a smaller one." };
+    const r = await callAdminRpc("r2_publish_theme", {
+        input_username: s.username, input_token: s.token,
+        p_name: String(name || "").trim().slice(0, 40), p_theme: theme || {},
+        p_thumb: thumb || null, p_wallpaper: wallpaper || null
+    });
+    if (!r.success) return { ok: false, error: r.error && /function|schema/i.test(String(r.error)) ? "The community gallery isn't switched on yet." : "Couldn't share the theme. Try again in a moment." };
+    const out = r.result || {};
+    return out.success ? { ok: true, id: out.id } : { ok: false, error: out.error || "Couldn't share the theme." };
+});
+ipcMain.handle("r2-theme-unpublish", async (event, id) => {
+    const s = r2Session();
+    if (!s) return { ok: false, signIn: true };
+    const r = await callAdminRpc("r2_delete_theme", { input_username: s.username, input_token: s.token, p_id: parseInt(id, 10) || 0 });
+    return { ok: !!(r.success && r.result === true) };
+});
+
 // --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------
 require("./services/r2-store").register(ipcMain, app);

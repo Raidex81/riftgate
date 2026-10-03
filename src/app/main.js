@@ -11,6 +11,9 @@ import { openRoll } from "../components/roll.js";
 import { openToday, MOODS } from "../components/today.js";
 import { toast } from "../components/toast.js";
 import * as interests from "./interests.js";
+import * as theme from "./theme.js";
+import * as account from "./account.js";
+import { accountChip, openAccount } from "../components/account.js";
 
 import nexus from "../views/nexus.js";
 import library from "../views/library.js";
@@ -20,6 +23,7 @@ import theatre from "../views/theatre.js";
 import reading from "../views/reading.js";
 import apps from "../views/apps.js";
 import journalView from "../views/journal.js";
+import themesView from "../views/themes.js";
 import settings from "../views/settings.js";
 
 setDetailOpener(openDetail);
@@ -33,7 +37,8 @@ const VIEWS = [
     { id: "reading", interests: ["books"], label: "Reading room", icon: "book", view: reading, group: "Discover" },
     { id: "apps", label: "Applications", icon: "app", view: apps, group: "Discover" },
     { id: "library", label: "Library", icon: "library", view: library, group: "Yours" },
-    { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" }
+    { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" },
+    { id: "themes", label: "Themes", icon: "sparkles", view: themesView, group: "Yours" }
 ];
 const SETTINGS = { id: "settings", label: "Settings", icon: "settings", view: settings };
 const ALL = [...VIEWS, SETTINGS];
@@ -70,7 +75,8 @@ function buildRail() {
     let group = null;
     shownViews().forEach((v) => {
         if (v.group !== group) { group = v.group; nav.appendChild(h("div.nav-group-label", null, group)); }
-        const b = h("a.nav-item", { href: `#${v.id}`, title: v.label }, icon(v.icon), h("span", null, v.label));
+        // Clicking the section you're in opens it fresh (e.g. back to its first tab)
+        const b = h("a.nav-item", { href: `#${v.id}`, title: v.label, onclick: (e) => { if (current === v.id) { e.preventDefault(); current = null; route(); } } }, icon(v.icon), h("span", null, v.label));
         navButtons.set(v.id, b);
         nav.appendChild(b);
     });
@@ -85,7 +91,7 @@ function buildRail() {
         nav,
         h("div.rail-foot", null,
             h("button.btn.primary.today-btn", { type: "button", onclick: () => openToday(), title: "What do you want to do today? (R)" }, icon("dice"), h("span", null, "Surprise me")),
-            settingsBtn, version));
+            settingsBtn, accountChip(), version));
     navButtons.get(current)?.setAttribute("aria-current", "page");
 }
 
@@ -104,9 +110,9 @@ function moveNode(id) {
 
 // ---- Router -----------------------------------------------------------------------
 async function route() {
-    const id = (location.hash || "#nexus").slice(1).split("/")[0];
+    const [id, sub] = (location.hash || "#nexus").slice(1).split("/");
     const v = ALL.find((x) => x.id === id) || VIEWS[0];
-    if (current === v.id) return;
+    if (current === v.id && !sub) return;
     current = v.id;
     closeDetail();
     navButtons.forEach((b) => b.removeAttribute("aria-current"));
@@ -118,7 +124,8 @@ async function route() {
     const root = h("div.view", { dataset: { view: v.id } });
     stage.appendChild(root);
     try {
-        cleanup = (await v.view.render(root)) || null;
+        cleanup = (await v.view.render(root, { sub })) || null;
+        if (sub) history.replaceState(null, "", `#${v.id}`);
     } catch (err) {
         console.error(err);
         root.appendChild(h("div.empty", null, icon("info"), h("h3", null, "This section couldn't open"), h("p", null, String(err.message || err))));
@@ -151,7 +158,11 @@ setCommands([
     { title: "What do you want to do today? (Surprise me)", icon: "dice", run: () => openToday() },
     ...MOODS.filter((m) => m.id !== "any").map((m) => ({ title: `Surprise me: ${m.label.toLowerCase()} (${m.hint.toLowerCase()})`, icon: m.icon, run: () => openToday(m.id) })),
     { title: "Random pick from this section", icon: "rift", run: rollHere },
-    { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() }
+    { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() },
+    { title: "Change the theme", icon: "sparkles", run: () => { location.hash = "themes"; } },
+    { title: "Create a theme", icon: "plus", run: () => { location.hash = "themes/studio"; } },
+    { title: "Community themes", icon: "globe", run: () => { location.hash = "themes/community"; } },
+    { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") }
 ]);
 
 // ---- Engine events ---------------------------------------------------------------------
@@ -161,15 +172,14 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
 // ---- Start ---------------------------------------------------------------------------
 (async function start() {
     buildTitlebar();
-    await journal.load();
+    await theme.start(); // journal + your themes, applied before anything paints
+    account.restore();
     buildRail();
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {
         buildRail(); moveNode(current);
         if (current === "nexus") { const c = current; current = null; location.hash = c; route(); }
     });
-    const accent = journal.pref("accent", "rift");
-    if (accent && accent !== "rift") document.documentElement.dataset.accent = accent;
     window.addEventListener("hashchange", route);
     window.addEventListener("resize", () => moveNode(current));
     await route();

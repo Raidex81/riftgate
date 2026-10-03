@@ -19,6 +19,9 @@
     --starlight-2: #c9bfe6;   /* secondary text */
     --dust: #9a8fb8;          /* muted text, meta */
     --dust-2: #6e6390;        /* disabled, placeholders */
+    --hi: #fff;               /* strongest text (hover, current) */
+    --on-accent: #fff;        /* text on the energy colours */
+    --radius: 0px;            /* surfaces other than the gem cut round their corners */
 
     /* Status colours, from the status-badge board */
     --st-progress: #3ddc84;   /* playing / watching / reading */

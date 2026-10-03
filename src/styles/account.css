@@ -1,0 +1,97 @@
+/* Riftgate 2 — account portal, rail chip, and the Themes studio. */
+
+/* ---- Account -------------------------------------------------------------------------- */
+.account-portal {
+    position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; overflow-y: auto;
+    background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--amethyst) 18%, var(--void)), color-mix(in srgb, var(--void) 96%, transparent) 70%);
+    animation: fade var(--mid) var(--ease);
+}
+.account-box {
+    width: min(440px, 92vw); padding: var(--s8); display: grid; gap: var(--s4); justify-items: stretch; text-align: center;
+    background: var(--nebula); border: 1px solid var(--line-strong);
+    clip-path: polygon(var(--cut-lg) 0, 100% 0, 100% calc(100% - var(--cut-lg)), calc(100% - var(--cut-lg)) 100%, 0 100%, 0 var(--cut-lg));
+    box-shadow: 0 30px 90px rgba(0,0,0,.5);
+}
+.account-gem { justify-self: center; width: 56px; height: 56px; display: grid; place-items: center; color: var(--on-accent); background: var(--energy);
+    clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
+.account-gem svg { width: 28px; height: 28px; }
+.account-box h2 { font-size: var(--t-2xl); }
+.account-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--nebula-2); padding: 4px; }
+.account-tabs button { height: 34px; color: var(--dust); }
+.account-tabs button[aria-selected="true"] { background: var(--nebula-3); color: var(--hi); }
+.account-form { display: grid; gap: var(--s3); text-align: left; }
+.account-form .btn.primary { justify-content: center; margin-top: var(--s2); }
+.account-status { color: var(--st-dropped); font-size: var(--t-sm); min-height: 1em; text-align: center; }
+.link-btn { color: var(--amethyst-soft); font-size: var(--t-sm); justify-self: center; }
+.link-btn:hover { color: var(--hi); text-decoration: underline; }
+.field small { font-size: var(--t-xs); }
+.pw-meter { height: 4px; background: var(--nebula-3); margin-top: -6px; }
+.pw-meter i { display: block; height: 100%; width: 0; background: var(--st-dropped); transition: width var(--mid), background var(--mid); }
+.pw-meter[data-s="1"] i { width: 25%; }
+.pw-meter[data-s="2"] i { width: 50%; background: var(--st-planned); }
+.pw-meter[data-s="3"] i { width: 75%; background: var(--st-completed); }
+.pw-meter[data-s="4"] i { width: 100%; background: var(--st-progress); }
+
+.account-chip { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); text-align: left; color: var(--starlight); }
+.account-chip:hover { background: color-mix(in srgb, var(--nebula-3) 70%, transparent); }
+.account-chip .avatar { width: 32px; height: 32px; flex: none; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700;
+    color: var(--on-accent); background: var(--energy); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.account-chip .avatar.out { background: var(--nebula-3); color: var(--amethyst-soft); }
+.account-chip .avatar svg { width: 17px; height: 17px; }
+.account-chip .who { display: grid; line-height: 1.2; min-width: 0; }
+.account-chip .who b { font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-chip .who small { font-size: var(--t-xs); color: var(--dust); }
+.account-menu { position: fixed; z-index: 95; display: grid; gap: 2px; padding: var(--s2); background: var(--nebula); border: 1px solid var(--line-strong); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.account-menu p { padding: var(--s2) var(--s3); font-size: var(--t-xs); }
+.account-menu button { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); text-align: left; color: var(--starlight-2); }
+.account-menu button:hover { background: var(--nebula-3); color: var(--hi); }
+@media (max-width: 1100px) { .account-chip .who { display: none; } .account-chip { justify-content: center; } }
+
+/* ---- Themes view ---------------------------------------------------------------------- */
+.theme-tabs { display: flex; gap: var(--s2); margin-bottom: var(--s6); flex-wrap: wrap; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--s5); }
+.theme-card { display: grid; gap: var(--s2); }
+.theme-card .theme-tile { cursor: pointer; transition: transform var(--fast) var(--ease); }
+.theme-card .theme-tile:hover { transform: translateY(-3px); }
+.theme-card.is-active .theme-tile { outline: 2px solid var(--amethyst); outline-offset: 3px; }
+.theme-card .tc-head { display: flex; align-items: baseline; gap: var(--s2); }
+.theme-card .tc-head b { font-family: var(--font-display); font-size: var(--t-lg); }
+.theme-card .tc-head .muted { font-size: var(--t-xs); margin-left: auto; white-space: nowrap; }
+.theme-card .tc-blurb { color: var(--dust); font-size: var(--t-sm); min-height: 1.5em; }
+.theme-card .tc-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.theme-card .tc-actions .btn { height: 32px; padding: 0 var(--s3); font-size: var(--t-sm); }
+.theme-card .badge { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); color: var(--on-accent); background: var(--energy); padding: 1px 7px; }
+.section-label { font-size: var(--t-sm); color: var(--dust); text-transform: uppercase; letter-spacing: .14em; margin: var(--s8) 0 var(--s4); }
+
+/* Studio */
+.studio { display: grid; grid-template-columns: minmax(330px, 440px) 1fr; gap: var(--s6); align-items: start; }
+.studio-panel {
+    display: grid; gap: var(--s5); padding: var(--s6);
+    background: var(--nebula); border: 1px solid var(--line);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    position: sticky; top: var(--s4);
+}
+.studio-panel h3 { font-size: var(--t-md); color: var(--dust); font-family: var(--font); font-weight: 600; text-transform: uppercase; letter-spacing: .12em; }
+.studio-group { display: grid; gap: var(--s3); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.seg button { padding: 8px 6px; font-size: var(--t-sm); color: var(--dust); background: var(--nebula-2); display: grid; gap: 2px; text-align: center; }
+.seg button small { font-size: 10.5px; color: var(--dust-2); }
+.seg button[aria-pressed="true"] { background: var(--energy); color: var(--on-accent); }
+.seg button[aria-pressed="true"] small { color: var(--on-accent); opacity: .8; }
+.seg.two { grid-template-columns: 1fr 1fr; }
+.pattern-pick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.pattern-pick button { aspect-ratio: 1; background-color: var(--void); background-image: var(--pattern, none); background-size: var(--pattern-size, auto); border: 1px solid var(--line); position: relative; }
+.pattern-pick button span { position: absolute; inset: auto 0 3px; font-size: 10px; color: var(--dust); }
+.pattern-pick button[aria-pressed="true"] { outline: 2px solid var(--amethyst); outline-offset: 2px; }
+.colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.color-field { display: grid; grid-template-columns: 30px 1fr; gap: 6px; align-items: center; font-size: var(--t-xs); color: var(--dust); }
+.color-field input[type=color] { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
+.range { display: grid; grid-template-columns: 90px 1fr 42px; gap: var(--s3); align-items: center; font-size: var(--t-sm); color: var(--dust); }
+.range input { accent-color: var(--amethyst); }
+.wp-box { display: grid; gap: var(--s3); }
+.wp-thumb { aspect-ratio: 16/9; background: var(--nebula-2) center / cover no-repeat; border: 1px dashed var(--line-strong); display: grid; place-items: center; color: var(--dust); font-size: var(--t-sm); }
+.studio-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.studio-preview { display: grid; gap: var(--s4); }
+.studio-preview .theme-tile { aspect-ratio: 16/9; }
+.studio-preview .hint { color: var(--dust); font-size: var(--t-sm); }
+@media (max-width: 1200px) { .studio { grid-template-columns: 1fr; } .studio-panel { position: static; } }

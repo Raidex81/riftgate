@@ -7,15 +7,9 @@ import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
 import { COUNTRIES } from "../app/regions.js";
 import * as interests from "../app/interests.js";
-
-
-const ACCENTS = [
-    ["rift", "Rift", "linear-gradient(135deg,#8b3dff,#e03cff)"],
-    ["cyan", "Cyan", "linear-gradient(135deg,#2fb7ff,#7a5cff)"],
-    ["ember", "Ember", "linear-gradient(135deg,#ff5a36,#ffb02e)"],
-    ["crimson", "Crimson", "linear-gradient(135deg,#ff2f62,#ff2fd0)"],
-    ["venom", "Venom", "linear-gradient(135deg,#2fe08a,#c6ff3d)"]
-];
+import * as theme from "../app/theme.js";
+import * as account from "../app/account.js";
+import { openAccount } from "../components/account.js";
 
 function setting(title, desc, control) {
     return h("section.setting", null, h("div.grow", null, h("h3", null, title), h("p", null, desc)), control);
@@ -44,19 +38,30 @@ export default {
         });
         box.appendChild(setting("Your region", "Cinemas, streaming services, release dates and store prices follow this country. Set your city and streaming services in the Theatre.", sel));
 
-        // Accent
-        const sw = h("div.swatches", { role: "group", "aria-label": "Accent colour" });
+        // Theme: quick picks, and the full Themes studio
+        const sw = h("div.swatches", { role: "group", "aria-label": "Quick themes" });
         const paintSw = () => {
             clear(sw);
-            const cur = journal.pref("accent", "rift");
-            ACCENTS.forEach(([id, name, bg]) => sw.appendChild(h("button", { type: "button", title: name, "aria-label": name, "aria-pressed": String(cur === id), style: { background: bg },
-                onclick: async () => {
-                    if (id === "rift") delete document.documentElement.dataset.accent; else document.documentElement.dataset.accent = id;
-                    await journal.setPref("accent", id); paintSw();
-                } })));
+            const cur = theme.activeId();
+            theme.BUILTIN_THEMES.slice(0, 8).forEach((t) => sw.appendChild(h("button", { type: "button", title: t.name, "aria-label": t.name, "aria-pressed": String(cur === t.id),
+                style: { background: `linear-gradient(135deg, ${t.colors.accent}, ${t.colors.accent2})` },
+                onclick: async () => { await theme.use(t.id); paintSw(); } })));
         };
         paintSw();
-        box.appendChild(setting("Accent", "The colour of the rift: glows, selections and the portal follow it.", sw));
+        box.appendChild(setting("Theme", `Now: ${theme.active().name}. Pick a quick one here, or open Themes for all of them, your own pictures, and themes made by other people.`,
+            h("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } }, sw,
+                h("button.btn", { type: "button", onclick: () => { location.hash = "themes"; } }, icon("sparkles"), "Open Themes"))));
+
+        // Account
+        const acct = h("div");
+        const paintAcct = (st) => {
+            clear(acct).appendChild(st.signedIn
+                ? h("button.btn", { type: "button", onclick: async () => { await account.signOut(); toast("Signed out"); } }, icon("x"), `Sign out ${st.username}`)
+                : h("button.btn.primary", { type: "button", onclick: () => openAccount("in") }, icon("gem"), "Sign in"));
+        };
+        paintAcct(account.current());
+        const offAcct = account.onChange((st) => { if (!acct.isConnected) return offAcct(); paintAcct(st); });
+        box.appendChild(setting("Your Riftgate account", "One account for Riftgate and Riftgate 2. Optional: sign in to share your themes with everyone. Your password is never stored on this PC.", acct));
 
         // Row order
         const resetBtn = h("button.btn", { type: "button" }, icon("refresh"), "Restore default order");
