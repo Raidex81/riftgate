@@ -438,7 +438,7 @@ function clearHighlight() {
 
 // ---- Controls screen -----------------------------------------------------------------------------
 const NS = "http://www.w3.org/2000/svg";
-function svg(tag, attrs, text) { const e = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (text != null) e.textContent = text; return e; }
+function svg(tag, attrs = {}, text) { const e = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (text != null) e.textContent = text; return e; }
 // A plain, generic outline (not any brand's shape) with each button's name
 // for the chosen controller in its place.
 function diagram(kind) {
@@ -476,6 +476,77 @@ function diagram(kind) {
     return s;
 }
 
+
+// ---- The controller layout: the real controller, every button labelled ---------------------
+// Positions are pixels on the photo (assets/controllers/*.png). Each label
+// sits in a column beside the controller, joined to its button by a line.
+const PHOTOS = {
+    xbox: { src: "assets/controllers/xbox.png", w: 428, h: 385,
+        at: { LT: [118, 30], LB: [92, 50], VIEW: [183, 107], LS: [105, 105], DPAD: [160, 175], RT: [312, 30], RB: [338, 50], MENU: [245, 107], Y: [325, 78], X: [293, 107], B: [350, 107], A: [322, 134], RS: [270, 170] } },
+    playstation: { src: "assets/controllers/playstation.png", w: 495, h: 493,
+        at: { LT: [95, 92], LB: [100, 110], VIEW: [132, 126], LS: [170, 247], DPAD: [95, 182], RT: [398, 92], RB: [395, 110], MENU: [361, 126], Y: [398, 146], X: [370, 182], B: [433, 182], A: [398, 216], RS: [325, 247] } }
+};
+const LAYOUT = {
+    left: [["LT", "Scroll a screen up"], ["LB", "Previous section"], ["VIEW", "Controls (this screen)"], ["LS", "Move the highlight"], ["DPAD", "Move, row by row"]],
+    right: [["RT", "Scroll a screen down"], ["RB", "Next section"], ["MENU", "Menu ↔ page"], ["Y", "Details"], ["X", "Play / Get it free"], ["B", "Back / close"], ["A", "Select / open"], ["RS", "Scroll freely"]]
+};
+// Face-button colours, as printed on the controllers
+const FACE = { xbox: { A: "#3ab14a", B: "#e3342f", X: "#2f78d6", Y: "#f2b705" }, playstation: { A: "#7b9cf2", B: "#ef6b75", X: "#e58bd8", Y: "#3fc9a8" } };
+const GLYPH = { LS: "L stick", RS: "R stick", DPAD: "D-pad" };
+
+const SHORT = { playstation: { VIEW: "Create", MENU: "Options" }, xbox: { VIEW: "View ⧉", MENU: "Menu ☰" } };
+
+function photoLayout(kind) {
+    const ph = PHOTOS[kind];
+    if (!ph) return null;
+    const keys = SCHEMES[kind].keys;
+    const W = 1300, H = 700, boxW = 330, boxH = 40, top = 104, bottom = 30;
+    const scale = Math.min(540 / ph.w, 500 / ph.h);
+    const iw = ph.w * scale, ih = ph.h * scale, ix = (W - iw) / 2, iy = top + (H - top - bottom - ih) / 2;
+    const toSvg = ([x, y]) => [ix + x * scale, iy + y * scale];
+    const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "cl-svg", role: "img", "aria-label": `${SCHEMES[kind].name} controller: what each button does in Riftgate` });
+    root.append(svg("rect", { x: 0, y: 0, width: W, height: H, rx: 18, class: "cl-panel" }),
+        svg("text", { x: W / 2, y: 48, class: "cl-title", "text-anchor": "middle" }, `${SCHEMES[kind].name.toUpperCase()} CONTROLLER`),
+        svg("text", { x: W / 2, y: 74, class: "cl-sub", "text-anchor": "middle" }, "What each button does in Riftgate"));
+    const img = svg("image", { x: ix, y: iy, width: iw, height: ih, preserveAspectRatio: "xMidYMid meet" });
+    img.setAttribute("href", ph.src);
+    root.appendChild(img);
+    const lines = svg("g", { class: "cl-lines" });
+    const labels = svg("g");
+    const column = (side, list) => {
+        // top to bottom in the order of the buttons' height (then outward first), so no lines cross
+        const items = list.map(([k, what]) => ({ k, what, a: toSvg(ph.at[k]) }))
+            .sort((p, q) => p.a[1] - q.a[1] || (side === "left" ? p.a[0] - q.a[0] : q.a[0] - p.a[0]));
+        const step = (H - top - bottom - boxH) / Math.max(1, items.length - 1);
+        items.forEach((it, i) => {
+            const by = items.length === 1 ? (H - boxH) / 2 : top + i * Math.min(step, boxH + 26) + Math.max(0, (H - top - bottom - boxH - (items.length - 1) * Math.min(step, boxH + 26)) / 2);
+            const cy = by + boxH / 2;
+            const bx = side === "left" ? 28 : W - 28 - boxW;
+            const [ax, ay] = it.a;
+            const edge = side === "left" ? bx + boxW : bx;
+            const stub = side === "left" ? edge + 26 : edge - 26;
+            lines.append(svg("polyline", { points: `${edge},${cy} ${stub},${cy} ${ax},${ay}`, class: "cl-line" }),
+                svg("circle", { cx: ax, cy: ay, r: 5.5, class: "cl-dot" }), svg("circle", { cx: ax, cy: ay, r: 12, class: "cl-ring" }));
+            const g = svg("g", { class: "cl-label" });
+            g.append(svg("rect", { x: bx, y: by, width: boxW, height: boxH, rx: 8, class: "cl-box" }));
+            const name = GLYPH[it.k] || (SHORT[kind] && SHORT[kind][it.k]) || keys[it.k] || it.k;
+            const face = FACE[kind] && FACE[kind][it.k];
+            const round = name.length <= 2;
+            const badgeW = round ? 30 : Math.max(44, name.length * 8.4 + 16);
+            const bxBadge = side === "left" ? bx + boxW - badgeW - 6 : bx + 6;
+            g.append(svg("rect", { x: bxBadge, y: by + 5, width: badgeW, height: boxH - 10, rx: round ? 15 : 7, class: "cl-badge", style: face ? `fill:${face}` : "" }),
+                svg("text", { x: bxBadge + badgeW / 2, y: by + boxH / 2 + 5, class: "cl-badge-text", "text-anchor": "middle" }, name));
+            const tx = side === "left" ? bxBadge - 12 : bxBadge + badgeW + 12;
+            g.append(svg("text", { x: tx, y: by + boxH / 2 + 5.5, class: "cl-text", "text-anchor": side === "left" ? "end" : "start" }, it.what.toUpperCase()));
+            labels.appendChild(g);
+        });
+    };
+    column("left", LAYOUT.left);
+    column("right", LAYOUT.right);
+    root.append(lines, labels);
+    return root;
+}
+
 let controlsEl = null;
 export function toggleControls(open) {
     const willOpen = typeof open === "boolean" ? open : !controlsEl;
@@ -489,7 +560,8 @@ export function toggleControls(open) {
         clear(tabs);
         Object.entries(SCHEMES).forEach(([kind, info]) => tabs.appendChild(h("button.chip", { type: "button", role: "tab", "aria-pressed": String(kind === helpScheme), "aria-selected": String(kind === helpScheme),
             onclick: () => { helpScheme = kind; paint(); const t = tabs.querySelector("[aria-pressed='true']"); if (document.body.classList.contains("gp-nav") && t) setCurrent(t, { scroll: false }); } }, info.name)));
-        clear(dia); const d = diagram(helpScheme); if (d) dia.appendChild(d);
+        clear(dia); const d = photoLayout(helpScheme) || diagram(helpScheme); if (d) dia.appendChild(d);
+        controlsEl && controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme]);
         clear(table);
         const keys = SCHEMES[helpScheme].keys;
         const body = h("tbody");
@@ -504,6 +576,7 @@ export function toggleControls(open) {
             h("p.muted", null, "Riftgate recognises your controller by itself. Pick a type to see its buttons."),
             tabs, dia, table,
             h("p.muted.controls-note", null, "TV mode (everything bigger) turns on while a controller is connected and off when it's unplugged. Change it in Settings → TV mode.")));
+    controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme]);
     document.body.appendChild(controlsEl);
     const t = tabs.querySelector("[aria-pressed='true']");
     if (document.body.classList.contains("gp-nav") && t) setCurrent(t, { scroll: false });

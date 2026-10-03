@@ -202,3 +202,18 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .card.is-watched .card-art img { filter: saturate(.35) brightness(.6); }
 .card.is-watched .card-art::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 46px; font-weight: 800; color: var(--st-progress); text-shadow: 0 2px 16px #000; pointer-events: none; }
 .btn.is-on:not(.primary) { color: var(--st-progress); }
+
+/* The controller layout (photo + labelled buttons) */
+.gp-controls.has-photo .controls-box { width: min(1300px, 96vw); }
+.cl-svg { width: 100%; height: auto; display: block; }
+.cl-panel { fill: #ffffff; }
+.cl-title { fill: #1a1424; font: 800 22px "Segoe UI", system-ui, sans-serif; letter-spacing: .22em; }
+.cl-sub { fill: #6b6480; font: 600 13px "Segoe UI", system-ui, sans-serif; letter-spacing: .08em; }
+.cl-line { fill: none; stroke: var(--amethyst); stroke-width: 2; stroke-linejoin: round; opacity: .85; }
+.cl-dot { fill: var(--amethyst); }
+.cl-ring { fill: none; stroke: var(--amethyst); stroke-width: 2; opacity: .45; }
+.cl-box { fill: #1c1430; }
+.cl-label:hover .cl-box { fill: #2a1d48; }
+.cl-badge { fill: #3a2c5c; stroke: rgba(255,255,255,.35); stroke-width: 1; }
+.cl-badge-text { fill: #fff; font: 800 13px "Segoe UI", system-ui, sans-serif; }
+.cl-text { fill: #f4f0ff; font: 700 14px "Segoe UI", system-ui, sans-serif; letter-spacing: .05em; }
