@@ -44,11 +44,23 @@ export function fromLibrary(g) {
     };
 }
 
+// How popular a free game is, from whatever the store gave us (reviews,
+// a rank, a score), the same scale Riftgate 1.x sorts by
+function freePopularity(g) {
+    if (typeof g.reviewCount === "number" && g.reviewCount > 0) return Math.min(100, 20 * Math.log10(g.reviewCount)) + (typeof g.rating === "number" ? (g.rating - 70) / 10 : 0);
+    if (typeof g.popularityRank === "number") return Math.max(20, 55 - g.popularityRank * .5);
+    if (typeof g.popularity === "number") return g.popularity;
+    if (g.source === "Epic Games" || g.source === "GOG") return 50;
+    if (g.source === "Steam") return 25;
+    return 30;
+}
+
 export function fromFreeGame(g) {
     return {
         key: journalKey("game", g.name),
         kind: "free", type: "game",
-        vr: !!g.vr,
+        vr: g.vr === "native" || g.vr === "adapted" ? g.vr : (g.vr ? "native" : null),
+        genre: Array.isArray(g.tags) && g.tags[0] ? String(g.tags[0]) : null,
         title: g.name,
         sub: g.source,
         desc: g.description || "",
@@ -59,7 +71,7 @@ export function fromFreeGame(g) {
         date: g.releaseDate || null,
         firstSeenAt: g.firstSeenAt || null,
         alwaysFree: !!g.alwaysFree,
-        popularity: g.popularity || 0,
+        popularity: freePopularity(g),
         raw: g
     };
 }

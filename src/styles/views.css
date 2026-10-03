@@ -25,3 +25,10 @@
     .detail-poster { display: none; }
     .hero-title { font-size: var(--t-3xl); }
 }
+
+/* Free games: one platform at a time */
+.free-one-head { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s5); }
+.free-one-head h2 { font-size: var(--t-2xl); }
+.free-one-head .actions { margin-left: auto; display: flex; gap: var(--s2); }
+.free-sub { font-size: var(--t-lg); margin: var(--s8) 0 var(--s4); color: var(--starlight-2); }
+.free-sub:first-of-type { margin-top: 0; }
