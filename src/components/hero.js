@@ -25,7 +25,7 @@ export function hero(slidesPromise) {
         i = (n + slides.length) % slides.length;
         const s = slides[i];
         const back = front === artA ? artB : artA;
-        const bg = s.item.backdrop || s.item.image;
+        const bg = s.item.backdrop || null; // wide pictures only (see landscape.js)
         back.style.backgroundImage = bg ? `url("${coverSrc(bg)}")` : "none";
         back.classList.add("on"); front.classList.remove("on"); front = back;
         clear(kicker).append(icon(s.kickerIcon || "sparkles"), s.kicker);

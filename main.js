@@ -9077,6 +9077,35 @@ ipcMain.handle("r2-find-cover", async (event, { title, kind, year } = {}) => {
     return job;
 });
 
+// --- Riftgate 2: a wide picture for the banner -------------------------------------
+// The banner needs landscape art. Steam games have their own (worked out in the
+// renderer from the appid); for anything else, SteamGridDB's "heroes" (wide
+// banners made for game libraries). Asked once per title: kept in r2-covers.json.
+ipcMain.handle("r2-landscape-art", async (event, { title } = {}) => {
+    if (typeof title !== "string" || !title.trim() || title.length > 200) return null;
+    const key = `hero|${title.trim().toLowerCase()}`;
+    const cache = r2CoverLoad();
+    const c = cache[key];
+    if (c && c.url) return c.url;
+    if (c && !c.url && Date.now() - c.at < R2_COVER_MISS_MS) return null;
+    let url = null;
+    try {
+        let match = null;
+        for (const variant of generateNameVariants(title.trim()).slice(0, 3)) { match = await searchSteamGridDb(variant); if (match) break; }
+        if (match) {
+            const r = await mediaProxyGetJson("steamgriddb", `/heroes/game/${match.id}`, {});
+            const hit = r && r.success && Array.isArray(r.data) ? r.data.find((x) => x && x.url && !x.nsfw) : null;
+            url = hit ? hit.url : null;
+        }
+    } catch (err) {
+        console.error("[r2-landscape-art]", err.message || err);
+        return null;
+    }
+    cache[key] = { url, at: Date.now() };
+    r2CoverSave();
+    return url;
+});
+
 // --- Riftgate 2: guess whether something you add is a game, a VR game or an app
 // From where it lives first (free, instant); a Steam game asks Steam once
 // whether it's VR; anything still unknown gets one SteamGridDB lookup (a

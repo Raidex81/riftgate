@@ -48,8 +48,12 @@
 
 /* ---- Themes view ---------------------------------------------------------------------- */
 .theme-tabs { display: flex; gap: var(--s2); margin-bottom: var(--s6); flex-wrap: wrap; }
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--s5); }
-.theme-card { display: grid; gap: var(--s2); }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--s2) var(--s5); }
+.theme-grid > .theme-card { margin-bottom: var(--s5); }
+/* Every card in a row lines up its parts (picture, name, blurb, buttons) with
+   its neighbours, so the buttons sit at the same height across the row even
+   when one card's buttons need a second line. */
+.theme-card { display: grid; gap: var(--s2); grid-row: span 4; grid-template-rows: subgrid; align-content: start; }
 .theme-card .theme-tile { cursor: pointer; transition: transform var(--fast) var(--ease); }
 .theme-card .theme-tile:hover { transform: translateY(-3px); }
 .theme-card.is-active .theme-tile { outline: 2px solid var(--amethyst); outline-offset: 3px; }
@@ -57,8 +61,12 @@
 .theme-card .tc-head b { font-family: var(--font-display); font-size: var(--t-lg); }
 .theme-card .tc-head .muted { font-size: var(--t-xs); margin-left: auto; white-space: nowrap; }
 .theme-card .tc-blurb { color: var(--dust); font-size: var(--t-sm); min-height: 1.5em; }
-.theme-card .tc-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
-.theme-card .tc-actions .btn { height: 32px; padding: 0 var(--s3); font-size: var(--t-sm); }
+.theme-card .tc-actions { display: flex; gap: var(--s2); flex-wrap: nowrap; align-items: center; }
+.theme-card .tc-actions .icon-btn:first-of-type { margin-left: auto; }
+.theme-card .tc-share.is-shared { color: var(--hi); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 55%, transparent); }
+.theme-card .tc-shared { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); color: var(--amethyst-soft); }
+.theme-card .tc-shared svg { width: 12px; height: 12px; }
+.theme-card .tc-actions .btn { height: 32px; padding: 0 var(--s3); font-size: var(--t-sm); white-space: nowrap; flex: none; }
 .theme-card .badge { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); color: var(--on-accent); background: var(--energy); padding: 1px 7px; }
 .section-label { font-size: var(--t-sm); color: var(--dust); text-transform: uppercase; letter-spacing: .14em; margin: var(--s8) 0 var(--s4); }
 
@@ -214,7 +222,7 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .card.is-watched .seal-label { display: none; }
 /* Watched: veiled art + the band */
 .card.is-watched .card-art img { filter: saturate(.45) brightness(.62); }
-.card.is-watched .card-art::before { content: "Watched"; position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; height: 48px; display: flex; align-items: center;
+.card.is-watched .card-art::before { content: attr(data-seen-label); position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; height: 48px; display: flex; align-items: center;
     padding-left: var(--s3); font-size: var(--t-xs); font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--hi);
     background: linear-gradient(90deg, color-mix(in srgb, var(--amethyst) 55%, transparent), color-mix(in srgb, var(--rift-pink) 25%, transparent) 70%, transparent);
     border-top: 1px solid color-mix(in srgb, var(--rift-pink) 70%, transparent); pointer-events: none; }
@@ -356,3 +364,11 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .addlib-cats.three { grid-template-columns: repeat(3, 1fr); }
 .addlib-name.static { padding: 8px 0 2px; display: block; }
 .ni-all { margin-top: var(--s2); width: 100%; justify-content: center; }
+
+/* Studio: picture size / keep in view */
+.seg.four { grid-template-columns: repeat(4, 1fr); }
+.seg.three { grid-template-columns: repeat(3, 1fr); }
+.wp-field { display: grid; gap: 6px; }
+.wp-field > span { font-size: var(--t-xs); color: var(--dust); text-transform: uppercase; letter-spacing: .08em; }
+.match-btn { width: 100%; justify-content: center; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 45%, transparent); color: var(--hi); }
+.match-btn.busy svg { animation: spin 1s linear infinite; }

@@ -4,6 +4,7 @@ import { h, icon } from "../app/dom.js";
 import { call, openExternal } from "../app/api.js";
 import { openTickets } from "../app/regions.js";
 import * as D from "../app/data.js";
+import { firstWithLandscape } from "../app/landscape.js";
 import * as seen from "../app/seen.js";
 import * as journal from "../app/store.js";
 import { hero } from "../components/hero.js";
@@ -46,24 +47,27 @@ async function slides() {
     const W = interests.wants;
     const none = Promise.resolve(null);
     const list = await Promise.all([
-        !W("free") ? none : pick(D.freeGames(), (l) => {
-            const fresh = l.filter((g) => !g.alwaysFree && g.image).sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))[0];
+        // only wide pictures in the banner: a poster there is cropped beyond recognition
+        !W("free") ? none : pick(D.freeGames(), async (l) => {
+            const recent = D.newFreeGames(l).sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0));
+            const pool = [...recent, ...l.filter((g) => !g.alwaysFree && !recent.includes(g)).sort((a, b) => b.popularity - a.popularity)];
+            const fresh = await firstWithLandscape(pool, 6);
             return fresh && { item: fresh, kicker: `Free right now on ${fresh.source}`, kickerIcon: "gift", action: { label: "Get it free", icon: "gift", run: () => openExternal(fresh.url) } };
         }),
-        !W("screen") ? none : pick(D.inCinemas(), (l) => {
-            const f = l.find((m) => m.backdrop && !m.mature);
+        !W("screen") ? none : pick(D.inCinemas(), async (l) => {
+            const f = await firstWithLandscape(l.filter((m) => m.backdrop && !m.mature), 4);
             return f && { item: f, kicker: "In cinemas near you", kickerIcon: "film", action: { label: "Find tickets", icon: "ticket", run: () => openTickets(f.title) } };
         }),
-        !W("screen") ? none : pick(D.newSeries(), (l) => {
-            const s = l.find((x) => x.backdrop && !x.mature);
+        !W("screen") ? none : pick(D.newSeries(), async (l) => {
+            const s = await firstWithLandscape(l.filter((x) => x.backdrop && !x.mature), 4);
             return s && { item: s, kicker: "New series", kickerIcon: "tv" };
         }),
-        !W("deals") ? none : pick(D.deals(), (l) => {
-            const d = l.filter((x) => (x.price.discount || 0) >= 50).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))[0];
+        !W("deals") ? none : pick(D.deals(), async (l) => {
+            const d = await firstWithLandscape(l.filter((x) => (x.price.discount || 0) >= 50).sort((a, b) => (b.popularity || 0) - (a.popularity || 0)), 6);
             return d && { item: { ...d, desc: `${d.price.discount}% off on ${d.source}.` }, kicker: "Deal worth it", kickerIcon: "tag", action: { label: "View deal", icon: "tag", run: () => openExternal(d.url) } };
         }),
-        !W("games") ? none : pick(D.upcomingGames(), (l) => {
-            const u = l.find((x) => x.image);
+        !W("games") ? none : pick(D.upcomingGames(), async (l) => {
+            const u = await firstWithLandscape(l.filter((x) => x.image), 5);
             return u && { item: { ...u, desc: `${until(u.date)}${u.platforms.length ? " · " + u.platforms.slice(0, 3).join(", ") : ""}` }, kicker: "Coming soon", kickerIcon: "calendar" };
         })
     ]);
@@ -79,7 +83,7 @@ function pulse() {
         strip.appendChild(el);
     };
     Promise.all([D.freeGames(), D.deals(), D.latestEpisodes(), D.library(), seen.load()]).then(([f, d, eps, lib]) => {
-        const fresh = f.filter((g) => !g.alwaysFree && g.firstSeenAt && Date.now() - g.firstSeenAt < WEEK).length;
+        const fresh = D.newFreeGames(f).length;
         if (interests.wants("free")) item("gift", f.length.toLocaleString(), fresh ? `free games, ${fresh} new this week` : "free games right now", "free");
         const big = d.filter((x) => (x.price.discount || 0) >= 75).length;
         if (d.length && interests.wants("deals")) item("tag", big.toLocaleString(), "deals at 75% off or more", "deals");

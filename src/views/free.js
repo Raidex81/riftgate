@@ -12,10 +12,6 @@ import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
 
-const WEEK = 7 * 86400000;
-// Platforms that are only ever the permanent free-to-play list (never a
-// timed giveaway), so nothing there is "newly added"
-const CURATED_ONLY = new Set(["Battle.net", "EA", "Riot Games", "Ubisoft Connect", "Wargaming.net", "Gaijin.net", "Grinding Gear Games", "Meta Quest"]);
 const SORTS = {
     popular: { label: "Most popular", fn: (a, b) => (b.image ? 1 : 0) - (a.image ? 1 : 0) || b.popularity - a.popularity || (b.firstSeenAt || 0) - (a.firstSeenAt || 0) },
     newest: { label: "Newest", fn: (a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0) || b.popularity - a.popularity },
@@ -36,7 +32,7 @@ export default {
             h("div", { style: { marginBottom: "36px" } }, chips),
             body);
 
-        let all = [], newCut = 0;
+        let all = [], newSet = new Set();
         async function load(fresh) {
             if (fresh) {
                 refresh.disabled = true;
@@ -46,15 +42,12 @@ export default {
                 refresh.disabled = false;
             }
             all = await D.freeGames({ fresh });
-            // "Newly added" = seen after the very first scan: on a first run
-            // everything arrives at once, and none of that is news
-            const first = Math.min(...all.map((g) => g.firstSeenAt || Infinity));
-            newCut = Math.max(Date.now() - WEEK, isFinite(first) ? first + 3600e3 : 0);
-            const n = all.filter(isNew).length;
+            newSet = new Set(D.newFreeGames(all));
+            const n = newSet.size;
             summary.textContent = `${plural(all.length, "free game")} right now${n ? `, ${n} added this week` : ""}. Free to keep or free to play, from every store.`;
             paint();
         }
-        const isNew = (g) => !g.alwaysFree && !CURATED_ONLY.has(g.source) && (g.firstSeenAt || 0) > newCut;
+        const isNew = (g) => newSet.has(g);
         // A stray store entry literally named "VR" belongs to the VR list, not a platform of its own
         const platformOf = (g) => (g.source === "VR" ? null : g.source);
 

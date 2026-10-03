@@ -101,7 +101,7 @@ export function card(item, opts) {
     if (foot) info.appendChild(foot);
     // Episodes and released films: the seal on the art marks them as watched
     if (seen.canMark(item) && opts.watched !== false) {
-        const t = h("span.seal", { role: "button", tabindex: "-1" }, h("span.seal-face", null, icon("eye")), h("span.seal-label"));
+        const t = h("span.seal", { role: "button", tabindex: "-1" }, h("span.seal-face", null, icon(seen.isBook(item) ? "book" : "eye")), h("span.seal-label"));
         t.addEventListener("click", async (e) => { e.stopPropagation(); e.preventDefault(); await sealToggle(el, item); });
         a.appendChild(t);
     }
@@ -144,9 +144,11 @@ function paintSeen(el, item) {
     el.classList.toggle("is-watched", on);
     const t = el.querySelector(".seal");
     if (!t) return;
-    t.querySelector(".seal-face").replaceChildren(icon(on ? "seen" : "eye"));
-    t.querySelector(".seal-label").textContent = on ? "Watched" : (item.kind === "episode" ? "Seen it?" : "Watched it?");
-    t.title = on ? "Watched. Click to mark as not watched (W)" : "Mark as watched (W)";
+    t.querySelector(".seal-face").replaceChildren(icon(on ? "seen" : seen.isBook(item) ? "book" : "eye"));
+    const book = seen.isBook(item);
+    el.querySelector(".card-art").dataset.seenLabel = book ? "Read" : "Watched";
+    t.querySelector(".seal-label").textContent = on ? (book ? "Read" : "Watched") : (book ? "Read it?" : item.kind === "episode" ? "Seen it?" : "Watched it?");
+    t.title = book ? (on ? "Already read. Click to mark as not read (W)" : "Mark as already read (W)") : (on ? "Watched. Click to mark as not watched (W)" : "Mark as watched (W)");
     t.setAttribute("aria-label", t.title);
     t.setAttribute("aria-pressed", String(on));
 }

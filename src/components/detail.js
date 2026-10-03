@@ -116,9 +116,11 @@ function buildActions(item, box, cover) {
             break;
         case "ebook":
             add(btn("Read", "book", () => call("launch-ebook", item.raw.path), true));
+            add(watchedButton(item, false));
             break;
         case "book": case "search":
             if (item.url) add(btn(item.access === "public" ? "Read free" : "Open", "book", () => openExternal(item.url), true));
+            if (seen.canMark(item)) add(watchedButton(item, !item.url));
             break;
         case "community":
             add(btn(item.source === "GitHub" ? "Open on GitHub" : "Visit", "external", () => {
@@ -141,7 +143,8 @@ function watchedButton(item, primary) {
     const b = h(`button.btn.lg.seal-btn${primary ? ".primary" : ""}`, { type: "button" });
     const paint = () => {
         const on = seen.isSeen(item);
-        clear(b).append(icon(on ? "seen" : "eye"), on ? "Watched" : (item.kind === "episode" ? "Mark episode as watched" : "Mark as watched"));
+        const book = seen.isBook(item);
+        clear(b).append(icon(on ? "seen" : book ? "book" : "eye"), on ? (book ? "Already read" : "Watched") : (book ? "Mark as already read" : item.kind === "episode" ? "Mark episode as watched" : "Mark as watched"));
         b.classList.toggle("is-on", on); b.classList.toggle("primary", primary && !on);
         b.setAttribute("aria-pressed", String(on));
     };
@@ -150,7 +153,7 @@ function watchedButton(item, primary) {
     b.onclick = async () => {
         const now = await seen.toggle(item); paint();
         b.classList.remove("pop"); void b.offsetWidth; if (now) b.classList.add("pop");
-        toast(now ? `${item.title}: watched` : `${item.title}: back to unwatched`);
+        toast(seen.isBook(item) ? (now ? `${item.title}: already read` : `${item.title}: back to unread`) : (now ? `${item.title}: watched` : `${item.title}: back to unwatched`));
     };
     return b;
 }

@@ -153,3 +153,14 @@ export async function withProviders(items) {
     shows.forEach((i) => { const p = providerMemo.get(i.tmdbShowId); if (p) i.provider = p; });
     return items;
 }
+
+// Free games that are really new this week. On a first run (or after a
+// reinstall) every free game is "seen" for the first time in the same scan,
+// and none of that is news, so the first scan never counts; nor do the
+// permanent free-to-play platforms (they're never a giveaway).
+const CURATED_ONLY = new Set(["Battle.net", "EA", "Riot Games", "Ubisoft Connect", "Wargaming.net", "Gaijin.net", "Grinding Gear Games", "Meta Quest"]);
+export function newFreeGames(list) {
+    const first = Math.min(...list.map((g) => g.firstSeenAt || Infinity));
+    const cut = Math.max(Date.now() - 7 * 86400000, isFinite(first) ? first + 3600e3 : 0);
+    return list.filter((g) => !g.alwaysFree && !CURATED_ONLY.has(g.source) && (g.firstSeenAt || 0) > cut);
+}

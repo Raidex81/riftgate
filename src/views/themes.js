@@ -42,6 +42,7 @@ export default {
             const el = h("div.theme-card", { class: isActive ? "is-active" : undefined },
                 tileEl,
                 h("div.tc-head", null, h("b", null, t.name), isActive ? h("span.badge", null, icon("check"), "In use") : null,
+                    !c && t.publishedId ? h("span.tc-shared", { title: "In the community gallery" }, icon("globe"), "Shared") : null,
                     h("span.muted", null, c ? `by ${c.author} · ${plural(c.uses || 0, "use")}` : (t.builtin ? "Built in" : (t.author ? `by ${t.author}` : "Yours")))),
                 h("p.tc-blurb", null, t.blurb || (c ? `Shared ${ago(Date.parse(c.created_at))}` : `${cap(t.surface)} · ${t.pattern === "none" ? "no pattern" : t.pattern} · ${(T.FONTS[t.font] || T.FONTS.rift).label}`)),
                 actions);
@@ -52,7 +53,7 @@ export default {
                     const r = await call("r2-theme-download", c.id);
                     const theme = { ...sanitize(c.theme), name: c.name, author: c.author, communityId: c.id };
                     const w = (c.theme && c.theme.wallpaper) || {};
-                    if (r && r.wallpaper) theme.wallpaper = { dim: Number(w.dim) || 55, blur: Number(w.blur) || 0, mode: w.mode === "tile" ? "tile" : "cover", src: r.wallpaper };
+                    if (r && r.wallpaper) theme.wallpaper = { dim: Number(w.dim) || 55, blur: Number(w.blur) || 0, mode: T.wpMode(w.mode), pos: ["top", "center", "bottom"].includes(w.pos) ? w.pos : "center", src: r.wallpaper };
                     else theme.wallpaper = null;
                     const saved = await T.saveTheme(theme);
                     await T.use(saved.id);
@@ -68,7 +69,10 @@ export default {
             actions.append(h("button.btn", { type: "button", onclick: () => studio(t.builtin ? T.draft(t) : JSON.parse(JSON.stringify(t))) }, icon("sparkles"), t.builtin ? "Remix" : "Edit"));
             if (!t.builtin) {
                 actions.append(
-                    h("button.btn", { type: "button", onclick: () => share(t) }, icon("globe"), t.publishedId ? "Update share" : "Share"),
+                    // icon-sized like its neighbours, so every card's buttons fit on one line in the same places
+                    h("button.icon-btn.tc-share", { type: "button", class: t.publishedId ? "is-shared" : undefined,
+                        title: t.publishedId ? "Update your shared copy in the community gallery" : "Share in the community gallery",
+                        "aria-label": t.publishedId ? `Update the shared copy of ${t.name}` : `Share ${t.name}`, onclick: () => share(t) }, icon("globe")),
                     h("button.icon-btn", { type: "button", title: "Save as a file", "aria-label": "Save as a file", onclick: () => exportFile(t) }, icon("download")),
                     h("button.icon-btn", { type: "button", title: "Delete", "aria-label": `Delete ${t.name}`, onclick: async () => {
                         await T.deleteTheme(t.id); toast(`Deleted ${t.name}`); collection();
@@ -102,7 +106,7 @@ export default {
                 const el = h(`div.seg${cls}`);
                 const paint = () => { clear(el); opts.forEach((o) => el.appendChild(h("button", { type: "button", "aria-pressed": String(cur() === o.id), title: o.hint || "",
                     onclick: () => { onPick(o.id); paint(); live(); } }, o.label, o.small ? h("small", null, o.small) : null))); };
-                paint(); return el;
+                paint(); el._paint = paint; return el;
             };
             const tone = seg([{ id: "dark", label: "Dark" }, { id: "light", label: "Light" }], () => d.tone, (v) => { d.tone = v; }, ".two");
             const surface = seg(T.SURFACES.map((s) => ({ ...s, small: s.hint.split(",")[0] })), () => d.surface, (v) => { d.surface = v; });
@@ -148,8 +152,8 @@ export default {
                 pick.disabled = true;
                 try {
                     const src = await T.shrink(r.dataUrl, 2560, 3.5e6);
-                    d.wallpaper = { src, dim: +dim.value || 55, blur: +blur.value || 0, mode: "cover" };
-                    paintWp(); live();
+                    d.wallpaper = { src, dim: +dim.value || 55, blur: +blur.value || 0, mode: "smart", pos: "center" };
+                    paintWp(); paintWpSegs(); live();
                 } catch (err) { toast(err.message, "err"); }
                 pick.disabled = false;
             } }, icon("folder"), "Choose a picture");
@@ -157,11 +161,44 @@ export default {
             linkIn.addEventListener("change", () => {
                 const v = linkIn.value.trim();
                 if (!/^https:\/\/\S+$/i.test(v)) { if (v) toast("Use an https:// picture link.", "err"); return; }
-                d.wallpaper = { src: v, dim: +dim.value || 55, blur: +blur.value || 0, mode: "cover" };
-                paintWp(); live();
+                d.wallpaper = { src: v, dim: +dim.value || 55, blur: +blur.value || 0, mode: "smart", pos: "center" };
+                paintWp(); paintWpSegs(); live();
             });
             const removeWp = h("button.btn.ghost", { type: "button", onclick: () => { d.wallpaper = null; linkIn.value = ""; paintWp(); live(); } }, icon("x"), "Remove picture");
-            wpControls.append(h("label.range", { title: "How much the picture fades into the theme colours" }, "Blend", dim, dimOut), h("label.range", null, "Blur", blur, blurOut), removeWp);
+            // How the picture sits on this screen (wide screens included) and which part stays in view
+            const wpModeSeg = h("div.seg.four", { role: "radiogroup", "aria-label": "Picture size" });
+            const wpPosSeg = h("div.seg.three", { role: "radiogroup", "aria-label": "Keep in view" });
+            const paintWpSegs = () => {
+                const m = T.wpMode(d.wallpaper && d.wallpaper.mode), ps = (d.wallpaper && d.wallpaper.pos) || "center";
+                clear(wpModeSeg); T.WP_MODES.forEach((o) => wpModeSeg.appendChild(h("button", { type: "button", role: "radio", "aria-pressed": String(m === o.id), "aria-checked": String(m === o.id), title: o.hint,
+                    onclick: () => { if (d.wallpaper) { d.wallpaper.mode = o.id; paintWpSegs(); live(); } } }, o.label)));
+                clear(wpPosSeg); T.WP_POSITIONS.forEach((o) => wpPosSeg.appendChild(h("button", { type: "button", role: "radio", "aria-pressed": String(ps === o.id), "aria-checked": String(ps === o.id),
+                    onclick: () => { if (d.wallpaper) { d.wallpaper.pos = o.id; paintWpSegs(); live(); } } }, o.label)));
+                wpPosSeg.parentElement && (wpPosSeg.parentElement.hidden = m === "tile" || m === "whole");
+            };
+            // One click: a theme made for this picture
+            const matchBtn = h("button.btn.match-btn", { type: "button", title: "Riftgate reads the picture's colours, light and detail and sets the theme to match" }, icon("sparkles"), "Match the theme to my picture");
+            matchBtn.onclick = async () => {
+                if (!d.wallpaper || !d.wallpaper.src) return;
+                matchBtn.disabled = true; matchBtn.classList.add("busy");
+                try {
+                    const m = await T.matchPicture(d.wallpaper.src);
+                    d.tone = m.tone; d.colors = { ...d.colors, ...m.colors }; d.onAccent = m.onAccent; d.surface = m.surface; d.glow = m.glow; d.pattern = m.pattern;
+                    d.wallpaper.dim = m.dim; d.wallpaper.blur = m.blur; dim.value = m.dim; blur.value = m.blur;
+                    paintColors(); paintPatterns(); [tone, surface, glow].forEach((x) => x._paint && x._paint());
+                    magicIn.value = m.colors.accent;
+                    paintWp(); live();
+                    toast(`Matched: ${m.summary}. Tweak anything you like.`);
+                } catch (err) { toast(err.message || "Couldn't read the picture.", "err"); }
+                matchBtn.disabled = false; matchBtn.classList.remove("busy");
+            };
+            wpControls.append(
+                matchBtn,
+                h("div.wp-field", null, h("span", null, "Size"), wpModeSeg),
+                h("div.wp-field", null, h("span", null, "Keep in view"), wpPosSeg),
+                h("label.range", { title: "How much the picture fades into the theme colours" }, "Blend", dim, dimOut), h("label.range", null, "Blur", blur, blurOut), removeWp);
+            paintWpSegs();
+
             paintWp();
 
             const save = h("button.btn.primary.lg", { type: "button", onclick: async () => {
@@ -207,7 +244,7 @@ export default {
                     else { wallpaper = await T.shrink(t.wallpaper.src, 1600, 680000, .8); thumb = await T.shrink(t.wallpaper.src, 420, 55000, .7); }
                 }
             } catch (err) { toast("The picture couldn't be prepared for sharing.", "err"); return; }
-            const theme = { ...t, wallpaper: t.wallpaper ? { dim: t.wallpaper.dim, blur: t.wallpaper.blur, mode: t.wallpaper.mode } : null };
+            const theme = { ...t, wallpaper: t.wallpaper ? { dim: t.wallpaper.dim, blur: t.wallpaper.blur, mode: t.wallpaper.mode, pos: t.wallpaper.pos } : null };
             ["id", "builtin", "updatedAt", "publishedId", "communityId", "basedOn"].forEach((k) => delete theme[k]);
             const r = await call("r2-theme-publish", { name: t.name, theme, thumb, wallpaper });
             if (r && r.ok) { await T.saveTheme({ ...t, publishedId: r.id }); toast(`${t.name} is in the community gallery`); collection(); }
@@ -281,7 +318,7 @@ function sanitize(t) {
     const colors = {};
     Object.keys(COLOR_LABELS).forEach((k) => { const v = hex(x.colors && x.colors[k]); if (v) colors[k] = v; });
     const wp = x.wallpaper && typeof x.wallpaper === "object" && typeof x.wallpaper.src === "string" && /^(data:image\/|https:\/\/)/i.test(x.wallpaper.src)
-        ? { src: x.wallpaper.src, dim: Number(x.wallpaper.dim) || 0, blur: Number(x.wallpaper.blur) || 0, mode: x.wallpaper.mode === "tile" ? "tile" : "cover" } : null;
+        ? { src: x.wallpaper.src, dim: Number(x.wallpaper.dim) || 0, blur: Number(x.wallpaper.blur) || 0, mode: T.wpMode(x.wallpaper.mode), pos: ["top", "center", "bottom"].includes(x.wallpaper.pos) ? x.wallpaper.pos : "center" } : null;
     return {
         name: String(x.name || "Theme").slice(0, 40), author: typeof x.author === "string" ? x.author.slice(0, 40) : null,
         tone: x.tone === "light" ? "light" : "dark",

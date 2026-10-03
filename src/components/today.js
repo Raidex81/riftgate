@@ -48,7 +48,7 @@ export const MOODS = [
     { id: "free", interests: ["free"], label: "Play free", hint: "Claim it or jump straight in", icon: "gift",
         options: [
             { id: "any", label: "Any free game", pool: () => D.freeGames() },
-            { id: "new", label: "New this week", icon: "sparkles", pool: async () => (await D.freeGames()).filter((g) => g.firstSeenAt && Date.now() - g.firstSeenAt < 7 * DAY) },
+            { id: "new", label: "New this week", icon: "sparkles", pool: async () => D.newFreeGames(await D.freeGames()) },
             { id: "keep", label: "Free to keep", icon: "gift", pool: async () => (await D.freeGames()).filter((g) => !g.alwaysFree) },
             { id: "f2p", label: "Free to play", icon: "play", pool: async () => (await D.freeGames()).filter((g) => g.alwaysFree) },
             { id: "vr", label: "VR", icon: "vr", pool: async () => (await D.freeGames()).filter((g) => g.vr) }

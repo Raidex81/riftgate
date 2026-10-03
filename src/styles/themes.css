@@ -12,12 +12,20 @@
 .app::before, .app::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; }
 .app > * { position: relative; z-index: 1; }
 .app > .titlebar { z-index: 30; }
-:root[data-wallpaper] .app::before {
+/* The picture itself (.app-wall), and, when the whole picture is shown on a
+   screen of another shape, a soft blurred copy filling the space around it
+   (.app::before) so there are never bare bars. */
+.app > .app-wall { position: absolute; inset: 0; z-index: 0; pointer-events: none; display: none;
+    background: var(--wallpaper) var(--wp-pos, center) / cover no-repeat;
+    filter: blur(var(--wp-blur, 0px)) saturate(var(--wp-sat, 1)); transform: scale(1.04); /* hides blurred edges */ }
+:root[data-wallpaper] .app > .app-wall { display: block; }
+:root[data-wallpaper][data-wp-fit="whole"] .app > .app-wall { background-size: contain; background-position: center; transform: none; }
+:root[data-wallpaper][data-wp-fit="tile"] .app > .app-wall { background-size: auto; background-repeat: repeat; transform: none; }
+:root[data-wallpaper][data-wp-fit="whole"] .app::before {
     background: var(--wallpaper) center / cover no-repeat;
-    filter: blur(var(--wp-blur, 0px)) saturate(var(--wp-sat, 1));
-    transform: scale(1.04); /* hides blurred edges */
+    filter: blur(calc(var(--wp-blur, 0px) + 36px)) saturate(1.15) brightness(.62);
+    transform: scale(1.15);
 }
-:root[data-wallpaper][data-wp-mode="tile"] .app::before { background-size: auto; background-repeat: repeat; transform: none; }
 .app::after {
     background:
         var(--pattern, none),
