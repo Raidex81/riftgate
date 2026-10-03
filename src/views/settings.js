@@ -111,14 +111,21 @@ export default {
         const steamIn = h("input.input", { type: "text", placeholder: "SteamID64", value: s.steamId64 || "", "aria-label": "SteamID64", style: { width: "200px" } });
         const steamBtn = h("button.btn", { type: "button" }, icon("refresh"), "Update playtime");
         steamBtn.onclick = async () => {
+            // The ID used to be only saved, never handed to the engine, so the
+            // engine always checked an empty ID. Pass it, and accept a pasted
+            // profile link too (steamcommunity.com/profiles/7656…).
+            const raw = steamIn.value.trim();
+            const id = (/(\d{17})/.exec(raw.replace(/\s+/g, "")) || [])[1] || raw;
+            if (id !== raw) steamIn.value = id;
             steamBtn.disabled = true;
-            await saveSettings({ steamId64: steamIn.value.trim() });
-            const r = await call("refresh-steam-playtime");
+            await saveSettings({ steamId64: id });
+            const r = await call("refresh-steam-playtime", id);
             steamBtn.disabled = false;
             forget("load-games");
+            window.dispatchEvent(new CustomEvent("r2-library-changed"));
             toast(r && r.success === false ? (r.error || "Steam playtime couldn't be read. Is your profile's game details public?") : "Steam playtime updated", r && r.success === false ? "err" : "ok");
         };
-        box.appendChild(setting("Steam playtime", "Your public Steam profile's hours, shown on your games. Find your SteamID64 on steamid.io.", h("div", { style: { display: "flex", gap: "8px" } }, steamIn, steamBtn)));
+        box.appendChild(setting("Steam playtime", "Your public Steam profile's hours, shown on your games. Paste your SteamID64 (find it on steamid.io) or your Steam profile link.", h("div", { style: { display: "flex", gap: "8px" } }, steamIn, steamBtn)));
 
         // Data
         box.appendChild(setting("Your data", "Library, Journal, covers and settings live in Riftgate's data folder on this PC.",
