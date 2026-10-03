@@ -65,10 +65,16 @@ export function openDetail(item) {
     if (!item.desc) fillDescription(item, desc);
 }
 
-// JustWatch in your own country (it calls the UK "uk")
+// JustWatch in your own country. Its search page is locale-prefixed and
+// translated in a few markets (same verified mapping as Riftgate 1.8):
+// Portugal and Brazil "busca", Spain "buscar", France "recherche", Germany
+// "Suche", Italy "cerca", everywhere else "search"; the UK is "uk", not "gb".
+const JW_LOCALE = { GB: "uk" };
+const JW_SEARCH = { PT: "busca", BR: "busca", ES: "buscar", FR: "recherche", DE: "Suche", IT: "cerca" };
 async function openWhereToWatch(title) {
-    const cc = (await country()).toLowerCase();
-    openExternal(`https://www.justwatch.com/${cc === "gb" ? "uk" : cc}/search?q=${encodeURIComponent(title)}`);
+    const cc = (await country()).toUpperCase();
+    const locale = (JW_LOCALE[cc] || cc).toLowerCase();
+    openExternal(`https://www.justwatch.com/${locale}/${JW_SEARCH[cc] || "search"}?q=${encodeURIComponent(title)}`);
 }
 
 // ---- Actions per kind --------------------------------------------------------
