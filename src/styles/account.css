@@ -193,16 +193,49 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .controls-table b { display: inline-block; padding: 2px 8px; color: var(--on-accent); background: var(--energy); border-radius: 6px; font-size: var(--t-xs); }
 .controls-row-note { color: var(--dust); font-style: italic; }
 
-/* ---- Already watched ---------------------------------------------------------------------- */
-.card-info:has(.watch-toggle) { flex: 1; }
-.card-info:has(.watch-toggle) .card-sub { margin-bottom: 8px; }
-.watch-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: auto; flex: none; padding: 3px 9px; font-size: var(--t-xs); font-weight: 600;
-    color: var(--starlight-2); background: var(--nebula-3); border: 1px solid var(--line); cursor: pointer; width: max-content; border-radius: 999px; }
-.watch-toggle svg { width: 12px; height: 12px; }
-.watch-toggle:hover { color: var(--hi); border-color: var(--amethyst); }
-.card.is-watched .watch-toggle { color: var(--st-progress); border-color: color-mix(in srgb, var(--st-progress) 50%, transparent); background: color-mix(in srgb, var(--st-progress) 12%, var(--nebula-2)); }
-.card.is-watched .card-art img { filter: saturate(.35) brightness(.6); }
-.card.is-watched .card-art::after { content: "✓"; position: absolute; inset: 0; height: auto; background: color-mix(in srgb, var(--void) 35%, transparent); display: grid; place-items: center; font-size: 46px; font-weight: 800; color: var(--st-progress); text-shadow: 0 2px 16px #000; pointer-events: none; }
+/* ---- Already watched: the seal ------------------------------------------------------------
+   A gem-cut seal on the art (bottom-right). It wakes up on hover/focus; once you've
+   watched it, the seal stays lit, the art is veiled in the theme's energy and a
+   "Watched" band runs across the foot of the poster. Marking it plays the rift closing. */
+.seal { position: absolute; right: var(--s2); bottom: var(--s2); z-index: 2; display: inline-flex; align-items: center; gap: 0; height: 32px;
+    padding: 0; color: var(--starlight); cursor: pointer; opacity: 0; transform: translateY(4px) scale(.9);
+    transition: opacity var(--mid) var(--ease), transform var(--mid) var(--ease); }
+.seal-face { width: 32px; height: 32px; display: grid; place-items: center; flex: none;
+    background: color-mix(in srgb, var(--void) 70%, transparent); backdrop-filter: blur(8px);
+    clip-path: polygon(50% 0, 100% 28%, 100% 72%, 50% 100%, 0 72%, 0 28%);
+    box-shadow: inset 0 0 0 1px var(--line); transition: background var(--mid), color var(--mid); }
+.seal-face svg { width: 17px; height: 17px; }
+.seal-label { max-width: 0; overflow: hidden; white-space: nowrap; font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+    order: -1; padding: 0; margin-right: 4px; color: var(--starlight); text-shadow: 0 1px 6px #000; transition: max-width var(--mid) var(--ease), padding var(--mid); }
+.card:hover .seal, .card:focus-visible .seal, .card.gp-focus .seal, .card.is-watched .seal { opacity: 1; transform: none; }
+.seal:hover .seal-label, .seal:focus-visible .seal-label { max-width: 110px; padding: 0 4px; }
+.seal:hover .seal-face { background: var(--energy); color: var(--on-accent); }
+.card.is-watched .seal-face { background: var(--energy); color: var(--on-accent); box-shadow: 0 0 14px color-mix(in srgb, var(--rift-pink) 60%, transparent); }
+.card.is-watched .seal-label { display: none; }
+/* Watched: veiled art + the band */
+.card.is-watched .card-art img { filter: saturate(.45) brightness(.62); }
+.card.is-watched .card-art::before { content: "Watched"; position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; height: 48px; display: flex; align-items: center;
+    padding-left: var(--s3); font-size: var(--t-xs); font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--hi);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--amethyst) 55%, transparent), color-mix(in srgb, var(--rift-pink) 25%, transparent) 70%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--rift-pink) 70%, transparent); pointer-events: none; }
+.card.is-watched .card-art::after { height: 100%; background: radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--amethyst) 45%, transparent), transparent 70%); }
+.card.is-watched .card-title { color: var(--starlight-2); }
+/* The rift closing (mark) / reopening (unmark) */
+.card.seal-in .card-art, .card.seal-out .card-art { isolation: isolate; }
+.card.seal-in .card-art > img, .card.seal-out .card-art > img { transition: filter .5s var(--ease); }
+.card.seal-in .card-body::after, .card.seal-out .card-body::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; z-index: 3; pointer-events: none;
+    background: var(--energy); box-shadow: 0 0 12px 3px color-mix(in srgb, var(--rift-pink) 70%, transparent), 0 0 30px 8px color-mix(in srgb, var(--amethyst) 45%, transparent); }
+.card.seal-in .card-body::after { animation: rift-close .7s var(--ease) forwards; }
+.card.seal-out .card-body::after { animation: rift-open .7s var(--ease) forwards; }
+.card.seal-in .seal-face { animation: seal-pop .55s var(--ease); }
+@keyframes rift-close { from { top: 0; opacity: 1; } 85% { opacity: 1; } to { top: 66%; opacity: 0; } }
+@keyframes rift-open { from { top: 66%; opacity: 1; } 85% { opacity: 1; } to { top: 0; opacity: 0; } }
+@keyframes seal-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35) rotate(-12deg); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .card.seal-in .card-body::after, .card.seal-out .card-body::after, .card.seal-in .seal-face { animation: none; display: none; } }
+/* In the details: the same seal as a button */
+.btn.seal-btn svg { transition: transform var(--mid) var(--ease); }
+.btn.seal-btn.is-on:not(.primary) { color: var(--hi); border-color: transparent; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 55%, transparent); }
+.btn.seal-btn.pop svg { animation: seal-pop .55s var(--ease); }
 .btn.is-on:not(.primary) { color: var(--st-progress); }
 
 /* The controller layout (photo + labelled buttons) */

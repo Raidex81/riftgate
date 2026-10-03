@@ -2,7 +2,7 @@
 // trailer, what you can do with it here, and the Journal controls.
 
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";
-import { showtimesUrl } from "../app/regions.js";
+import { openTickets, ticketsHint } from "../app/regions.js";
 import * as seen from "../app/seen.js";
 import { manageBox } from "../app/library-tools.js";
 import { call, cached, openExternal, forget, country } from "../app/api.js";
@@ -100,7 +100,7 @@ function buildActions(item, box, cover) {
             add(btn(`View deal on ${item.source || "store"}`, "tag", () => openExternal(item.url), true));
             break;
         case "film":
-            add(btn("Find tickets", "ticket", () => openExternal(showtimesUrl(item.title)), true));
+            add(btn("Find tickets", "ticket", () => openTickets(item.title), true));
             add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             if (seen.canMark(item)) add(watchedButton(item, false));
             break;
@@ -134,13 +134,22 @@ function buildActions(item, box, cover) {
     trailerButton(item, box, cover);
 }
 
-// "Mark as watched" / "Watched", as in Riftgate 1.x
+// The seal, as a button: "Watched it?" until you have
 function watchedButton(item, primary) {
-    const b = h(`button.btn.lg${primary ? ".primary" : ""}`, { type: "button" });
-    const paint = () => { clear(b).append(icon(seen.isSeen(item) ? "check" : "play"), seen.isSeen(item) ? "Watched" : "Mark as watched"); b.classList.toggle("is-on", seen.isSeen(item)); };
+    const b = h(`button.btn.lg.seal-btn${primary ? ".primary" : ""}`, { type: "button" });
+    const paint = () => {
+        const on = seen.isSeen(item);
+        clear(b).append(icon(on ? "seen" : "eye"), on ? "Watched" : (item.kind === "episode" ? "Mark episode as watched" : "Mark as watched"));
+        b.classList.toggle("is-on", on); b.classList.toggle("primary", primary && !on);
+        b.setAttribute("aria-pressed", String(on));
+    };
     seen.load().then(paint);
     paint();
-    b.onclick = async () => { const now = await seen.toggle(item); paint(); toast(now ? `${item.title}: marked as watched` : `${item.title}: back to unwatched`); };
+    b.onclick = async () => {
+        const now = await seen.toggle(item); paint();
+        b.classList.remove("pop"); void b.offsetWidth; if (now) b.classList.add("pop");
+        toast(now ? `${item.title}: watched` : `${item.title}: back to unwatched`);
+    };
     return b;
 }
 

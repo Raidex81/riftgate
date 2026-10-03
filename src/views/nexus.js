@@ -2,7 +2,7 @@
 
 import { h, icon } from "../app/dom.js";
 import { call, openExternal } from "../app/api.js";
-import { showtimesUrl } from "../app/regions.js";
+import { openTickets } from "../app/regions.js";
 import * as D from "../app/data.js";
 import * as seen from "../app/seen.js";
 import * as journal from "../app/store.js";
@@ -42,7 +42,7 @@ async function slides() {
         }),
         !W("screen") ? none : pick(D.inCinemas(), (l) => {
             const f = l.find((m) => m.backdrop && !m.mature);
-            return f && { item: f, kicker: "In cinemas near you", kickerIcon: "film", action: { label: "Find tickets", icon: "ticket", run: () => openExternal(showtimesUrl(f.title)) } };
+            return f && { item: f, kicker: "In cinemas near you", kickerIcon: "film", action: { label: "Find tickets", icon: "ticket", run: () => openTickets(f.title) } };
         }),
         !W("screen") ? none : pick(D.newSeries(), (l) => {
             const s = l.find((x) => x.backdrop && !x.mature);

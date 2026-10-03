@@ -91,11 +91,11 @@ export function card(item, opts) {
 
     const foot = footFor(item, opts);
     if (foot) info.appendChild(foot);
-    // Episodes and released films: mark as watched right on the card
+    // Episodes and released films: the seal on the art marks them as watched
     if (seen.canMark(item) && opts.watched !== false) {
-        const t = h("span.watch-toggle", { role: "button", tabindex: "-1" });
-        t.addEventListener("click", async (e) => { e.stopPropagation(); e.preventDefault(); await seen.toggle(item); });
-        info.appendChild(t);
+        const t = h("span.seal", { role: "button", tabindex: "-1" }, h("span.seal-face", null, icon("eye")), h("span.seal-label"));
+        t.addEventListener("click", async (e) => { e.stopPropagation(); e.preventDefault(); await sealToggle(el, item); });
+        a.appendChild(t);
     }
 
     el.appendChild(h("div.card-frame", null, h("div.card-body", null, a, info)));
@@ -126,9 +126,33 @@ function footFor(item, opts) {
 function paintSeen(el, item) {
     const on = seen.isSeen(item);
     el.classList.toggle("is-watched", on);
-    const t = el.querySelector(".watch-toggle");
-    if (t) { t.textContent = ""; t.append(icon(on ? "check" : "play"), on ? "Watched" : "Mark as watched"); t.title = on ? "Mark as not watched" : "Mark as watched"; }
+    const t = el.querySelector(".seal");
+    if (!t) return;
+    t.querySelector(".seal-face").replaceChildren(icon(on ? "seen" : "eye"));
+    t.querySelector(".seal-label").textContent = on ? "Watched" : (item.kind === "episode" ? "Seen it?" : "Watched it?");
+    t.title = on ? "Watched. Click to mark as not watched (W)" : "Mark as watched (W)";
+    t.setAttribute("aria-label", t.title);
+    t.setAttribute("aria-pressed", String(on));
 }
+// The rift closes over the art when you mark it; it reopens when you unmark it
+async function sealToggle(el, item) {
+    const now = await seen.toggle(item);
+    el.classList.remove("seal-in", "seal-out");
+    void el.offsetWidth;
+    el.classList.add(now ? "seal-in" : "seal-out");
+    setTimeout(() => el.classList.remove("seal-in", "seal-out"), 900);
+}
+// W marks the card under the pointer (or the focused one) as watched
+let hovered = null;
+document.addEventListener("pointerover", (e) => { hovered = e.target.closest && e.target.closest(".card"); });
+document.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() !== "w" || e.ctrlKey || e.metaKey || e.altKey || /input|textarea|select/i.test(document.activeElement?.tagName || "")) return;
+    const el = document.querySelector("body.gp-nav .card.gp-focus") || (hovered && hovered.isConnected && hovered.matches(":hover") ? hovered : null)
+        || (document.activeElement && document.activeElement.closest && document.activeElement.closest(".card"));
+    if (!el || !el._item || !el.querySelector(".seal")) return;
+    e.preventDefault();
+    sealToggle(el, el._item);
+});
 seen.load().then(() => document.querySelectorAll(".card").forEach((el) => { if (el._item && seen.canMark(el._item)) paintSeen(el, el._item); }));
 seen.onChange(() => document.querySelectorAll(".card").forEach((el) => { if (el._item && seen.canMark(el._item)) paintSeen(el, el._item); }));
 

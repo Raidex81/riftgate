@@ -51,6 +51,17 @@ export function icon(name, cls) {
     return el;
 }
 
+// append()/prepend() skip null, undefined and false, like h() does, so
+// "cond ? node : null" never shows up as the text "null" on screen.
+for (const P of [Element.prototype, DocumentFragment.prototype]) {
+    for (const k of ["append", "prepend"]) {
+        const orig = P[k];
+        if (orig.__r2) continue;
+        const wrapped = function (...nodes) { return orig.apply(this, nodes.filter((n) => n != null && n !== false)); };
+        wrapped.__r2 = true;
+        P[k] = wrapped;
+    }
+}
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 
 export function $(sel, root = document) { return root.querySelector(sel); }

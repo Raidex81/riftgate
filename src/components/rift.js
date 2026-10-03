@@ -106,6 +106,71 @@ export class Rift {
         requestAnimationFrame(this.frame);
     }
 
+    // The ring and its glyphs, drawn once per size and colour (shadows are slow)
+    ringSprites(R, a, soft) {
+        const key = `${Math.round(R)}|${a}|${soft}`;
+        if (this._ring && this._ring.key === key) return this._ring;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        const rim = Math.max(Math.min(2.5, R * .06), R * .03);
+        const half = Math.ceil(R * 1.335 + rim * 2 + 14);
+        const base = document.createElement("canvas"); base.width = base.height = Math.ceil(half * 2 * dpr);
+        const x = base.getContext("2d");
+        x.setTransform(dpr, 0, 0, dpr, half * dpr, half * dpr);
+        // a faint band behind the glyphs, framed by two solid, glowing circles
+        x.strokeStyle = rgba(a, .1); x.lineWidth = R * .15;
+        x.beginPath(); x.arc(0, 0, R * 1.25, 0, TAU); x.stroke();
+        x.shadowColor = rgba(a, .8); x.shadowBlur = 10;
+        x.strokeStyle = rgba(soft, .75); x.lineWidth = rim;
+        x.beginPath(); x.arc(0, 0, R * 1.335, 0, TAU); x.stroke();
+        x.strokeStyle = rgba(a, .7); x.lineWidth = rim * .8;
+        x.beginPath(); x.arc(0, 0, R * 1.165, 0, TAU); x.stroke();
+        x.shadowBlur = 0; x.lineWidth = 1; x.strokeStyle = rgba(soft, .3);
+        x.beginPath(); x.arc(0, 0, R * 1.335 + rim * 1.6, 0, TAU); x.stroke();
+        x.beginPath(); x.arc(0, 0, Math.max(0, R * 1.165 - rim * 1.5), 0, TAU); x.stroke();
+        const gs = R * .095;
+        const glyph = (ctx, g, colour, alpha, blur) => {
+            ctx.strokeStyle = rgba(colour, alpha); ctx.fillStyle = ctx.strokeStyle;
+            ctx.lineWidth = Math.max(1, R * .011); ctx.lineCap = "round"; ctx.lineJoin = "round";
+            ctx.shadowColor = rgba(a, .9); ctx.shadowBlur = blur;
+            ctx.beginPath();
+            g.forEach((st) => {
+                if (st.dot) { ctx.moveTo(st.dot[0] * gs + gs * .09, st.dot[1] * gs); ctx.arc(st.dot[0] * gs, st.dot[1] * gs, gs * .09, 0, TAU); }
+                else if (st.arc) { const [cx, cy, r0, a0, a1] = st.arc; ctx.moveTo(cx * gs + Math.cos(a0) * r0 * gs, cy * gs + Math.sin(a0) * r0 * gs); ctx.arc(cx * gs, cy * gs, r0 * gs, a0, a1); }
+                else { ctx.moveTo(st[0][0] * gs, st[0][1] * gs); st.slice(1).forEach(([px, py]) => ctx.lineTo(px * gs, py * gs)); }
+            });
+            ctx.stroke();
+        };
+        GLYPHS.forEach((g, i) => {
+            x.save(); x.rotate(i / GLYPHS.length * TAU); x.translate(0, -R * 1.25);
+            glyph(x, g, a, .6, 3.6);
+            x.restore();
+        });
+        const gh = Math.ceil(gs * 3 + 16);
+        const lit = GLYPHS.map((g) => {
+            const c = document.createElement("canvas"); c.width = c.height = Math.ceil(gh * 2 * dpr);
+            const y = c.getContext("2d"); y.setTransform(dpr, 0, 0, dpr, gh * dpr, gh * dpr);
+            y.globalCompositeOperation = "lighter";
+            glyph(y, g, soft, .9, 8);
+            return { c, half: gh };
+        });
+        this._ring = { key, base, half, lit };
+        return this._ring;
+    }
+
+    // The logo tinted to the theme, cached (a canvas filter every frame is slow)
+    logoSprite(gr) {
+        if (!(logo.complete && logo.naturalWidth)) return null;
+        const f = logoFilter();
+        const h = gr * 2.05, w = h * logo.naturalWidth / logo.naturalHeight;
+        const key = `${Math.round(h)}|${f}`;
+        if (this._logo && this._logo.key === key) return this._logo;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        const c = document.createElement("canvas"); c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
+        const x = c.getContext("2d"); x.filter = f; x.drawImage(logo, 0, 0, c.width, c.height);
+        this._logo = { key, c, w, h };
+        return this._logo;
+    }
+
     newShard(anywhere) {
         const ang = Math.random() * TAU;
         const d = anywhere ? .6 + Math.random() * 2.4 : 2.6 + Math.random() * .6;
@@ -195,7 +260,7 @@ export class Rift {
         const scale = Math.max(.6, R / 150);
         // Three passes per channel (bloom, coloured glow, white-hot core),
         // drawn in sections that thin and dim toward the tip.
-        const layers = (pts, upto, wf, dim) => {
+        const layers = (pts, upto, wf, dim, main = false) => {
             const n = Math.max(2, Math.floor(pts.length * upto));
             const parts = 3;
             for (let p = 0; p < parts; p++) {
@@ -215,21 +280,25 @@ export class Rift {
                 ctx.strokeStyle = rgba(a, Math.min(.6, .22 * lit) * fade);
                 ctx.lineWidth = (11 + cool * 8) * scale * w;
                 ctx.stroke();
-                // coloured glow with a real blur; at the flash it blooms wide
+                // the flash blooming wide: a brighter mid stroke that swells with it
+                ctx.strokeStyle = rgba(soft, Math.min(.5, .26 * lit) * fade);
+                ctx.lineWidth = (5 + 9 * Math.min(1.4, lit)) * scale * w;
+                ctx.stroke();
+                // coloured glow; a real (small) blur only on the main channel, as blur is costly
                 ctx.shadowColor = rgba(a, Math.min(1, lit) * fade);
-                ctx.shadowBlur = (18 + 46 * Math.min(1.4, lit)) * scale * Math.max(.5, w);
+                ctx.shadowBlur = main ? Math.min(14, (6 + 8 * Math.min(1.4, lit)) * scale) : 0;
                 ctx.strokeStyle = rgba(cool > .5 ? a : soft, Math.min(1, .7 * lit) * fade);
                 ctx.lineWidth = (3.4 + cool * 2.2) * scale * w;
                 ctx.stroke();
                 // white-hot core, cooling to the theme colour
-                ctx.shadowBlur = 6 * scale * Math.min(1, lit);
+                ctx.shadowBlur = main ? Math.min(6, 4 * scale * Math.min(1, lit)) : 0;
                 ctx.shadowColor = "#ffffff";
                 ctx.strokeStyle = cool < .35 ? rgba("#ffffff", Math.min(1, lit * 1.25) * fade) : rgba(soft, Math.min(1, lit * .95) * fade);
                 ctx.lineWidth = Math.max(.5, (1.4 + Math.min(1, lit) * 1.1 - cool * .8) * scale * w);
                 ctx.stroke();
             }
         };
-        layers(bo.main, reveal, 1, 1);
+        layers(bo.main, reveal, 1, 1, true);
         bo.branches.forEach((br) => { if (reveal > br.start) layers(br.pts, Math.min(1, (reveal - br.start) / Math.max(.05, 1 - br.start) * 1.6), br.w, br.dim); });
         ctx.shadowBlur = 0;
         // the flash lights up the air along the strike
@@ -289,51 +358,36 @@ export class Rift {
             ctx.beginPath(); ctx.arc(0, 0, R * 2.4, 0, TAU); ctx.fill();
         }
 
-        // Rune ring
+        // Rune ring (pre-rendered with its glow; only the lit glyphs are drawn each frame)
         ctx.globalCompositeOperation = "source-over";
+        const ring = this.ringSprites(R, a, soft);
         ctx.save();
         ctx.rotate(t * .08);
-        ctx.strokeStyle = rgba(soft, .45);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(0, 0, R * 1.32, 0, TAU); ctx.stroke();
-        ctx.strokeStyle = rgba(a, .35);
-        ctx.beginPath(); ctx.arc(0, 0, R * 1.18, 0, TAU); ctx.stroke();
-        // A band of alien glyphs between the two circles, slowly lit in turn
-        const gs = R * .095;
-        GLYPHS.forEach((g, i) => {
-            const ang = i / GLYPHS.length * TAU;
-            const lit = .45 + .55 * Math.max(0, Math.sin(t * 1.1 - i * .55));
+        ctx.drawImage(ring.base, -ring.half, -ring.half, ring.half * 2, ring.half * 2);
+        ctx.globalCompositeOperation = "lighter";
+        ring.lit.forEach((sp, i) => {
+            const lit = Math.max(0, Math.sin(t * 1.1 - i * .55));
+            if (lit < .04) return;
             ctx.save();
-            ctx.rotate(ang);
+            ctx.rotate(i / GLYPHS.length * TAU);
             ctx.translate(0, -R * 1.25);
-            ctx.strokeStyle = rgba(lit > .8 ? soft : a, .35 + .55 * lit);
-            ctx.fillStyle = ctx.strokeStyle;
-            ctx.lineWidth = Math.max(1, R * .011);
-            ctx.lineCap = "round"; ctx.lineJoin = "round";
-            ctx.shadowColor = rgba(a, .9 * lit); ctx.shadowBlur = 8 * lit;
-            ctx.beginPath();
-            g.forEach((st) => {
-                if (st.dot) { ctx.moveTo(st.dot[0] * gs + gs * .09, st.dot[1] * gs); ctx.arc(st.dot[0] * gs, st.dot[1] * gs, gs * .09, 0, TAU); }
-                else if (st.arc) { const [cx, cy, r0, a0, a1] = st.arc; ctx.moveTo(cx * gs + Math.cos(a0) * r0 * gs, cy * gs + Math.sin(a0) * r0 * gs); ctx.arc(cx * gs, cy * gs, r0 * gs, a0, a1); }
-                else { ctx.moveTo(st[0][0] * gs, st[0][1] * gs); st.slice(1).forEach(([x, y]) => ctx.lineTo(x * gs, y * gs)); }
-            });
-            ctx.stroke();
+            ctx.globalAlpha = lit;
+            ctx.drawImage(sp.c, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
             ctx.restore();
         });
-        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
         ctx.restore();
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to
         // the theme's accent; a drawn crystal stands in until it has loaded.
         const gr = R * .78;
         const core = [0, gr * .08];
-        if (logo.complete && logo.naturalWidth) {
-            const hgt = gr * 2.05, wid = hgt * logo.naturalWidth / logo.naturalHeight;
-            ctx.save();
-            ctx.filter = logoFilter();
+        const tinted = this.logoSprite(gr);
+        if (tinted) {
             ctx.globalAlpha = .96;
-            ctx.drawImage(logo, -wid / 2, -hgt / 2 + core[1] * .4, wid, hgt);
-            ctx.restore();
+            ctx.drawImage(tinted.c, -tinted.w / 2, -tinted.h / 2 + core[1] * .4, tinted.w, tinted.h);
+            ctx.globalAlpha = 1;
         } else {
             const hex = Array.from({ length: 6 }, (_, i) => { const an = -Math.PI / 2 + i * TAU / 6; return [Math.cos(an) * gr, Math.sin(an) * gr]; });
             const facet = (p1, p2, light) => {

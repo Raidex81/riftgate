@@ -200,10 +200,29 @@
 .rift-roll canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .rift-roll .stack { position: relative; display: grid; justify-items: center; gap: var(--s6); text-align: center; }
 .rift-roll .reel { display: flex; gap: var(--s4); height: 440px; align-items: center; }
-.rift-roll .reel .card { width: 236px; transition: transform var(--mid) var(--ease), opacity var(--mid); }
+.rift-roll .reel .card { width: 236px; opacity: 1; transition: transform .16s var(--ease), filter .16s; }
 .rift-roll h2 { text-shadow: 0 2px 18px var(--void), 0 0 4px var(--void); }
-.rift-roll .reel .card.dim { opacity: .3; transform: scale(.9); }
 .rift-roll .reel .card.win { transform: scale(1.12); filter: drop-shadow(0 0 16px var(--amethyst)) drop-shadow(0 0 40px var(--rift-pink)); }
+/* The slot reel: every card readable, the one in the gate lit */
+.rift-roll .reel.is-slot { position: relative; display: block; width: min(1320px, 94vw); height: 470px; overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); }
+.reel-strip { position: absolute; top: 50%; left: 0; display: flex; gap: var(--s5); align-items: center; translate: 0 -50%; will-change: transform; }
+.reel.is-slot .card { transform: scale(.88); filter: brightness(.78); }
+/* solid cards in front of the portal: nothing shows through them */
+.rift-roll .reel .card-art { background: var(--void); }
+.reel.is-slot .card.in-gate { transform: scale(1.02); z-index: 2; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--amethyst) 80%, transparent)); }
+.reel.is-slot .card.in-gate .card-frame { --frame: var(--energy); }
+.reel-gate { position: absolute; top: 4px; bottom: 4px; left: 50%; width: 268px; translate: -50% 0; z-index: 3; pointer-events: none;
+    border: 2px solid transparent; border-image: var(--energy) 1;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--rift-pink) 45%, transparent), inset 0 0 22px color-mix(in srgb, var(--amethyst) 35%, transparent); }
+.reel-gate::before, .reel-gate::after { content: ""; position: absolute; left: 50%; translate: -50% 0; border: 9px solid transparent; }
+.reel-gate::before { top: -2px; border-top-color: var(--rift-pink); }
+.reel-gate::after { bottom: -2px; border-bottom-color: var(--rift-pink); }
+.reel.tick .reel-gate { animation: gate-tick .18s var(--ease); }
+@keyframes gate-tick { 50% { box-shadow: 0 0 34px color-mix(in srgb, var(--rift-pink) 75%, transparent), inset 0 0 30px color-mix(in srgb, var(--amethyst) 55%, transparent); } }
+.rift-roll.landed .reel.is-slot .card:not(.win) { filter: brightness(.55) saturate(.7); transform: scale(.84); }
+.rift-roll.landed .reel.is-slot .card.win { transform: scale(1.1); }
+.rift-roll.landed .reel-gate { opacity: 0; transition: opacity .4s; }
 .rift-roll h2 { font-size: var(--t-3xl); max-width: 22ch; text-wrap: balance; }
 
 /* ---- Stats (Journal) ---------------------------------------------------------- */

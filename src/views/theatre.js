@@ -10,7 +10,7 @@ import { fromProviderTitle } from "../app/items.js";
 import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
 import { until } from "../app/format.js";
-import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMyServices } from "../app/regions.js";
+import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMyServices, ready as regionReady, cinema, setCinema, cinemasNear, ticketsHint } from "../app/regions.js";
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
 
@@ -26,8 +26,45 @@ export default {
             (COUNTRIES.some(([c]) => c === cc) ? COUNTRIES : [[cc, cc], ...COUNTRIES]).map(([c, n]) => h("option", { value: c }, n)));
         countrySel.value = cc;
         countrySel.addEventListener("change", () => { toast(`Theatre now follows ${countryName(countrySel.value)}`); setCountry(countrySel.value); });
-        const cityIn = h("input.input", { type: "text", placeholder: "Your city (for showtimes)", value: city(), "aria-label": "Your city", style: { width: "210px" } });
-        cityIn.addEventListener("change", () => { setCity(cityIn.value); toast(cityIn.value.trim() ? `Showtimes now look in ${cityIn.value.trim()}` : "Showtimes search your whole country"); });
+        await regionReady;
+        const cityIn = h("input.input", { type: "text", placeholder: "Your city (for showtimes)", value: city(), "aria-label": "Your city", style: { width: "190px" } });
+        // Your cinema: Find tickets then opens its own website
+        const cinemaSel = h("select.input", { "aria-label": "Your cinema", style: { maxWidth: "260px" } });
+        let cinemas = [];
+        const paintCinemas = (state) => {
+            clear(cinemaSel);
+            cinemaSel.hidden = !city();
+            const chosen = cinema(cc);
+            cinemaSel.appendChild(h("option", { value: "" }, `Any cinema in ${city()}`));
+            if (chosen && !cinemas.some((c) => c.id === chosen.id)) cinemaSel.appendChild(h("option", { value: chosen.id }, chosen.label || chosen.name));
+            cinemas.forEach((c) => cinemaSel.appendChild(h("option", { value: c.id }, [c.label || c.name, typeof c.distanceKm === "number" ? `${c.distanceKm} km` : null, c.url ? null : "web search"].filter(Boolean).join(" · "))));
+            if (state === "loading") cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, "Loading cinemas…"));
+            if (state === "error") cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, "Couldn't load cinemas"));
+            if (state === "ready" && !cinemas.length) cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, `No cinemas found near ${city()}`));
+            if (state !== "loading") cinemaSel.appendChild(h("option", { value: "__refresh" }, "↻ Refresh the cinema list"));
+            cinemaSel.value = chosen ? chosen.id : "";
+            cinemaSel.title = `${ticketsHint(cc)}\nCinema data © OpenStreetMap contributors`;
+        };
+        const loadCinemas = async (refresh) => {
+            if (!city()) { cinemas = []; paintCinemas("idle"); return; }
+            paintCinemas("loading");
+            const r = await cinemasNear(cc, refresh);
+            cinemas = Array.isArray(r.cinemas) ? r.cinemas : [];
+            paintCinemas(r.error && !cinemas.length ? "error" : "ready");
+        };
+        cinemaSel.addEventListener("change", async () => {
+            if (cinemaSel.value === "__refresh") { loadCinemas(true); return; }
+            const c = cinemas.find((x) => x.id === cinemaSel.value) || (cinema(cc) && cinema(cc).id === cinemaSel.value ? cinema(cc) : null);
+            await setCinema(cc, c);
+            paintCinemas("ready");
+            toast(c ? `Find tickets now opens ${c.name}` : "Find tickets searches every cinema nearby");
+        });
+        cityIn.addEventListener("change", async () => {
+            await setCity(cityIn.value);
+            toast(cityIn.value.trim() ? `Showtimes now look in ${cityIn.value.trim()}` : "Showtimes search your whole country");
+            loadCinemas(false);
+        });
+        loadCinemas(false);
         const servicesBtn = h("button.btn", { type: "button", "aria-expanded": "false" }, icon("tv"), "My services");
         const servicesBox = h("div.services", { hidden: true });
         servicesBtn.onclick = () => { servicesBox.hidden = !servicesBox.hidden; servicesBtn.setAttribute("aria-expanded", String(!servicesBox.hidden)); };
@@ -50,7 +87,7 @@ export default {
             h("div", null,
                 h("h1", null, "Theatre"),
                 h("p", null, `What's showing in ${countryName(cc)}, what's streaming on your services, and the shows you follow.`)),
-            h("div.actions", null, countrySel, cityIn, servicesBtn)), servicesBox);
+            h("div.actions", null, countrySel, cityIn, cinemaSel, servicesBtn)), servicesBox);
 
         const W = interests.wants;
         const rows = shelf("theatre", [
