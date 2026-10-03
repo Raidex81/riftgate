@@ -485,14 +485,17 @@ const PHOTOS = {
     xbox: { src: "assets/controllers/xbox.png", w: 428, h: 385,
         at: { LT: [118, 30], LB: [92, 50], VIEW: [183, 107], LS: [105, 105], DPAD: [160, 175], RT: [312, 30], RB: [338, 50], MENU: [245, 107], Y: [325, 78], X: [293, 107], B: [350, 107], A: [322, 134], RS: [270, 170] } },
     playstation: { src: "assets/controllers/playstation.png", w: 495, h: 493,
-        at: { LT: [95, 92], LB: [100, 110], VIEW: [132, 126], LS: [170, 247], DPAD: [95, 182], RT: [398, 92], RB: [395, 110], MENU: [361, 126], Y: [398, 146], X: [370, 182], B: [433, 182], A: [398, 216], RS: [325, 247] } }
+        at: { LT: [95, 92], LB: [100, 110], VIEW: [132, 126], LS: [170, 247], DPAD: [95, 182], RT: [398, 92], RB: [395, 110], MENU: [361, 126], Y: [398, 146], X: [370, 182], B: [433, 182], A: [398, 216], RS: [325, 247] } },
+    // Nintendo layout: buttons go by position, so "A" (select) is the bottom one, printed B
+    nintendo: { src: "assets/controllers/nintendo.png", w: 438, h: 361,
+        at: { LT: [92, 62], LB: [70, 80], VIEW: [162, 100], LS: [97, 135], DPAD: [160, 200], RT: [346, 62], RB: [368, 80], MENU: [270, 100], Y: [335, 105], X: [306, 134], B: [365, 134], A: [335, 163], RS: [272, 200] } }
 };
 const LAYOUT = {
     left: [["LT", "Scroll a screen up"], ["LB", "Previous section"], ["VIEW", "Controls (this screen)"], ["LS", "Move the highlight"], ["DPAD", "Move, row by row"]],
     right: [["RT", "Scroll a screen down"], ["RB", "Next section"], ["MENU", "Menu ↔ page"], ["Y", "Details"], ["X", "Play / Get it free"], ["B", "Back / close"], ["A", "Select / open"], ["RS", "Scroll freely"]]
 };
 // Face-button colours, as printed on the controllers
-const FACE = { xbox: { A: "#3ab14a", B: "#e3342f", X: "#2f78d6", Y: "#f2b705" }, playstation: { A: "#7b9cf2", B: "#ef6b75", X: "#e58bd8", Y: "#3fc9a8" } };
+const FACE = { nintendo: { A: "#7c83e8", B: "#7c83e8", X: "#7c83e8", Y: "#7c83e8" }, xbox: { A: "#3ab14a", B: "#e3342f", X: "#2f78d6", Y: "#f2b705" }, playstation: { A: "#7b9cf2", B: "#ef6b75", X: "#e58bd8", Y: "#3fc9a8" } };
 const GLYPH = { LS: "L stick", RS: "R stick", DPAD: "D-pad" };
 
 const SHORT = { playstation: { VIEW: "Create", MENU: "Options" }, xbox: { VIEW: "View ⧉", MENU: "Menu ☰" } };
