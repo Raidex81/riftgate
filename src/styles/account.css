@@ -200,7 +200,7 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .watch-toggle:hover { color: var(--hi); border-color: var(--amethyst); }
 .card.is-watched .watch-toggle { color: var(--st-progress); border-color: color-mix(in srgb, var(--st-progress) 50%, transparent); background: color-mix(in srgb, var(--st-progress) 12%, var(--nebula-2)); }
 .card.is-watched .card-art img { filter: saturate(.35) brightness(.6); }
-.card.is-watched .card-art::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 46px; font-weight: 800; color: var(--st-progress); text-shadow: 0 2px 16px #000; pointer-events: none; }
+.card.is-watched .card-art::after { content: "✓"; position: absolute; inset: 0; height: auto; background: color-mix(in srgb, var(--void) 35%, transparent); display: grid; place-items: center; font-size: 46px; font-weight: 800; color: var(--st-progress); text-shadow: 0 2px 16px #000; pointer-events: none; }
 .btn.is-on:not(.primary) { color: var(--st-progress); }
 
 /* The controller layout (photo + labelled buttons) */

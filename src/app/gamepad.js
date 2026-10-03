@@ -129,6 +129,7 @@ function setCurrent(el, { scroll = true } = {}) {
     if (!el) return;
     el.classList.add("gp-focus");
     document.body.classList.add("gp-nav");
+    if (el.matches(CARD)) el.dispatchEvent(new Event("pointerenter")); // the ambient background follows the highlight
     if (el.matches("button, a[href], select, input, textarea, [tabindex]")) { try { el.focus({ preventScroll: true }); } catch { /* */ } }
     if (scroll) bringIntoView(el);
 }

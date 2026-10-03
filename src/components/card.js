@@ -7,6 +7,7 @@ import * as journal from "../app/store.js";
 import { money, score, hours } from "../app/format.js";
 import { TYPE_LABEL } from "../app/items.js";
 import * as seen from "../app/seen.js";
+import { ambient } from "./ambient.js";
 
 let openDetail = () => {};
 export function setDetailOpener(fn) { openDetail = fn; }
@@ -65,6 +66,7 @@ export function card(item, opts) {
         onclick: () => openDetail(item)
     });
     el._item = item;
+    el.addEventListener("pointerenter", () => ambient(item));
 
     const image = opts.wide ? (item.backdrop || item.image) : item.image;
     const a = art(image, item.title, item.fallback);
@@ -94,12 +96,12 @@ export function card(item, opts) {
         const t = h("span.watch-toggle", { role: "button", tabindex: "-1" });
         t.addEventListener("click", async (e) => { e.stopPropagation(); e.preventDefault(); await seen.toggle(item); });
         info.appendChild(t);
-        paintSeen(el, item);
     }
 
     el.appendChild(h("div.card-frame", null, h("div.card-body", null, a, info)));
 
     paintJournal(el, item);
+    if (seen.canMark(item) && opts.watched !== false) paintSeen(el, item);
     if (!live.has(item.key)) live.set(item.key, new Set());
     live.get(item.key).add(el);
     return el;

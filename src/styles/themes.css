@@ -202,3 +202,12 @@
 :root[data-wallpaper] .view :is(p, span, small, .muted, .row-note, .card-sub, h1, h2, h3) {
     text-shadow: 0 1px 3px color-mix(in srgb, var(--void) 80%, transparent), 0 0 12px color-mix(in srgb, var(--void) 60%, transparent);
 }
+
+/* ---- Ambient background ------------------------------------------------------------------- */
+.app > .ambient { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms var(--ease); overflow: hidden; }
+.app > .ambient.on { opacity: 1; }
+.app > .ambient::before { content: ""; position: absolute; inset: -80px; background: var(--amb-img) center / cover no-repeat; filter: blur(60px) saturate(1.4); opacity: .22; }
+.app > .ambient::after { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(1100px 700px at 70% 30%, color-mix(in srgb, var(--amb-tint) 22%, transparent), transparent 70%),
+                linear-gradient(180deg, transparent 0%, var(--void) 92%); }
+:root[data-tone="light"] .app > .ambient::before { opacity: .16; }
