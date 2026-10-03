@@ -135,7 +135,7 @@ function footFor(item, opts) {
         }
     }
     if (item.kind === "library" && item.playtime) {
-        return h("div.card-foot", null, icon("clock"), hours(item.playtime));
+        return h("div.card-foot", null, icon("clock"), hours(item.playtime) || "0 h", item.playtimeFrom === "Steam" ? h("span.on-steam", null, "on Steam") : null);
     }
     return null;
 }

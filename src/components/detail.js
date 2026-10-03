@@ -42,7 +42,7 @@ export function openDetail(item) {
         item.source ? h("span", null, item.source) : null,
         item.date ? h("span", null, /^\d{4}$/.test(item.date) ? item.date : dateLong(item.date)) : null,
         item.rating ? h("span", null, `★ ${score(item.rating)}${item.ratingText ? " · " + item.ratingText : ""}`) : null,
-        item.playtime ? h("span", null, `${hours(item.playtime)} played`) : null,
+        item.playtime || item.playtimeFrom === "Steam" ? h("span", null, `${hours(item.playtime) || "0 h"} played${item.playtimeFrom === "Steam" ? " on Steam" : ""}`) : null,
         item.lastPlayed ? h("span", null, `Last played ${ago(item.lastPlayed)}`) : null,
         item.price && typeof item.price.final === "number"
             ? h("span", null, h("b", { style: { color: "var(--starlight)" } }, money(item.price.final, item.price.currency)),

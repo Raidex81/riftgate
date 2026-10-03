@@ -376,3 +376,5 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 /* Picked for you: why each one is there */
 .card-foot.reason { color: var(--amethyst-soft); font-size: var(--t-xs); flex-wrap: nowrap; min-width: 0; }
 .card-foot.reason span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.on-steam { font-size: var(--t-xs); color: var(--dust); margin-left: 2px; }

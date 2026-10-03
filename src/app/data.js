@@ -70,8 +70,8 @@ const libraryBase = source("library", "load-games", I.fromLibrary);
 // Playtime: Riftgate only counts the time it can see a game running (a game
 // started through a launcher, like EA's or Steam's, often looks like a minute).
 // Steam knows better: for every Steam game in your library (a steam:// link or
-// a game inside a Steam library folder), Steam's own hours are used when
-// they're higher. "Update playtime" in Settings fetches them.
+// a game inside a Steam library folder), the time shown is Steam's own; other
+// games keep Riftgate's count. "Update playtime" in Settings fetches them.
 let steamIds = null;
 export async function library(opts) {
     const items = await libraryBase(opts);
@@ -83,10 +83,10 @@ export async function library(opts) {
         items.forEach((it) => { if (it.raw && !(it.raw.path in steamIds)) steamIds[it.raw.path] = null; });
     }
     return items.map((it) => {
+        // Steam games show Steam's own time; everything else, Riftgate's count
         const id = it.raw && steamIds[it.raw.path];
-        const steamSec = id && typeof mins[id] === "number" ? mins[id] * 60 : 0;
-        if (!id || steamSec <= (it.playtime || 0)) return it;
-        return { ...it, playtime: steamSec, steamAppId: id, playtimeFrom: "Steam" };
+        if (!id || typeof mins[id] !== "number") return it;
+        return { ...it, playtime: mins[id] * 60, steamAppId: id, playtimeFrom: "Steam" };
     });
 }
 export const freeGames = source("free", "get-free-games", I.fromFreeGame, null, "get-cached-free-games");
