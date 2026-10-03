@@ -78,9 +78,16 @@ export async function library(opts) {
     const s = await settings({ fresh: !!(opts && opts.fresh) });
     const mins = s.steamPlaytimes || {};
     if (!Object.keys(mins).length) return items;
-    if (!steamIds || items.some((it) => it.raw && !(it.raw.path in steamIds))) {
-        steamIds = (await call("r2-steam-appids", items.map((it) => it.raw && it.raw.path).filter(Boolean))) || {};
-        items.forEach((it) => { if (it.raw && !(it.raw.path in steamIds)) steamIds[it.raw.path] = null; });
+    steamIds = steamIds || {};
+    // steam:// links say which game they are right away
+    items.forEach((it) => { const m = it.raw && /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(it.raw.path || ""); if (m) steamIds[it.raw.path] = m[1]; });
+    // games inside a Steam library folder: the engine reads Steam's manifests (asked once)
+    const unknown = items.map((it) => it.raw && it.raw.path).filter((p) => p && !(p in steamIds));
+    if (unknown.length) {
+        let found = null;
+        try { found = await call("r2-steam-appids", unknown); } catch (e) { found = null; }
+        if (found && typeof found === "object") { unknown.forEach((p) => { steamIds[p] = found[p] || null; }); }
+        // (no answer: an engine from before this, still running; ask again next time)
     }
     return items.map((it) => {
         // Steam games show Steam's own time; everything else, Riftgate's count
