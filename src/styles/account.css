@@ -292,3 +292,9 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .next-ep-row .grow { flex: 1; min-width: 0; }
 .next-ep-code { font-family: var(--font-display); color: var(--hi); }
 .next-ep-count { font-size: var(--t-lg); color: var(--hi); font-variant-numeric: tabular-nums; padding: 4px 12px; border-radius: 999px; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 40%, transparent); white-space: nowrap; }
+
+/* Library: drag to reorder */
+.grid.lib-sorting .card { cursor: grabbing; }
+.grid.lib-sorting .card:not(.lib-dragging):hover { transform: none; filter: none; }
+.card.lib-dragging { opacity: .35; transform: scale(.94); filter: none; }
+.card.lib-dragging .card-frame { --frame: var(--energy); }

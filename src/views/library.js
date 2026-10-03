@@ -7,6 +7,7 @@ import { card } from "../components/card.js";
 import { toast } from "../components/toast.js";
 import { hours, ago, plural } from "../app/format.js";
 import { missingNotice } from "../app/library-tools.js";
+import * as journal from "../app/store.js";
 
 const FILTERS = [
     { id: "all", label: "Everything", test: () => true },
@@ -15,6 +16,7 @@ const FILTERS = [
     { id: "app", label: "Apps", test: (g) => g.type === "app" }
 ];
 const SORTS = {
+    mine: { label: "My order", fn: null },
     recent: { label: "Recently played", fn: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0) || (b.addedAt || 0) - (a.addedAt || 0) },
     most: { label: "Most played", fn: (a, b) => (b.playtime || 0) - (a.playtime || 0) },
     added: { label: "Recently added", fn: (a, b) => (b.addedAt || 0) - (a.addedAt || 0) },
@@ -23,10 +25,14 @@ const SORTS = {
 
 export default {
     async render(root) {
-        let filter = "all", sort = "recent", query = "";
+        await journal.load();
+        // Your own order (drag cards to set it), kept by Journal key
+        let order = journal.pref("library:order", null) || [];
+        let filter = "all", sort = order.length ? "mine" : "recent", query = "";
         const grid = h("div.grid");
         const chips = h("div.chips", { role: "group", "aria-label": "Show" });
         const sortSel = h("select.input", { "aria-label": "Sort" }, Object.entries(SORTS).map(([k, s]) => h("option", { value: k }, s.label)));
+        sortSel.value = sort;
         const search = h("input.input", { type: "search", placeholder: "Filter your library", "aria-label": "Filter your library", style: { width: "220px" } });
         const summary = h("p");
         const notices = h("div");
@@ -43,7 +49,7 @@ export default {
             notices,
             h("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", marginBottom: "28px" } }, chips, h("div", { style: { flex: 1 } }), search, sortSel),
             grid,
-            h("p.muted.drop-hint", null, icon("plus"), "Tip: drop a game, app or shortcut anywhere on the window to add it."));
+            h("p.muted.drop-hint", null, icon("plus"), "Tip: drag cards to put them in your own order (or Ctrl + arrows). Drop a game, app or shortcut anywhere on the window to add it."));
 
         let all = [];
         async function reload(fresh) {
@@ -66,17 +72,107 @@ export default {
             const q = query.trim().toLowerCase();
             const list = all.filter(FILTERS.find((f) => f.id === filter).test)
                 .filter((g) => !q || g.title.toLowerCase().includes(q))
-                .sort(SORTS[sort].fn);
+                .sort(sort === "mine" ? byMine : SORTS[sort].fn);
             clear(grid);
             if (!all.length) {
                 grid.replaceWith(emptyState(reload));
                 return;
             }
             const frag = document.createDocumentFragment();
-            list.forEach((g) => frag.appendChild(card(g, { foot: footFor(g) })));
+            list.forEach((g) => { const c = card(g, { foot: footFor(g) }); makeDraggable(c, g); frag.appendChild(c); });
             grid.appendChild(frag);
             if (!list.length) grid.appendChild(h("p.row-empty", null, `Nothing in your library matches “${query}”.`));
         }
+
+        // ---- Drag and drop to reorder ------------------------------------------------
+        // The card you drag travels through the grid as you move (the others
+        // glide aside); letting go saves the order and switches to "My order".
+        // Keyboard / controller: Ctrl + ← → (or ↑ ↓) moves the focused card.
+        const rank = () => new Map(order.map((k, i) => [k, i]));
+        let ranks = rank();
+        function byMine(a, b) {
+            const ra = ranks.has(a.key) ? ranks.get(a.key) : Infinity, rb = ranks.has(b.key) ? ranks.get(b.key) : Infinity;
+            return ra - rb || SORTS.recent.fn(a, b);
+        }
+        // the full order, as currently shown when "My order" isn't on yet
+        const fullOrder = () => all.slice().sort(sort === "mine" ? byMine : SORTS[sort].fn).map((g) => g.key);
+        async function saveOrder(keys) {
+            order = keys; ranks = rank();
+            if (sort !== "mine") { sort = "mine"; sortSel.value = "mine"; }
+            await journal.setPref("library:order", keys);
+        }
+        // place `key` just before `beforeKey` (or at the end) in the full order
+        function moveKey(key, beforeKey) {
+            const keys = fullOrder().filter((k) => k !== key);
+            const i = beforeKey ? keys.indexOf(beforeKey) : -1;
+            keys.splice(i < 0 ? keys.length : i, 0, key);
+            return keys;
+        }
+        // smooth slide of the cards that moved (FLIP)
+        function glide(mutate) {
+            const cards = [...grid.children].filter((c) => c.classList.contains("card"));
+            const before = new Map(cards.map((c) => [c, c.getBoundingClientRect()]));
+            mutate();
+            cards.forEach((c) => {
+                const a = before.get(c), b = c.getBoundingClientRect();
+                const dx = a.left - b.left, dy = a.top - b.top;
+                if (!dx && !dy) return;
+                c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" });
+            });
+        }
+        let dragged = null;
+        function makeDraggable(c, g) {
+            c.draggable = true;
+            c.addEventListener("dragstart", (e) => {
+                dragged = c;
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/x-riftgate-card", g.key);
+                requestAnimationFrame(() => { c.classList.add("lib-dragging"); grid.classList.add("lib-sorting"); });
+            });
+            c.addEventListener("dragend", () => {
+                c.classList.remove("lib-dragging"); grid.classList.remove("lib-sorting");
+                if (!dragged) return;
+                dragged = null;
+                const shown = [...grid.children].filter((x) => x._item).map((x) => x._item.key);
+                const i = shown.indexOf(g.key);
+                const next = shown[i + 1] || null;
+                // keep it right after the one before it if it went last among what's shown
+                saveOrder(next ? moveKey(g.key, next) : moveAfter(g.key, shown[i - 1]));
+            });
+            c.addEventListener("dragover", (e) => {
+                if (!dragged || dragged === c) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                const r = c.getBoundingClientRect();
+                const after = (e.clientX - r.left) > r.width / 2;
+                const ref = after ? c.nextSibling : c;
+                if (ref === dragged || dragged.nextSibling === ref) return;
+                glide(() => grid.insertBefore(dragged, ref));
+            });
+            c.addEventListener("drop", (e) => e.preventDefault());
+            c.addEventListener("keydown", (e) => {
+                if (!e.ctrlKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+                e.preventDefault(); e.stopPropagation();
+                const shown = [...grid.children].filter((x) => x._item);
+                const i = shown.indexOf(c);
+                const cols = Math.max(1, Math.round(grid.clientWidth / (c.offsetWidth || 1)));
+                const step = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" ? -cols : cols;
+                const j = Math.max(0, Math.min(shown.length - 1, i + step));
+                if (j === i) return;
+                glide(() => grid.insertBefore(c, j > i ? shown[j].nextSibling : shown[j]));
+                c.focus();
+                const keys = [...grid.children].filter((x) => x._item).map((x) => x._item.key);
+                const k = keys.indexOf(g.key);
+                saveOrder(keys[k + 1] ? moveKey(g.key, keys[k + 1]) : moveAfter(g.key, keys[k - 1]));
+            });
+        }
+        function moveAfter(key, afterKey) {
+            const keys = fullOrder().filter((k) => k !== key);
+            const i = afterKey ? keys.indexOf(afterKey) : -1;
+            keys.splice(i + 1, 0, key);
+            return keys;
+        }
+        grid.addEventListener("dragover", (e) => { if (dragged) e.preventDefault(); });
 
         sortSel.addEventListener("change", () => { sort = sortSel.value; paint(); });
         search.addEventListener("input", debounce(() => { query = search.value; paint(); }, 100));
