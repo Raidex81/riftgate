@@ -47,7 +47,14 @@ export function enableDrop(onEbook) {
     const veil = h("div.drop-veil", { hidden: true }, h("div", null, icon("plus"), h("b", null, "Drop to add to Riftgate"), h("span", null, "Games, apps and shortcuts go to your Library; EPUB and PDF to your eBooks")));
     document.body.appendChild(veil);
     let depth = 0;
-    const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+    // Only files dragged in from outside Riftgate count. Dragging something
+    // inside the window (a card, a cover picture, a row) never shows "Drop to
+    // add": Chromium labels a dragged picture as a file too, which is why a
+    // Continue your journey card used to offer to add itself.
+    let inside = false;
+    document.addEventListener("dragstart", () => { inside = true; }, true);
+    document.addEventListener("dragend", () => { inside = false; depth = 0; veil.hidden = true; }, true);
+    const hasFiles = (e) => !inside && e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
     window.addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; depth++; veil.hidden = false; });
     window.addEventListener("dragleave", (e) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) veil.hidden = true; });
     window.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });

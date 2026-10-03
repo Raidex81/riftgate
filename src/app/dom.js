@@ -92,7 +92,7 @@ export function art(url, title, fallbackUrl, find) {
     const placeholder = () => { if (!wrap.querySelector(".art-fallback")) wrap.prepend(h("div.art-fallback", null, title || "")); };
     const show = (src) => {
         if (img) img.remove();
-        img = h("img", { src: coverSrc(src), alt: "", loading: "lazy", decoding: "async" });
+        img = h("img", { src: coverSrc(src), alt: "", loading: "lazy", decoding: "async", draggable: "false" });
         img.addEventListener("load", () => { wrap.querySelector(".art-fallback")?.remove(); wrap.classList.remove("finding"); });
         img.addEventListener("error", onError);
         wrap.appendChild(img);
