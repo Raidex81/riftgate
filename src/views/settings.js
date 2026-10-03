@@ -122,6 +122,7 @@ export default {
             const r = await call("refresh-steam-playtime", id);
             steamBtn.disabled = false;
             forget("load-games");
+            await settings({ fresh: true }); // the new Steam hours live in the settings
             window.dispatchEvent(new CustomEvent("r2-library-changed"));
             toast(r && r.success === false ? (r.error || "Steam playtime couldn't be read. Is your profile's game details public?") : "Steam playtime updated", r && r.success === false ? "err" : "ok");
         };

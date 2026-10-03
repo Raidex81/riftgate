@@ -9,7 +9,7 @@
 // fullPage() pages through the engine's complete internet lists (TMDB,
 // RAWG, Open Library, Gutenberg, itch.io) for every "See all".
 
-import { call, cached, country, forget } from "./api.js";
+import { call, cached, country, forget, settings } from "./api.js";
 import * as I from "./items.js";
 import { registerSource } from "../components/palette.js";
 
@@ -66,7 +66,29 @@ function sameKeys(a, b) {
 }
 const byCountry = async () => [await country()];
 
-export const library = source("library", "load-games", I.fromLibrary);
+const libraryBase = source("library", "load-games", I.fromLibrary);
+// Playtime: Riftgate only counts the time it can see a game running (a game
+// started through a launcher, like EA's or Steam's, often looks like a minute).
+// Steam knows better: for every Steam game in your library (a steam:// link or
+// a game inside a Steam library folder), Steam's own hours are used when
+// they're higher. "Update playtime" in Settings fetches them.
+let steamIds = null;
+export async function library(opts) {
+    const items = await libraryBase(opts);
+    const s = await settings({ fresh: !!(opts && opts.fresh) });
+    const mins = s.steamPlaytimes || {};
+    if (!Object.keys(mins).length) return items;
+    if (!steamIds || items.some((it) => it.raw && !(it.raw.path in steamIds))) {
+        steamIds = (await call("r2-steam-appids", items.map((it) => it.raw && it.raw.path).filter(Boolean))) || {};
+        items.forEach((it) => { if (it.raw && !(it.raw.path in steamIds)) steamIds[it.raw.path] = null; });
+    }
+    return items.map((it) => {
+        const id = it.raw && steamIds[it.raw.path];
+        const steamSec = id && typeof mins[id] === "number" ? mins[id] * 60 : 0;
+        if (!id || steamSec <= (it.playtime || 0)) return it;
+        return { ...it, playtime: steamSec, steamAppId: id, playtimeFrom: "Steam" };
+    });
+}
 export const freeGames = source("free", "get-free-games", I.fromFreeGame, null, "get-cached-free-games");
 export const deals = source("deals", "get-store-deals", I.fromDeal, byCountry, "get-cached-store-deals");
 export const inCinemas = source("cinemas", "get-now-playing-movies", I.fromFilm, byCountry);

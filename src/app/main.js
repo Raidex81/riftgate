@@ -2,7 +2,7 @@
 // between views, wires keyboard shortcuts and the engine's events.
 
 import { h, icon, clear } from "./dom.js";
-import { call, on, send } from "./api.js";
+import { call, on, send, settings as appSettings, forget } from "./api.js";
 import * as journal from "./store.js";
 import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
@@ -191,6 +191,13 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     enableDrop((p) => reading.addEbook(p).then((ok) => { if (ok) { location.hash = "reading"; } return ok; }));
     watchNewInstalls();
     watchUninstalls();
+    // Steam hours stay current by themselves: once a day at most, a little after start
+    setTimeout(async () => {
+        const s = await appSettings();
+        if (!s.steamId64 || Date.now() - (s.steamPlaytimesUpdatedAt || 0) < 24 * 3600e3) return;
+        const r = await call("refresh-steam-playtime", s.steamId64);
+        if (r && r.success) { await appSettings({ fresh: true }); forget("load-games"); window.dispatchEvent(new CustomEvent("r2-library-changed")); }
+    }, 40 * 1000);
     buildRail();
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {

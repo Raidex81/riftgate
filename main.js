@@ -9156,6 +9156,20 @@ async function r2SteamVr(appId) {
     } catch (e) { return null; }
     return r2CategoryRemember(`steam:${appId}`, vr);
 }
+// Riftgate 2: which Steam game each library item is (a steam:// link, or an
+// exe inside a Steam library folder, matched through its appmanifest), so
+// Steam's own playtime can be shown on it. Local files only, no network.
+ipcMain.handle("r2-steam-appids", async (event, paths) => {
+    const out = {};
+    if (!Array.isArray(paths)) return out;
+    for (const p of paths.slice(0, 2000)) {
+        if (typeof p !== "string") continue;
+        const m = /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(p);
+        const id = m ? m[1] : r2SteamAppIdFor(p.replace(/\//g, "\\"));
+        if (id) out[p] = id;
+    }
+    return out;
+});
 ipcMain.handle("r2-detect-category", async (event, { path: itemPath, name } = {}) => {
     try {
         const raw = String(itemPath || "");
