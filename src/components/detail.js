@@ -3,6 +3,7 @@
 
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";
 import { showtimesUrl } from "../app/regions.js";
+import * as seen from "../app/seen.js";
 import { call, cached, openExternal, forget, country } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { TYPE_LABEL } from "../app/items.js";
@@ -99,8 +100,13 @@ function buildActions(item, box, cover) {
         case "film":
             add(btn("Find tickets", "ticket", () => openExternal(showtimesUrl(item.title)), true));
             add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
+            if (seen.canMark(item)) add(watchedButton(item, false));
             break;
-        case "series": case "anime": case "show": case "episode":
+        case "episode":
+            add(watchedButton(item, true));
+            add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
+            break;
+        case "series": case "anime": case "show":
             add(trackButton(item));
             add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             break;
@@ -124,6 +130,16 @@ function buildActions(item, box, cover) {
         add(h("button.icon-btn", { type: "button", "aria-label": "Open web page", title: "Open web page", onclick: () => openExternal(item.url) }, icon("external")));
     }
     trailerButton(item, box, cover);
+}
+
+// "Mark as watched" / "Watched", as in Riftgate 1.x
+function watchedButton(item, primary) {
+    const b = h(`button.btn.lg${primary ? ".primary" : ""}`, { type: "button" });
+    const paint = () => { clear(b).append(icon(seen.isSeen(item) ? "check" : "play"), seen.isSeen(item) ? "Watched" : "Mark as watched"); b.classList.toggle("is-on", seen.isSeen(item)); };
+    seen.load().then(paint);
+    paint();
+    b.onclick = async () => { const now = await seen.toggle(item); paint(); toast(now ? `${item.title}: marked as watched` : `${item.title}: back to unwatched`); };
+    return b;
 }
 
 function trackButton(item) {

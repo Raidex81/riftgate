@@ -13,13 +13,39 @@ function cssColor(name, fallback) {
 }
 // Riftgate's logo, shared by every rift on screen
 const logo = new Image();
-logo.src = "assets/riftgate-gem-mark.png";
+logo.src = new URL("../../assets/riftgate-gem-mark.png", import.meta.url).href;
 let filterCache = { at: 0, v: "none" };
 function logoFilter() {
     const now = performance.now();
     if (now - filterCache.at > 600) filterCache = { at: now, v: getComputedStyle(document.documentElement).getPropertyValue("--logo-filter").trim() || "none" };
     return filterCache.v;
 }
+
+// Alien glyphs for the rune ring: each is a few strokes joining points on a
+// small 3×4 grid, sometimes with a ring, an arc or a dot. Made once.
+const GLYPHS = (() => {
+    let seed = 9071;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const P = (c, r) => [(c - 1) * .55, (r - 1.5) * .5];
+    const out = [];
+    for (let i = 0; i < 28; i++) {
+        const g = [];
+        if (rnd() < .55) g.push([P(1, 0), P(1, 3)]); // a spine
+        const strokes = 2 + Math.floor(rnd() * 3);
+        for (let k = 0; k < strokes; k++) {
+            const pts = [];
+            const n = 2 + Math.floor(rnd() * 2);
+            for (let j = 0; j < n; j++) pts.push(P(Math.floor(rnd() * 3), Math.floor(rnd() * 4)));
+            g.push(pts);
+        }
+        const extra = rnd();
+        if (extra < .25) g.push({ arc: [0, -.55 + rnd() * .3, .32, 0, Math.PI * 2] });
+        else if (extra < .5) g.push({ arc: [0, rnd() * .4, .38, Math.PI * (rnd() < .5 ? 0 : 1), Math.PI * (rnd() < .5 ? 1 : 2)] });
+        if (rnd() < .45) g.push({ dot: P(Math.floor(rnd() * 3), rnd() < .5 ? 0 : 3) });
+        out.push(g);
+    }
+    return out;
+})();
 
 function rgba(hex, a) {
     const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
@@ -113,9 +139,10 @@ export class Rift {
     bolt(origin) {
         const R = this.R;
         const ang = origin != null ? origin + (Math.random() - .5) * .5 : Math.random() * TAU;
-        const len = R * (1.7 + Math.random() * 2.3);
+        const len = R * (2.1 + Math.random() * 2.3);
         const bend = (Math.random() - .5) * .9;
-        const x1 = Math.cos(ang) * R * 1.0, y1 = Math.sin(ang) * R * 1.0;
+        // starts just inside the gem's edge, so the strike comes out of the logo
+        const x1 = Math.cos(ang) * R * .58, y1 = Math.sin(ang) * R * .58;
         const x2 = Math.cos(ang + bend) * (R + len), y2 = Math.sin(ang + bend) * (R + len);
         const main = Rift.channel(x1, y1, x2, y2, .18, 7);
         // Dendritic branches, like real lightning: each channel sprouts
@@ -271,16 +298,29 @@ export class Rift {
         ctx.beginPath(); ctx.arc(0, 0, R * 1.32, 0, TAU); ctx.stroke();
         ctx.strokeStyle = rgba(a, .35);
         ctx.beginPath(); ctx.arc(0, 0, R * 1.18, 0, TAU); ctx.stroke();
-        for (let i = 0; i < 48; i++) {
-            const ang = i / 48 * TAU;
-            const long = i % 4 === 0;
-            ctx.strokeStyle = rgba(long ? soft : a, long ? .7 : .35);
-            ctx.lineWidth = long ? 1.6 : 1;
+        // A band of alien glyphs between the two circles, slowly lit in turn
+        const gs = R * .095;
+        GLYPHS.forEach((g, i) => {
+            const ang = i / GLYPHS.length * TAU;
+            const lit = .45 + .55 * Math.max(0, Math.sin(t * 1.1 - i * .55));
+            ctx.save();
+            ctx.rotate(ang);
+            ctx.translate(0, -R * 1.25);
+            ctx.strokeStyle = rgba(lit > .8 ? soft : a, .35 + .55 * lit);
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.lineWidth = Math.max(1, R * .011);
+            ctx.lineCap = "round"; ctx.lineJoin = "round";
+            ctx.shadowColor = rgba(a, .9 * lit); ctx.shadowBlur = 8 * lit;
             ctx.beginPath();
-            ctx.moveTo(Math.cos(ang) * R * 1.19, Math.sin(ang) * R * 1.19);
-            ctx.lineTo(Math.cos(ang) * R * (long ? 1.31 : 1.25), Math.sin(ang) * R * (long ? 1.31 : 1.25));
+            g.forEach((st) => {
+                if (st.dot) { ctx.moveTo(st.dot[0] * gs + gs * .09, st.dot[1] * gs); ctx.arc(st.dot[0] * gs, st.dot[1] * gs, gs * .09, 0, TAU); }
+                else if (st.arc) { const [cx, cy, r0, a0, a1] = st.arc; ctx.moveTo(cx * gs + Math.cos(a0) * r0 * gs, cy * gs + Math.sin(a0) * r0 * gs); ctx.arc(cx * gs, cy * gs, r0 * gs, a0, a1); }
+                else { ctx.moveTo(st[0][0] * gs, st[0][1] * gs); st.slice(1).forEach(([x, y]) => ctx.lineTo(x * gs, y * gs)); }
+            });
             ctx.stroke();
-        }
+            ctx.restore();
+        });
+        ctx.shadowBlur = 0;
         ctx.restore();
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to

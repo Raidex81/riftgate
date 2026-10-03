@@ -4,6 +4,7 @@ import { h, icon } from "../app/dom.js";
 import { call, openExternal } from "../app/api.js";
 import { showtimesUrl } from "../app/regions.js";
 import * as D from "../app/data.js";
+import * as seen from "../app/seen.js";
 import * as journal from "../app/store.js";
 import { hero } from "../components/hero.js";
 import { row } from "../components/row.js";
@@ -67,13 +68,13 @@ function pulse() {
         const el = h("button.pulse-item", { type: "button", onclick: () => { location.hash = hash; } }, icon(ico), h("b", null, n), h("span", null, label));
         strip.appendChild(el);
     };
-    Promise.all([D.freeGames(), D.deals(), D.latestEpisodes(), D.library()]).then(([f, d, eps, lib]) => {
+    Promise.all([D.freeGames(), D.deals(), D.latestEpisodes(), D.library(), seen.load()]).then(([f, d, eps, lib]) => {
         const fresh = f.filter((g) => !g.alwaysFree && g.firstSeenAt && Date.now() - g.firstSeenAt < WEEK).length;
         if (interests.wants("free")) item("gift", f.length.toLocaleString(), fresh ? `free games, ${fresh} new this week` : "free games right now", "free");
         const big = d.filter((x) => (x.price.discount || 0) >= 75).length;
         if (d.length && interests.wants("deals")) item("tag", big.toLocaleString(), "deals at 75% off or more", "deals");
-        const newEps = eps.filter((e) => e.date && Date.now() - Date.parse(e.date) < WEEK).length;
-        if (eps.length && interests.wants("screen")) item("tv", String(newEps), newEps === 1 ? "new episode this week" : "new episodes this week", "theatre");
+        const newEps = eps.filter((e) => e.date && Date.now() - Date.parse(e.date) < WEEK && !seen.isSeen(e)).length;
+        if (eps.length && interests.wants("screen")) item("tv", String(newEps), newEps === 1 ? "episode to watch this week" : "episodes to watch this week", "theatre");
         if (lib.length) {
             const total = lib.reduce((s, g) => s + (g.playtime || 0), 0);
             const n = lib.filter((g) => g.type === "game").length;
@@ -115,7 +116,7 @@ export default {
             row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true } }),
             row({ title: "Free right now", icon: "gift", seeAllTitle: "All free games",
                 items: () => D.freeGames().then((l) => l.filter((g) => !g.alwaysFree).sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))) }),
-            row({ title: "New episodes", icon: "tv", items: D.latestEpisodes(), hideEmpty: true }),
+            row({ title: "New episodes", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), hideEmpty: true }),
             row({ title: "In cinemas", icon: "film", items: D.inCinemas().then(noMature), full: { kind: "now-playing" } }),
             row({ title: "Deals worth it", icon: "tag", items: () => D.deals().then((l) => l.filter((d) => (d.price.discount || 0) >= 50).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))) }),
             row({ title: "Coming soon", icon: "calendar", wide: true, items: D.upcomingGames(), cardOpts: { wide: true }, full: { kind: "upcoming-games" }, seeAllTitle: "Upcoming games" }),

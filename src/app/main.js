@@ -26,6 +26,7 @@ import journalView from "../views/journal.js";
 import themesView from "../views/themes.js";
 import suggestionsView from "../views/suggestions.js";
 import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
+import * as gamepad from "./gamepad.js";
 import settings from "../views/settings.js";
 
 setDetailOpener(openDetail);
@@ -155,7 +156,7 @@ document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "/") { e.preventDefault(); openPalette(); }
-    else if (e.key.toLowerCase() === "r" && !document.querySelector(".today, .rift-roll, .detail, .palette, .browser")) openToday();
+    else if (e.key.toLowerCase() === "r" && !document.querySelector(".today, .rift-roll, .detail, .palette, .browser, .gp-controls")) openToday();
     else if (/^[1-9]$/.test(e.key) && !document.querySelector(".detail, .palette, .browser, .today, .interests-portal")) { const v = shownViews()[Number(e.key) - 1]; if (v) location.hash = v.id; }
 });
 
@@ -166,6 +167,7 @@ setCommands([
     { title: "Random pick from this section", icon: "rift", run: rollHere },
     { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() },
     { title: "What's new in Riftgate", icon: "bell", run: () => openWhatsNew() },
+    { title: "Controller & remote controls", icon: "app", run: () => gamepad.toggleControls(true) },
     { title: "Check for updates", icon: "refresh", run: () => checkForUpdates() },
     { title: "Send a suggestion or report a bug", icon: "chat", run: () => { location.hash = "suggestions"; } },
     { title: "Change the theme", icon: "sparkles", run: () => { location.hash = "themes"; } },
@@ -184,6 +186,7 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     buildTitlebar();
     await theme.start(); // journal + your themes, applied before anything paints
     account.restore();
+    gamepad.start();
     buildRail();
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {

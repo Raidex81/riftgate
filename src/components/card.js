@@ -6,6 +6,7 @@ import { h, icon, art, coverSrc } from "../app/dom.js";
 import * as journal from "../app/store.js";
 import { money, score, hours } from "../app/format.js";
 import { TYPE_LABEL } from "../app/items.js";
+import * as seen from "../app/seen.js";
 
 let openDetail = () => {};
 export function setDetailOpener(fn) { openDetail = fn; }
@@ -88,6 +89,13 @@ export function card(item, opts) {
 
     const foot = footFor(item, opts);
     if (foot) info.appendChild(foot);
+    // Episodes and released films: mark as watched right on the card
+    if (seen.canMark(item) && opts.watched !== false) {
+        const t = h("span.watch-toggle", { role: "button", tabindex: "-1" });
+        t.addEventListener("click", async (e) => { e.stopPropagation(); e.preventDefault(); await seen.toggle(item); });
+        info.appendChild(t);
+        paintSeen(el, item);
+    }
 
     el.appendChild(h("div.card-frame", null, h("div.card-body", null, a, info)));
 
@@ -112,6 +120,15 @@ function footFor(item, opts) {
     }
     return null;
 }
+
+function paintSeen(el, item) {
+    const on = seen.isSeen(item);
+    el.classList.toggle("is-watched", on);
+    const t = el.querySelector(".watch-toggle");
+    if (t) { t.textContent = ""; t.append(icon(on ? "check" : "play"), on ? "Watched" : "Mark as watched"); t.title = on ? "Mark as not watched" : "Mark as watched"; }
+}
+seen.load().then(() => document.querySelectorAll(".card").forEach((el) => { if (el._item && seen.canMark(el._item)) paintSeen(el, el._item); }));
+seen.onChange(() => document.querySelectorAll(".card").forEach((el) => { if (el._item && seen.canMark(el._item)) paintSeen(el, el._item); }));
 
 export function skeletonCard() {
     return h("div.card.skeleton", null, h("div.card-frame", null, h("div.card-body", null,

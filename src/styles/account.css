@@ -153,3 +153,52 @@
 .sg-admin-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
 .sg-admin-actions .btn { height: 32px; padding: 0 var(--s3); font-size: var(--t-sm); }
 .sg-role { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); color: var(--on-accent); background: var(--energy); padding: 3px 8px; }
+
+/* ---- Controller & TV mode --------------------------------------------------------------- */
+/* The highlight: a bright ring in the theme's colours; cards lift as when hovered */
+body.gp-nav .gp-focus:not(.card) { outline: 3px solid var(--amethyst-soft); outline-offset: 3px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--amethyst) 30%, transparent), 0 0 24px color-mix(in srgb, var(--amethyst) 60%, transparent); }
+body.gp-nav .card.gp-focus { transform: translateY(-6px) scale(1.04); z-index: 3; filter: drop-shadow(0 0 10px var(--amethyst)) drop-shadow(0 0 26px color-mix(in srgb, var(--rift-pink) 70%, transparent)); }
+body.gp-nav .card.gp-focus .card-frame { --frame: var(--energy); }
+body.gp-nav .card.gp-focus .card-art img { transform: scale(1.04); }
+body.gp-nav .nav-item.gp-focus { outline-offset: -3px; }
+select.gp-editing { outline: 3px dashed var(--rift-pink) !important; }
+/* Hints bar along the bottom while a controller drives */
+.gp-hints { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 99; display: none; gap: 18px; align-items: center;
+    padding: 8px 18px; font-size: var(--t-sm); color: var(--starlight-2);
+    background: color-mix(in srgb, var(--nebula) 88%, transparent); border: 1px solid var(--line-strong); backdrop-filter: blur(12px); border-radius: 999px; }
+body.gp-pad.gp-nav .gp-hints { display: flex; }
+.gp-hints span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gp-hints b { min-width: 24px; padding: 1px 7px; text-align: center; font-size: var(--t-xs); color: var(--on-accent); background: var(--energy); border-radius: 999px; }
+/* TV mode: the engine zooms the window; the highlight gets bolder too */
+body.tv-mode .gp-focus:not(.card) { outline-width: 4px; }
+body.tv-mode .card-sub { font-size: var(--t-md); }
+/* Controls screen */
+.gp-controls { position: fixed; inset: 0; z-index: 92; display: grid; place-items: center; background: color-mix(in srgb, var(--void) 80%, transparent); animation: fade var(--mid) var(--ease); }
+.controls-box { width: min(760px, 94vw); }
+.controls-tabs { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.controls-diagram { display: grid; place-items: center; min-height: 0; }
+.cd-svg { width: min(420px, 100%); height: auto; }
+.cd-body { fill: var(--nebula-2); stroke: var(--line-strong); stroke-width: 2; }
+.cd-part { fill: var(--nebula-3); stroke: var(--line); }
+.cd-key { fill: var(--nebula-3); stroke: var(--amethyst); stroke-width: 1.5; }
+.cd-main { fill: var(--amethyst); }
+.cd-key-label { fill: var(--hi); font: 700 13px var(--font); }
+.cd-small { fill: var(--starlight-2); font: 600 10px var(--font); }
+.cd-tiny { fill: var(--starlight-2); font: 600 8px var(--font); }
+.cd-arrow { fill: var(--dust); font: 12px var(--font); }
+.cd-title { fill: var(--dust); font: 600 11px var(--font); }
+.controls-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.controls-table td { padding: 8px 10px; border-top: 1px solid var(--line); color: var(--starlight-2); vertical-align: top; }
+.controls-table td:first-child { width: 34%; }
+.controls-table b { display: inline-block; padding: 2px 8px; color: var(--on-accent); background: var(--energy); border-radius: 6px; font-size: var(--t-xs); }
+.controls-row-note { color: var(--dust); font-style: italic; }
+
+/* ---- Already watched ---------------------------------------------------------------------- */
+.watch-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 3px 9px; font-size: var(--t-xs); font-weight: 600;
+    color: var(--starlight-2); background: var(--nebula-3); border: 1px solid var(--line); cursor: pointer; width: max-content; border-radius: 999px; }
+.watch-toggle svg { width: 12px; height: 12px; }
+.watch-toggle:hover { color: var(--hi); border-color: var(--amethyst); }
+.card.is-watched .watch-toggle { color: var(--st-progress); border-color: color-mix(in srgb, var(--st-progress) 50%, transparent); background: color-mix(in srgb, var(--st-progress) 12%, var(--nebula-2)); }
+.card.is-watched .card-art img { filter: saturate(.35) brightness(.6); }
+.card.is-watched .card-art::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 46px; font-weight: 800; color: var(--st-progress); text-shadow: 0 2px 16px #000; pointer-events: none; }
+.btn.is-on:not(.primary) { color: var(--st-progress); }

@@ -11,6 +11,7 @@ import * as theme from "../app/theme.js";
 import * as account from "../app/account.js";
 import { openAccount } from "../components/account.js";
 import { appVersion, isPreview, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
+import * as gamepad from "../app/gamepad.js";
 
 function setting(title, desc, control) {
     return h("section.setting", null, h("div.grow", null, h("h3", null, title), h("p", null, desc)), control);
@@ -33,6 +34,15 @@ export default {
                 h("button.btn", { type: "button", onclick: () => openWhatsNew() }, icon("bell"), "What's new"),
                 h("button.btn", { type: "button", onclick: () => checkForUpdates() }, icon("refresh"), "Check for updates"),
                 h("button.btn", { type: "button", onclick: () => { location.hash = "suggestions"; } }, icon("chat"), "Suggestions"))));
+
+        // TV mode and controllers
+        const tvSel = h("select.input", { "aria-label": "TV mode" },
+            h("option", { value: "auto" }, "With a controller"), h("option", { value: "on" }, "Always on"), h("option", { value: "off" }, "Off"));
+        tvSel.value = gamepad.tvMode();
+        tvSel.addEventListener("change", () => { gamepad.setTvMode(tvSel.value); toast(tvSel.value === "on" ? "TV mode on" : tvSel.value === "off" ? "TV mode off" : "TV mode follows your controller"); });
+        box.appendChild(setting("TV mode & controllers", "Play from the couch with an Xbox, PlayStation or Nintendo controller or a TV remote. TV mode makes everything bigger.",
+            h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, tvSel,
+                h("button.btn", { type: "button", onclick: () => gamepad.toggleControls(true) }, icon("app"), "Controls"))));
 
         // Interests
         box.appendChild(h("section.setting.wide", null,

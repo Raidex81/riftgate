@@ -5,6 +5,7 @@
 import { h, icon, coverSrc, clear } from "../app/dom.js";
 import { cached, country } from "../app/api.js";
 import * as D from "../app/data.js";
+import * as seen from "../app/seen.js";
 import { fromProviderTitle } from "../app/items.js";
 import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
@@ -54,7 +55,7 @@ export default {
         const W = interests.wants;
         const rows = shelf("theatre", [
             row({ title: "In cinemas", icon: "film", items: D.inCinemas().then(noMature), full: { kind: "now-playing" } }),
-            row({ title: "New episodes of your shows", icon: "tv", items: D.latestEpisodes(), empty: "Track a show (open any series → Track this show) and its new episodes land here." }),
+            row({ title: "New episodes of your shows", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), empty: "Track a show (open any series → Track this show) and its new episodes land here." }),
             row({ title: "Your shows", icon: "journal", items: D.watchlist(), hideEmpty: true }),
             row({ title: "Coming to cinemas", icon: "calendar", full: { kind: "upcoming-movies" },
                 items: D.upcomingFilms().then((l) => noMature(l).map((m) => ({ ...m, sub: m.date ? until(m.date) : m.sub }))) }),
