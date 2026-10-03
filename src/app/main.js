@@ -24,6 +24,8 @@ import reading from "../views/reading.js";
 import apps from "../views/apps.js";
 import journalView from "../views/journal.js";
 import themesView from "../views/themes.js";
+import suggestionsView from "../views/suggestions.js";
+import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
 import settings from "../views/settings.js";
 
 setDetailOpener(openDetail);
@@ -38,7 +40,8 @@ const VIEWS = [
     { id: "apps", label: "Applications", icon: "app", view: apps, group: "Discover" },
     { id: "library", label: "Library", icon: "library", view: library, group: "Yours" },
     { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" },
-    { id: "themes", label: "Themes", icon: "sparkles", view: themesView, group: "Yours" }
+    { id: "themes", label: "Themes", icon: "sparkles", view: themesView, group: "Yours" },
+    { id: "suggestions", label: "Suggestions", icon: "chat", view: suggestionsView, group: "Yours" }
 ];
 const SETTINGS = { id: "settings", label: "Settings", icon: "settings", view: settings };
 const ALL = [...VIEWS, SETTINGS];
@@ -56,6 +59,7 @@ function buildTitlebar() {
         h("button.search-trigger", { type: "button", onclick: () => openPalette() },
             icon("search"), h("span.grow", null, "Search your universe"), h("kbd", null, "Ctrl K")),
         h("div.titlebar-spacer"),
+        bellButton(),
         h("div.win-controls", null,
             h("button.win-btn", { type: "button", "aria-label": "Minimise", onclick: () => call("window-minimize") }, icon("min")),
             maxBtn,
@@ -161,6 +165,9 @@ setCommands([
     ...MOODS.filter((m) => m.id !== "any").map((m) => ({ title: `Surprise me: ${m.label.toLowerCase()} (${m.hint.toLowerCase()})`, icon: m.icon, run: () => openToday(m.id) })),
     { title: "Random pick from this section", icon: "rift", run: rollHere },
     { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() },
+    { title: "What's new in Riftgate", icon: "bell", run: () => openWhatsNew() },
+    { title: "Check for updates", icon: "refresh", run: () => checkForUpdates() },
+    { title: "Send a suggestion or report a bug", icon: "chat", run: () => { location.hash = "suggestions"; } },
     { title: "Change the theme", icon: "sparkles", run: () => { location.hash = "themes"; } },
     { title: "Create a theme", icon: "plus", run: () => { location.hash = "themes/studio"; } },
     { title: "Community themes", icon: "globe", run: () => { location.hash = "themes/community"; } },
@@ -170,7 +177,6 @@ setCommands([
 window.addEventListener("r2-engine-outdated", () => toast("Riftgate was updated. Quit it from the system tray (right-click its icon, Quit) and open it again to finish.", "err", 15000));
 
 // ---- Engine events ---------------------------------------------------------------------
-on("update-available", (info) => toast(`Riftgate ${info && info.version ? info.version : "update"} is available`));
 on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to your Library"); });
 
 // ---- Start ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import * as interests from "../app/interests.js";
 import * as theme from "../app/theme.js";
 import * as account from "../app/account.js";
 import { openAccount } from "../components/account.js";
+import { appVersion, isPreview, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
 
 function setting(title, desc, control) {
     return h("section.setting", null, h("div.grow", null, h("h3", null, title), h("p", null, desc)), control);
@@ -21,6 +22,17 @@ export default {
         root.append(h("div.view-head", null, h("div", null, h("h1", null, "Settings"), h("p", null, "Your region, the look of Riftgate, and your data."))));
         const box = h("div.settings");
         root.appendChild(box);
+
+        // About: version, what's new, updates
+        const ver = await appVersion();
+        box.appendChild(h("section.setting.about", null,
+            h("img.about-gem", { src: "assets/riftgate-gem-mark.png", alt: "" }),
+            h("div.grow", null, h("h3", null, `Riftgate ${ver}`),
+                h("p", null, isPreview(ver) ? "A test version: it doesn't take automatic updates." : "Riftgate checks for updates when it starts and always asks before installing one.")),
+            h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
+                h("button.btn", { type: "button", onclick: () => openWhatsNew() }, icon("bell"), "What's new"),
+                h("button.btn", { type: "button", onclick: () => checkForUpdates() }, icon("refresh"), "Check for updates"),
+                h("button.btn", { type: "button", onclick: () => { location.hash = "suggestions"; } }, icon("chat"), "Suggestions"))));
 
         // Interests
         box.appendChild(h("section.setting.wide", null,

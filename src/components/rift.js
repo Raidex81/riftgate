@@ -1,5 +1,6 @@
 // Riftgate 2 — the rift. A procedural portal drawn on canvas: a faceted gem,
-// a turning ring of rune ticks, lightning tendrils that fork, flare and fade,
+// a turning ring of rune ticks, forked lightning that strikes, flickers and
+// fades out in an afterglow,
 // and drifting shards. Colours come from the theme tokens, so it follows the
 // accent the user picks. Pauses off-screen / when the window is hidden; with
 // reduced motion it paints one still frame.
@@ -85,29 +86,139 @@ export class Rift {
         return { ang, d, size: 2 + Math.random() * 6, spin: (Math.random() - .5) * 2, rot: Math.random() * TAU, speed: .05 + Math.random() * .12 };
     }
 
-    bolt() {
-        // A tendril from the portal's rim outward, jagged, with forks.
-        const ang = Math.random() * TAU;
-        const len = this.R * (1.6 + Math.random() * 2.6);
-        const pts = [];
-        let x = Math.cos(ang) * this.R * 1.02, y = Math.sin(ang) * this.R * 1.02;
-        const steps = 14 + Math.floor(Math.random() * 10);
-        let a = ang;
-        for (let i = 0; i < steps; i++) {
-            pts.push([x, y]);
-            a += (Math.random() - .5) * .7;
-            const s = len / steps;
-            x += Math.cos(a) * s; y += Math.sin(a) * s;
+    // ---- Lightning ---------------------------------------------------------------
+    // A real-looking strike: a fractal channel (midpoint displacement) with
+    // forks and sub-forks. Each strike lives through a leader that races out,
+    // a blinding return stroke, sometimes a re-strike or two (the flicker of
+    // real lightning), then an afterglow that cools from white-hot to the
+    // theme colour and fades out smoothly.
+    static channel(x1, y1, x2, y2, rough, depth) {
+        let pts = [[x1, y1], [x2, y2]];
+        let off = Math.hypot(x2 - x1, y2 - y1) * rough;
+        for (let d = 0; d < depth; d++) {
+            const next = [pts[0]];
+            for (let i = 0; i < pts.length - 1; i++) {
+                const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+                const mx = (ax + bx) / 2, my = (ay + by) / 2;
+                const nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+                const o = (Math.random() * 2 - 1) * off;
+                next.push([mx + nx / nl * o, my + ny / nl * o], pts[i + 1]);
+            }
+            pts = next;
+            off *= .52;
         }
-        const forks = [];
-        if (Math.random() < .7) {
-            const at = 3 + Math.floor(Math.random() * (steps - 6));
-            let [fx, fy] = pts[at]; let fa = a + (Math.random() < .5 ? -1 : 1) * (.6 + Math.random() * .6);
-            const fp = [[fx, fy]];
-            for (let i = 0; i < 6; i++) { fa += (Math.random() - .5) * .8; fx += Math.cos(fa) * len / steps; fy += Math.sin(fa) * len / steps; fp.push([fx, fy]); }
-            forks.push(fp);
+        return pts;
+    }
+
+    bolt(origin) {
+        const R = this.R;
+        const ang = origin != null ? origin + (Math.random() - .5) * .5 : Math.random() * TAU;
+        const len = R * (1.7 + Math.random() * 2.3);
+        const bend = (Math.random() - .5) * .9;
+        const x1 = Math.cos(ang) * R * 1.0, y1 = Math.sin(ang) * R * 1.0;
+        const x2 = Math.cos(ang + bend) * (R + len), y2 = Math.sin(ang + bend) * (R + len);
+        const main = Rift.channel(x1, y1, x2, y2, .18, 7);
+        // Dendritic branches, like real lightning: each channel sprouts
+        // thinner, dimmer branches, which sprout their own, three levels deep.
+        const branches = [];
+        const sprout = (pts, level, startFrac, baseDir, baseLen) => {
+            if (level > 3) return;
+            const count = level === 1 ? 6 + Math.floor(Math.random() * 5) : level === 2 ? 1 + Math.floor(Math.random() * 3) : (Math.random() < .6 ? 1 + Math.floor(Math.random() * 2) : 0);
+            for (let k = 0; k < count; k++) {
+                const f = .08 + Math.random() * .75;
+                const at = Math.floor(pts.length * f);
+                const [bx, by] = pts[at];
+                const dir = baseDir + (Math.random() < .5 ? -1 : 1) * (.3 + Math.random() * .8);
+                const bl = baseLen * (.3 + Math.random() * .4) * (1 - f * .5);
+                if (bl < R * .12) continue;
+                const bp = Rift.channel(bx, by, bx + Math.cos(dir) * bl, by + Math.sin(dir) * bl, .24, level === 1 ? 6 : 5);
+                const start = startFrac + (1 - startFrac) * f;
+                branches.push({ pts: bp, start, w: [1, .5, .3, .18][level], dim: [1, .8, .62, .48][level] });
+                sprout(bp, level + 1, start, dir, bl);
+            }
+        };
+        sprout(main, 1, 0, Math.atan2(y2 - y1, x2 - x1), len);
+        // Return strokes: the first, then sometimes one or two re-strikes
+        const strikes = [.08];
+        if (Math.random() < .55) strikes.push(.08 + .09 + Math.random() * .08);
+        if (Math.random() < .25) strikes.push(strikes[strikes.length - 1] + .1 + Math.random() * .12);
+        const last = strikes[strikes.length - 1];
+        return { main, branches, strikes, age: 0, max: last + .8 + Math.random() * .5, ang };
+    }
+
+    // How bright a strike is at its age (0..1+): leader, flashes, afterglow
+    static brightness(bo) {
+        const t = bo.age;
+        if (t < bo.strikes[0]) return .12 + .18 * (t / bo.strikes[0]);
+        let b = 0;
+        for (const s of bo.strikes) if (t >= s) b = Math.max(b, Math.exp(-(t - s) / .06) * (s === bo.strikes[0] ? 1.6 : 1.15));
+        const glow = .5 * Math.exp(-(t - bo.strikes[0]) / .38);
+        const tail = Math.max(0, 1 - Math.max(0, t - (bo.max - .35)) / .35); // smooth fade at the very end
+        return (b + glow) * tail;
+    }
+
+    drawBolt(bo, dt) {
+        const { ctx, R } = this;
+        const { a, b, soft } = this.col;
+        bo.age += (dt || 0) / 1000;
+        const lit = Rift.brightness(bo);
+        // the leader reveals the channel progressively; once struck it's whole
+        const reveal = bo.age < bo.strikes[0] ? Math.max(.05, bo.age / bo.strikes[0]) : 1;
+        const cool = Math.min(1, Math.max(0, (bo.age - bo.strikes[0]) / (bo.max - bo.strikes[0]))); // 0 white-hot -> 1 theme colour
+        const scale = Math.max(.6, R / 150);
+        // Three passes per channel (bloom, coloured glow, white-hot core),
+        // drawn in sections that thin and dim toward the tip.
+        const layers = (pts, upto, wf, dim) => {
+            const n = Math.max(2, Math.floor(pts.length * upto));
+            const parts = 3;
+            for (let p = 0; p < parts; p++) {
+                const from = Math.floor(n * p / parts), to = Math.min(n, Math.floor(n * (p + 1) / parts) + 1);
+                if (to - from < 2) continue;
+                const seg = pts.slice(from, to);
+                const taper = 1 - p * .28;            // width
+                const fade = dim * (1 - p * .22);     // brightness
+                const w = wf * taper;
+                ctx.beginPath();
+                seg.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+                // wide soft bloom (cheap, no blur): the air glowing around the channel
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = rgba(b, Math.min(.5, .16 * lit) * fade);
+                ctx.lineWidth = (26 + cool * 18) * scale * w;
+                ctx.stroke();
+                ctx.strokeStyle = rgba(a, Math.min(.6, .22 * lit) * fade);
+                ctx.lineWidth = (11 + cool * 8) * scale * w;
+                ctx.stroke();
+                // coloured glow with a real blur; at the flash it blooms wide
+                ctx.shadowColor = rgba(a, Math.min(1, lit) * fade);
+                ctx.shadowBlur = (18 + 46 * Math.min(1.4, lit)) * scale * Math.max(.5, w);
+                ctx.strokeStyle = rgba(cool > .5 ? a : soft, Math.min(1, .7 * lit) * fade);
+                ctx.lineWidth = (3.4 + cool * 2.2) * scale * w;
+                ctx.stroke();
+                // white-hot core, cooling to the theme colour
+                ctx.shadowBlur = 6 * scale * Math.min(1, lit);
+                ctx.shadowColor = "#ffffff";
+                ctx.strokeStyle = cool < .35 ? rgba("#ffffff", Math.min(1, lit * 1.25) * fade) : rgba(soft, Math.min(1, lit * .95) * fade);
+                ctx.lineWidth = Math.max(.5, (1.4 + Math.min(1, lit) * 1.1 - cool * .8) * scale * w);
+                ctx.stroke();
+            }
+        };
+        layers(bo.main, reveal, 1, 1);
+        bo.branches.forEach((br) => { if (reveal > br.start) layers(br.pts, Math.min(1, (reveal - br.start) / Math.max(.05, 1 - br.start) * 1.6), br.w, br.dim); });
+        ctx.shadowBlur = 0;
+        // the flash lights up the air along the strike
+        if (lit > .45) {
+            [.15, .45, .75].forEach((f) => {
+                const [ox, oy] = bo.main[Math.floor(bo.main.length * f)];
+                const rr = R * (1.3 + f);
+                const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, rr);
+                g.addColorStop(0, rgba(soft, Math.min(.45, .3 * (lit - .45))));
+                g.addColorStop(.4, rgba(a, Math.min(.25, .14 * (lit - .45))));
+                g.addColorStop(1, rgba(a, 0));
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.arc(ox, oy, rr, 0, TAU); ctx.fill();
+            });
         }
-        return { pts, forks, life: 0, max: .5 + Math.random() * .9 };
+        return lit;
     }
 
     draw(dt) {
@@ -128,26 +239,28 @@ export class Rift {
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(0, 0, R * 2.6, 0, TAU); ctx.fill();
 
-        // Lightning
-        if (dt && Math.random() < .12 * this.o.intensity && this.bolts.length < 9) this.bolts.push(this.bolt());
-        if (!dt && !this.bolts.length) for (let i = 0; i < 6; i++) { const bb = this.bolt(); bb.life = bb.max * .3; this.bolts.push(bb); }
+        // Lightning: occasional strikes, sometimes two at once from nearby
+        if (dt && this.bolts.length < 4 && Math.random() < .022 * this.o.intensity) {
+            const first = this.bolt();
+            this.bolts.push(first);
+            if (Math.random() < .3) this.bolts.push(this.bolt(first.ang));
+        }
+        if (!dt && !this.bolts.length) for (let i = 0; i < 3; i++) { const bb = this.bolt(); bb.age = bb.strikes[0] + .12; this.bolts.push(bb); }
         ctx.globalCompositeOperation = "lighter";
+        let flash = 0;
         this.bolts = this.bolts.filter((bo) => {
-            bo.life += (dt || 0) / 1000;
-            const k = 1 - bo.life / bo.max;
-            if (k <= 0) return false;
-            const flick = .6 + Math.random() * .4;
-            const stroke = (pts, width, alpha, col) => {
-                ctx.strokeStyle = rgba(col, alpha * k * flick);
-                ctx.lineWidth = width;
-                ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
-            };
-            stroke(bo.pts, 7, .12, b);
-            stroke(bo.pts, 2.4, .55, a);
-            stroke(bo.pts, .9, .95, "#ffffff");
-            bo.forks.forEach((f) => { stroke(f, 4, .1, b); stroke(f, 1.2, .6, soft); });
+            if (bo.age >= bo.max) return false;
+            flash = Math.max(flash, this.drawBolt(bo, dt));
             return true;
         });
+        // a strike makes the whole portal glow brighter for a moment
+        if (flash > .6) {
+            const fg = ctx.createRadialGradient(0, 0, R * .3, 0, 0, R * 2.4);
+            fg.addColorStop(0, rgba(a, Math.min(.35, .3 * (flash - .6))));
+            fg.addColorStop(1, rgba(b, 0));
+            ctx.fillStyle = fg;
+            ctx.beginPath(); ctx.arc(0, 0, R * 2.4, 0, TAU); ctx.fill();
+        }
 
         // Rune ring
         ctx.globalCompositeOperation = "source-over";

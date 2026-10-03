@@ -11,11 +11,17 @@ export function onChange(fn) { listeners.add(fn); return () => listeners.delete(
 const set = (s) => { state = { ...state, ...s, checked: true }; listeners.forEach((fn) => { try { fn(state); } catch (e) { console.error(e); } }); };
 export const current = () => state;
 
-export async function restore() {
-    const r = (await call("r2-account-restore")) || {};
-    set({ signedIn: !!r.signedIn, username: r.signedIn ? r.username : null, offline: !!r.offline, expired: !!r.expired });
-    return state;
+let restoring = null;
+export function restore() {
+    restoring = (async () => {
+        const r = (await call("r2-account-restore")) || {};
+        set({ signedIn: !!r.signedIn, username: r.signedIn ? r.username : null, offline: !!r.offline, expired: !!r.expired });
+        return state;
+    })();
+    return restoring;
 }
+// Resolves once the saved sign-in (if any) has been checked
+export const ready = () => restoring || Promise.resolve(state);
 async function done(r) {
     if (r && r.ok) set({ signedIn: true, username: r.username, offline: false });
     return r || { ok: false, error: engineOutdated() ? RESTART_HINT : "Riftgate couldn't finish that. Check your connection and try again." };
