@@ -7,6 +7,7 @@ import { card } from "../components/card.js";
 import { toast } from "../components/toast.js";
 import { hours, ago, plural } from "../app/format.js";
 import { missingNotice } from "../app/library-tools.js";
+import { openAddDialog } from "../components/add-dialog.js";
 import * as journal from "../app/store.js";
 
 const FILTERS = [
@@ -201,12 +202,7 @@ function emptyState(reload) {
 async function addOne(reload) {
     const exe = await call("select-exe");
     if (!exe) return;
-    const described = await call("get-exe-description", exe);
-    const name = (typeof described === "string" && described.trim()) || exe.split(/[\\/]/).pop().replace(/\.(exe|lnk|url|app)$/i, "");
-    const image = await call("fetch-online-cover", name);
-    await call("save-game", { name, path: exe, category: "game", image: image || "covers/default.jpg" });
-    toast(`Added ${name} to your library`);
-    reload(true);
+    if (await openAddDialog([exe])) reload(true);
 }
 
 // Scan: list what's installed and not in the library yet; pick and add.

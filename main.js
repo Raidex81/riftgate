@@ -9038,5 +9038,93 @@ ipcMain.handle("r2-find-cover", async (event, { title, kind, year } = {}) => {
     return job;
 });
 
+// --- Riftgate 2: guess whether something you add is a game, a VR game or an app
+// From where it lives first (free, instant); a Steam game asks Steam once
+// whether it's VR; anything still unknown gets one SteamGridDB lookup (a
+// database of games). Every answer is remembered in r2-categories.json.
+const R2_APP_FILES = /^(chrome|firefox|msedge|opera|launcher_opera|brave|vivaldi|discord|update|spotify|slack|ms-teams|teams|zoom|skype|whatsapp|telegram|signal|obs64|obs32|obs|vlc|winamp|audacity|photoshop|illustrator|adobe premiere pro|afterfx|lightroom|acrobat|acrord32|blender|gimp-\d[\d.]*|krita|inkscape|code|devenv|notepad\+\+|sublime_text|winword|excel|powerpnt|outlook|onenote|soffice|7zfm|winrar|steam|epicgameslauncher|galaxyclient|battle\.net|battle\.net launcher|upc|ubisoftconnect|eadesktop|origin|xboxpcapp|nvidia app|geforce experience|radeonsoftware|msiafterburner|razer synapse|lghub|icue|wallpaper32|wallpaper64|parsecd|anydesk|teamviewer|virtualbox|vmware|docker desktop|postman|figma|notion|obsidian|dropbox|onedrive|itunes|nordvpn|protonvpn|mbam|ccleaner64|ccleaner)$/i;
+const R2_APP_NAMES = /^(google chrome|mozilla firefox|microsoft edge|opera( gx)?|brave|discord|spotify|slack|microsoft teams|zoom|skype|whatsapp|telegram( desktop)?|signal|obs studio|vlc( media player)?|audacity|adobe [a-z ]+|blender|gimp|krita|inkscape|visual studio( code)?|notepad\+\+|sublime text|microsoft (word|excel|powerpoint|outlook|onenote)|word|excel|powerpoint|outlook|libreoffice|7-zip|winrar|steam|epic games launcher|gog galaxy|battle\.net|ubisoft connect|ea app|ea|origin|xbox|nvidia app|geforce experience|amd software|msi afterburner|razer synapse|logitech g hub|icue|wallpaper engine|parsec|anydesk|teamviewer|virtualbox|vmware workstation|docker desktop|postman|figma|notion|obsidian|dropbox|onedrive|google drive|itunes|nordvpn|proton vpn|malwarebytes|ccleaner)$/i;
+const R2_VR_PATH = /(\\oculus\\software\\|\\steamvr\\|\\meta quest\\|\\viveport\\)/i;
+const R2_VR_NAME = /(\bvr\b|virtual reality)/i;
+const R2_GAME_FOLDERS = [
+    [/\\steamapps\\common\\/i, "your Steam library"], [/\\epic games\\/i, "your Epic Games folder"], [/\\gog games\\|\\gog galaxy\\games\\/i, "your GOG games"],
+    [/\\riot games\\/i, "Riot Games"], [/\\ubisoft game launcher\\games\\/i, "your Ubisoft games"], [/\\ea games\\|\\origin games\\/i, "your EA games"],
+    [/\\xboxgames\\/i, "your Xbox games"], [/\\itch\\apps\\/i, "your itch.io games"], [/\\rockstar games\\/i, "Rockstar Games"],
+    [/\\amazon games\\library\\/i, "your Amazon games"], [/\\battle\.net\\(?!battle\.net)|\\blizzard\\/i, "your Battle.net games"], [/\\games\\/i, "a Games folder"]
+];
+let r2CategoryCache = null;
+function r2CategoryMemo() {
+    if (!r2CategoryCache) { try { r2CategoryCache = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "r2-categories.json"), "utf8")) || {}; } catch (e) { r2CategoryCache = {}; } }
+    return r2CategoryCache;
+}
+function r2CategoryRemember(key, value) {
+    r2CategoryMemo()[key] = value;
+    try { fs.writeFileSync(path.join(app.getPath("userData"), "r2-categories.json"), JSON.stringify(r2CategoryCache)); } catch (e) { /* best effort */ }
+    return value;
+}
+// A Steam game's appid from its install folder (steamapps\appmanifest_*.acf)
+function r2SteamAppIdFor(exePath) {
+    try {
+        const m = /^(.*\\steamapps)\\common\\([^\\]+)/i.exec(exePath);
+        if (!m) return null;
+        for (const f of fs.readdirSync(m[1])) {
+            if (!/^appmanifest_\d+\.acf$/i.test(f)) continue;
+            const txt = fs.readFileSync(path.join(m[1], f), "utf8");
+            const dir = /"installdir"\s+"([^"]+)"/i.exec(txt);
+            if (dir && dir[1].toLowerCase() === m[2].toLowerCase()) return f.match(/\d+/)[0];
+        }
+    } catch (e) { /* not readable */ }
+    return null;
+}
+async function r2SteamVr(appId) {
+    const memo = r2CategoryMemo();
+    if (memo[`steam:${appId}`] !== undefined) return memo[`steam:${appId}`];
+    let vr = null;
+    try {
+        const { httpsGetJsonPlain } = require("./services/http");
+        const d = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${encodeURIComponent(appId)}&filters=categories`);
+        const entry = d && d[appId];
+        vr = entry && entry.success && entry.data ? steam.categorizeSteamVrSupport(entry.data.categories) : null;
+    } catch (e) { return null; }
+    return r2CategoryRemember(`steam:${appId}`, vr);
+}
+ipcMain.handle("r2-detect-category", async (event, { path: itemPath, name } = {}) => {
+    try {
+        const raw = String(itemPath || "");
+        const p = raw.replace(/\//g, "\\");
+        const n = String(name || "").trim();
+        const file = (p.split("\\").pop() || "").replace(/\.(exe|lnk|url|bat|cmd)$/i, "");
+        // VR first: a VR game can live in any store's folder
+        if (R2_VR_PATH.test(p)) return { category: "vr", reason: /oculus|meta quest/i.test(p) ? "It's in your Meta / Oculus games" : /viveport/i.test(p) ? "It's a Viveport game" : "It's part of SteamVR" };
+        const steamId = (/^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(raw) || [])[1] || r2SteamAppIdFor(p);
+        if (steamId) {
+            const vr = await r2SteamVr(steamId);
+            if (vr === "native") return { category: "vr", reason: "Steam lists it as VR only" };
+            return { category: "game", reason: vr === "adapted" ? "A Steam game (it also works in VR)" : "It's a Steam game" };
+        }
+        if (/^(com\.epicgames\.launcher|uplay|origin2?|battlenet|goggalaxy|riotclient|itch|heroic):\/\//i.test(raw))
+            return { category: R2_VR_NAME.test(n) ? "vr" : "game", reason: "It opens through a game store" };
+        for (const [re, where] of R2_GAME_FOLDERS) {
+            if (re.test(p) && !R2_APP_FILES.test(file)) return { category: R2_VR_NAME.test(n) ? "vr" : "game", reason: `It's in ${where}` };
+        }
+        if (R2_APP_FILES.test(file) || R2_APP_NAMES.test(n)) return { category: "app", reason: "It's a well-known app" };
+        if (R2_VR_NAME.test(n)) return { category: "vr", reason: "Its name says VR" };
+        if (!n) return { category: null, reason: null };
+        const key = `name:${n.toLowerCase()}`;
+        const memo = r2CategoryMemo();
+        if (memo[key]) return memo[key];
+        let found = false;
+        for (const variant of generateNameVariants(n).slice(0, 3)) {
+            if (await searchSteamGridDb(variant)) { found = true; break; }
+        }
+        return r2CategoryRemember(key, found
+            ? { category: "game", reason: "It's listed as a game on SteamGridDB" }
+            : { category: "app", reason: "It isn't in any game database, so most likely an app" });
+    } catch (err) {
+        console.error("[r2-detect-category]", err.message || err);
+        return { category: null, reason: null };
+    }
+});
+
 // --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------
 require("./services/r2-store").register(ipcMain, app);

@@ -31,7 +31,7 @@ const CARD = ".card:not(.skeleton)";
 const CANDIDATES = ["button", "a[href]", "select", "input:not([type=hidden]):not([type=radio])", "textarea", "[tabindex]:not([tabindex='-1'])", ".gp-scroll", CARD].join(",");
 const SKIP = ".row-arrow, .win-controls *, .row-grip, .gp-hints *, [aria-hidden='true'] *";
 // Windows over the page, most important first when several are open
-const OVERLAYS = ".gp-controls, .trailer-stage, .account-portal, .interests-portal, .wn-modal, .rift-roll, .today, .palette, .browser, .detail, .account-menu";
+const OVERLAYS = ".addlib, .gp-controls, .trailer-stage, .account-portal, .interests-portal, .wn-modal, .rift-roll, .today, .palette, .browser, .detail, .account-menu";
 
 export const SCHEMES = {
     xbox: { name: "Xbox", keys: { MOVE: "D-pad / left stick", A: "A", B: "B", X: "X", Y: "Y", LB: "LB", RB: "RB", LT: "LT", RT: "RT", RS: "Right stick", MENU: "Menu ☰", VIEW: "View ⧉" } },

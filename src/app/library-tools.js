@@ -10,6 +10,7 @@ import { h, icon, clear } from "./dom.js";
 import { call, forget, on, openExternal } from "./api.js";
 import * as D from "./data.js";
 import { toast } from "../components/toast.js";
+import { openAddDialog } from "../components/add-dialog.js";
 import { plural } from "./format.js";
 
 const changed = () => { forget("load-games"); D.library({ fresh: true }); window.dispatchEvent(new CustomEvent("r2-library-changed")); };
@@ -44,7 +45,7 @@ export async function addFromPath(filePath, category = "game") {
 
 // ---- Drop files anywhere on the window ------------------------------------------------
 export function enableDrop(onEbook) {
-    const veil = h("div.drop-veil", { hidden: true }, h("div", null, icon("plus"), h("b", null, "Drop to add to Riftgate"), h("span", null, "Games, apps and shortcuts go to your Library; EPUB and PDF to your eBooks")));
+    const veil = h("div.drop-veil", { hidden: true }, h("div", null, icon("plus"), h("b", null, "Drop to add to Riftgate"), h("span", null, "Games, apps and shortcuts go to your Library (you'll pick the category); EPUB and PDF to your eBooks")));
     document.body.appendChild(veil);
     let depth = 0;
     // Only files dragged in from outside Riftgate count. Dragging something
@@ -63,15 +64,16 @@ export function enableDrop(onEbook) {
         e.preventDefault();
         depth = 0; veil.hidden = true;
         const files = [...e.dataTransfer.files];
-        let added = 0;
+        const programs = [];
         for (const f of files) {
             const p = window.riftgate && window.riftgate.pathForFile ? window.riftgate.pathForFile(f) : null;
             if (!p) continue;
-            if (/\.(epub|pdf)$/i.test(p)) { if (onEbook && await onEbook(p)) added++; continue; }
-            if (/\.(exe|lnk|url|app)$/i.test(p)) { if (await addFromPath(p)) added++; continue; }
+            if (/\.(epub|pdf)$/i.test(p)) { if (onEbook) await onEbook(p); continue; }
+            if (/\.(exe|lnk|url|app)$/i.test(p)) { programs.push(p); continue; }
             toast(`${f.name} isn't a game, app, shortcut or eBook`, "err");
         }
-        if (added && !location.hash.startsWith("#library")) location.hash = "library";
+        // Wherever you drop them, they go to your Library, after you confirm each category
+        if (programs.length) openAddDialog(programs);
     });
 }
 
