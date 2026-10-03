@@ -1849,40 +1849,57 @@ ipcMain.handle("update-watchlist-item", async (event, { id, description, trailer
 // status view. (An earlier "new since last visit" notification handler,
 // check-new-episodes, was superseded by this and removed — it was never
 // actually called from the renderer.)
+// Riftgate 2: each show's episode list is kept on disk for 6 hours (episodes
+// air at most daily), fetched four shows at a time; every entry also carries
+// the next scheduled episode, so countdowns cost no extra request.
+const R2_EPISODES_FILE = "cache-r2-episodes.json";
+const R2_EPISODES_TTL_MS = 6 * 3600 * 1000;
 ipcMain.handle("get-latest-episodes", async () => {
     const list = readWatchlist();
+    const cache = loadDataCache(R2_EPISODES_FILE) || {};
+    let dirty = false;
+    const episodesOf = async (show) => {
+        const hit = cache[show.id];
+        if (hit && Date.now() - (hit.at || 0) < R2_EPISODES_TTL_MS) return hit.eps;
+        const eps = (await tvmaze.getShowEpisodes(show.id) || []).map((e) => ({ season: e.season, number: e.number, name: e.name, airstamp: e.airstamp, airdate: e.airdate }));
+        cache[show.id] = { at: Date.now(), eps }; dirty = true;
+        return eps;
+    };
     const latest = [];
-
-    for (const show of list) {
-        try {
-            const episodes = await tvmaze.getShowEpisodes(show.id);
-
-            const aired = episodes.filter(
-                (ep) => ep.airstamp && new Date(ep.airstamp).getTime() <= Date.now()
-            );
-
-            if (aired.length === 0) continue;
-
-            const latestEp = aired.reduce((a, b) =>
-                new Date(a.airstamp) > new Date(b.airstamp) ? a : b
-            );
-
-            latest.push({
-                showId: show.id,
-                showName: show.name,
-                showImage: show.image,
-                season: latestEp.season,
-                number: latestEp.number,
-                episodeName: latestEp.name,
-                airdate: latestEp.airdate
-            });
-        } catch (err) {
-            console.error(`[tv] latest episode fetch failed for "${show.name}":`, err.message || err);
+    const queue = list.slice();
+    const worker = async () => {
+        while (queue.length) {
+            const show = queue.shift();
+            try {
+                const episodes = await episodesOf(show);
+                const now = Date.now();
+                const aired = episodes.filter((ep) => ep.airstamp && new Date(ep.airstamp).getTime() <= now);
+                const upcoming = episodes.filter((ep) => ep.airstamp && new Date(ep.airstamp).getTime() > now)
+                    .sort((x, y) => new Date(x.airstamp) - new Date(y.airstamp))[0] || null;
+                if (aired.length === 0) continue;
+                const latestEp = aired.reduce((x, y) => (new Date(x.airstamp) > new Date(y.airstamp) ? x : y));
+                latest.push({
+                    showId: show.id,
+                    showName: show.name,
+                    showImage: show.image,
+                    season: latestEp.season,
+                    number: latestEp.number,
+                    episodeName: latestEp.name,
+                    airdate: latestEp.airdate,
+                    next: upcoming ? { season: upcoming.season, number: upcoming.number, name: upcoming.name, airstamp: upcoming.airstamp } : null
+                });
+            } catch (err) {
+                console.error(`[tv] latest episode fetch failed for "${show.name}":`, err.message || err);
+            }
         }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (dirty) {
+        const keep = new Set(list.map((sh) => String(sh.id)));
+        Object.keys(cache).forEach((k) => { if (!keep.has(String(k))) delete cache[k]; });
+        saveDataCache(R2_EPISODES_FILE, cache);
     }
-
-    latest.sort((a, b) => new Date(b.airdate) - new Date(a.airdate));
-
+    latest.sort((x, y) => new Date(y.airdate) - new Date(x.airdate));
     return latest;
 });
 
@@ -3634,7 +3651,24 @@ ipcMain.handle("get-watch-providers", async (event, countryCode) => {
 // Trending row for one specific provider -- "flatrate" (subscription
 // streaming) only, not rent/buy, since that's what "what's on Netflix
 // right now" actually means.
-ipcMain.handle("get-trending-by-provider", async (event, { providerName, countryCode } = {}) => {
+// Riftgate 2: each service's trending list is kept for 12 hours (it barely
+// moves within a day, and building it takes dozens of TMDB requests).
+const R2_TRENDING_FILE = "cache-r2-trending-by-provider.json";
+const R2_TRENDING_TTL_MS = 12 * 3600 * 1000;
+ipcMain.handle("get-trending-by-provider", async (event, args = {}) => {
+    const key = `${args.providerName}|${args.countryCode}`;
+    const cache = loadDataCache(R2_TRENDING_FILE) || {};
+    const hit = cache[key];
+    if (hit && Array.isArray(hit.list) && hit.list.length && Date.now() - (hit.at || 0) < R2_TRENDING_TTL_MS) return hit.list;
+    const list = await r2TrendingByProvider(args);
+    if (Array.isArray(list) && list.length) {
+        cache[key] = { at: Date.now(), list };
+        Object.keys(cache).forEach((k) => { if (Date.now() - (cache[k].at || 0) > 7 * R2_TRENDING_TTL_MS) delete cache[k]; });
+        saveDataCache(R2_TRENDING_FILE, cache);
+    }
+    return list;
+});
+async function r2TrendingByProvider({ providerName, countryCode } = {}) {
     try {
         const [movieList, tvList] = await Promise.all([
             getWatchProvidersList("movie", countryCode),
@@ -3679,7 +3713,7 @@ ipcMain.handle("get-trending-by-provider", async (event, { providerName, country
         console.error("[theatre] trending-by-provider fetch failed:", err.message || err);
         return [];
     }
-});
+}
 
 // Searches ANY title (not just what's trending on a provider in the
 // dropdown above) and reports every provider it's actually streaming on
@@ -8950,6 +8984,58 @@ ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
     } catch (err) {
         return false;
     }
+});
+
+// --- Riftgate 2: find a cover for anything that has none (or a broken one) -----
+// One lookup per title, ever: hits are kept for good, misses for a week, in
+// r2-covers.json, so a missing cover costs the APIs a single request.
+const R2_COVER_MISS_MS = 7 * 24 * 3600 * 1000;
+let r2CoverCache = null;
+function r2CoverFile() { return path.join(app.getPath("userData"), "r2-covers.json"); }
+function r2CoverLoad() {
+    if (r2CoverCache) return r2CoverCache;
+    try { r2CoverCache = JSON.parse(fs.readFileSync(r2CoverFile(), "utf8")) || {}; } catch (e) { r2CoverCache = {}; }
+    return r2CoverCache;
+}
+let r2CoverSaveTimer = null;
+function r2CoverSave() {
+    clearTimeout(r2CoverSaveTimer);
+    r2CoverSaveTimer = setTimeout(() => { try { fs.writeFileSync(r2CoverFile(), JSON.stringify(r2CoverCache)); } catch (e) { /* best effort */ } }, 1500);
+}
+const r2CoverPending = new Map();
+async function r2LookupCover(title, kind, year) {
+    const clean = String(title).replace(/\s*\((anime|series|film|movie|\d{4})\)\s*$/i, "").replace(/\s+[–-]\s+(season|part)\s+\d+.*$/i, "").trim();
+    const tmdb = async (what) => {
+        const q = { query: clean, include_adult: "false" };
+        if (year) q[what === "movie" ? "year" : "first_air_date_year"] = String(year);
+        let d = await mediaProxyGetJsonPlain("tmdb", `/search/${what}`, q);
+        if ((!d || !d.results || !d.results.length) && year) d = await mediaProxyGetJsonPlain("tmdb", `/search/${what}`, { query: clean, include_adult: "false" });
+        const hit = (d && d.results || []).find((r) => r.poster_path);
+        return hit ? `https://image.tmdb.org/t/p/w500${hit.poster_path}` : null;
+    };
+    if (kind === "film") return (await tmdb("movie")) || (await tmdb("tv"));
+    if (kind === "series" || kind === "anime" || kind === "show" || kind === "episode") return (await tmdb("tv")) || (await tmdb("movie"));
+    if (kind === "book" || kind === "ebook" || kind === "comic" || kind === "manga") return await findOnlineBookCoverUrl(clean, "");
+    // games, apps, deals, free games, library items: SteamGridDB (cached on disk by fetchOnlineCover)
+    return await fetchOnlineCover(clean);
+}
+ipcMain.handle("r2-find-cover", async (event, { title, kind, year } = {}) => {
+    if (typeof title !== "string" || !title.trim() || title.length > 200) return null;
+    const key = `${String(kind || "").slice(0, 20)}|${title.trim().toLowerCase()}|${year || ""}`;
+    const cache = r2CoverLoad();
+    const c = cache[key];
+    if (c && c.url) return c.url;
+    if (c && !c.url && Date.now() - c.at < R2_COVER_MISS_MS) return null;
+    if (r2CoverPending.has(key)) return r2CoverPending.get(key);
+    const job = (async () => {
+        let url = null;
+        try { url = await r2LookupCover(title.trim(), kind, year); } catch (err) { console.error("[r2-cover]", err.message || err); return null; }
+        cache[key] = { url: url || null, at: Date.now() };
+        r2CoverSave();
+        return url || null;
+    })().finally(() => r2CoverPending.delete(key));
+    r2CoverPending.set(key, job);
+    return job;
 });
 
 // --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------

@@ -11,12 +11,14 @@ import { card, skeletonCard } from "./card.js";
 import * as D from "../app/data.js";
 
 const PAGE = 100;
+const KIND_PLURAL = { game: "Games", app: "Apps", vr: "VR", other: "Other", film: "Films", series: "Series", anime: "Anime", book: "Books" };
 const SORTS = {
     default: { label: "Recommended", fn: null },
     az: { label: "Name A–Z", fn: (a, b) => a.title.localeCompare(b.title) },
     rating: { label: "Highest rated", fn: (a, b) => (b.rating || 0) - (a.rating || 0) },
     newest: { label: "Newest", fn: (a, b) => String(b.date || b.firstSeenAt || "").localeCompare(String(a.date || a.firstSeenAt || "")) },
     soonest: { label: "Soonest", fn: (a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")) },
+    played: { label: "Recently played", fn: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0) },
     discount: { label: "Biggest discount", fn: (a, b) => ((b.price && b.price.discount) || 0) - ((a.price && a.price.discount) || 0) }
 };
 
@@ -33,17 +35,29 @@ export function openBrowser({ title, items = [], full = null, cardOpts }) {
     const sortSel = h("select.input", { "aria-label": "Sort" });
     const fillSorts = () => {
         const list = full ? pageItems : items;
-        const has = { discount: list.some((i) => i.price), rating: list.some((i) => i.rating), soonest: list.some((i) => i.date && i.date > new Date().toISOString().slice(0, 10)) };
+        const has = { played: list.some((i) => i.lastPlayed), discount: list.some((i) => i.price), rating: list.some((i) => i.rating), soonest: list.some((i) => i.date && i.date > new Date().toISOString().slice(0, 10)) };
         clear(sortSel).append(...Object.entries(SORTS).filter(([k]) => has[k] !== false).map(([k, s]) => h("option", { value: k }, s.label)));
         sortSel.value = SORTS[sort] && [...sortSel.options].some((o) => o.value === sort) ? sort : "default";
         sort = sortSel.value;
     };
 
+    // A list that mixes kinds (games, apps, VR…) gets a chip per kind
+    let typeFilter = null;
+    const typeChips = h("div.chips.browser-types", { role: "group", "aria-label": "Show" });
+    const kinds = full ? [] : [...new Set(items.map((i) => i.type).filter(Boolean))];
+    const paintTypes = () => {
+        clear(typeChips);
+        if (kinds.length < 2) { typeChips.hidden = true; return; }
+        [[null, "All", items.length], ...kinds.map((k) => [k, KIND_PLURAL[k] || k, items.filter((i) => i.type === k).length])].forEach(([k, label, n]) =>
+            typeChips.appendChild(h("button.chip", { type: "button", "aria-pressed": String(typeFilter === k), onclick: () => { typeFilter = k; paintTypes(); pageNo = 1; render(); } }, label, h("span.n", null, String(n)))));
+    };
+    paintTypes();
+
     const scrim = h("div.scrim", { onclick: close });
     const body = h("div.browser-body", null, grid, pager);
     const panel = h("div.browser", { role: "dialog", "aria-modal": "true", "aria-label": title },
         h("div.browser-head", null,
-            h("div", null, h("h2", null, title), countEl),
+            h("div", null, h("h2", null, title), countEl, typeChips),
             h("div.tools", null, search, sortSel,
                 h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: close }, icon("x")))),
         body);
@@ -76,7 +90,7 @@ export function openBrowser({ title, items = [], full = null, cardOpts }) {
 
     function visible() {
         const q = query.trim().toLowerCase();
-        const src = full ? pageItems : items;
+        const src = full ? pageItems : (typeFilter ? items.filter((i) => i.type === typeFilter) : items);
         let list = q ? src.filter((i) => (i.title + " " + (i.sub || "") + " " + ((i.provider && i.provider.name) || "")).toLowerCase().includes(q)) : src.slice();
         const fn = SORTS[sort] && SORTS[sort].fn;
         if (fn) list.sort(fn);

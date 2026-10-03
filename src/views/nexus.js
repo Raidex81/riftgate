@@ -16,7 +16,9 @@ import { hours, until, plural } from "../app/format.js";
 
 const WEEK = 7 * 86400000;
 
-async function continueJourney() {
+// Continue your journey: what you're in the middle of, then what you played
+// lately; "See all" lists everything you added (games, apps, VR, others).
+async function journey() {
     const [lib] = await Promise.all([D.library(), journal.load()]);
     const byKey = new Map(lib.map((g) => [g.key, g]));
     const out = new Map();
@@ -26,9 +28,17 @@ async function continueJourney() {
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
         .forEach((e) => out.set(e.key, byKey.get(e.key) || { ...e.item, key: e.key, kind: e.item.kind || "journal" }));
     // Then what you actually played lately
-    lib.filter((g) => g.lastPlayed).sort((a, b) => b.lastPlayed - a.lastPlayed).slice(0, 12)
+    lib.filter((g) => g.lastPlayed).sort((a, b) => b.lastPlayed - a.lastPlayed)
         .forEach((g) => { if (!out.has(g.key)) out.set(g.key, g); });
-    return [...out.values()];
+    const recent = [...out.values()];
+    // Everything else you added, newest first
+    const rest = lib.filter((g) => !out.has(g.key)).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0) || a.title.localeCompare(b.title));
+    return { recent, all: [...recent, ...rest] };
+}
+async function continueJourney() {
+    const { recent, all } = await journey();
+    // never empty while you have anything in your library
+    return recent.length >= 8 ? recent : all.slice(0, Math.max(recent.length, 12));
 }
 
 async function slides() {
@@ -113,7 +123,7 @@ export default {
 
         const noMature = (l) => l.filter((x) => !x.mature);
         const rows = [
-            row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true } }),
+            row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true }, seeAllTitle: "Your journey: everything you added", seeAll: () => journey().then((j) => j.all) }),
             row({ title: "Free right now", icon: "gift", seeAllTitle: "All free games",
                 items: () => D.freeGames().then((l) => l.filter((g) => !g.alwaysFree).sort((a, b) => (b.firstSeenAt || 0) - (a.firstSeenAt || 0))) }),
             row({ title: "New episodes", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), hideEmpty: true }),

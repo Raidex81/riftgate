@@ -6,7 +6,8 @@
 // opts: { id, title, icon, note, items (array, promise, or function that
 //         returns either — functions repaint when their data refreshes),
 //         wide, cardOpts, seeAllTitle, empty, hideEmpty, tools, limit,
-//         full: { kind, providerName }, enhance: async (items) => items }
+//         full: { kind, providerName }, enhance: async (items) => items,
+//         seeAll: async () => items (what See all lists, when it's more than the row) }
 
 import { h, icon, clear } from "../app/dom.js";
 import { slug } from "../app/items.js";
@@ -63,7 +64,11 @@ export function row(opts) {
         track.appendChild(frag);
         track.scrollLeft = x;
         if (!opts.note) count.textContent = !opts.full && items.length > limit ? items.length.toLocaleString() : "";
-        if (!opts.full && items.length > limit) {
+        if (opts.seeAll) {
+            // a custom "See all" (e.g. everything in your library, not just what the row shows)
+            seeAll.hidden = false;
+            seeAll.onclick = async () => openBrowser({ title, items: (await opts.seeAll()) || items, cardOpts: opts.cardOpts });
+        } else if (!opts.full && items.length > limit) {
             seeAll.hidden = false;
             seeAll.onclick = () => openBrowser({ title, items, cardOpts: opts.cardOpts });
         }

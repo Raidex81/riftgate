@@ -49,3 +49,25 @@ export function score(rating) {
 }
 
 export function plural(n, one, many) { return `${n.toLocaleString()} ${n === 1 ? one : (many || one + "s")}`; }
+
+// "in 2d 5h", "in 3h 12m", "in 8m": a countdown that reads at a glance
+export function countdown(ts) {
+    const ms = (typeof ts === "number" ? ts : Date.parse(ts)) - Date.now();
+    if (isNaN(ms)) return "";
+    if (ms <= 0) return "out now";
+    const m = Math.floor(ms / 60000), hh = Math.floor(m / 60), d = Math.floor(hh / 24);
+    if (d >= 14) return `in ${d} days`;
+    if (d >= 1) return `in ${d}d ${hh % 24}h`;
+    if (hh >= 1) return `in ${hh}h ${m % 60}m`;
+    return `in ${Math.max(1, m)}m`;
+}
+// Every countdown on screen ticks once a minute (one timer for all of them)
+let ticking = null;
+export function tickCountdowns() {
+    if (ticking) return;
+    ticking = setInterval(() => {
+        const els = document.querySelectorAll("[data-countdown]");
+        if (!els.length) { clearInterval(ticking); ticking = null; return; }
+        els.forEach((el) => { el.textContent = countdown(Number(el.dataset.countdown)); });
+    }, 60000);
+}

@@ -4,7 +4,7 @@
 
 import { h, icon, art, coverSrc } from "../app/dom.js";
 import * as journal from "../app/store.js";
-import { money, score, hours } from "../app/format.js";
+import { money, score, hours, countdown, tickCountdowns } from "../app/format.js";
 import { TYPE_LABEL } from "../app/items.js";
 import * as seen from "../app/seen.js";
 import { ambient } from "./ambient.js";
@@ -57,6 +57,14 @@ function paintJournal(el, item) {
     if (e.status === "progress" && e.progress > 0) artEl.appendChild(ring(e.progress));
 }
 
+// What to search for when a card has no picture (or a broken one)
+export function coverQuery(item) {
+    if (!item || !item.title || ["community", "search"].includes(item.kind)) return null;
+    const kind = item.kind === "episode" ? "series" : item.type || item.kind;
+    const year = item.kind === "episode" ? null : (String(item.date || item.year || "").match(/^\d{4}/) || [null])[0];
+    return { kind, year };
+}
+
 export function card(item, opts) {
     opts = opts || {};
     const el = h("button.card", {
@@ -69,7 +77,7 @@ export function card(item, opts) {
     el.addEventListener("pointerenter", () => ambient(item));
 
     const image = opts.wide ? (item.backdrop || item.image) : item.image;
-    const a = art(image, item.title, item.fallback);
+    const a = art(image, item.title, item.fallback, coverQuery(item));
 
     // Top-left: where it's from (or the content type when mixing kinds)
     // (a series or anime shows the service it streams on, with its logo)
@@ -116,6 +124,14 @@ function footFor(item, opts) {
     }
     if (item.kind === "community" && item.visits) {
         return h("div.card-foot", null, icon("arrow"), `${item.visits.toLocaleString()} ${item.visits === 1 ? "visit" : "visits"}`);
+    }
+    if (item.kind === "episode" && item.next) {
+        const at = Date.parse(item.next.airstamp);
+        if (at > Date.now()) {
+            tickCountdowns();
+            return h("div.card-foot.next-ep", { title: `Next: ${item.next.code}${item.next.name ? " · " + item.next.name : ""}\n${new Date(at).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}` },
+                icon("clock"), h("span", null, `${item.next.code} `), h("b", { dataset: { countdown: String(at) } }, countdown(at)));
+        }
     }
     if (item.kind === "library" && item.playtime) {
         return h("div.card-foot", null, icon("clock"), hours(item.playtime));

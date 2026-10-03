@@ -7,9 +7,24 @@
 
 const TAU = Math.PI * 2;
 
+// Theme colours as #rrggbb, whatever form the theme wrote them in
+// (hex, rgb(), or a color-mix() like custom themes use)
+let probe = null;
+function toHex(v) {
+    if (/^#[\da-f]{6}$/i.test(v)) return v;
+    if (/^#[\da-f]{3}$/i.test(v)) return "#" + v.slice(1).split("").map((c) => c + c).join("");
+    if (!probe) { probe = document.createElement("i"); probe.style.display = "none"; document.documentElement.appendChild(probe); }
+    probe.style.color = ""; probe.style.color = v;
+    const c = getComputedStyle(probe).color;
+    let m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(c);
+    let rgb = m ? [m[1], m[2], m[3]].map(Number) : null;
+    if (!rgb) { m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i.exec(c); if (m) rgb = [m[1], m[2], m[3]].map((x) => Number(x) * 255); }
+    if (!rgb) return null;
+    return "#" + rgb.map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
+}
 function cssColor(name, fallback) {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
+    return (v && toHex(v)) || fallback;
 }
 // Riftgate's logo, shared by every rift on screen
 const logo = new Image();
@@ -42,6 +57,27 @@ const GLYPHS = (() => {
         if (extra < .25) g.push({ arc: [0, -.55 + rnd() * .3, .32, 0, Math.PI * 2] });
         else if (extra < .5) g.push({ arc: [0, rnd() * .4, .38, Math.PI * (rnd() < .5 ? 0 : 1), Math.PI * (rnd() < .5 ? 1 : 2)] });
         if (rnd() < .45) g.push({ dot: P(Math.floor(rnd() * 3), rnd() < .5 ? 0 : 3) });
+        out.push(g);
+    }
+    return out;
+})();
+
+// A second, bigger script for the outer ring: circular runes, each a ring
+// holding dots, a chord or a smaller ring, with a stem reaching out.
+const RUNES = (() => {
+    let seed = 52211;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const out = [];
+    for (let i = 0; i < 20; i++) {
+        const g = [{ arc: [0, 0, .62, 0, Math.PI * 2] }];
+        const f = rnd();
+        if (f < .3) g.push({ arc: [0, .12, .26, 0, Math.PI * 2] });
+        else if (f < .6) { const a0 = rnd() * Math.PI; g.push([[Math.cos(a0) * .62, Math.sin(a0) * .62], [Math.cos(a0 + Math.PI * .8) * .62, Math.sin(a0 + Math.PI * .8) * .62]]); }
+        else g.push({ arc: [0, .62, .4, Math.PI, Math.PI * 2] });
+        const dots = Math.floor(rnd() * 4);
+        for (let k = 0; k < dots; k++) { const a1 = -Math.PI / 2 + (k - (dots - 1) / 2) * .55; g.push({ dot: [Math.cos(a1) * .38, Math.sin(a1) * .38] }); }
+        if (rnd() < .6) g.push([[0, -.62], [0, -.86]]);
+        if (rnd() < .4) g.push([[-.25, .8], [.25, .8]]);
         out.push(g);
     }
     return out;
@@ -86,7 +122,7 @@ export class Rift {
         this.w = Math.max(1, r.width); this.hgt = Math.max(1, r.height);
         this.c.width = Math.round(this.w * dpr); this.c.height = Math.round(this.hgt * dpr);
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        this.R = Math.min(this.hgt * .36, this.w * .2) * this.o.scale;
+        this.R = Math.min(this.hgt * .32, this.w * .19) * this.o.scale;
         if (this.reduced || !this.running) this.draw(0);
     }
 
@@ -100,6 +136,7 @@ export class Rift {
 
     frame(now) {
         if (!this.running) return;
+        if (now - (this._colAt || 0) > 1000) { this._colAt = now; this.readColours(); }
         const dt = Math.min(50, now - this.last); this.last = now;
         this.t += dt / 1000;
         this.draw(dt);
@@ -107,30 +144,23 @@ export class Rift {
     }
 
     // The ring and its glyphs, drawn once per size and colour (shadows are slow)
+    // The rune rings: three solid lines in the theme colour framing two bands of
+    // glyphs (the inner script, and a bigger outer one that turns a bit faster).
+    // Everything is drawn once per size and colour; shadows are slow.
     ringSprites(R, a, soft) {
         const key = `${Math.round(R)}|${a}|${soft}`;
         if (this._ring && this._ring.key === key) return this._ring;
         const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-        const rim = Math.max(Math.min(2.5, R * .06), R * .03);
-        const half = Math.ceil(R * 1.335 + rim * 2 + 14);
-        const base = document.createElement("canvas"); base.width = base.height = Math.ceil(half * 2 * dpr);
-        const x = base.getContext("2d");
-        x.setTransform(dpr, 0, 0, dpr, half * dpr, half * dpr);
-        // a faint band behind the glyphs, framed by two solid, glowing circles
-        x.strokeStyle = rgba(a, .1); x.lineWidth = R * .15;
-        x.beginPath(); x.arc(0, 0, R * 1.25, 0, TAU); x.stroke();
-        x.shadowColor = rgba(a, .8); x.shadowBlur = 10;
-        x.strokeStyle = rgba(soft, .75); x.lineWidth = rim;
-        x.beginPath(); x.arc(0, 0, R * 1.335, 0, TAU); x.stroke();
-        x.strokeStyle = rgba(a, .7); x.lineWidth = rim * .8;
-        x.beginPath(); x.arc(0, 0, R * 1.165, 0, TAU); x.stroke();
-        x.shadowBlur = 0; x.lineWidth = 1; x.strokeStyle = rgba(soft, .3);
-        x.beginPath(); x.arc(0, 0, R * 1.335 + rim * 1.6, 0, TAU); x.stroke();
-        x.beginPath(); x.arc(0, 0, Math.max(0, R * 1.165 - rim * 1.5), 0, TAU); x.stroke();
-        const gs = R * .095;
-        const glyph = (ctx, g, colour, alpha, blur) => {
+        const rim = Math.max(Math.min(3, R * .07), R * .034);
+        const L = { inner: R * 1.12, mid: R * 1.3, outer: R * 1.53 };
+        const canvasOf = (half) => {
+            const c = document.createElement("canvas"); c.width = c.height = Math.ceil(half * 2 * dpr);
+            const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, half * dpr, half * dpr);
+            return [c, x];
+        };
+        const stroke = (ctx, g, gs, colour, alpha, blur, width) => {
             ctx.strokeStyle = rgba(colour, alpha); ctx.fillStyle = ctx.strokeStyle;
-            ctx.lineWidth = Math.max(1, R * .011); ctx.lineCap = "round"; ctx.lineJoin = "round";
+            ctx.lineWidth = width; ctx.lineCap = "round"; ctx.lineJoin = "round";
             ctx.shadowColor = rgba(a, .9); ctx.shadowBlur = blur;
             ctx.beginPath();
             g.forEach((st) => {
@@ -140,20 +170,34 @@ export class Rift {
             });
             ctx.stroke();
         };
-        GLYPHS.forEach((g, i) => {
-            x.save(); x.rotate(i / GLYPHS.length * TAU); x.translate(0, -R * 1.25);
-            glyph(x, g, a, .6, 3.6);
-            x.restore();
-        });
-        const gh = Math.ceil(gs * 3 + 16);
-        const lit = GLYPHS.map((g) => {
-            const c = document.createElement("canvas"); c.width = c.height = Math.ceil(gh * 2 * dpr);
-            const y = c.getContext("2d"); y.setTransform(dpr, 0, 0, dpr, gh * dpr, gh * dpr);
-            y.globalCompositeOperation = "lighter";
-            glyph(y, g, soft, .9, 8);
-            return { c, half: gh };
-        });
-        this._ring = { key, base, half, lit };
+        // the three lines (and a faint fill in each band), not rotating
+        const lh = Math.ceil(L.outer + rim * 2 + 14);
+        const [lines, x] = canvasOf(lh);
+        x.strokeStyle = rgba(a, .09); x.lineWidth = L.mid - L.inner;
+        x.beginPath(); x.arc(0, 0, (L.inner + L.mid) / 2, 0, TAU); x.stroke();
+        x.strokeStyle = rgba(a, .06); x.lineWidth = L.outer - L.mid;
+        x.beginPath(); x.arc(0, 0, (L.mid + L.outer) / 2, 0, TAU); x.stroke();
+        x.shadowColor = rgba(a, .85); x.shadowBlur = 10;
+        x.strokeStyle = rgba(a, .8); x.lineWidth = rim;
+        [L.inner, L.mid, L.outer].forEach((r) => { x.beginPath(); x.arc(0, 0, r, 0, TAU); x.stroke(); });
+        // a band of glyphs (dim, all at once) plus one lit sprite per glyph
+        const band = (list, radius, gs, width) => {
+            const half = Math.ceil(radius + gs * 2 + 14);
+            const [base, y] = canvasOf(half);
+            list.forEach((g, i) => { y.save(); y.rotate(i / list.length * TAU); y.translate(0, -radius); stroke(y, g, gs, a, .6, 3.6, width); y.restore(); });
+            const gh = Math.ceil(gs * 2.6 + 16);
+            const lit = list.map((g) => {
+                const [c, z] = canvasOf(gh);
+                z.globalCompositeOperation = "lighter";
+                stroke(z, g, gs, soft, .9, 8, width);
+                return { c, half: gh };
+            });
+            return { base, half, lit, radius, count: list.length };
+        };
+        const thin = Math.max(1, R * .011);
+        this._ring = { key, lines, lh,
+            inner: band(GLYPHS, (L.inner + L.mid) / 2, R * .095, thin),
+            outer: band(RUNES, (L.mid + L.outer) / 2, R * .132, thin * 1.2) };
         return this._ring;
     }
 
@@ -358,26 +402,32 @@ export class Rift {
             ctx.beginPath(); ctx.arc(0, 0, R * 2.4, 0, TAU); ctx.fill();
         }
 
-        // Rune ring (pre-rendered with its glow; only the lit glyphs are drawn each frame)
+        // Rune rings (pre-rendered with their glow; only the lit glyphs are drawn each frame)
         ctx.globalCompositeOperation = "source-over";
         const ring = this.ringSprites(R, a, soft);
-        ctx.save();
-        ctx.rotate(t * .08);
-        ctx.drawImage(ring.base, -ring.half, -ring.half, ring.half * 2, ring.half * 2);
-        ctx.globalCompositeOperation = "lighter";
-        ring.lit.forEach((sp, i) => {
-            const lit = Math.max(0, Math.sin(t * 1.1 - i * .55));
-            if (lit < .04) return;
+        ctx.drawImage(ring.lines, -ring.lh, -ring.lh, ring.lh * 2, ring.lh * 2);
+        const spin = (band, angle, phase) => {
             ctx.save();
-            ctx.rotate(i / GLYPHS.length * TAU);
-            ctx.translate(0, -R * 1.25);
-            ctx.globalAlpha = lit;
-            ctx.drawImage(sp.c, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+            ctx.rotate(angle);
+            ctx.globalCompositeOperation = "source-over";
+            ctx.drawImage(band.base, -band.half, -band.half, band.half * 2, band.half * 2);
+            ctx.globalCompositeOperation = "lighter";
+            band.lit.forEach((sp, i) => {
+                const lit = Math.max(0, Math.sin(t * phase - i * .55));
+                if (lit < .04) return;
+                ctx.save();
+                ctx.rotate(i / band.count * TAU);
+                ctx.translate(0, -band.radius);
+                ctx.globalAlpha = lit;
+                ctx.drawImage(sp.c, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+                ctx.restore();
+            });
+            ctx.globalAlpha = 1;
             ctx.restore();
-        });
-        ctx.globalAlpha = 1;
+        };
+        spin(ring.inner, t * .08, 1.1);
+        spin(ring.outer, t * .12 + .4, .8);
         ctx.globalCompositeOperation = "source-over";
-        ctx.restore();
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to
         // the theme's accent; a drawn crystal stands in until it has loaded.

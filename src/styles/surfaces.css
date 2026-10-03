@@ -401,3 +401,4 @@
 .promote-preview { display: flex; align-items: center; gap: 6px; color: #ffd76a; font-size: var(--t-sm); min-height: 0; }
 .promote-preview:empty { display: none; }
 .promote-actions { display: flex; align-items: center; gap: var(--s3); }
+.browser-types { margin-top: var(--s2); }

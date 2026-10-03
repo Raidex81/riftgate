@@ -488,8 +488,59 @@ const PHOTOS = {
         at: { LT: [95, 92], LB: [100, 110], VIEW: [132, 126], LS: [170, 247], DPAD: [95, 182], RT: [398, 92], RB: [395, 110], MENU: [361, 126], Y: [398, 146], X: [370, 182], B: [433, 182], A: [398, 216], RS: [325, 247] } },
     // Nintendo layout: buttons go by position, so "A" (select) is the bottom one, printed B
     nintendo: { src: "assets/controllers/nintendo.png", w: 438, h: 361,
-        at: { LT: [92, 62], LB: [70, 80], VIEW: [162, 100], LS: [97, 135], DPAD: [160, 200], RT: [346, 62], RB: [368, 80], MENU: [270, 100], Y: [335, 105], X: [306, 134], B: [365, 134], A: [335, 163], RS: [272, 200] } }
+        at: { LT: [92, 62], LB: [70, 80], VIEW: [162, 100], LS: [97, 135], DPAD: [160, 200], RT: [346, 62], RB: [368, 80], MENU: [270, 100], Y: [335, 105], X: [306, 134], B: [365, 134], A: [335, 163], RS: [272, 200] } },
+    // Riftgate's own renders (assets/controllers/src: the SVG sources and the scripts that draw them)
+    remote: { src: "assets/controllers/remote.png", w: 320, h: 810,
+        at: { MOVE: [160, 216], A: [160, 262], B: [110, 368], MENU: [210, 368], VIEW: [116, 156], LB: [210, 522], RB: [210, 450] },
+        items: [["VIEW", "Info", "Controls (this screen)"], ["MOVE", "Arrows", "Move the highlight"], ["A", "OK", "Select / open"], ["B", "Back", "Back / close"],
+            ["MENU", "Menu", "Menu ↔ page"], ["RB", "CH +", "Next section"], ["LB", "CH −", "Previous section"]] }
+
 };
+// The keyboard has too many keys for leader lines: the keys Riftgate uses glow
+// on the keyboard itself, with a legend underneath (pointing at a row lights its keys).
+const KEYBOARD = { src: "assets/controllers/keyboard.png", w: 1000, h: 454,
+    rect: { Esc: [54, 50, 51, 51], F1: [138, 50, 51, 51], Enter: [768, 232, 121, 51], Backspace: [782, 120, 107, 51], P: [642, 176, 51, 51], I: [530, 176, 51, 51], M: [516, 288, 51, 51],
+        W: [194, 176, 51, 51], R: [306, 176, 51, 51], K: [544, 232, 51, 51], Ctrl: [54, 344, 65, 51], "[": [698, 176, 51, 51], "]": [754, 176, 51, 51], PgUp: [894, 176, 51, 51], PgDn: [894, 232, 51, 51],
+        UP: [838, 288, 51, 51], LEFT: [782, 344, 51, 51], DOWN: [838, 344, 51, 51], RIGHT: [894, 344, 51, 51] },
+    items: [[["UP", "LEFT", "DOWN", "RIGHT"], "Arrows", "Move the highlight"], [["Enter"], "Enter", "Select / open"], [["Esc"], "Esc", "Back / close"], [["Backspace"], "Backspace", "Back"],
+        [["I"], "I", "Details"], [["P"], "P", "Play / Get it free"], [["["], "[", "Previous section"], [["]"], "]", "Next section"],
+        [["PgUp"], "PgUp", "Scroll a screen up"], [["PgDn"], "PgDn", "Scroll a screen down"], [["M"], "M", "Menu ↔ page"], [["F1"], "F1", "Controls (this screen)"],
+        [["W"], "W", "Mark as watched"], [["R"], "R", "Surprise me"], [["Ctrl", "K"], "Ctrl K", "Search everything"]] };
+function keyboardLayout() {
+    const kb = KEYBOARD, W = 1300, H = 700;
+    const scale = 880 / kb.w, iw = kb.w * scale, ih = kb.h * scale, ix = (W - iw) / 2, iy = 92;
+    const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "cl-svg cl-keyboard", role: "img", "aria-label": "Keyboard: the keys Riftgate uses" });
+    root.append(svg("rect", { x: 0, y: 0, width: W, height: H, rx: 18, class: "cl-panel" }),
+        svg("text", { x: W / 2, y: 48, class: "cl-title", "text-anchor": "middle" }, "KEYBOARD"),
+        svg("text", { x: W / 2, y: 74, class: "cl-sub", "text-anchor": "middle" }, "The glowing keys do something in Riftgate"));
+    const img = svg("image", { x: ix, y: iy, width: iw, height: ih });
+    img.setAttribute("href", kb.src);
+    root.appendChild(img);
+    const glow = svg("g");
+    const legend = svg("g");
+    const colW = 400, rowH = 34, cols = 3, lx = (W - cols * colW) / 2 + 10, ly = iy + ih + 10;
+    kb.items.forEach(([ids, badge, what], i) => {
+        const keys = ids.map((id) => { const [x, y, w, h] = kb.rect[id]; return svg("rect", { x: ix + x * scale, y: iy + y * scale, width: w * scale, height: (h - 4) * scale, rx: 6, class: "cl-key-glow" }); });
+        const kg = svg("g", { class: "cl-keyset" }); kg.append(...keys);
+        glow.appendChild(kg);
+        const c = i % cols, r = Math.floor(i / cols);
+        const x = lx + c * colW, y = ly + r * rowH;
+        const bw = Math.max(34, badge.length * 9 + 16);
+        const row = svg("g", { class: "cl-legend" });
+        row.append(
+            svg("rect", { x: x - 6, y: y - 3, width: colW - 16, height: rowH - 6, rx: 8, class: "cl-legend-bg" }),
+            svg("rect", { x, y, width: bw, height: rowH - 12, rx: 6, class: "cl-badge" }),
+            svg("text", { x: x + bw / 2, y: y + 16, class: "cl-badge-text", "text-anchor": "middle" }, badge),
+            svg("text", { x: x + bw + 12, y: y + 16, class: "cl-text" }, what.toUpperCase()));
+        const on = (v) => () => { kg.classList.toggle("on", v); row.classList.toggle("on", v); };
+        row.addEventListener("pointerenter", on(true)); row.addEventListener("pointerleave", on(false));
+        kg.addEventListener("pointerenter", on(true)); kg.addEventListener("pointerleave", on(false));
+        legend.appendChild(row);
+    });
+    root.append(glow, legend);
+    return root;
+}
+
 const LAYOUT = {
     left: [["LT", "Scroll a screen up"], ["LB", "Previous section"], ["VIEW", "Controls (this screen)"], ["LS", "Move the highlight"], ["DPAD", "Move, row by row"]],
     right: [["RT", "Scroll a screen down"], ["RB", "Next section"], ["MENU", "Menu ↔ page"], ["Y", "Details"], ["X", "Play / Get it free"], ["B", "Back / close"], ["A", "Select / open"], ["RS", "Scroll freely"]]
@@ -501,16 +552,17 @@ const GLYPH = { LS: "L stick", RS: "R stick", DPAD: "D-pad" };
 const SHORT = { playstation: { VIEW: "Create", MENU: "Options" }, xbox: { VIEW: "View ⧉", MENU: "Menu ☰" } };
 
 function photoLayout(kind) {
+    if (kind === "keyboard") return keyboardLayout();
     const ph = PHOTOS[kind];
     if (!ph) return null;
     const keys = SCHEMES[kind].keys;
     const W = 1300, H = 700, boxW = 330, boxH = 40, top = 104, bottom = 30;
-    const scale = Math.min(540 / ph.w, 500 / ph.h);
+    const scale = Math.min((ph.maxW || 540) / ph.w, 500 / ph.h);
     const iw = ph.w * scale, ih = ph.h * scale, ix = (W - iw) / 2, iy = top + (H - top - bottom - ih) / 2;
     const toSvg = ([x, y]) => [ix + x * scale, iy + y * scale];
     const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "cl-svg", role: "img", "aria-label": `${SCHEMES[kind].name} controller: what each button does in Riftgate` });
     root.append(svg("rect", { x: 0, y: 0, width: W, height: H, rx: 18, class: "cl-panel" }),
-        svg("text", { x: W / 2, y: 48, class: "cl-title", "text-anchor": "middle" }, `${SCHEMES[kind].name.toUpperCase()} CONTROLLER`),
+        svg("text", { x: W / 2, y: 48, class: "cl-title", "text-anchor": "middle" }, /remote|keyboard/.test(kind) ? SCHEMES[kind].name.toUpperCase() : `${SCHEMES[kind].name.toUpperCase()} CONTROLLER`),
         svg("text", { x: W / 2, y: 74, class: "cl-sub", "text-anchor": "middle" }, "What each button does in Riftgate"));
     const img = svg("image", { x: ix, y: iy, width: iw, height: ih, preserveAspectRatio: "xMidYMid meet" });
     img.setAttribute("href", ph.src);
@@ -519,7 +571,7 @@ function photoLayout(kind) {
     const labels = svg("g");
     const column = (side, list) => {
         // top to bottom in the order of the buttons' height (then outward first), so no lines cross
-        const items = list.map(([k, what]) => ({ k, what, a: toSvg(ph.at[k]) }))
+        const items = list.map(([k, what, badge]) => ({ k, what, badge, a: toSvg(ph.at[k]) }))
             .sort((p, q) => p.a[1] - q.a[1] || (side === "left" ? p.a[0] - q.a[0] : q.a[0] - p.a[0]));
         const step = (H - top - bottom - boxH) / Math.max(1, items.length - 1);
         items.forEach((it, i) => {
@@ -533,7 +585,7 @@ function photoLayout(kind) {
                 svg("circle", { cx: ax, cy: ay, r: 5.5, class: "cl-dot" }), svg("circle", { cx: ax, cy: ay, r: 12, class: "cl-ring" }));
             const g = svg("g", { class: "cl-label" });
             g.append(svg("rect", { x: bx, y: by, width: boxW, height: boxH, rx: 8, class: "cl-box" }));
-            const name = GLYPH[it.k] || (SHORT[kind] && SHORT[kind][it.k]) || keys[it.k] || it.k;
+            const name = it.badge || GLYPH[it.k] || (SHORT[kind] && SHORT[kind][it.k]) || keys[it.k] || it.k;
             const face = FACE[kind] && FACE[kind][it.k];
             const round = name.length <= 2;
             const badgeW = round ? 30 : Math.max(44, name.length * 8.4 + 16);
@@ -545,8 +597,16 @@ function photoLayout(kind) {
             labels.appendChild(g);
         });
     };
-    column("left", LAYOUT.left);
-    column("right", LAYOUT.right);
+    if (ph.items) {
+        // left half of the device labelled on the left, right half on the right
+        const byX = ph.items.map(([k, badge, what]) => [k, what, badge]).sort((p, q) => ph.at[p[0]][0] - ph.at[q[0]][0]);
+        const half = Math.ceil(byX.length / 2);
+        column("left", byX.slice(0, half));
+        column("right", byX.slice(half));
+    } else {
+        column("left", LAYOUT.left);
+        column("right", LAYOUT.right);
+    }
     root.append(lines, labels);
     return root;
 }
@@ -565,7 +625,7 @@ export function toggleControls(open) {
         Object.entries(SCHEMES).forEach(([kind, info]) => tabs.appendChild(h("button.chip", { type: "button", role: "tab", "aria-pressed": String(kind === helpScheme), "aria-selected": String(kind === helpScheme),
             onclick: () => { helpScheme = kind; paint(); const t = tabs.querySelector("[aria-pressed='true']"); if (document.body.classList.contains("gp-nav") && t) setCurrent(t, { scroll: false }); } }, info.name)));
         clear(dia); const d = photoLayout(helpScheme) || diagram(helpScheme); if (d) dia.appendChild(d);
-        controlsEl && controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme]);
+        controlsEl && controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme] || helpScheme === "keyboard");
         clear(table);
         const keys = SCHEMES[helpScheme].keys;
         const body = h("tbody");
@@ -580,7 +640,7 @@ export function toggleControls(open) {
             h("p.muted", null, "Riftgate recognises your controller by itself. Pick a type to see its buttons."),
             tabs, dia, table,
             h("p.muted.controls-note", null, "TV mode (everything bigger) turns on while a controller is connected and off when it's unplugged. Change it in Settings → TV mode.")));
-    controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme]);
+    controlsEl.classList.toggle("has-photo", !!PHOTOS[helpScheme] || helpScheme === "keyboard");
     document.body.appendChild(controlsEl);
     const t = tabs.querySelector("[aria-pressed='true']");
     if (document.body.classList.contains("gp-nav") && t) setCurrent(t, { scroll: false });

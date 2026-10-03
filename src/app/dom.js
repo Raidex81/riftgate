@@ -4,6 +4,7 @@
 // ever parsed is the app's own icon SVG (icons.js), which is a constant.
 
 import { ICONS } from "./icons.js";
+import { findCover, whenSeen } from "./covers.js";
 
 export function h(tag, attrs, ...children) {
     const [name, ...classes] = tag.split(".");
@@ -83,20 +84,37 @@ export function coverSrc(url) {
 }
 
 // Image that degrades to a typographic gem placeholder instead of a broken icon.
-export function art(url, title, fallbackUrl) {
+// With a `find` ({ kind, year }), a missing or broken picture is looked up by
+// title (once, when the card comes on screen) before giving up.
+export function art(url, title, fallbackUrl, find) {
     const wrap = h("div.card-art");
-    let img = null;
-    const fb = () => {
+    let img = null, looked = false, triedFallback = false;
+    const placeholder = () => { if (!wrap.querySelector(".art-fallback")) wrap.prepend(h("div.art-fallback", null, title || "")); };
+    const show = (src) => {
         if (img) img.remove();
-        wrap.prepend(h("div.art-fallback", null, title || ""));
+        img = h("img", { src: coverSrc(src), alt: "", loading: "lazy", decoding: "async" });
+        img.addEventListener("load", () => { wrap.querySelector(".art-fallback")?.remove(); wrap.classList.remove("finding"); });
+        img.addEventListener("error", onError);
+        wrap.appendChild(img);
     };
-    if (!url) { fb(); return wrap; }
-    let triedFallback = false;
-    img = h("img", { src: coverSrc(url), alt: "", loading: "lazy", decoding: "async" });
-    img.addEventListener("error", () => {
+    const lookUp = () => {
+        if (looked || !find || !title) return false;
+        looked = true;
+        wrap.classList.add("finding");
+        whenSeen(wrap, () => findCover(title, find.kind, find.year).then((u) => {
+            wrap.classList.remove("finding");
+            if (u && u !== url && u !== fallbackUrl) show(u);
+        }));
+        return true;
+    };
+    function onError() {
         if (!triedFallback && fallbackUrl) { triedFallback = true; img.src = coverSrc(fallbackUrl); return; }
-        fb();
-    });
-    wrap.appendChild(img);
+        if (img) { img.remove(); img = null; }
+        placeholder();
+        lookUp();
+    }
+    if (!url && !fallbackUrl) { placeholder(); lookUp(); return wrap; }
+    if (!url) { triedFallback = true; show(fallbackUrl); return wrap; }
+    show(url);
     return wrap;
 }

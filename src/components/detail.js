@@ -8,8 +8,9 @@ import { manageBox } from "../app/library-tools.js";
 import { call, cached, openExternal, forget, country } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { TYPE_LABEL } from "../app/items.js";
-import { hours, ago, dateLong, money, score } from "../app/format.js";
+import { hours, ago, dateLong, money, score, countdown, tickCountdowns } from "../app/format.js";
 import { toast } from "./toast.js";
+import { coverQuery } from "./card.js";
 
 let current = null;
 
@@ -32,7 +33,7 @@ export function openDetail(item) {
 
     const closeBtn = h("button.icon-btn.detail-close", { type: "button", "aria-label": "Close", onclick: closeDetail }, icon("x"));
     const poster = h("div.detail-poster.card", { style: { cursor: "default" } },
-        h("div.card-frame", null, h("div.card-body", null, art(item.image, item.title, item.fallback))));
+        h("div.card-frame", null, h("div.card-body", null, art(item.image, item.title, item.fallback, coverQuery(item)))));
 
     const meta = h("div.detail-meta", null,
         h("span.type", { dataset: { t: item.type } }, TYPE_LABEL[item.type] || ""),
@@ -55,6 +56,7 @@ export function openDetail(item) {
         cover, closeBtn,
         h("div.detail-main", null, poster, head),
         journalBox(item),
+        nextEpisodeBox(item),
         h("div.detail-section", null, h("h3", null, "About"), desc),
         item.kind === "library" ? manageBox(item, () => closeDetail()) : null);
 
@@ -151,6 +153,21 @@ function watchedButton(item, primary) {
         toast(now ? `${item.title}: watched` : `${item.title}: back to unwatched`);
     };
     return b;
+}
+
+// The next episode of a show you track, with a live countdown
+function nextEpisodeBox(item) {
+    const n = item.next;
+    const at = n && Date.parse(n.airstamp);
+    if (!at || at <= Date.now()) return null;
+    tickCountdowns();
+    return h("section.detail-section.next-episode", null,
+        h("h3", null, "Next episode"),
+        h("div.next-ep-row", null,
+            h("b.next-ep-code", null, n.code),
+            h("div.grow", null, h("div", null, n.name || "Title not announced yet"),
+                h("div.muted", null, new Date(at).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))),
+            h("b.next-ep-count", { dataset: { countdown: String(at) } }, countdown(at))));
 }
 
 function trackButton(item) {

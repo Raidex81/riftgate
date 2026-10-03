@@ -153,6 +153,7 @@ export function fromEpisode(e) {
         image: e.showImage || null,
         date: e.airdate || null,
         tvmazeId: e.showId,
+        next: e.next && e.next.airstamp ? { ...e.next, code: `S${String(e.next.season).padStart(2, "0")}E${String(e.next.number).padStart(2, "0")}` } : null,
         raw: e
     };
 }

@@ -239,6 +239,12 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .btn.is-on:not(.primary) { color: var(--st-progress); }
 
 /* The controller layout (photo + labelled buttons) */
+.cl-key-glow { fill: color-mix(in srgb, var(--amethyst) 30%, transparent); stroke: var(--rift-pink); stroke-width: 2.5; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rift-pink) 80%, transparent)); transition: fill .2s; }
+.cl-keyset { cursor: default; }
+.cl-keyset.on .cl-key-glow { fill: color-mix(in srgb, var(--rift-pink) 55%, transparent); stroke-width: 4; }
+.cl-legend-bg { fill: transparent; transition: fill .2s; }
+.cl-legend.on .cl-legend-bg { fill: color-mix(in srgb, var(--amethyst) 14%, transparent); }
+.cl-keyboard .cl-text { fill: #1a1424; }
 .gp-controls.has-photo .controls-box { width: min(1300px, 96vw); }
 .cl-svg { width: 100%; height: auto; display: block; }
 .cl-panel { fill: #ffffff; }
@@ -278,3 +284,11 @@ body.tv-mode .card-sub { font-size: var(--t-md); }
 .manage-row .field { width: 160px; }
 .manage-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .manage-actions .btn { height: 34px; padding: 0 var(--s3); font-size: var(--t-sm); }
+
+/* Next-episode countdown on episode cards */
+.card-foot.next-ep { color: var(--dust); font-size: var(--t-xs); gap: 5px; }
+.card-foot.next-ep b { color: var(--hi); font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 40%, transparent); }
+.next-ep-row { display: flex; align-items: center; gap: var(--s4); padding: var(--s3) var(--s4); background: var(--nebula-2); border: 1px solid var(--line); border-radius: var(--radius, 10px); }
+.next-ep-row .grow { flex: 1; min-width: 0; }
+.next-ep-code { font-family: var(--font-display); color: var(--hi); }
+.next-ep-count { font-size: var(--t-lg); color: var(--hi); font-variant-numeric: tabular-nums; padding: 4px 12px; border-radius: 999px; background: var(--energy-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rift-pink) 40%, transparent); white-space: nowrap; }
