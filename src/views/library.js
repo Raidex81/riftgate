@@ -186,7 +186,9 @@ export default {
 function footFor(g) {
     const bits = [];
     if (g.playtime || g.playtimeFrom === "Steam") bits.push(h("span", { style: { display: "inline-flex", gap: "4px", alignItems: "center" } }, icon("clock"), hours(g.playtime) || "0 h", g.playtimeFrom === "Steam" ? h("span.on-steam", { title: "Time played, from your Steam profile" }, "on Steam") : null));
-    bits.push(h("span.muted", null, g.lastPlayed ? ago(g.lastPlayed) : "Not played yet"));
+    // "Not played yet" only when nobody has seen it played (Steam hours count)
+    if (g.lastPlayed) bits.push(h("span.muted", null, ago(g.lastPlayed)));
+    else if (!g.playtime) bits.push(h("span.muted", null, "Not played yet"));
     return bits;
 }
 
