@@ -159,40 +159,63 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
             tone("sine", 2600, at, .05, .01, .2, pan(-.4, pre), 6200);
             bell(NOTE(100), at + .12, .03, 1.2, pan(.4, pre));
         },
-        // lightning: a crack exactly as the bolt appears, an electric sizzle, then thunder
+        // lightning, game-style electricity: a hard ZAP the instant the bolt appears,
+        // then a distorted mains BZZZT that stutters on and off with crackling arcs
         strike(at, i = 0) {
-            const big = i === 0 ? 1 : i === 3 ? .85 : .65;
-            const side = [0, .5, -.45, .3, -.2][i % 5];
+            const big = i === 0 ? 1 : i === 3 ? .9 : .7;
+            const side = [0, .55, -.5, .3, -.25][i % 5];
             const dest = pan(side, pre);
-            // the crack
-            const n = noiseSrc(at, .2), hp = filter("highpass", 1800), g = gain(0, dest);
-            env(g.gain, at, 1.5 * big, .0015, .12 + .06 * big);
-            n.connect(hp); hp.connect(g); g.connect(verbIn);
-            // the snap of the air (low thump)
-            tone("sine", 140, at, .55 * big, .002, .18, dest, 45);
-            // the electric sizzle: buzzing saws with a jittering pitch, chopped by a fast flutter
-            const sizz = gain(0, dest);
-            env(sizz.gain, at + .005, .4 * big, .004, .55 + .35 * big);
-            const bp = filter("bandpass", 1500, 1.8); bp.connect(sizz);
-            const chop = ac.createGain(); chop.gain.value = .5; chop.connect(bp);
-            const lfo = ac.createOscillator(); lfo.type = "square"; lfo.frequency.setValueAtTime(38 + Math.random() * 20, at);
-            lfo.frequency.linearRampToValueAtTime(11, at + .9);
-            const lfoG = gain(.5); lfo.connect(lfoG); lfoG.connect(chop.gain); lfo.start(at); lfo.stop(at + 1.1);
-            [92, 137, 211].forEach((f) => {
-                const o = ac.createOscillator(); o.type = "sawtooth";
-                const curve = new Float32Array(48).map(() => f * (.7 + Math.random() * .8));
-                o.frequency.setValueCurveAtTime(curve, at, .9);
-                o.connect(chop); o.start(at); o.stop(at + 1.0);
+            const dur = .45 + .35 * big;
+            // the zap: a square wave diving from a shriek to a growl, overdriven
+            const zap = ac.createOscillator(); zap.type = "square";
+            zap.frequency.setValueAtTime(2400 + Math.random() * 600, at);
+            zap.frequency.exponentialRampToValueAtTime(70, at + .14);
+            const zg = gain(0, dest); env(zg.gain, at, .32 * big, .001, .16);
+            zap.connect(drive(18)).connect(zg); zap.start(at); zap.stop(at + .2);
+            // the BZZZT: mains-hum saws, clipped hard, stuttering like a shorting cable
+            const hum = drive(60), bp = filter("bandpass", 1100, .6), gate = ac.createGain();
+            hum.connect(bp); bp.connect(gate); gate.connect(dest); gate.connect(verbIn);
+            gate.gain.setValueAtTime(0, at);
+            for (let t = at + .01; t < at + dur;) {
+                const on = .015 + Math.random() * .05, off = Math.random() < .35 ? .01 + Math.random() * .04 : 0;
+                const fade = 1 - (t - at) / dur;
+                gate.gain.setValueAtTime((.22 + Math.random() * .2) * big * (.35 + .65 * fade), t);
+                if (off) gate.gain.setValueAtTime(0, t + on);
+                t += on + off;
+            }
+            gate.gain.setValueAtTime(0, at + dur);
+            [[55, "sawtooth"], [110.7, "sawtooth"], [166, "square"]].forEach(([f, type]) => {
+                const o = ac.createOscillator(); o.type = type;
+                o.frequency.setValueCurveAtTime(new Float32Array(40).map(() => f * (.9 + Math.random() * .25)), at, dur);
+                o.connect(hum); o.start(at); o.stop(at + dur + .02);
             });
-            const fz = noiseSrc(at, .9), fzb = filter("bandpass", 4200, 2.5), fzg = gain(0, dest);
-            env(fzg.gain, at, .26 * big, .003, .5 + .3 * big); fz.connect(fzb); fzb.connect(fzg);
-            // thunder rolling away (bigger strikes roll longer)
-            const th = noiseSrc(at, 3), tlp = filter("lowpass", 260, .7), tg = gain(0, pre);
-            tlp.frequency.setValueAtTime(420, at + .05); tlp.frequency.exponentialRampToValueAtTime(90, at + 2.4);
-            tg.gain.setValueAtTime(0.0001, at + .04);
-            tg.gain.linearRampToValueAtTime(.45 * big, at + .16);
-            tg.gain.exponentialRampToValueAtTime(.0001, at + .9 + 1.6 * big);
+            // the crackle: a storm of tiny arcs, densest at the start
+            for (let k = 0; k < 26 * big; k++) {
+                const t = at + Math.pow(Math.random(), 1.8) * dur;
+                const n = noiseSrc(t, .012), f = filter("bandpass", 2500 + Math.random() * 6000, 2), g = gain(0, pan(side + (Math.random() - .5) * .6, pre));
+                env(g.gain, t, (.12 + Math.random() * .2) * big, .0008, .004 + Math.random() * .012);
+                n.connect(f); f.connect(g);
+            }
+            // the snap of air underneath, and a short rumble
+            tone("sine", 160, at, .5 * big, .002, .16, dest, 45);
+            const th = noiseSrc(at, 1.6), tlp = filter("lowpass", 240, .7), tg = gain(0, pre);
+            tg.gain.setValueAtTime(0.0001, at + .03); tg.gain.linearRampToValueAtTime(.22 * big, at + .12); tg.gain.exponentialRampToValueAtTime(.0001, at + .5 + .9 * big);
             th.connect(tlp); tlp.connect(tg); tg.connect(verbIn);
+        },
+        // between the strikes the air stays charged: a low arcing hum that spits now and then
+        arc(at) {
+            const len = 1.75;
+            const hum = drive(30), lp = filter("lowpass", 900, .8), g = gain(0, pre);
+            hum.connect(lp); lp.connect(g);
+            g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(.07, at + .25);
+            g.gain.setValueAtTime(.07, at + len - .3); g.gain.exponentialRampToValueAtTime(.0001, at + len);
+            [50, 100.4].forEach((f) => { const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.connect(hum); o.start(at); o.stop(at + len + .05); });
+            for (let k = 0; k < 40; k++) {
+                const t = at + Math.random() * len;
+                const n = noiseSrc(t, .01), f = filter("highpass", 3000), cg = gain(0, pan(Math.random() * 1.4 - .7, pre));
+                env(cg.gain, t, .03 + Math.random() * .06, .0006, .006);
+                n.connect(f); f.connect(cg);
+            }
         },
         // the name: alien script scrambling, then a click as each letter settles
         scramble(at) {
@@ -228,11 +251,18 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         }
     };
     function filterTo(type, f, dest) { const b = filter(type, f, 1); b.connect(dest); return b; }
+    // overdrive: a hard-clipping waveshaper (the grit of game electricity)
+    function drive(k) {
+        const w = ac.createWaveShaper(), n = 1024, c = new Float32Array(n);
+        for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+        w.curve = c; w.oversample = "2x";
+        return w;
+    }
 
     // The timeline, matching intro.js (seconds from the start)
     const STRIKES = [3.02, 3.16, 3.38, 3.9, 4.45];
     const TIMELINE = [
-        [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"],
+        [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"], [3.02, "arc"],
         ...STRIKES.map((t, i) => [t, "strike", i]),
         [3.55, "scramble"], ...Array.from({ length: 8 }, (_, i) => [3.75 + i * .085, "letter", i]), [4.35, "tagline"], [4.95, "open"]
     ];
