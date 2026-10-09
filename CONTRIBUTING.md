@@ -1,9 +1,9 @@
 # Contributing to Riftgate
 
-Thanks for wanting to help! Riftgate is a personal entertainment hub
-(games, movies, TV, anime, books, apps, free content and deals) built with
-Electron for Windows and macOS. Bug reports, ideas, fixes and new features
-are all welcome.
+Thanks for wanting to help! Riftgate is an entertainment hub (games,
+films, series, anime, books, apps, free games and deals) built with
+Electron for Windows and macOS. Bug reports, ideas, fixes and new
+features are all welcome.
 
 By contributing, you agree that your contribution is licensed under the
 project's license, the [GNU GPL v3.0 or later](LICENSE).
@@ -11,7 +11,7 @@ project's license, the [GNU GPL v3.0 or later](LICENSE).
 ## Ways to help
 
 - **Report a bug** — open an [issue](../../issues/new/choose) with the bug
-  template. Include your Riftgate version (bottom-right corner of the app),
+  template. Include your Riftgate version (Settings, or the bottom of the menu),
   Windows or Mac, and the steps to make it happen.
 - **Suggest a feature** — open an issue with the feature template, or use
   Suggestions inside the app.
@@ -40,10 +40,10 @@ the code is a publishable key, made to ship inside apps; the database is
 protected by its own server-side rules.
 
 Only one copy of Riftgate can run at a time. If you also have the
-installed app, quit it completely first (⏻ → Close Completely, and Quit
-from the tray/menu-bar icon), or `npm start` will just bring the installed
-window back. The version in the bottom-right corner tells you which one
-you're looking at.
+installed app, quit it completely first (right-click the tray or menu-bar
+icon → Quit), or `npm start` will just bring the installed window back.
+The version at the bottom of the menu tells you which one you're looking
+at.
 
 To build an installer: `npm run dist` on Windows, or
 `npx electron-builder --mac --dir` on a Mac (unsigned, for local testing).
@@ -58,7 +58,7 @@ thing. In short:
 | `main.js` | Electron main process: windows, IPC handlers, all network calls |
 | `services/` | Main-process helpers (free games, Steam, TMDB, books, platform-specific code for Windows/Mac) |
 | `preload.js` | The bridge between UI and main process, with an allowlist of IPC channels |
-| `renderer.js`, `index.html`, `style.css` | The whole UI (plain JavaScript, no framework or bundler) |
+| `index.html`, `src/` | The whole interface: ES modules and CSS, no framework, no build step. `src/app/` (state, data, the engine bridge, themes), `src/components/` (cards, rows, details…), `src/views/` (one file per section), `src/styles/` (`tokens.css` holds every colour, size and timing) |
 | `supabase/` | Database migrations, Edge Functions and their tests |
 | `.github/` | Build check, release and Mac test workflows |
 
@@ -71,8 +71,8 @@ These are checked in review, so please follow them:
 - **New IPC channels** must be added to the allowlist in `preload.js`, and
   their handler in `main.js` must validate every argument it receives.
 - **Text from outside Riftgate** (game names, descriptions, anything from
-  an API or a web page) goes into the page with `textContent`, never
-  `innerHTML`.
+  an API or a web page) goes into the page as text, with `h()` from
+  `src/app/dom.js` or `textContent`, never `innerHTML`.
 - **No secrets in the repository.** Never commit API keys or tokens.
 - Don't loosen the Content Security Policy, the Electron fuses in
   `package.json`, or the window's security settings (`sandbox`,
@@ -85,9 +85,13 @@ These are checked in review, so please follow them:
 - Comments explain *why*, not *what*.
 - Files use LF line endings (set `git config core.autocrlf input` on
   Windows if your editor converts them).
-- Keep the UI consistent with the rest of the app: the theme colors
-  (`--accent-1`, `--bg-primary`, …), card styles and the same wording
-  style ("Free Games", "See all →").
+- Keep the interface consistent: use the design tokens in
+  `src/styles/tokens.css` (`--amethyst`, `--nebula`, `--s4`, `--cut`…)
+  instead of raw values, reuse `card()`/`row()` and the other components,
+  and write labels the way the app does ("Free games", "See all").
+- The interface can be tried in a normal browser against a mocked engine
+  (Playwright), which is how most interface work is tested. Ask in an
+  issue if you'd like the harness.
 
 ## Sending a pull request
 

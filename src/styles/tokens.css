@@ -1,0 +1,93 @@
+/* Riftgate — design tokens.
+   One source of truth for colour, type, space, shape and motion. Views and
+   components only ever use these variables, never raw values, so a theme is
+   just a different set of tokens (see [data-accent] at the bottom). */
+
+:root {
+    /* Colour — the rift palette, taken from the Riftgate boards */
+    --void: #07050d;          /* the app's base: deepest violet-black */
+    --nebula: #120b22;        /* raised surfaces: rails, panels */
+    --nebula-2: #1a1030;      /* surfaces on surfaces: cards, inputs */
+    --nebula-3: #24173f;      /* hover / pressed surfaces */
+    --line: #2e2150;          /* hairlines and resting frames */
+    --line-strong: #4a3480;
+
+    --amethyst: #8b3dff;      /* primary energy: selection, focus, actions */
+    --amethyst-soft: #b98cff;
+    --rift-pink: #e03cff;     /* secondary energy: the rift's hot edge */
+    --starlight: #ede6ff;     /* main text */
+    --starlight-2: #c9bfe6;   /* secondary text */
+    --dust: #9a8fb8;          /* muted text, meta */
+    --dust-2: #6e6390;        /* disabled, placeholders */
+    --hi: #fff;               /* strongest text (hover, current) */
+    --on-accent: #fff;        /* text on the energy colours */
+    --radius: 0px;            /* surfaces other than the gem cut round their corners */
+
+    /* Status colours, from the status-badge board */
+    --st-progress: #3ddc84;   /* playing / watching / reading */
+    --st-completed: #4aa8ff;
+    --st-planned: #ffb02e;
+    --st-hold: #ff7a2e;
+    --st-dropped: #ff4d6d;
+    --st-favourite: #ff4fd8;
+
+    /* Content-type colours (from Riftgate 1.8; series and apps got their own so every kind is told apart) */
+    --type-game: #a66bff;
+    --type-film: #39d0ff;
+    --type-series: #ffc94a;
+    --type-anime: #ff6fd8;
+    --type-book: #4fe39a;
+    --type-app: #ff8a3d;
+
+    /* Energy gradients */
+    --energy: linear-gradient(135deg, var(--amethyst) 0%, var(--rift-pink) 100%);
+    --energy-soft: linear-gradient(135deg, color-mix(in srgb, var(--amethyst) 28%, transparent), color-mix(in srgb, var(--rift-pink) 18%, transparent));
+
+    /* Type — one family, Bahnschrift (Windows' DIN), using its real widths:
+       condensed for display, normal for reading. Mac/Linux fall back to
+       close relatives. */
+    --font: "Bahnschrift", "DIN Alternate", "Avenir Next", "Segoe UI Variable Text", "DejaVu Sans", system-ui, sans-serif;
+    --font-display: "Bahnschrift Condensed", "Bahnschrift", "DIN Condensed", "Avenir Next Condensed", "DejaVu Sans Condensed", "DejaVu Sans", sans-serif;
+
+    /* Modular scale, ratio 1.25 from 14px body */
+    --t-xs: 11.5px;
+    --t-sm: 12.5px;
+    --t-md: 14px;
+    --t-lg: 17.5px;
+    --t-xl: 22px;
+    --t-2xl: 27px;
+    --t-3xl: 34px;
+    --t-4xl: 54px;
+
+    /* Space — 4px grid */
+    --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+    --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px; --s16: 64px;
+
+    /* Shape — the gem cut. Frames lose their corners instead of rounding them. */
+    --cut: 10px;
+    --cut-sm: 6px;
+    --cut-lg: 18px;
+
+    /* Layout */
+    --rail-w: 232px;
+    --titlebar-h: 40px;
+    --gutter: 32px;
+    --card-scale: 1;
+    --card-w: calc(178px * var(--card-scale));
+
+    /* Motion */
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    --fast: 140ms;
+    --mid: 260ms;
+    --slow: 480ms;
+}
+
+/* Accent themes: only the energy colours change; everything else is shared. */
+:root[data-accent="ember"]   { --amethyst: #ff5a36; --amethyst-soft: #ff9b80; --rift-pink: #ffb02e; }
+:root[data-accent="cyan"]    { --amethyst: #2fb7ff; --amethyst-soft: #8fd8ff; --rift-pink: #7a5cff; }
+:root[data-accent="venom"]   { --amethyst: #2fe08a; --amethyst-soft: #92f2c2; --rift-pink: #c6ff3d; }
+:root[data-accent="crimson"] { --amethyst: #ff2f62; --amethyst-soft: #ff8aa6; --rift-pink: #ff2fd0; }
+
+@media (prefers-reduced-motion: reduce) {
+    :root { --fast: 0ms; --mid: 0ms; --slow: 0ms; }
+}

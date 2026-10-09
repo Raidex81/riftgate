@@ -123,13 +123,25 @@ function openLibraryYearIsPlausible(doc, minYear) {
 // never phrased as "comic ... manga" in the same breath, so this requires
 // a subject that mentions manga WITHOUT also reading like one of those
 // umbrella comic/graphic-novel categories.
+// Manga means Japanese comics (and their Korean / Chinese cousins). Open
+// Library files lots of Western comics under "manga" too (Dog Man,
+// Heartstopper, The Bad Guys...), so "manga" in the subjects isn't enough:
+// the book must also look Japanese / East Asian, by its title or author
+// written in Japanese, Korean or Chinese script, or by subjects that say so
+// (Japan, translated from Japanese, shōnen, seinen...). Riftgate.
+const EAST_ASIAN_SCRIPT = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff66-\uff9f]/;
+const MANGA_ORIGIN = /\b(japan|japanese|shonen|shōnen|shounen|shojo|shōjo|shoujo|seinen|josei|kodomo|isekai|mangaka|manhwa|manhua|korea|korean|webtoon)\b|translated from (the )?japanese|translations from japanese/i;
+const WESTERN_COMICS = /\b(american|juvenile fiction\s*\/\s*humor|superheroes|dc comics|marvel|graphic novels?\s*\/\s*(general|humorous|literary|nonfiction))\b/i;
 function openLibraryDocHasSpecificManga(doc) {
-    if ((doc.title || "").toLowerCase().includes("manga")) return true;
-    const subjects = Array.isArray(doc.subject) ? doc.subject : [];
-    return subjects.some((s) => {
-        const lower = String(s).toLowerCase();
-        return lower.includes("manga") && !lower.includes("comic") && !lower.includes("graphic novel");
-    });
+    const title = String(doc.title || "");
+    const authors = Array.isArray(doc.author_name) ? doc.author_name.join(" ") : "";
+    const subjects = Array.isArray(doc.subject) ? doc.subject.map(String) : [];
+    const mangaSubject = /manga/i.test(title) || subjects.some((s) => /manga/i.test(s));
+    if (EAST_ASIAN_SCRIPT.test(title) || EAST_ASIAN_SCRIPT.test(authors)) return true;
+    if (!mangaSubject) return false;
+    const origin = subjects.some((s) => MANGA_ORIGIN.test(s));
+    const western = subjects.some((s) => WESTERN_COMICS.test(s));
+    return origin && !(western && !subjects.some((s) => /japan/i.test(s)));
 }
 
 function mapOpenLibraryBook(doc) {

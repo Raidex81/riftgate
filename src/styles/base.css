@@ -1,0 +1,49 @@
+/* Riftgate — base: reset, page, type, focus, scrollbars. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--void);
+    color: var(--starlight);
+    font-family: var(--font);
+    font-size: var(--t-md);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+img { display: block; max-width: 100%; }
+/* App icons default to the text size; any component rule (.btn svg, …) wins
+   because :where() adds no specificity. */
+:where(svg[aria-hidden="true"]) { width: 1.15em; height: 1.15em; flex: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+a { color: var(--amethyst-soft); text-decoration: none; }
+[hidden] { display: none !important; }
+
+h1, h2, h3, h4 { margin: 0; font-family: var(--font-display); font-weight: 600; letter-spacing: .01em; line-height: 1.15; }
+h1 { font-size: var(--t-3xl); }
+h2 { font-size: var(--t-xl); }
+h3 { font-size: var(--t-lg); }
+p { margin: 0; }
+
+.muted { color: var(--dust); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Keyboard focus is always visible and always the energy colour. */
+:focus { outline: none; }
+:focus-visible {
+    outline: 2px solid var(--amethyst-soft);
+    outline-offset: 2px;
+}
+
+/* Thin violet scrollbars that only show their thumb */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid transparent; background-clip: content-box; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-strong); background-clip: content-box; }
+
+::selection { background: color-mix(in srgb, var(--amethyst) 55%, transparent); color: #fff; }

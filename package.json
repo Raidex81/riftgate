@@ -1,7 +1,7 @@
 {
   "name": "riftgate",
-  "version": "1.8.3",
-  "description": "Riftgate - all your worlds, one gateway: a personal entertainment hub for your games, movies, TV, anime, books, apps, free content and deals.",
+  "version": "2.0.0",
+  "description": "Riftgate - all your worlds, one gateway: games, films, series, anime, books, free games and deals in one desktop app.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -137,5 +137,6 @@
     "dmg": {
       "sign": false
     }
-  }
+  },
+  "productName": "Riftgate"
 }

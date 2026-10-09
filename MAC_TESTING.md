@@ -14,7 +14,7 @@ is, and report back anything that doesn't match what's described.
 Before (or instead of) hands-on testing, run **Actions → Mac Smoke Test →
 Run workflow** on GitHub. It downloads the published `.dmg` for both Apple
 chip and Intel Macs, installs it on GitHub's own Mac machines, launches
-Riftgate, visits every main section and switches themes. The result page
+Riftgate, visits every section and saves a screenshot of each. The result page
 shows a pass/fail table, and the screenshots are under **Artifacts** at the
 bottom of the run (`mac-smoke-apple-silicon`, `mac-smoke-intel`). It can't
 click through things like installs or uninstalls — the checklist below still
@@ -36,10 +36,12 @@ All of that is expected for an unsigned app, not a bug.
 
 - App launches, window opens at a reasonable size, UI renders correctly
   (fonts, layout, no obviously broken images).
-- Closing the window offers the "Minimize to Background / Close
-  Completely / Cancel" dialog, same as Windows. "Minimize to Background"
-  hides the window but Riftgate keeps running (check the menu bar for
-  its tray icon).
+- Riftgate draws its own title bar (search, the GitHub star, What's new
+  and its own minimise / maximise / close buttons) instead of the usual
+  macOS traffic lights. Check those three buttons work, and that you can
+  drag the window by the title bar.
+- Closing the window keeps Riftgate running in the background, same as
+  Windows (check the menu bar for its icon).
 - **Menu bar icon** — a small black gem outline (a macOS "template"
   image, so it turns white on a dark menu bar). Its menu has Show
   Riftgate and Quit. After "Minimize to Background", clicking Riftgate's
@@ -50,15 +52,15 @@ All of that is expected for an unsigned app, not a bug.
 ## 2. Detecting installed games/apps
 
 - **Steam**: with Steam for Mac installed and at least one game
-  installed, open Riftgate's game-import flow. Confirm Steam games are
+  installed, open the Library (or the Add to your library window). Confirm Steam games are
   found and their names are correct. (Behind the scenes: this reads
   `~/Library/Application Support/Steam/steamapps/*.acf` files — same
   manifest format as Windows, just one fixed library path instead of
   Windows' two-candidate/multi-library search.)
 - **Everything else (generic apps)**: install a few ordinary Mac apps
   into `/Applications` (and, if you use it, `~/Applications`) — ideally
-  including at least one actual game if you have one. Run the "Scan for
-  Apps & Games" flow and confirm real apps/games show up, named
+  including at least one actual game if you have one. Let Riftgate look
+  for apps and games, and confirm real apps/games show up, named
   correctly, and that obvious non-apps (uninstallers, readmes, etc.)
   aren't dragged in as junk entries. Note anything found that
   *shouldn't* have been (Mac system utilities, weird `.app` bundles
@@ -74,8 +76,8 @@ All of that is expected for an unsigned app, not a bug.
 
 ## 3. Launching
 
-- Launch a regular app/game from Riftgate's library (double-click or
-  the Play button) — confirm it actually opens. (Uses `open -a
+- Launch a regular app/game from Riftgate's library (the Play
+  button in its details) — confirm it actually opens. (Uses `open -a
   <App>.app` under the hood.)
 - Launch a Steam-imported game — confirm it hands off to Steam
   correctly (uses `shell.openExternal("steam://rungameid/...")`, same
@@ -96,13 +98,13 @@ once an hour. The very first check only records what's already there.
 - Open Riftgate, wait about 30 seconds, then quit it completely.
 - Install a brand-new app (drag something new into `/Applications`, or
   run a real installer).
-- Open Riftgate again. Within about 20 seconds it should show the "New
-  Install Detected" popup for that app — and nothing else. Report any
+- Open Riftgate again. Within about 20 seconds it should offer to add
+  that app ("new on this PC"), and nothing else. Report any
   missed install, or any popup for something you didn't just install.
 
 ## 5. Removing a game
 
-- Use Riftgate's "Remove" on a library entry — confirms it just drops
+- Use "Remove from Riftgate" in a library item's details — confirms it just drops
   the entry from Riftgate's list (should feel identical to Windows).
 - Use Riftgate's "Uninstall" (the one that's supposed to actually
   remove the program, not just the list entry) on something in
@@ -119,8 +121,8 @@ once an hour. The very first check only records what's already there.
 
 - Manually move or rename an app Riftgate has in its library (e.g. drag
   it out of `/Applications` into a subfolder, or delete it entirely via
-  Finder). Run Riftgate's "check for missing games" flow and confirm it
-  correctly flags the entry as missing.
+  Finder). Bring Riftgate's window back to the front and confirm it
+  notices the entry is gone (it asks whether to remove it).
 - Note: Mac apps don't get the Discord/Slack/VS-Code-style
   auto-relocation Windows watches for (`app-1.2.3` versioned folders —
   not a thing on Mac), so a moved-but-still-installed Mac app should
@@ -137,16 +139,16 @@ apply an update — an unsigned build can check for and even download an
 update, but applying it will likely fail or silently do nothing. This
 will start working once Alfredo has an Apple Developer account and the
 app is signed (see `.github/workflows/release-mac.yml` for what that
-adds). Until then: please still check that "Check for Updates" doesn't
+adds). Until then: please still check that "Check for updates" (Settings) doesn't
 *crash* or show a broken error message, but don't expect an actual
 in-place update to succeed — for now, getting a new version means
 downloading the new `.dmg` from GitHub Releases each time.
 
 ## 8. General polish
 
-- The header at the top (gem logo, RIFTGATE lettering and portal
-  artwork) should look crisp and follow the chosen theme's colors when
-  you switch themes in Options.
+- The menu's gem and RIFTGATE lettering, and the rift on Nexus, should
+  look crisp and follow the chosen theme's colours when you switch themes
+  (Themes, or Settings → Theme).
 
 - App icon in the Dock and in Finder — should be Riftgate's real icon,
   not a generic placeholder. (Built from `build/icon.png` automatically
@@ -155,8 +157,8 @@ downloading the new `.dmg` from GitHub Releases each time.
 - Anything about the overall look/feel that's obviously "a Windows app
   running on Mac" rather than feeling native — window traffic-light
   buttons, keyboard shortcuts (Cmd vs Ctrl for things like copy/paste
-  in text fields), etc. Riftgate doesn't customize window chrome, so
-  this should mostly be fine by default, but worth a glance.
+  in text fields), etc. Riftgate draws its own window chrome (see 1), so
+  this is worth a careful look.
 
 ---
 

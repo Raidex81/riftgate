@@ -411,7 +411,7 @@ function checkForNewInstalls(getGamesFilePath, onDetected) {
 // Starts the recurring check for newly-installed apps. Calls
 // onDetected(candidates) whenever it finds some. getGamesFilePath returns the
 // current GAMES_FILE path (set at startup, after this module is loaded).
-function startInstallWatcher(getGamesFilePath, onDetected) {
+function startInstallWatcher(getGamesFilePath, onDetected, onFoldersChanged) {
     const run = () => {
         try {
             checkForNewInstalls(getGamesFilePath, onDetected);
@@ -419,9 +419,36 @@ function startInstallWatcher(getGamesFilePath, onDetected) {
             console.error("[installer-detect] check failed:", err.message || err);
         }
     };
-    console.log("[installer-detect] Watching Desktop/Start Menu shortcuts (first check in 20 s, then hourly).");
+    console.log("[installer-detect] Watching Desktop/Start Menu shortcuts (first check in 20 s, then on every change, and hourly).");
     setTimeout(run, 20 * 1000);   // shortly after launch (catches installs made while closed)
     setInterval(run, 3600000);    // then once an hour
+    // Riftgate: react within seconds when an installer adds (or an
+    // uninstaller removes) a Desktop / Start Menu shortcut, instead of
+    // waiting for the hourly check. Bursts of changes are folded into one
+    // check a few seconds after things settle. No network involved.
+    let timer = null;
+    const changed = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { run(); if (onFoldersChanged) { try { onFoldersChanged(); } catch (e) { /* ignore */ } } }, 6000);
+    };
+    const watchers = [];
+    const watchDir = (dir, recursive = true) => {
+        try {
+            if (!fs.existsSync(dir)) return;
+            const w = fs.watch(dir, { recursive }, changed);
+            w.on("error", () => { try { w.close(); } catch (e) { /* gone */ } }); // a watched folder vanishing must never crash Riftgate
+            watchers.push(w);
+        }
+        catch (err) { console.error("[installer-detect] can't watch", dir, err.message || err); }
+    };
+    // started a little after launch, once Electron is ready to give folder paths
+    setTimeout(() => {
+        try { shortcutFolders().forEach((d) => watchDir(d, true)); } catch (err) { console.error("[installer-detect] watch setup failed:", err.message || err); }
+    // Steam libraries: a game's appmanifest appears / disappears on install / uninstall
+    // (only the steamapps folder itself, where the manifests are: not the games' own files)
+        try { findSteamLibraryPaths().forEach((steamapps) => watchDir(steamapps, false)); } catch (err) { /* no Steam */ }
+    }, 5000);
+    return { checkNow: run };
 }
 
 // Many Electron-based apps (Discord, Slack, VS Code, and others) use a

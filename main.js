@@ -220,6 +220,39 @@ if (!app.requestSingleInstanceLock()) {
     app.exit(0);
 }
 
+// Riftgate 2.0 is "Riftgate": it uses the same data folder as Riftgate 1.x,
+// so installing it over 1.x keeps everyone's library, shows, books and
+// settings. Anyone who tried the preview (which ran as "Riftgate 2", with its
+// own folder) brings that newer data along once: the preview's files are
+// copied in, any 1.x file they replace is first saved to a backup folder, and
+// the preview's folder is left as it was.
+(function bringOverPreviewData() {
+    try {
+        const dest = app.getPath("userData");
+        const src = path.join(app.getPath("appData"), "Riftgate 2");
+        const marker = path.join(dest, "r2-preview-merged.json");
+        if (path.resolve(src).toLowerCase() === path.resolve(dest).toLowerCase()) return;
+        if (!fs.existsSync(path.join(src, "r2-data.json")) || fs.existsSync(marker) || fs.existsSync(path.join(dest, "r2-data.json"))) return;
+        fs.mkdirSync(dest, { recursive: true });
+        const backup = path.join(dest, `backup-before-2.0-${new Date().toISOString().slice(0, 10)}`);
+        const skip = /^(Cache|Code Cache|GPUCache|DawnCache|DawnGraphiteCache|DawnWebGPUCache|Local Storage|Session Storage|Network|Shared Dictionary|blob_storage|Crashpad|SingletonLock|SingletonCookie|SingletonSocket|lockfile|Preferences|Local State|logs)$/i;
+        const copied = [];
+        for (const name of fs.readdirSync(src)) {
+            if (skip.test(name)) continue;
+            const from = path.join(src, name), to = path.join(dest, name);
+            if (fs.existsSync(to)) {
+                fs.mkdirSync(backup, { recursive: true });
+                fs.cpSync(to, path.join(backup, name), { recursive: true });
+            }
+            fs.cpSync(from, to, { recursive: true, force: true });
+            copied.push(name);
+        }
+        fs.writeFileSync(marker, JSON.stringify({ at: Date.now(), from: src, copied, backup: fs.existsSync(backup) ? backup : null }));
+    } catch (err) {
+        console.error("[data] bringing over the preview's data failed:", err.message || err);
+    }
+})();
+
 // The window only ever shows Riftgate's own page. Anything that tries to
 // navigate it elsewhere (a stray link, injected markup) is blocked, and
 // new-window requests (target=_blank, window.open — e.g. "Watch on YouTube"
@@ -1123,7 +1156,14 @@ const MIME_TYPES = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
-    ".svg": "image/svg+xml"
+    ".svg": "image/svg+xml",
+    ".mjs": "text/javascript",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm"
 };
 
 // Electron's default file:// loading breaks YouTube embeds (their player
@@ -1842,40 +1882,57 @@ ipcMain.handle("update-watchlist-item", async (event, { id, description, trailer
 // status view. (An earlier "new since last visit" notification handler,
 // check-new-episodes, was superseded by this and removed — it was never
 // actually called from the renderer.)
+// each show's episode list is kept on disk for 6 hours (episodes
+// air at most daily), fetched four shows at a time; every entry also carries
+// the next scheduled episode, so countdowns cost no extra request.
+const R2_EPISODES_FILE = "cache-r2-episodes.json";
+const R2_EPISODES_TTL_MS = 6 * 3600 * 1000;
 ipcMain.handle("get-latest-episodes", async () => {
     const list = readWatchlist();
+    const cache = loadDataCache(R2_EPISODES_FILE) || {};
+    let dirty = false;
+    const episodesOf = async (show) => {
+        const hit = cache[show.id];
+        if (hit && Date.now() - (hit.at || 0) < R2_EPISODES_TTL_MS) return hit.eps;
+        const eps = (await tvmaze.getShowEpisodes(show.id) || []).map((e) => ({ season: e.season, number: e.number, name: e.name, airstamp: e.airstamp, airdate: e.airdate }));
+        cache[show.id] = { at: Date.now(), eps }; dirty = true;
+        return eps;
+    };
     const latest = [];
-
-    for (const show of list) {
-        try {
-            const episodes = await tvmaze.getShowEpisodes(show.id);
-
-            const aired = episodes.filter(
-                (ep) => ep.airstamp && new Date(ep.airstamp).getTime() <= Date.now()
-            );
-
-            if (aired.length === 0) continue;
-
-            const latestEp = aired.reduce((a, b) =>
-                new Date(a.airstamp) > new Date(b.airstamp) ? a : b
-            );
-
-            latest.push({
-                showId: show.id,
-                showName: show.name,
-                showImage: show.image,
-                season: latestEp.season,
-                number: latestEp.number,
-                episodeName: latestEp.name,
-                airdate: latestEp.airdate
-            });
-        } catch (err) {
-            console.error(`[tv] latest episode fetch failed for "${show.name}":`, err.message || err);
+    const queue = list.slice();
+    const worker = async () => {
+        while (queue.length) {
+            const show = queue.shift();
+            try {
+                const episodes = await episodesOf(show);
+                const now = Date.now();
+                const aired = episodes.filter((ep) => ep.airstamp && new Date(ep.airstamp).getTime() <= now);
+                const upcoming = episodes.filter((ep) => ep.airstamp && new Date(ep.airstamp).getTime() > now)
+                    .sort((x, y) => new Date(x.airstamp) - new Date(y.airstamp))[0] || null;
+                if (aired.length === 0) continue;
+                const latestEp = aired.reduce((x, y) => (new Date(x.airstamp) > new Date(y.airstamp) ? x : y));
+                latest.push({
+                    showId: show.id,
+                    showName: show.name,
+                    showImage: show.image,
+                    season: latestEp.season,
+                    number: latestEp.number,
+                    episodeName: latestEp.name,
+                    airdate: latestEp.airdate,
+                    next: upcoming ? { season: upcoming.season, number: upcoming.number, name: upcoming.name, airstamp: upcoming.airstamp } : null
+                });
+            } catch (err) {
+                console.error(`[tv] latest episode fetch failed for "${show.name}":`, err.message || err);
+            }
         }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (dirty) {
+        const keep = new Set(list.map((sh) => String(sh.id)));
+        Object.keys(cache).forEach((k) => { if (!keep.has(String(k))) delete cache[k]; });
+        saveDataCache(R2_EPISODES_FILE, cache);
     }
-
-    latest.sort((a, b) => new Date(b.airdate) - new Date(a.airdate));
-
+    latest.sort((x, y) => new Date(y.airdate) - new Date(x.airdate));
     return latest;
 });
 
@@ -3507,6 +3564,7 @@ ipcMain.handle("get-now-playing-movies", async (event, countryCode) => withDaily
                 title: m.title,
                 description: m.overview,
                 poster,
+                backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : null,
                 releaseDate: m.release_date,
                 popularity: m.popularity || 0,
                 rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
@@ -3626,7 +3684,24 @@ ipcMain.handle("get-watch-providers", async (event, countryCode) => {
 // Trending row for one specific provider -- "flatrate" (subscription
 // streaming) only, not rent/buy, since that's what "what's on Netflix
 // right now" actually means.
-ipcMain.handle("get-trending-by-provider", async (event, { providerName, countryCode } = {}) => {
+// each service's trending list is kept for 12 hours (it barely
+// moves within a day, and building it takes dozens of TMDB requests).
+const R2_TRENDING_FILE = "cache-r2-trending-by-provider.json";
+const R2_TRENDING_TTL_MS = 12 * 3600 * 1000;
+ipcMain.handle("get-trending-by-provider", async (event, args = {}) => {
+    const key = `${args.providerName}|${args.countryCode}`;
+    const cache = loadDataCache(R2_TRENDING_FILE) || {};
+    const hit = cache[key];
+    if (hit && Array.isArray(hit.list) && hit.list.length && Date.now() - (hit.at || 0) < R2_TRENDING_TTL_MS) return hit.list;
+    const list = await r2TrendingByProvider(args);
+    if (Array.isArray(list) && list.length) {
+        cache[key] = { at: Date.now(), list };
+        Object.keys(cache).forEach((k) => { if (Date.now() - (cache[k].at || 0) > 7 * R2_TRENDING_TTL_MS) delete cache[k]; });
+        saveDataCache(R2_TRENDING_FILE, cache);
+    }
+    return list;
+});
+async function r2TrendingByProvider({ providerName, countryCode } = {}) {
     try {
         const [movieList, tvList] = await Promise.all([
             getWatchProvidersList("movie", countryCode),
@@ -3671,7 +3746,7 @@ ipcMain.handle("get-trending-by-provider", async (event, { providerName, country
         console.error("[theatre] trending-by-provider fetch failed:", err.message || err);
         return [];
     }
-});
+}
 
 // Searches ANY title (not just what's trending on a provider in the
 // dropdown above) and reports every provider it's actually streaming on
@@ -3766,6 +3841,7 @@ async function mapTmdbMovieListing(m, tmdbLanguage) {
         title: m.title,
         description: m.overview,
         poster,
+        backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : null,
         releaseDate: m.release_date,
         popularity: m.popularity || 0,
         rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
@@ -3781,6 +3857,7 @@ async function mapTmdbShowListing(s, tmdbLanguage) {
         name: s.name,
         description: s.overview,
         image,
+        backdrop: s.backdrop_path ? `https://image.tmdb.org/t/p/w1280${s.backdrop_path}` : null,
         firstAirDate: s.first_air_date,
         popularity: s.popularity || 0,
         rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
@@ -4002,11 +4079,26 @@ async function fetchComicsPopularPage(page) { return fetchGenreSubsectionPage("s
 async function fetchComicsBestSellerPage(page) { return fetchGenreSubsectionPage("subject:comics", "editions", page, COMICS_FILTER); }
 async function fetchComicsNewReleasesPage(page) { return fetchGenreSubsectionPage("subject:comics", "new", page, COMICS_FILTER); }
 
+// Free classics (Project Gutenberg, most downloaded first), one Gutendex
+// page (32 books) at a time, for "See all".
+async function fetchClassicsPage(page) {
+    const data = await fetchWithRetry(`https://gutendex.com/books/?sort=popular&page=${page}`, 12000);
+    const results = (data && Array.isArray(data.results)) ? data.results : [];
+    const items = results.filter((b) => b.formats && b.formats["application/epub+zip"]).map(booksApi.mapGutenbergBook);
+    const total = data && typeof data.count === "number" ? data.count : null;
+    return {
+        items,
+        page,
+        totalPages: total !== null ? Math.min(FULL_LIST_MAX_PAGE, Math.max(1, Math.ceil(total / 32))) : (data && data.next ? page + 1 : page),
+        totalResults: total
+    };
+}
+
 const FULL_LIST_KINDS = new Set([
     "upcoming-movies", "now-playing", "new-series", "new-anime", "provider", "upcoming-games", "itch",
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases"
+    "comics-popular", "comics-bestseller", "comics-new-releases", "classics"
 ]);
 
 // Same set of "book" kinds as elsewhere -- these refresh weekly instead of
@@ -4014,7 +4106,7 @@ const FULL_LIST_KINDS = new Set([
 const BOOK_FULL_LIST_KINDS = new Set([
     "buy-books-popular", "buy-books-bestseller", "buy-books-new-releases", "library-recommended",
     "manga-popular", "manga-bestseller", "manga-new-releases",
-    "comics-popular", "comics-bestseller", "comics-new-releases"
+    "comics-popular", "comics-bestseller", "comics-new-releases", "classics"
 ]);
 
 // "See all" panels can page through dozens of pages of a vendor's list --
@@ -4028,7 +4120,8 @@ const BOOK_FULL_LIST_KINDS = new Set([
 // retrying on the next attempt, not stay stuck showing that error for a
 // full day after the vendor's own limit has already lifted.
 function fullListCacheFile(kind) {
-    return `cache-full-list-${kind}.json`;
+    // manga lists were re-filtered in 2.0 (only real manga): fresh caches
+    return /^manga-/.test(kind) ? `cache-full-list-${kind}-v2.json` : `cache-full-list-${kind}.json`;
 }
 
 function readFullListCache(kind, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
@@ -4093,6 +4186,7 @@ ipcMain.handle("get-full-list", async (event, { kind, page, countryCode, provide
             case "comics-popular": result = await fetchComicsPopularPage(pageNum); break;
             case "comics-bestseller": result = await fetchComicsBestSellerPage(pageNum); break;
             case "comics-new-releases": result = await fetchComicsNewReleasesPage(pageNum); break;
+            case "classics": result = await fetchClassicsPage(pageNum); break;
         }
         if (result) {
             saveFullListCachedPage(kind, scope, pageNum, result, ttlMs);
@@ -4370,6 +4464,7 @@ ipcMain.handle("get-new-tv-shows", async (event, countryCode) => withDailyRefres
                 name: s.name,
                 description: s.overview,
                 image,
+                backdrop: s.backdrop_path ? `https://image.tmdb.org/t/p/w1280${s.backdrop_path}` : null,
                 firstAirDate: s.first_air_date,
                 rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
                 isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
@@ -4441,6 +4536,7 @@ ipcMain.handle("get-new-anime", async (event, countryCode) => withDailyRefreshAr
                 name: s.name,
                 description: s.overview,
                 image,
+                backdrop: s.backdrop_path ? `https://image.tmdb.org/t/p/w1280${s.backdrop_path}` : null,
                 firstAirDate: s.first_air_date,
                 rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
                 isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
@@ -4662,14 +4758,52 @@ ipcMain.handle("select-exe", async () => {
 // behind platform.isProcessRunning() and platform.startInstallWatcher().
 // Both platforms now compare snapshots once an hour: Desktop/Start Menu
 // shortcut targets on Windows, /Applications on Mac.
-platform.startInstallWatcher(
-    () => GAMES_FILE,
-    (candidates) => {
-        if (win && !win.isDestroyed()) {
-            win.webContents.send("new-install-detected", candidates);
-        }
+// the watcher also reacts within seconds to shortcut / Steam
+// library changes, and every check also looks for store installs (Steam,
+// Epic manifests) and for library items that were uninstalled.
+const r2SendToWindow = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
+function r2StoreInstallCheck() {
+    try {
+        const snapFile = path.join(app.getPath("userData"), "r2-store-snapshot.json");
+        const found = platform.scanStoreManifests() || [];
+        let previous = null;
+        try { previous = new Set(JSON.parse(fs.readFileSync(snapFile, "utf8")).map((p) => String(p).toLowerCase())); } catch (e) { previous = null; }
+        fs.writeFileSync(snapFile, JSON.stringify(found.map((g) => g.path)));
+        if (!previous) return; // first run: this is the baseline
+        let inLibrary = new Set(), dismissed = new Set();
+        try { inLibrary = new Set(JSON.parse(fs.readFileSync(GAMES_FILE, "utf8")).map((g) => String(g.path || "").toLowerCase())); } catch (e) { /* none yet */ }
+        try { dismissed = new Set((JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")).dismissedImports || []).map((p) => String(p).toLowerCase())); } catch (e) { /* none */ }
+        const fresh = found.filter((g) => g.path && !previous.has(g.path.toLowerCase()) && !inLibrary.has(g.path.toLowerCase()) && !dismissed.has(g.path.toLowerCase()))
+            .map((g) => ({ name: g.name, path: g.path, source: g.source, category: "game" }));
+        if (fresh.length) r2SendToWindow("new-install-detected", fresh);
+    } catch (err) {
+        console.error("[r2-install-detect]", err.message || err);
     }
+}
+let r2MissingBusy = false;
+async function r2MissingCheck() {
+    if (r2MissingBusy) return;
+    r2MissingBusy = true;
+    try {
+        const missing = await r2FindMissingGames();
+        if (missing.length) r2SendToWindow("r2-missing-detected", missing);
+    } finally { r2MissingBusy = false; }
+}
+const r2InstallWatcher = platform.startInstallWatcher(
+    () => GAMES_FILE,
+    (candidates) => r2SendToWindow("new-install-detected", candidates),
+    () => { r2StoreInstallCheck(); r2MissingCheck(); }
 );
+setTimeout(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 25 * 1000);
+setInterval(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 3600000);
+// coming back to Riftgate is a good moment to look again (at most every 10 minutes)
+let r2LastFocusCheck = 0;
+app.on("browser-window-focus", () => {
+    if (Date.now() - r2LastFocusCheck < 10 * 60 * 1000) return;
+    r2LastFocusCheck = Date.now();
+    if (r2InstallWatcher && r2InstallWatcher.checkNow) r2InstallWatcher.checkNow();
+    r2StoreInstallCheck(); r2MissingCheck();
+});
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];
@@ -6539,7 +6673,7 @@ ipcMain.handle("get-library-recommended-books", async () => withDailyRefresh("li
 // the grid. Using the same cover-filtering fetch already built for New
 // Releases (which pages through candidates and keeps only the ones that
 // actually have cover art) fixes that the same way it did there.
-ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "cache-manga-books.json", async () => {
+ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books-v2", "cache-manga-books-v2.json", async () => {
     try {
         // Scoped to the actual "manga" subject rather than a loose
         // keyword search, so this doesn't also pull in books that just
@@ -6550,7 +6684,7 @@ ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "c
         // filters out Western comics/graphic novels caught by a broad
         // "comics, graphic novels, manga" umbrella subject tag.
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-books.json", books);
+        saveDataCache("cache-manga-books-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] Manga fetch failed:", err.message || err);
@@ -6558,7 +6692,7 @@ ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "c
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-books.json") || []);
+ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-books-v2.json") || []);
 
 ipcMain.handle("get-comics-books", async () => withDailyRefresh("comics-books", "cache-comics-books.json", async () => {
     try {
@@ -6581,11 +6715,11 @@ ipcMain.handle("get-cached-comics-books", async () => loadDataCache("cache-comic
 
 // Manga's three subsections -- same cover-art filtering as the original
 // single-grid version (see get-manga-books above), applied per subsection.
-ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular", "cache-manga-popular.json", async () => {
+ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular-v2", "cache-manga-popular-v2.json", async () => {
     try {
         // Rating-sorted -- Manga's "Most Popular".
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-popular.json", books);
+        saveDataCache("cache-manga-popular-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-popular fetch failed:", err.message || err);
@@ -6593,13 +6727,13 @@ ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular"
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-popular", async () => loadDataCache("cache-manga-popular.json") || []);
+ipcMain.handle("get-cached-manga-popular", async () => loadDataCache("cache-manga-popular-v2.json") || []);
 
-ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bestseller", "cache-manga-bestseller.json", async () => {
+ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bestseller-v2", "cache-manga-bestseller-v2.json", async () => {
     try {
         // Most editions -- Manga's "Best Seller" stand-in (see MANGA_FILTER's comment above).
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "editions", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-bestseller.json", books);
+        saveDataCache("cache-manga-bestseller-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-bestseller fetch failed:", err.message || err);
@@ -6607,13 +6741,13 @@ ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bests
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-bestseller", async () => loadDataCache("cache-manga-bestseller.json") || []);
+ipcMain.handle("get-cached-manga-bestseller", async () => loadDataCache("cache-manga-bestseller-v2.json") || []);
 
-ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new-releases", "cache-manga-new-releases.json", async () => {
+ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new-releases-v2", "cache-manga-new-releases-v2.json", async () => {
     try {
         // Newest first -- Manga's "New Releases".
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "new", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-new-releases.json", books);
+        saveDataCache("cache-manga-new-releases-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-new-releases fetch failed:", err.message || err);
@@ -6621,7 +6755,7 @@ ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-new-releases", async () => loadDataCache("cache-manga-new-releases.json") || []);
+ipcMain.handle("get-cached-manga-new-releases", async () => loadDataCache("cache-manga-new-releases-v2.json") || []);
 
 // Comics' three subsections, same idea.
 ipcMain.handle("get-comics-popular", async () => withDailyRefresh("comics-popular", "cache-comics-popular.json", async () => {
@@ -6909,7 +7043,7 @@ ipcMain.handle("download-free-ebook", async (event, book) => {
 // platform.findRelocatedApp() — Mac apps don't use this update scheme, so
 // mac.js's version is a no-op that always returns null.
 
-ipcMain.handle("check-missing-games", async () => {
+async function r2FindMissingGames() {
     if (!fs.existsSync(GAMES_FILE)) return [];
 
     try {
@@ -6955,7 +7089,8 @@ ipcMain.handle("check-missing-games", async () => {
         console.error("[missing-games] check failed:", err.message || err);
         return [];
     }
-});
+}
+ipcMain.handle("check-missing-games", () => r2FindMissingGames());
 
 ipcMain.handle("remove-game", async (event, gamePath) => {
 
@@ -8508,7 +8643,7 @@ app.whenReady().then(async () => {
     // this process (main.js, over Node's https module) and results are
     // relayed to the renderer over IPC, so the page has nothing to reach
     // out to on its own.
-    const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self'; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
+    const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: covercache: https:; media-src 'self' https://*.steamstatic.com; frame-src https://www.youtube.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';";
     // BUG FIXED: this originally had no URL filter, so it rewrote the
     // Content-Security-Policy header on EVERY response in the whole
     // session — including the YouTube trailer iframe's own page and
@@ -8587,6 +8722,7 @@ app.whenReady().then(async () => {
     // long time still eventually catches an update that becomes
     // available after startup.
     function checkForUpdatesWithRetry(attempt) {
+        if (app.getVersion().includes("-")) return; // preview build: no update channel yet
         autoUpdater.checkForUpdates().catch((err) => {
             console.error(`[updater] check failed (attempt ${attempt}):`, err.message || err);
             if (attempt < 3) {
@@ -8638,3 +8774,490 @@ console.log("=====================================");
 console.log("Riftgate started");
 console.log("Online cover fetch (SteamGridDB): via Supabase media-proxy Edge Function.");
 console.log("=====================================");
+
+
+// --- which service streams each show (New series / New anime) --
+// TMDB /tv/{id}/watch/providers for the user's region: subscription first,
+// then free/with ads, then rent/buy. Remembered on disk for 3 days.
+const R2_TV_PROVIDERS_FILE = "cache-r2-tv-providers.json";
+const R2_TV_PROVIDERS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+ipcMain.handle("r2-tv-providers", async (event, { ids, countryCode, mediaType } = {}) => {
+    const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : "US";
+    const kind = mediaType === "movie" ? "movie" : "tv";
+    const list = (Array.isArray(ids) ? ids : []).map((n) => parseInt(n, 10)).filter((n) => n > 0).slice(0, 120);
+    const cache = loadDataCache(R2_TV_PROVIDERS_FILE) || {};
+    const out = {};
+    const todo = [];
+    for (const id of list) {
+        const hit = cache[`${kind}:${cc}:${id}`];
+        if (hit && Date.now() - (hit.at || 0) < R2_TV_PROVIDERS_TTL_MS) out[id] = hit.p;
+        else todo.push(id);
+    }
+    let i = 0;
+    const worker = async () => {
+        while (i < todo.length) {
+            const id = todo[i++];
+            try {
+                const data = await mediaProxyGetJsonPlain("tmdb", `/${kind}/${id}/watch/providers`, {});
+                const r = (data && data.results && data.results[cc]) || {};
+                const pick = (r.flatrate && r.flatrate[0]) || (r.free && r.free[0]) || (r.ads && r.ads[0]) || (r.rent && r.rent[0]) || (r.buy && r.buy[0]) || null;
+                const p = pick ? {
+                    name: pick.provider_name,
+                    logo: pick.logo_path ? `https://image.tmdb.org/t/p/w92${pick.logo_path}` : null,
+                    how: r.flatrate && r.flatrate[0] ? "stream" : ((r.free && r.free[0]) || (r.ads && r.ads[0]) ? "free" : "buy")
+                } : null;
+                out[id] = p;
+                cache[`${kind}:${cc}:${id}`] = { p, at: Date.now() };
+            } catch (err) {
+                out[id] = null;
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, todo.length) }, worker));
+    if (todo.length) {
+        const keys = Object.keys(cache);
+        if (keys.length > 4000) keys.sort((a, b) => (cache[a].at || 0) - (cache[b].at || 0)).slice(0, keys.length - 4000).forEach((k) => delete cache[k]);
+        saveDataCache(R2_TV_PROVIDERS_FILE, cache);
+    }
+    return out;
+});
+
+// --- promote your own app ----------------------------------------
+// Anyone can put an app they made forward for Applications. Publishing
+// stays with admins (add-community-app needs their credentials), so a
+// submission goes into the existing suggestions queue, clearly marked, for
+// an admin to review and publish with the tools they already have.
+// r2-app-preview fills the form from a GitHub link (owner, description, stars).
+let r2LastAppSubmitAt = 0;
+ipcMain.handle("r2-app-preview", async (event, rawUrl) => {
+    const repoPath = typeof rawUrl === "string" ? github.extractRepoPath(rawUrl.trim()) : null;
+    if (!repoPath) return { github: false };
+    try {
+        const data = await fetchWithRetry(`https://api.github.com/repos/${repoPath}`, 8000, 1);
+        return {
+            github: true,
+            name: data && data.name ? String(data.name) : repoPath.split("/")[1],
+            author: repoPath.split("/")[0],
+            description: (data && typeof data.description === "string" && data.description.trim()) || null,
+            stars: data && typeof data.stargazers_count === "number" ? data.stargazers_count : null,
+            language: (data && data.language) || null,
+            homepage: (data && data.homepage) || null
+        };
+    } catch (err) {
+        return { github: true, author: repoPath.split("/")[0], name: repoPath.split("/")[1] };
+    }
+});
+ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, contact } = {}) => {
+    const clip = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const n = clip(name, 80), u = clip(url, 300), a = clip(author, 80), d = clip(description, 600), c = clip(contact, 120);
+    if (!n || !u) return { success: false, error: "Your app needs a name and a link." };
+    let parsed;
+    try { parsed = new URL(u); } catch { return { success: false, error: "That link doesn't look right. Include https://" }; }
+    if (parsed.protocol !== "https:") return { success: false, error: "Use an https:// link." };
+    if (Date.now() - r2LastAppSubmitAt < 60 * 1000) return { success: false, error: "One moment: wait a minute between submissions." };
+    const lines = [
+        "[App submission]",
+        `Name: ${n}`,
+        `Link: ${u}`,
+        `Author: ${a || github.extractRepoPath(u)?.split("/")[0] || "not given"}`,
+        `Description: ${d || "not given"}`,
+        c ? `Contact: ${c}` : null,
+        "Sent from Riftgate (Applications > Promote your app). Add it under Applications when approved."
+    ].filter(Boolean);
+    try {
+        const result = await supabaseRequest("suggestions", "POST", { username: a || null, suggestion_text: lines.join("\n") });
+        if (result.statusCode === 201) { r2LastAppSubmitAt = Date.now(); return { success: true }; }
+        return { success: false, error: "The submission didn't go through. Try again in a moment." };
+    } catch (err) {
+        console.error("[apps] submission failed:", err.message || err);
+        return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+});
+
+// --- account ------------------------------------------------------
+// One Riftgate account for both apps (same server). The password goes to
+// the server once and is swapped for a session token; only that token is
+// kept, encrypted with the OS (session.dat), and it never reaches the
+// interface: the interface only ever learns the username.
+const R2_USERNAME_RE = /^[A-Za-z0-9_.-]{3,24}$/;
+async function r2DeviceId() {
+    let id = readDeviceIdSync();
+    if (id) return id;
+    let current = {};
+    try { current = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")); } catch {}
+    current.deviceId = crypto.randomUUID();
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(current, null, 2));
+    return current.deviceId;
+}
+async function r2StartSession(username, password) {
+    if (!safeStorage.isEncryptionAvailable()) return { ok: true, username, remembered: false };
+    const created = await createServerSession(username, password);
+    if (!created.ok) return created.refused ? { ok: false, error: "Wrong username or password." } : { ok: false, error: "Couldn't reach the server. Check your connection." };
+    const previous = readSessionFile();
+    if (previous && previous.token) revokeServerSession(previous.username, previous.token);
+    writeSessionFile({ username, token: created.token });
+    return { ok: true, username, remembered: true };
+}
+function r2Session() {
+    const s = readSessionFile();
+    return s && typeof s.username === "string" && typeof s.token === "string" ? s : null;
+}
+
+ipcMain.handle("r2-account-restore", async () => {
+    const s = r2Session();
+    if (!s) return { signedIn: false };
+    const r = await callAdminRpc("redeem_login_session", { input_username: s.username, input_token: s.token });
+    if (!r.success) return { signedIn: true, username: s.username, offline: true }; // can't check now: trust it until we can
+    if (r.result !== true) { deleteSessionFile(); return { signedIn: false, expired: true }; }
+    return { signedIn: true, username: s.username };
+});
+
+ipcMain.handle("r2-account-sign-in", async (event, { username, password } = {}) => {
+    username = String(username || "").trim();
+    if (!username || typeof password !== "string" || !password) return { ok: false, error: "Enter your username and password." };
+    const setup = await callAdminRpc("login_needs_password_setup", { input_username: username });
+    if (setup.success && setup.result === true) return { ok: false, needsSetup: true, username };
+    return r2StartSession(username, password);
+});
+
+ipcMain.handle("r2-account-sign-up", async (event, { username, password, dateOfBirth } = {}) => {
+    username = String(username || "").trim();
+    if (!R2_USERNAME_RE.test(username)) return { ok: false, error: "Usernames are 3 to 24 letters, numbers, dots, dashes or underscores." };
+    if (hasReservedAdminSuffix(username)) return { ok: false, error: "That ending is reserved for admins. Pick another username." };
+    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
+    if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return { ok: false, error: "That date of birth doesn't look right." };
+    try {
+        const taken = await supabaseRequest(`usernames?username=eq.${encodeURIComponent(username)}&select=id`, "GET");
+        if (taken.statusCode === 200 && Array.isArray(taken.body) && taken.body.length) return { ok: false, error: "That username is taken. Try another." };
+        const deviceId = await r2DeviceId();
+        const reg = await supabaseRequest("usernames", "POST", { username, device_id: deviceId, date_of_birth: dateOfBirth || null });
+        if (reg.statusCode === 409) return { ok: false, error: "That username was just taken. Try another." };
+        if (reg.statusCode !== 201) return { ok: false, error: "Couldn't create the account. Try again in a moment." };
+        const pw = await callAdminRpc("set_own_login_password", { input_username: username, new_password: password, input_device_id: deviceId });
+        if (!pw.success || pw.result !== true) return { ok: false, error: "Your username is saved, but the password wasn't. Sign in to set it." };
+        return r2StartSession(username, password);
+    } catch (err) {
+        console.error("[account] sign-up failed:", err.message || err);
+        return { ok: false, error: "Couldn't reach the server. Check your connection." };
+    }
+});
+
+// An account registered in Riftgate without a password yet (same device only)
+ipcMain.handle("r2-account-set-password", async (event, { username, password } = {}) => {
+    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
+    const deviceId = await r2DeviceId();
+    const r = await callAdminRpc("set_own_login_password", { input_username: String(username || ""), new_password: password, input_device_id: deviceId });
+    if (!r.success || r.result !== true) return { ok: false, error: "This account's password can only be set from the computer that created it." };
+    return r2StartSession(String(username), password);
+});
+
+ipcMain.handle("r2-account-sign-out", async () => {
+    const s = r2Session();
+    if (s) await revokeServerSession(s.username, s.token);
+    deleteSessionFile();
+    return { ok: true };
+});
+
+// --- themes ---------------------------------------------------------
+// Pictures and theme files come through the system file dialogs; the
+// community gallery lives in public.r2_themes (supabase migration 0009).
+// Publishing is checked against the signed-in session on the server.
+const R2_IMAGE_TYPES = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif" };
+ipcMain.handle("r2-theme-pick-picture", async () => {
+    const r = await dialog.showOpenDialog(win, { title: "Choose a picture for your theme", properties: ["openFile"], filters: [{ name: "Pictures", extensions: Object.keys(R2_IMAGE_TYPES).map((e) => e.slice(1)) }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const file = r.filePaths[0];
+    const type = R2_IMAGE_TYPES[path.extname(file).toLowerCase()];
+    if (!type) return { error: "That isn't a picture Riftgate can use." };
+    if (fs.statSync(file).size > 30 * 1024 * 1024) return { error: "That picture is over 30 MB. Pick a smaller one." };
+    return { dataUrl: `data:${type};base64,${fs.readFileSync(file).toString("base64")}`, name: path.basename(file) };
+});
+ipcMain.handle("r2-theme-export", async (event, { name, theme } = {}) => {
+    const safe = String(name || "theme").replace(/[^\w .-]+/g, "").trim().slice(0, 60) || "theme";
+    const r = await dialog.showSaveDialog(win, { title: "Share this theme as a file", defaultPath: `${safe}.riftgate-theme`, filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme"] }] });
+    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(r.filePath, JSON.stringify({ riftgateTheme: 1, theme }, null, 1));
+    return { ok: true, path: r.filePath };
+});
+ipcMain.handle("r2-theme-import", async () => {
+    const r = await dialog.showOpenDialog(win, { title: "Open a Riftgate theme", properties: ["openFile"], filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme", "json"] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+        if (fs.statSync(r.filePaths[0]).size > 40 * 1024 * 1024) return { error: "That file is too big to be a theme." };
+        const data = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8"));
+        if (!data || data.riftgateTheme !== 1 || typeof data.theme !== "object") return { error: "That file isn't a Riftgate theme." };
+        return { theme: data.theme };
+    } catch (err) {
+        return { error: "That file couldn't be read as a theme." };
+    }
+});
+function r2ThemesMissing(res) {
+    const b = res && res.body;
+    return res && (res.statusCode === 404 || (b && (b.code === "42P01" || b.code === "PGRST205" || b.code === "PGRST202")));
+}
+ipcMain.handle("r2-themes-gallery", async (event, { sort, query, page } = {}) => {
+    const order = sort === "new" ? "created_at.desc" : "uses.desc,created_at.desc";
+    const p = Math.max(0, Math.min(200, parseInt(page, 10) || 0));
+    let q = `r2_themes?select=id,author,name,theme,thumb,uses,created_at&order=${order}&limit=48&offset=${p * 48}`;
+    const text = String(query || "").replace(/[^\w .-]/g, "").trim().slice(0, 40);
+    if (text) q += `&or=(name.ilike.*${encodeURIComponent(text)}*,author.ilike.*${encodeURIComponent(text)}*)`;
+    try {
+        const res = await supabaseRequest(q, "GET");
+        if (r2ThemesMissing(res)) return { available: false, themes: [] };
+        if (res.statusCode !== 200 || !Array.isArray(res.body)) return { available: true, themes: [], error: "The gallery didn't answer. Try again in a moment." };
+        return { available: true, themes: res.body };
+    } catch (err) {
+        return { available: true, themes: [], error: "Couldn't reach the gallery. Check your connection." };
+    }
+});
+ipcMain.handle("r2-theme-download", async (event, id) => {
+    const n = parseInt(id, 10);
+    if (!(n > 0)) return null;
+    try {
+        const res = await supabaseRequest(`r2_themes?id=eq.${n}&select=wallpaper`, "GET");
+        supabaseRequest("rpc/r2_use_theme", "POST", { p_id: n }).catch(() => {});
+        return { wallpaper: res.statusCode === 200 && Array.isArray(res.body) && res.body[0] ? res.body[0].wallpaper || null : null };
+    } catch (err) {
+        return { wallpaper: null };
+    }
+});
+ipcMain.handle("r2-theme-publish", async (event, { name, theme, thumb, wallpaper } = {}) => {
+    const s = r2Session();
+    if (!s) return { ok: false, signIn: true, error: "Sign in to share themes with everyone." };
+    const json = JSON.stringify(theme || {});
+    if (json.length > 16000) return { ok: false, error: "This theme has too much in it to share." };
+    if (wallpaper && String(wallpaper).length > 700000) return { ok: false, error: "The picture is too large to share. Try a smaller one." };
+    const r = await callAdminRpc("r2_publish_theme", {
+        input_username: s.username, input_token: s.token,
+        p_name: String(name || "").trim().slice(0, 40), p_theme: theme || {},
+        p_thumb: thumb || null, p_wallpaper: wallpaper || null
+    });
+    if (!r.success) return { ok: false, error: r.error && /function|schema/i.test(String(r.error)) ? "The community gallery isn't switched on yet." : "Couldn't share the theme. Try again in a moment." };
+    const out = r.result || {};
+    return out.success ? { ok: true, id: out.id } : { ok: false, error: out.error || "Couldn't share the theme." };
+});
+ipcMain.handle("r2-theme-unpublish", async (event, id) => {
+    const s = r2Session();
+    if (!s) return { ok: false, signIn: true };
+    const r = await callAdminRpc("r2_delete_theme", { input_username: s.username, input_token: s.token, p_id: parseInt(id, 10) || 0 });
+    return { ok: !!(r.success && r.result === true) };
+});
+
+// --- show a library item in its folder ------------------------------
+// Only for paths that are actually in the library (never an arbitrary path).
+ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
+    try {
+        if (typeof itemPath !== "string" || !fs.existsSync(GAMES_FILE)) return false;
+        const games = JSON.parse(fs.readFileSync(GAMES_FILE, "utf8"));
+        if (!games.some((g) => g.path === itemPath)) return false;
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(itemPath) && !/^file:/i.test(itemPath)) return false; // steam:// etc.
+        if (!fs.existsSync(itemPath)) return false;
+        shell.showItemInFolder(itemPath);
+        return true;
+    } catch (err) {
+        return false;
+    }
+});
+
+// --- Save a picture of Riftgate's window (Ctrl K → "Save a screenshot") --------
+// Into Pictures\Riftgate, as a PNG at the window's full resolution.
+ipcMain.handle("r2-capture-window", async () => {
+    try {
+        if (!win || win.isDestroyed()) return { ok: false };
+        const img = await win.webContents.capturePage();
+        const dir = path.join(app.getPath("pictures"), "Riftgate");
+        fs.mkdirSync(dir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+        const file = path.join(dir, `Riftgate ${stamp}.png`);
+        fs.writeFileSync(file, img.toPNG());
+        return { ok: true, name: path.basename(file) };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// --- find a cover for anything that has none (or a broken one) -----
+// One lookup per title, ever: hits are kept for good, misses for a week, in
+// r2-covers.json, so a missing cover costs the APIs a single request.
+const R2_COVER_MISS_MS = 7 * 24 * 3600 * 1000;
+let r2CoverCache = null;
+function r2CoverFile() { return path.join(app.getPath("userData"), "r2-covers.json"); }
+function r2CoverLoad() {
+    if (r2CoverCache) return r2CoverCache;
+    try { r2CoverCache = JSON.parse(fs.readFileSync(r2CoverFile(), "utf8")) || {}; } catch (e) { r2CoverCache = {}; }
+    return r2CoverCache;
+}
+let r2CoverSaveTimer = null;
+function r2CoverSave() {
+    clearTimeout(r2CoverSaveTimer);
+    r2CoverSaveTimer = setTimeout(() => { try { fs.writeFileSync(r2CoverFile(), JSON.stringify(r2CoverCache)); } catch (e) { /* best effort */ } }, 1500);
+}
+const r2CoverPending = new Map();
+async function r2LookupCover(title, kind, year) {
+    const clean = String(title).replace(/\s*\((anime|series|film|movie|\d{4})\)\s*$/i, "").replace(/\s+[–-]\s+(season|part)\s+\d+.*$/i, "").trim();
+    const tmdb = async (what) => {
+        const q = { query: clean, include_adult: "false" };
+        if (year) q[what === "movie" ? "year" : "first_air_date_year"] = String(year);
+        let d = await mediaProxyGetJsonPlain("tmdb", `/search/${what}`, q);
+        if ((!d || !d.results || !d.results.length) && year) d = await mediaProxyGetJsonPlain("tmdb", `/search/${what}`, { query: clean, include_adult: "false" });
+        const hit = (d && d.results || []).find((r) => r.poster_path);
+        return hit ? `https://image.tmdb.org/t/p/w500${hit.poster_path}` : null;
+    };
+    if (kind === "film") return (await tmdb("movie")) || (await tmdb("tv"));
+    if (kind === "series" || kind === "anime" || kind === "show" || kind === "episode") return (await tmdb("tv")) || (await tmdb("movie"));
+    if (kind === "book" || kind === "ebook" || kind === "comic" || kind === "manga") return await findOnlineBookCoverUrl(clean, "");
+    // games, apps, deals, free games, library items: SteamGridDB (cached on disk by fetchOnlineCover)
+    return await fetchOnlineCover(clean);
+}
+ipcMain.handle("r2-find-cover", async (event, { title, kind, year } = {}) => {
+    if (typeof title !== "string" || !title.trim() || title.length > 200) return null;
+    const key = `${String(kind || "").slice(0, 20)}|${title.trim().toLowerCase()}|${year || ""}`;
+    const cache = r2CoverLoad();
+    const c = cache[key];
+    if (c && c.url) return c.url;
+    if (c && !c.url && Date.now() - c.at < R2_COVER_MISS_MS) return null;
+    if (r2CoverPending.has(key)) return r2CoverPending.get(key);
+    const job = (async () => {
+        let url = null;
+        try { url = await r2LookupCover(title.trim(), kind, year); } catch (err) { console.error("[r2-cover]", err.message || err); return null; }
+        cache[key] = { url: url || null, at: Date.now() };
+        r2CoverSave();
+        return url || null;
+    })().finally(() => r2CoverPending.delete(key));
+    r2CoverPending.set(key, job);
+    return job;
+});
+
+// --- a wide picture for the banner -------------------------------------
+// The banner needs landscape art. Steam games have their own (worked out in the
+// renderer from the appid); for anything else, SteamGridDB's "heroes" (wide
+// banners made for game libraries). Asked once per title: kept in r2-covers.json.
+ipcMain.handle("r2-landscape-art", async (event, { title } = {}) => {
+    if (typeof title !== "string" || !title.trim() || title.length > 200) return null;
+    const key = `hero|${title.trim().toLowerCase()}`;
+    const cache = r2CoverLoad();
+    const c = cache[key];
+    if (c && c.url) return c.url;
+    if (c && !c.url && Date.now() - c.at < R2_COVER_MISS_MS) return null;
+    let url = null;
+    try {
+        let match = null;
+        for (const variant of generateNameVariants(title.trim()).slice(0, 3)) { match = await searchSteamGridDb(variant); if (match) break; }
+        if (match) {
+            const r = await mediaProxyGetJson("steamgriddb", `/heroes/game/${match.id}`, {});
+            const hit = r && r.success && Array.isArray(r.data) ? r.data.find((x) => x && x.url && !x.nsfw) : null;
+            url = hit ? hit.url : null;
+        }
+    } catch (err) {
+        console.error("[r2-landscape-art]", err.message || err);
+        return null;
+    }
+    cache[key] = { url, at: Date.now() };
+    r2CoverSave();
+    return url;
+});
+
+// --- guess whether something you add is a game, a VR game or an app
+// From where it lives first (free, instant); a Steam game asks Steam once
+// whether it's VR; anything still unknown gets one SteamGridDB lookup (a
+// database of games). Every answer is remembered in r2-categories.json.
+const R2_APP_FILES = /^(chrome|firefox|msedge|opera|launcher_opera|brave|vivaldi|discord|update|spotify|slack|ms-teams|teams|zoom|skype|whatsapp|telegram|signal|obs64|obs32|obs|vlc|winamp|audacity|photoshop|illustrator|adobe premiere pro|afterfx|lightroom|acrobat|acrord32|blender|gimp-\d[\d.]*|krita|inkscape|code|devenv|notepad\+\+|sublime_text|winword|excel|powerpnt|outlook|onenote|soffice|7zfm|winrar|steam|epicgameslauncher|galaxyclient|battle\.net|battle\.net launcher|upc|ubisoftconnect|eadesktop|origin|xboxpcapp|nvidia app|geforce experience|radeonsoftware|msiafterburner|razer synapse|lghub|icue|wallpaper32|wallpaper64|parsecd|anydesk|teamviewer|virtualbox|vmware|docker desktop|postman|figma|notion|obsidian|dropbox|onedrive|itunes|nordvpn|protonvpn|mbam|ccleaner64|ccleaner)$/i;
+const R2_APP_NAMES = /^(google chrome|mozilla firefox|microsoft edge|opera( gx)?|brave|discord|spotify|slack|microsoft teams|zoom|skype|whatsapp|telegram( desktop)?|signal|obs studio|vlc( media player)?|audacity|adobe [a-z ]+|blender|gimp|krita|inkscape|visual studio( code)?|notepad\+\+|sublime text|microsoft (word|excel|powerpoint|outlook|onenote)|word|excel|powerpoint|outlook|libreoffice|7-zip|winrar|steam|epic games launcher|gog galaxy|battle\.net|ubisoft connect|ea app|ea|origin|xbox|nvidia app|geforce experience|amd software|msi afterburner|razer synapse|logitech g hub|icue|wallpaper engine|parsec|anydesk|teamviewer|virtualbox|vmware workstation|docker desktop|postman|figma|notion|obsidian|dropbox|onedrive|google drive|itunes|nordvpn|proton vpn|malwarebytes|ccleaner)$/i;
+const R2_VR_PATH = /(\\oculus\\software\\|\\steamvr\\|\\meta quest\\|\\viveport\\)/i;
+const R2_VR_NAME = /(\bvr\b|virtual reality)/i;
+const R2_GAME_FOLDERS = [
+    [/\\steamapps\\common\\/i, "your Steam library"], [/\\epic games\\/i, "your Epic Games folder"], [/\\gog games\\|\\gog galaxy\\games\\/i, "your GOG games"],
+    [/\\riot games\\/i, "Riot Games"], [/\\ubisoft game launcher\\games\\/i, "your Ubisoft games"], [/\\ea games\\|\\origin games\\/i, "your EA games"],
+    [/\\xboxgames\\/i, "your Xbox games"], [/\\itch\\apps\\/i, "your itch.io games"], [/\\rockstar games\\/i, "Rockstar Games"],
+    [/\\amazon games\\library\\/i, "your Amazon games"], [/\\battle\.net\\(?!battle\.net)|\\blizzard\\/i, "your Battle.net games"], [/\\games\\/i, "a Games folder"]
+];
+let r2CategoryCache = null;
+function r2CategoryMemo() {
+    if (!r2CategoryCache) { try { r2CategoryCache = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "r2-categories.json"), "utf8")) || {}; } catch (e) { r2CategoryCache = {}; } }
+    return r2CategoryCache;
+}
+function r2CategoryRemember(key, value) {
+    r2CategoryMemo()[key] = value;
+    try { fs.writeFileSync(path.join(app.getPath("userData"), "r2-categories.json"), JSON.stringify(r2CategoryCache)); } catch (e) { /* best effort */ }
+    return value;
+}
+// A Steam game's appid from its install folder (steamapps\appmanifest_*.acf)
+function r2SteamAppIdFor(exePath) {
+    try {
+        const m = /^(.*\\steamapps)\\common\\([^\\]+)/i.exec(exePath);
+        if (!m) return null;
+        for (const f of fs.readdirSync(m[1])) {
+            if (!/^appmanifest_\d+\.acf$/i.test(f)) continue;
+            const txt = fs.readFileSync(path.join(m[1], f), "utf8");
+            const dir = /"installdir"\s+"([^"]+)"/i.exec(txt);
+            if (dir && dir[1].toLowerCase() === m[2].toLowerCase()) return f.match(/\d+/)[0];
+        }
+    } catch (e) { /* not readable */ }
+    return null;
+}
+async function r2SteamVr(appId) {
+    const memo = r2CategoryMemo();
+    if (memo[`steam:${appId}`] !== undefined) return memo[`steam:${appId}`];
+    let vr = null;
+    try {
+        const { httpsGetJsonPlain } = require("./services/http");
+        const d = await httpsGetJsonPlain(`https://store.steampowered.com/api/appdetails?appids=${encodeURIComponent(appId)}&filters=categories`);
+        const entry = d && d[appId];
+        vr = entry && entry.success && entry.data ? steam.categorizeSteamVrSupport(entry.data.categories) : null;
+    } catch (e) { return null; }
+    return r2CategoryRemember(`steam:${appId}`, vr);
+}
+// which Steam game each library item is (a steam:// link, or an
+// exe inside a Steam library folder, matched through its appmanifest), so
+// Steam's own playtime can be shown on it. Local files only, no network.
+ipcMain.handle("r2-steam-appids", async (event, paths) => {
+    const out = {};
+    if (!Array.isArray(paths)) return out;
+    for (const p of paths.slice(0, 2000)) {
+        if (typeof p !== "string") continue;
+        const m = /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(p);
+        const id = m ? m[1] : r2SteamAppIdFor(p.replace(/\//g, "\\"));
+        if (id) out[p] = id;
+    }
+    return out;
+});
+ipcMain.handle("r2-detect-category", async (event, { path: itemPath, name } = {}) => {
+    try {
+        const raw = String(itemPath || "");
+        const p = raw.replace(/\//g, "\\");
+        const n = String(name || "").trim();
+        const file = (p.split("\\").pop() || "").replace(/\.(exe|lnk|url|bat|cmd)$/i, "");
+        // VR first: a VR game can live in any store's folder
+        if (R2_VR_PATH.test(p)) return { category: "vr", reason: /oculus|meta quest/i.test(p) ? "It's in your Meta / Oculus games" : /viveport/i.test(p) ? "It's a Viveport game" : "It's part of SteamVR" };
+        const steamId = (/^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(raw) || [])[1] || r2SteamAppIdFor(p);
+        if (steamId) {
+            const vr = await r2SteamVr(steamId);
+            if (vr === "native") return { category: "vr", reason: "Steam lists it as VR only" };
+            return { category: "game", reason: vr === "adapted" ? "A Steam game (it also works in VR)" : "It's a Steam game" };
+        }
+        if (/^(com\.epicgames\.launcher|uplay|origin2?|battlenet|goggalaxy|riotclient|itch|heroic):\/\//i.test(raw))
+            return { category: R2_VR_NAME.test(n) ? "vr" : "game", reason: "It opens through a game store" };
+        for (const [re, where] of R2_GAME_FOLDERS) {
+            if (re.test(p) && !R2_APP_FILES.test(file)) return { category: R2_VR_NAME.test(n) ? "vr" : "game", reason: `It's in ${where}` };
+        }
+        if (R2_APP_FILES.test(file) || R2_APP_NAMES.test(n)) return { category: "app", reason: "It's a well-known app" };
+        if (R2_VR_NAME.test(n)) return { category: "vr", reason: "Its name says VR" };
+        if (!n) return { category: null, reason: null };
+        const key = `name:${n.toLowerCase()}`;
+        const memo = r2CategoryMemo();
+        if (memo[key]) return memo[key];
+        let found = false;
+        for (const variant of generateNameVariants(n).slice(0, 3)) {
+            if (await searchSteamGridDb(variant)) { found = true; break; }
+        }
+        return r2CategoryRemember(key, found
+            ? { category: "game", reason: "It's listed as a game on SteamGridDB" }
+            : { category: "app", reason: "It isn't in any game database, so most likely an app" });
+    } catch (err) {
+        console.error("[r2-detect-category]", err.message || err);
+        return { category: null, reason: null };
+    }
+});
+
+// --- Journal/preferences store and Import from Riftgate ---------
+require("./services/r2-store").register(ipcMain, app);

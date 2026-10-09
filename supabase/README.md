@@ -3,10 +3,10 @@
 Everything Riftgate runs on Supabase, kept as code. Production project:
 `hblndwtdksnxlzlhiqir` ("Raidex81's Project").
 
-## Current state (Riftgate 1.6.x)
+## Current state (Riftgate 2.0)
 
-- **Database:** schema version **7** — migrations `0001`–`0008` below are
-  all applied. `select public.get_backend_info();` shows the live version;
+- **Database:** migrations `0001`–`0009` below are all applied (`0009`,
+  the shared theme gallery, is new for 2.0). `select public.get_backend_info();` shows the live version;
   the app reads it to decide which server features it can use.
 - **Edge Functions deployed:**
 
@@ -40,6 +40,7 @@ Everything Riftgate runs on Supabase, kept as code. Production project:
   | 0006 | `20260925000600_account_email_server_side.sql` | Reset codes / confirmation tokens only visible to `account-email` |
   | 0007 | `20260926000700_vault_function.sql` | Vault through the `vault` function, bucket private + 50 MB |
   | 0008 | `20260926000800_vault_clean_fix.sql` | "Clean Vault now" passes Supabase's safe-delete check |
+  | 0009 | `20261002000900_r2_themes.sql` | Shared theme gallery: `public.r2_themes` (public read only), `r2_publish_theme` / `r2_delete_theme` checked against the login session, `r2_use_theme` counter. Safe to run twice. Verify: `select count(*) from public.r2_themes;` |
 
 - `rollback/` — one undo script per migration (0008 needs none).
 - `tests/` — `run.sh` applies every migration to a throwaway local

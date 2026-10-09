@@ -18,7 +18,7 @@ const OUT = process.env.OUT_DIR || path.resolve("smoke-results");
 const EXPECTED = (process.env.EXPECTED_VERSION || "").replace(/^v/, "");
 const LABEL = process.env.LABEL || "mac";
 const PORT = 9333;
-const SECTIONS = ["new", "installed", "free-games", "store", "theatre", "reading-room", "applications"];
+const SECTIONS = ["nexus", "free", "deals", "theatre", "reading", "apps", "library", "journal", "themes", "settings"];
 
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
@@ -119,7 +119,7 @@ async function main() {
   page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 500)); });
 
   try {
-    await page.waitForSelector(".sidebarNavBtn", { timeout: 45000 });
+    await page.waitForSelector(".rail .nav-item", { timeout: 45000 });
     record("App launches", true, "main window loaded");
   } catch {
     await page.screenshot({ path: path.join(OUT, "00-broken-launch.png") }).catch(() => {});
@@ -127,53 +127,47 @@ async function main() {
     return;
   }
 
+  // The opening animation (5.5 s) plays on a real start; let it finish.
   await sleep(8000);
   const vp = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
   record("Window size", vp.w >= 1000 && vp.h >= 600, `${vp.w}×${vp.h}`);
   await page.screenshot({ path: path.join(OUT, "01-first-launch.png") });
   desktopShot("01-first-launch-desktop");
 
-  const tour = await page.evaluate(() => {
-    const g = document.getElementById("tourOverlayGroup");
-    const shown = !!g && g.style.display === "block";
-    if (shown && typeof endTour === "function") endTour();
-    return shown;
+  // First start: "What are you into?", then the tour. Answer like a user.
+  const interests = await page.evaluate(() => {
+    const done = document.querySelector(".interests-portal .btn.primary");
+    if (!done) return false;
+    done.click();
+    return true;
   });
-  record("First-run tour", null, tour ? "appeared (closed it to continue)" : "did not appear");
-
-  // 1.7.3+: the one-time "Where are you?" window appears after the opening
-  // animation on a fresh install. Answer it (Lisbon, Portugal) like a user.
+  record("What are you into?", null, interests ? "appeared (kept the defaults)" : "did not appear");
   await sleep(2500);
-  const located = await page.evaluate(() => {
-    const modal = document.getElementById("locationModal");
-    if (!modal || !modal.classList.contains("active")) return "did not appear";
-    document.getElementById("locationCountrySelect").value = "PT";
-    document.getElementById("locationCityInput").value = "Lisbon";
-    document.getElementById("locationSaveBtn").click();
-    return `appeared, answered Lisbon, Portugal — now ${movieCountrySelect.value} / ${movieCitySelect.value}`;
-  });
-  record("Location window", located.startsWith("did not") ? null : /PT \/ Lisbon/.test(located), located);
+  const tour = await page.evaluate(() => !!document.querySelector(".tour-tip"));
+  if (tour) await page.keyboard.press("Escape");
+  record("First-run tour", null, tour ? "appeared (closed it to continue)" : "did not appear");
 
   const reported = await page.evaluate(() => window.riftgate && window.riftgate.invoke ? window.riftgate.invoke("get-app-version") : null).catch(() => null);
   if (reported) record("Version reported by the app", EXPECTED ? reported === EXPECTED : null, reported);
 
-  // 3. Every main section
+  // 3. Every section
   for (const [i, section] of SECTIONS.entries()) {
     const before = pageErrors.length;
-    const ok = await page.evaluate((s) => { if (typeof switchSection !== "function") return false; switchSection(s); return true; }, section);
-    await sleep(section === "store" || section === "free-games" || section === "new" ? 12000 : 6000);
+    await page.evaluate((s) => { location.hash = s; }, section);
+    await sleep(["nexus", "free", "deals"].includes(section) ? 12000 : 6000);
     const file = `${String(i + 2).padStart(2, "0")}-${section}.png`;
     await page.screenshot({ path: path.join(OUT, file) });
     const info = await page.evaluate(() => {
       const visible = (el) => el.offsetParent !== null && el.getBoundingClientRect().width > 0;
-      const cards = [...document.querySelectorAll(".game-card")].filter(visible);
-      // Cards sharing a row must be the same height (the 1.6.2 fix).
+      const opened = !document.querySelector(".view .empty h3")?.textContent.includes("couldn't open");
+      const cards = [...document.querySelectorAll(".view .card")].filter(visible);
+      // Cards sharing a row must be the same height, their coloured bars lined up.
       let unevenRows = 0;
-      for (const track of document.querySelectorAll(".carousel-track, .games-grid")) {
+      for (const track of document.querySelectorAll(".row-track, .grid")) {
         if (!visible(track)) continue;
         const rows = new Map();
         for (const c of track.children) {
-          if (!visible(c)) continue;
+          if (!c.classList.contains("card") || !visible(c)) continue;
           const r = c.getBoundingClientRect();
           const key = Math.round(r.top);
           if (!rows.has(key)) rows.set(key, []);
@@ -182,86 +176,56 @@ async function main() {
         for (const hs of rows.values()) if (hs.length > 1 && Math.max(...hs) - Math.min(...hs) > 2) unevenRows++;
       }
       const brokenImages = [...document.images].filter((im) => visible(im) && im.complete && im.naturalWidth === 0).length;
-      return { cards: cards.length, unevenRows, brokenImages };
+      return { opened, cards: cards.length, unevenRows, brokenImages };
     });
     const newErrors = pageErrors.length - before;
     record(
       `Section: ${section}`,
-      ok && newErrors === 0 && info.unevenRows === 0,
+      info.opened && newErrors === 0 && info.unevenRows === 0,
       `${info.cards} cards, ${info.unevenRows} uneven rows, ${info.brokenImages} broken images, ${newErrors} script errors — ${file}`
     );
   }
 
-  // 3b. "See all" panels (1.7.0+): each should load real items.
-  const hasSeeAll = await page.evaluate(() => typeof openSeeAll === "function");
-  if (hasSeeAll) {
-    for (const kind of ["upcoming-movies", "upcoming-games", "new-series", "new-anime", "now-playing", "itch"]) {
-      await page.evaluate((k) => openSeeAll(k), kind);
-      let info = { cards: 0, count: "" };
-      for (let i = 0; i < 30; i++) {
-        await sleep(1000);
-        info = await page.evaluate(() => ({
-          cards: document.querySelectorAll("#seeAllGrid .game-card").length,
-          count: document.getElementById("seeAllCount").textContent
-        }));
-        if (info.cards > 0 && !/Loading/.test(info.count)) break;
-      }
-      await page.screenshot({ path: path.join(OUT, `see-all-${kind}.png`) });
-      // itch.io has no end: it must wait for scrolling, never load everything.
-      const runaway = kind === "itch" && /Loading all/.test(info.count);
-      record(`See all: ${kind}`, info.cards > 0 && !runaway, `${info.cards} cards — ${info.count}`);
-      await page.evaluate(() => closeSeeAll());
+  // 3b. "See all" on the first rows of Nexus and Theatre: each should load real items.
+  for (const section of ["nexus", "theatre"]) {
+    await page.evaluate((s) => { location.hash = s; }, section);
+    await sleep(6000);
+    const titles = await page.evaluate(() => [...document.querySelectorAll(".row-head .see-all:not([hidden])")].slice(0, 3).map((a, i) => i));
+    for (const i of titles) {
+      const name = await page.evaluate((n) => { const a = document.querySelectorAll(".row-head .see-all:not([hidden])")[n]; if (!a) return null; const t = a.closest(".row-head")?.querySelector("h2")?.textContent || `row ${n}`; a.click(); return t; }, i);
+      if (!name) continue;
+      let cards = 0;
+      for (let k = 0; k < 30 && !cards; k++) { await sleep(1000); cards = await page.evaluate(() => document.querySelectorAll(".browser .card").length); }
+      await page.screenshot({ path: path.join(OUT, `see-all-${section}-${i}.png`) });
+      record(`See all: ${name.trim()}`, cards > 0, `${cards} cards`);
+      await page.keyboard.press("Escape");
+      await sleep(800);
     }
   }
 
-  // 3c. "Your cinema" picker (1.7.2+): OpenStreetMap cinemas for a city,
-  // and picking one points Find Tickets at that cinema's own site.
-  const hasCinemas = await page.evaluate(() => typeof loadCinemas === "function");
-  if (hasCinemas) {
-    for (const [cc, city] of [["PT", "Lisbon"], ["US", "New York"]]) {
-      const r = await page.evaluate((a) => window.riftgate.invoke("get-cinemas", a), { countryCode: cc, city }).catch((e) => ({ cinemas: [], error: String(e) }));
-      const list = (r && r.cinemas) || [];
-      const withSite = list.filter((c) => c.url).length;
-      record(`Cinemas: ${city}`, list.length > 0 ? true : r && r.error ? null : false,
-        r && r.error ? r.error : `${list.length} cinemas, ${withSite} with a website — nearest: ${list.slice(0, 3).map((c) => c.label).join("; ")}`);
-    }
-    await page.evaluate((s) => switchSection(s), "theatre");
-    await sleep(3000);
-    const picked = await page.evaluate(async () => {
-      const selects = [...document.querySelectorAll("select[data-cinema-picker]")];
-      for (let i = 0; i < 40 && cinemaList.state === "loading"; i++) await new Promise((r) => setTimeout(r, 500));
-      const first = cinemaList.cinemas.find((c) => c.url);
-      if (!selects.length || !first) return { selects: selects.length, state: cinemaList.state, count: cinemaList.cinemas.length };
-      selects[0].value = first.id;
-      selects[0].dispatchEvent(new Event("change"));
-      await new Promise((r) => setTimeout(r, 300));
-      const out = { selects: selects.length, synced: selects.every((s) => s.value === first.id), title: ticketsButtonTitle(), count: cinemaList.cinemas.length };
-      selects[0].value = "";
-      selects[0].dispatchEvent(new Event("change"));
-      return out;
-    });
-    await page.screenshot({ path: path.join(OUT, "cinema-picker.png") });
-    record("Cinema picker", picked.selects === 2 && picked.synced === true && /^Opens /.test(picked.title || "") ? true : picked.count === 0 ? null : false, JSON.stringify(picked));
+  // 3c. Cinemas from OpenStreetMap for a city (the Theatre's "Your cinema").
+  for (const [cc, city] of [["PT", "Lisbon"], ["US", "New York"]]) {
+    const r = await page.evaluate((a) => window.riftgate.invoke("get-cinemas", a), { countryCode: cc, city }).catch((e) => ({ cinemas: [], error: String(e) }));
+    const list = (r && r.cinemas) || [];
+    const withSite = list.filter((c) => c.url).length;
+    record(`Cinemas: ${city}`, list.length > 0 ? true : r && r.error ? null : false,
+      r && r.error ? r.error : `${list.length} cinemas, ${withSite} with a website — nearest: ${list.slice(0, 3).map((c) => c.label).join("; ")}`);
   }
 
-  // 4. Theme switch — the header should follow each theme's colours.
-  await page.evaluate((s) => switchSection(s), "installed");
-  await sleep(2000);
+  // 4. Themes: the menu (gem, wordmark) should follow each theme's colours.
+  await page.evaluate(() => { location.hash = "settings"; });
+  await sleep(3000);
   const themed = [];
-  for (const theme of ["emerald", "crimson", "frost", "riftgate"]) {
-    const found = await page.evaluate((t) => {
-      const btn = document.querySelector(`.themeOption[data-theme="${t}"]`);
-      if (!btn) return false;
-      btn.click();
-      return true;
-    }, theme);
-    if (!found) continue;
+  for (let n = 0; n < 4; n++) {
+    const name = await page.evaluate((k) => { const b = document.querySelectorAll(".swatches button")[k]; if (!b) return null; b.click(); return b.title; }, n);
+    if (!name) continue;
     await sleep(1200);
-    const header = await page.$(".hero-banner");
-    if (header) await header.screenshot({ path: path.join(OUT, `header-${theme}.png`) });
-    themed.push(theme);
+    const rail = await page.$(".rail");
+    const file = `theme-${n + 1}.png`;
+    if (rail) await rail.screenshot({ path: path.join(OUT, file) });
+    themed.push(`${name} (${file})`);
   }
-  record("Header in different themes", themed.length ? null : false, themed.length ? `header-${themed.join(".png, header-")}.png` : "theme buttons not found");
+  record("Menu in different themes", themed.length ? null : false, themed.length ? themed.join(", ") : "theme swatches not found");
 
   desktopShot("99-desktop-end");
   await browser.close().catch(() => {});
@@ -275,8 +239,7 @@ function checkLogs() {
   let log = "";
   try { log = fs.readFileSync(path.join(OUT, "app-log.txt"), "utf8"); } catch { return; }
   record("Menu-bar icon", !/tray icon failed/.test(log), (log.match(/tray icon failed[^\n]*/) || [""])[0].slice(0, 200));
-  record("Theme icon switching", !/failed to set theme icon/.test(log), (log.match(/failed to set theme icon[^\n]*/) || [""])[0].slice(0, 200));
-  const vr = log.match(/itch\.io VR: found (\d+)/);
+    const vr = log.match(/itch\.io VR: found (\d+)/);
   const vrFailed = /itch\.io fetch failed \([^)]*tag-/.test(log);
   record("itch.io free VR games", vrFailed ? false : vr ? Number(vr[1]) > 0 : null, vrFailed ? "itch.io VR page failed to load" : vr ? `${vr[1]} found` : "not fetched this run");
   const blocked = consoleErrors.filter((e) => /Content Security Policy/.test(e));

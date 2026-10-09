@@ -1,0 +1,34 @@
+/* Riftgate — view-specific touches. */
+
+/* Wide cards (upcoming games, backdrops) */
+.card.wide { width: 340px; }
+.card.wide .card-info { min-height: 0; }
+
+/* Accent swatches: the outline can't sit outside a clipped diamond, so the
+   pressed state is a halo instead */
+.swatches button { transition: transform var(--fast), filter var(--fast); }
+.swatches button:hover { transform: scale(1.1); }
+.swatches button[aria-pressed="true"] { outline: none; filter: drop-shadow(0 0 6px #fff); transform: scale(1.15); }
+
+/* The rail's Surprise button stays compact */
+.rail-foot .btn.primary { width: 100%; }
+
+/* Library scan: selected candidates read as "featured" */
+.browser .grid .card[aria-pressed="false"] { opacity: .62; }
+.browser .grid .card[aria-pressed="true"] { opacity: 1; }
+
+/* Detail poster sits over the cover art */
+.detail-poster { box-shadow: none; }
+
+@media (max-width: 900px) {
+    .detail-main { grid-template-columns: 1fr; }
+    .detail-poster { display: none; }
+    .hero-title { font-size: var(--t-3xl); }
+}
+
+/* Free games: one platform at a time */
+.free-one-head { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s5); }
+.free-one-head h2 { font-size: var(--t-2xl); }
+.free-one-head .actions { margin-left: auto; display: flex; gap: var(--s2); }
+.free-sub { font-size: var(--t-lg); margin: var(--s8) 0 var(--s4); color: var(--starlight-2); }
+.free-sub:first-of-type { margin-top: 0; }

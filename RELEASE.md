@@ -43,21 +43,17 @@ Runs the app straight from source — no installer needed:
 npm.cmd start
 ```
 
-If Riftgate is already open (including the installed version), close it
-completely first (⏻ → Close Completely) — only one copy can run at a
-time, so a second start just brings the old window back.
+If Riftgate is already open (including the installed version), quit it
+completely first (right-click the tray icon → Quit): only one copy can run
+at a time, so a second start just brings the old window back.
 
-Quick pass on what changed this round (v1.8.2):
+Quick pass on what changed this round: open **What's new** (the bell)
+and try each item listed for the new version. Always also check:
 
-- **Free Games rows** — on All Platforms, Newly Added and every platform
-  row (Steam too) are sideways carousels with ‹ › arrows, like the New tab.
-- **"See all →" placement** — the button sits right beside each row's
-  title in Free Games and the Store, same as New Series.
-- **"See all" lists** — open it on Newly Added, two different platforms
-  and VR: each shows only that row's games, 100 per page with page
-  buttons. In the Store, Newly Added / Most Popular / Recommended open too.
-- **No duplicate buttons** — type in a filter box, clear it: still one
-  "See all →" per row.
+- Every section in the menu opens, and its rows fill in.
+- A card opens its details; a trailer plays.
+- Ctrl K finds something; Surprise me picks something.
+- Settings opens, and switching the theme repaints everything.
 
 Close the app (just close the window, or Ctrl+C in the terminal) when
 you're done.
@@ -82,21 +78,21 @@ these changes on their own machine.
 
 Before publishing:
 
-- Set the new version number in `package.json` (`"version"`) and make
-  sure `renderer.js`'s `CHANGELOG` has an entry for it — that's what the
-  🔔 button shows. Push that commit.
-- Make sure the Supabase side for this version is live. For 1.6.x that's
-  database migrations up to `20260926000800` and the Edge Functions
-  `media-proxy`, `account-email`, `verify-email` and `vault` — all
-  already done. See `supabase/README.md`.
+- Set the new version number in `package.json` (`"version"`) and add an
+  entry for it at the top of `CURRENT_NOTES` in `src/app/changelog.js`.
+  That's what What's new (the bell) shows. Push that commit.
+- Make sure the Supabase side for this version is live. For 2.0 that's
+  database migrations up to `20261002000900` (shared themes) and the Edge
+  Functions `media-proxy`, `account-email`, `verify-email` and `vault`.
+  See `supabase/README.md`.
 
 Then, all on GitHub — no token or local build needed:
 
 1. **Create the release first** (so the builds can't create it twice):
    go to https://github.com/Raidex81/Riftgate/releases/new, type the tag
-   `v` + the version (e.g. `v1.6.2`) and choose **Create new tag**, set
-   the title to the version number, paste that version's notes from the
-   🔔 changelog, keep **Latest** selected, and click **Publish release**.
+   `v` + the version (e.g. `v2.0.0`) and choose **Create new tag**, set
+   the title to the version number, paste that version's notes from
+   What's new, keep **Latest** selected, and click **Publish release**.
 2. **Windows:** https://github.com/Raidex81/Riftgate/actions/workflows/release-windows.yml
    → **Run workflow** → **Run workflow**. It builds the installer on
    GitHub's own Windows machine and uploads it (plus `latest.yml`) into

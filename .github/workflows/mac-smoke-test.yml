@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to test, e.g. 1.6.2 — or main to build and test the latest code (blank = latest release)"
+        description: "Version to test, e.g. 2.0.0 — or main to build and test the latest code (blank = latest release)"
         required: false
         default: ""
 
