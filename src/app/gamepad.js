@@ -478,8 +478,9 @@ function diagram(kind) {
 }
 
 
-// ---- The controller layout: the real controller, every button labelled ---------------------
-// Positions are pixels on the photo (assets/controllers/*.png). Each label
+// ---- The controller layout: the controller drawn, every button labelled -------------------
+// Positions are pixels on the renders (assets/controllers/*.png, all drawn for
+// Riftgate by assets/controllers/src; no real product is shown). Each label
 // sits in a column beside the controller, joined to its button by a line.
 const PHOTOS = {
     xbox: { src: "assets/controllers/xbox.png", w: 428, h: 385,
