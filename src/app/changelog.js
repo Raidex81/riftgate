@@ -21,6 +21,8 @@ export const CURRENT_NOTES = {
         "New: choose the card size, from small to huge, and colour every card by what it is, in Settings",
         "New: mature titles show only to adults who turn them on, from the date of birth on your Riftgate account, as before",
         "New for admins: the Vault (share files for 1 to 24 hours and links for 90 days) and an Admin section to moderate titles and Vault access",
+        "Changed: Riftgate's icon is blue, like the gem inside the app",
+        "Changed: a picture you choose for a theme fills the whole screen, whatever its shape (Whole picture and Tile are still there)",
         "Changed: trailers play large and sharp; free games and deals appear instantly and refresh in the background",
         "Changed: sign in with your Riftgate account; your password is never stored on your PC"
     ]

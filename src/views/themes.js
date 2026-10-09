@@ -152,7 +152,7 @@ export default {
                 pick.disabled = true;
                 try {
                     const src = await T.shrink(r.dataUrl, 2560, 3.5e6);
-                    d.wallpaper = { src, dim: +dim.value || 55, blur: +blur.value || 0, mode: "smart", pos: "center" };
+                    d.wallpaper = { src, dim: +dim.value || 55, blur: +blur.value || 0, mode: "fill", pos: "center" };
                     paintWp(); paintWpSegs(); live();
                 } catch (err) { toast(err.message, "err"); }
                 pick.disabled = false;
@@ -161,12 +161,12 @@ export default {
             linkIn.addEventListener("change", () => {
                 const v = linkIn.value.trim();
                 if (!/^https:\/\/\S+$/i.test(v)) { if (v) toast("Use an https:// picture link.", "err"); return; }
-                d.wallpaper = { src: v, dim: +dim.value || 55, blur: +blur.value || 0, mode: "smart", pos: "center" };
+                d.wallpaper = { src: v, dim: +dim.value || 55, blur: +blur.value || 0, mode: "fill", pos: "center" };
                 paintWp(); paintWpSegs(); live();
             });
             const removeWp = h("button.btn.ghost", { type: "button", onclick: () => { d.wallpaper = null; linkIn.value = ""; paintWp(); live(); } }, icon("x"), "Remove picture");
             // How the picture sits on this screen (wide screens included) and which part stays in view
-            const wpModeSeg = h("div.seg.four", { role: "radiogroup", "aria-label": "Picture size" });
+            const wpModeSeg = h("div.seg.three", { role: "radiogroup", "aria-label": "Picture size" });
             const wpPosSeg = h("div.seg.three", { role: "radiogroup", "aria-label": "Keep in view" });
             const paintWpSegs = () => {
                 const m = T.wpMode(d.wallpaper && d.wallpaper.mode), ps = (d.wallpaper && d.wallpaper.pos) || "center";

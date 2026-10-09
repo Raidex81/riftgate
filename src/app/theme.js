@@ -84,21 +84,19 @@ export function tokens(t) {
 }
 
 // How a picture sits behind the app:
-//   smart  (default) fills the window when the shapes are close (crops at most
-//          about a fifth); otherwise shows the whole picture, with a soft
-//          blurred copy of it filling the sides (ultrawide screens, tall photos)
-//   fill   always fills the window (cropping what doesn't fit)
-//   whole  always the whole picture, blurred copy around it
+//   fill   (default) fills the whole window, on any screen shape: the picture
+//          is scaled to cover it, and "Keep in view" picks which part stays
+//          visible when a very wide or tall screen has to crop it
+//   whole  always the whole picture, a soft blurred copy filling the sides
 //   tile   repeats a small picture
 export const WP_MODES = [
-    { id: "smart", label: "Smart", hint: "Fill or fit, whatever looks best on this screen" },
-    { id: "fill", label: "Fill", hint: "Always fill the window (crops the edges)" },
-    { id: "whole", label: "Whole", hint: "Always the whole picture" },
+    { id: "fill", label: "Fit the screen", hint: "The picture fills the whole window, whatever the screen's shape" },
+    { id: "whole", label: "Whole picture", hint: "Never cropped; a soft blurred copy fills the sides" },
     { id: "tile", label: "Tile", hint: "Repeat a small picture" }
 ];
 export const WP_POSITIONS = [{ id: "top", label: "Top" }, { id: "center", label: "Middle" }, { id: "bottom", label: "Bottom" }];
-export function wpMode(m) { return m === "tile" || m === "fill" || m === "whole" ? m : "smart"; } // older themes said "cover": that's smart now
-const ratios = new Map();
+// older themes said "cover" or "smart": both fill the screen now
+export function wpMode(m) { return m === "tile" || m === "whole" ? m : "fill"; }
 let current = null;
 function ensureWall() {
     const app = document.querySelector(".app");
@@ -106,21 +104,8 @@ function ensureWall() {
     if (!app.querySelector(":scope > .app-wall")) { const w = document.createElement("div"); w.className = "app-wall"; w.setAttribute("aria-hidden", "true"); app.prepend(w); }
 }
 function fit() {
-    const root = document.documentElement;
-    const wp = current;
-    if (!wp) return;
-    const mode = wpMode(wp.mode);
-    if (mode !== "smart") { root.dataset.wpFit = mode === "whole" ? "whole" : mode === "tile" ? "tile" : "fill"; return; }
-    const r = ratios.get(wp.src);
-    if (!r) {
-        root.dataset.wpFit = "fill";
-        const img = new Image();
-        img.onload = () => { ratios.set(wp.src, img.naturalWidth / Math.max(1, img.naturalHeight)); if (current === wp) fit(); };
-        img.src = /^https?:/i.test(wp.src) ? coverSrc(wp.src) : wp.src;
-        return;
-    }
-    const win = window.innerWidth / Math.max(1, window.innerHeight);
-    root.dataset.wpFit = Math.abs(Math.log(r / win)) <= Math.log(1.25) ? "fill" : "whole";
+    if (!current) return;
+    document.documentElement.dataset.wpFit = wpMode(current.mode);
 }
 let resizeHooked = false;
 
