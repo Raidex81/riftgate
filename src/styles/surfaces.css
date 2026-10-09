@@ -402,3 +402,8 @@
 .promote-preview:empty { display: none; }
 .promote-actions { display: flex; align-items: center; gap: var(--s3); }
 .browser-types { margin-top: var(--s2); }
+
+/* ---- The opening ----------------------------------------------------------------- */
+.intro { position: fixed; inset: 0; z-index: 1000; background: var(--void, #07040d); cursor: default; }
+.intro canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.intro.intro-out { opacity: 0; transition: opacity .55s ease; pointer-events: none; }

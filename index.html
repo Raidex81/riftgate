@@ -24,6 +24,10 @@
   </defs>
 </svg>
 
+<!-- The opening (src/components/intro.js). Here from the very first frame so
+     nothing flashes behind it; removed at once when it isn't going to play. -->
+<div id="intro" class="intro" aria-hidden="true"><canvas></canvas></div>
+
 <div class="app" id="app">
   <header class="titlebar" id="titlebar"></header>
   <nav class="rail" id="rail" aria-label="Sections"></nav>

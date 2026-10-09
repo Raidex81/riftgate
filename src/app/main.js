@@ -3,6 +3,7 @@
 
 import { h, icon, clear } from "./dom.js";
 import { call, on, send, settings as appSettings, forget } from "./api.js";
+import { playIntro, done as introDone } from "../components/intro.js";
 import * as journal from "./store.js";
 import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
@@ -186,6 +187,8 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
 (async function start() {
     buildTitlebar();
     await theme.start(); // journal + your themes, applied before anything paints
+    // the opening plays in the theme's colours while everything loads underneath
+    appSettings().then((s) => playIntro({ enabled: s.startupAnimation !== false }));
     account.restore();
     gamepad.start();
     enableDrop((p) => reading.addEbook(p).then((ok) => { if (ok) { location.hash = "reading"; } return ok; }));
@@ -207,5 +210,5 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     window.addEventListener("hashchange", route);
     window.addEventListener("resize", () => moveNode(current));
     await route();
-    if (!interests.chosen()) setTimeout(() => interests.openInterests({ first: true }), 900);
+    if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
 })();
