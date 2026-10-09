@@ -15,6 +15,11 @@ export const CURRENT_NOTES = {
         "New: Theatre follows where you live (country, your city for showtimes, and the streaming services you have), and new series show where they stream",
         "New: Applications. Anyone can put forward an app they made for the admins to publish",
         "New: Ctrl+K searches everything at once, and goes anywhere",
+        "New: Did you know? A fact from the world you're in along the bottom of Riftgate: games, films and series, or books",
+        "New: a guided tour on your first start, and a short one whenever something new arrives (Settings replays it)",
+        "New: choose the card size, from small to huge, and colour every card by what it is, in Settings",
+        "New: mature titles show only to adults who turn them on, from the date of birth on your Riftgate account, as in Riftgate 1.x",
+        "New for admins: the Vault (share files for 1 to 4 hours and links for 7 days) and an Admin section to moderate titles and Vault access",
         "Changed: trailers play large and sharp; free games and deals appear instantly and refresh in the background",
         "Changed: sign in with your Riftgate account; your password is never stored on your PC"
     ]

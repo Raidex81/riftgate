@@ -2,6 +2,7 @@
 // episodes, new series and anime, and what's popular on each streaming
 // service in your region.
 
+import * as gate from "../app/mature.js";
 import { h, icon, coverSrc, clear } from "../app/dom.js";
 import { cached, country } from "../app/api.js";
 import * as D from "../app/data.js";
@@ -14,7 +15,7 @@ import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMySer
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
 
-const noMature = (l) => l.filter((x) => !x.mature);
+const noMature = (l) => gate.visible(l);
 
 export default {
     async render(root) {

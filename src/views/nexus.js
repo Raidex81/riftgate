@@ -1,5 +1,6 @@
 // Riftgate 2 — Nexus: everything that matters right now, across every world.
 
+import * as gate from "../app/mature.js";
 import { h, icon } from "../app/dom.js";
 import { call, openExternal } from "../app/api.js";
 import { openTickets } from "../app/regions.js";
@@ -56,11 +57,11 @@ async function slides() {
             return fresh && { item: fresh, kicker: `Free right now on ${fresh.source}`, kickerIcon: "gift", action: { label: "Get it free", icon: "gift", run: () => openExternal(fresh.url) } };
         }),
         !W("screen") ? none : pick(D.inCinemas(), async (l) => {
-            const f = await firstWithLandscape(l.filter((m) => m.backdrop && !m.mature), 4);
+            const f = await firstWithLandscape(l.filter((m) => m.backdrop && !gate.hidden(m)), 4);
             return f && { item: f, kicker: "In cinemas near you", kickerIcon: "film", action: { label: "Find tickets", icon: "ticket", run: () => openTickets(f.title) } };
         }),
         !W("screen") ? none : pick(D.newSeries(), async (l) => {
-            const s = await firstWithLandscape(l.filter((x) => x.backdrop && !x.mature), 4);
+            const s = await firstWithLandscape(l.filter((x) => x.backdrop && !gate.hidden(x)), 4);
             return s && { item: s, kicker: "New series", kickerIcon: "tv" };
         }),
         !W("deals") ? none : pick(D.deals(), async (l) => {
@@ -126,7 +127,7 @@ export default {
         root.append(hr, pulse(), todayBand(), body);
         importNotice(body);
 
-        const noMature = (l) => l.filter((x) => !x.mature);
+        const noMature = (l) => gate.visible(l);
         const rows = [
             row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true }, seeAllTitle: "Your journey: everything you added", seeAll: () => journey().then((j) => j.all) }),
             row({ title: "Picked for you", icon: "sparkles", items: () => foryou.picks({ limit: 60 }), hideEmpty: true, cardOpts: { showType: true, reasons: true },

@@ -5,6 +5,7 @@
 // What you've finished or dropped is skipped, and the last picks don't come
 // straight back. Also available inline on Nexus (todayBand).
 
+import * as gate from "../app/mature.js";
 import { h, icon, clear } from "../app/dom.js";
 import { cached, country } from "../app/api.js";
 import * as D from "../app/data.js";
@@ -88,7 +89,7 @@ export const MOODS = [
 const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…" };
 
 async function poolFor(mood, option, { skipDone }) {
-    let items = ((await option.pool()) || []).filter((i) => i && i.title && !i.mature);
+    let items = ((await option.pool()) || []).filter((i) => i && i.title && !gate.hidden(i));
     const seen = new Set();
     items = items.filter((i) => (seen.has(i.key) ? false : (seen.add(i.key), true)));
     if (skipDone) items = items.filter((i) => { const e = journal.entry(i.key); return !e || (e.status !== "completed" && e.status !== "dropped"); });

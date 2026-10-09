@@ -6,6 +6,7 @@ import { h, icon, art, coverSrc } from "../app/dom.js";
 import * as journal from "../app/store.js";
 import { money, score, hours, countdown, tickCountdowns } from "../app/format.js";
 import { TYPE_LABEL } from "../app/items.js";
+import { hidden as gateHidden } from "../app/mature.js";
 import * as seen from "../app/seen.js";
 import { ambient } from "./ambient.js";
 
@@ -74,6 +75,9 @@ export function card(item, opts) {
         onclick: () => openDetail(item)
     });
     el._item = item;
+    el.dataset.type = item.kind === "episode" ? "series" : (item.type || "game");
+    // mature titles you can't see, and items removed from Riftgate, stay out of sight
+    if (gateHidden(item)) el.hidden = true;
     el.addEventListener("pointerenter", () => ambient(item));
 
     const image = opts.wide ? (item.backdrop || item.image) : item.image;

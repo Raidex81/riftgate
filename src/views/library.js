@@ -209,7 +209,7 @@ async function addOne(reload) {
 
 // Scan: list what's installed and not in the library yet; pick and add.
 async function scanPc(reload) {
-    const list = h("div.grid", { style: { "--card-w": "150px" } });
+    const list = h("div.grid", { style: { "--card-w": "calc(150px * var(--card-scale, 1))" } });
     const status = h("span.muted", null, "Looking through Steam, Epic, GOG, Xbox and installed programs…");
     const addBtn = h("button.btn.primary", { type: "button", disabled: true }, icon("plus"), "Add selected");
     const scrim = h("div.scrim", { onclick: close });

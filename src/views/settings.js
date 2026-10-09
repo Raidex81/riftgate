@@ -12,6 +12,10 @@ import * as account from "../app/account.js";
 import { openAccount } from "../components/account.js";
 import { appVersion, isPreview, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
 import * as gamepad from "../app/gamepad.js";
+import * as look from "../app/look.js";
+import * as gate from "../app/mature.js";
+import * as facts from "../components/facts.js";
+import { startTour } from "../components/tour.js";
 
 function setting(title, desc, control) {
     return h("section.setting", null, h("div.grow", null, h("h3", null, title), h("p", null, desc)), control);
@@ -87,6 +91,55 @@ export default {
         } }, icon("play"), "Watch it now");
         box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts (5 seconds; any click or key skips it). Only on a real start, never on a reload.",
             h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview)));
+
+        // Cards: size, and colour by kind
+        const sizeSeg = h("div.seg.card-sizes", { role: "group", "aria-label": "Card size" });
+        const paintSize = () => sizeSeg.replaceChildren(...look.SIZES.map((z) => h("button", { type: "button", "aria-pressed": String(look.cardSize() === z.id),
+            onclick: async () => { await look.setCardSize(z.id); paintSize(); } }, h("i.cs-demo", { style: { width: `${Math.round(14 * z.scale)}px`, height: `${Math.round(21 * z.scale)}px` } }), h("b", null, z.label))));
+        paintSize();
+        const tc = h("input", { type: "checkbox", checked: look.typeColours(), "aria-label": "Colour cards by kind" });
+        tc.addEventListener("change", () => look.setTypeColours(tc.checked));
+        const legend = h("span.type-legend", null, ["game", "film", "series", "anime", "book", "app"].map((t) => h("span.type", { dataset: { t } }, { game: "Games", film: "Films", series: "Series", anime: "Anime", book: "Books", app: "Apps" }[t])));
+        box.appendChild(setting("Cards", "How big the cards are everywhere, and whether each one wears the colour of what it is.",
+            h("div.cards-setting", null, sizeSeg, h("label.check", null, tc, h("span", null, "Colour by kind")), legend)));
+
+        // Did you know? and the tour
+        const fx = h("input", { type: "checkbox", checked: facts.enabled(), "aria-label": "Show Did you know?" });
+        fx.addEventListener("change", async () => { await facts.setEnabled(fx.checked); facts.mountFacts(document.getElementById("app")); toast(fx.checked ? "Did you know? is back along the bottom" : "Did you know? is off"); });
+        box.appendChild(setting("Did you know?", "A fact from the world you're in, along the bottom of Riftgate: games, films and series, or books.",
+            h("label.check", null, fx, h("span", null, "Show facts"))));
+        box.appendChild(setting("The tour", "A quick walk through Riftgate, step by step.",
+            h("button.btn", { type: "button", onclick: () => { location.hash = "nexus"; setTimeout(() => startTour(), 500); } }, icon("compass"), "Take the tour")));
+
+        // Mature titles (the age gate, tied to your account like in Riftgate 1.x)
+        const mat = h("div.mature-setting");
+        const paintMature = () => {
+            const st = gate.state();
+            clear(mat);
+            if (!st.signedIn) { mat.append(h("button.btn", { type: "button", onclick: () => openAccount("in") }, icon("gem"), "Sign in")); return; }
+            if (st.admin) { mat.append(h("span.muted", null, "Admins see everything. Admin → See Riftgate as… shows what others see.")); return; }
+            if (!st.dateOfBirth) {
+                const dob = h("input.input", { type: "date", max: new Date().toISOString().slice(0, 10), "aria-label": "Your date of birth" });
+                const save = h("button.btn", { type: "button", onclick: async () => {
+                    if (!dob.value) return dob.focus();
+                    const r = await gate.setDateOfBirth(dob.value);
+                    toast(r && r.success ? "Date of birth saved to your account" : (r && r.error) || "It couldn't be saved", r && r.success ? "ok" : "err");
+                    paintMature();
+                } }, icon("check"), "Save");
+                mat.append(dob, save); return;
+            }
+            if (!st.adult) { mat.append(h("span.muted", null, "Mature titles stay hidden until you're 18.")); return; }
+            const cb = h("input", { type: "checkbox", checked: st.showMatureContent, "aria-label": "Show mature titles" });
+            cb.addEventListener("change", async () => {
+                const r = await gate.setShowMature(cb.checked);
+                if (!r || !r.success) { cb.checked = !cb.checked; toast((r && r.error) || "That couldn't be saved", "err"); }
+                else toast(cb.checked ? "Mature titles now show" : "Mature titles are hidden");
+            });
+            mat.append(h("label.check", null, cb, h("span", null, "Show mature titles")));
+        };
+        paintMature();
+        const offGate = gate.onChange(() => { if (!mat.isConnected) return offGate(); paintMature(); });
+        box.appendChild(setting("Mature titles", "Films, series and books flagged as mature only show to adults who turn them on, from the date of birth on your Riftgate account. Saved with your account, so it follows you.", mat));
 
         // Account
         const acct = h("div");

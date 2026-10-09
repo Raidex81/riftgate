@@ -30,6 +30,12 @@ import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsne
 import * as gamepad from "./gamepad.js";
 import { enableDrop, watchNewInstalls, watchUninstalls } from "./library-tools.js";
 import settings from "../views/settings.js";
+import vaultView from "../views/vault.js";
+import adminView from "../views/admin.js";
+import * as gate from "./mature.js";
+import { applyLook } from "./look.js";
+import { mountFacts, follow as factsFollow } from "../components/facts.js";
+import { maybeTour, startTour } from "../components/tour.js";
 
 setDetailOpener(openDetail);
 
@@ -44,7 +50,10 @@ const VIEWS = [
     { id: "library", label: "Library", icon: "library", view: library, group: "Yours" },
     { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" },
     { id: "themes", label: "Themes", icon: "sparkles", view: themesView, group: "Yours" },
-    { id: "suggestions", label: "Suggestions", icon: "chat", view: suggestionsView, group: "Yours" }
+    { id: "suggestions", label: "Suggestions", icon: "chat", view: suggestionsView, group: "Yours" },
+    // only for admins (the rail shows them once your account is known to be one)
+    { id: "vault", admin: true, label: "The Vault", icon: "vault", view: vaultView, group: "Admin" },
+    { id: "admin", admin: true, label: "Admin", icon: "shield", view: adminView, group: "Admin" }
 ];
 const SETTINGS = { id: "settings", label: "Settings", icon: "settings", view: settings };
 const ALL = [...VIEWS, SETTINGS];
@@ -102,7 +111,7 @@ const shownViews = () => {
     const order = railOrder();
     const rank = (v) => { const i = order.indexOf(v.id); return i < 0 ? 1000 + VIEWS.indexOf(v) : i; };
     const groups = [...new Set(VIEWS.map((v) => v.group))];
-    return VIEWS.filter((v) => !v.interests || interests.wants(...v.interests) || v.id === current)
+    return VIEWS.filter((v) => (!v.admin || gate.isAdmin()) && (!v.interests || interests.wants(...v.interests) || v.id === current))
         .sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group) || rank(a) - rank(b));
 };
 async function saveRailOrder(ids) {
@@ -194,6 +203,7 @@ async function route() {
     navButtons.forEach((b) => b.removeAttribute("aria-current"));
     navButtons.get(v.id)?.setAttribute("aria-current", "page");
     moveNode(v.id);
+    factsFollow(v.id);
     if (cleanup) { try { cleanup(); } catch (e) { /* */ } cleanup = null; }
     clear(stage);
     stage.scrollTop = 0;
@@ -230,7 +240,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 setCommands([
-    ...ALL.map((v) => ({ title: `Go to ${v.label}`, icon: v.icon, run: () => { location.hash = v.id; } })),
+    ...ALL.filter((v) => !v.admin).map((v) => ({ title: `Go to ${v.label}`, icon: v.icon, run: () => { location.hash = v.id; } })),
     { title: "What do you want to do today? (Surprise me)", icon: "dice", run: () => openToday() },
     ...MOODS.filter((m) => m.id !== "any").map((m) => ({ title: `Surprise me: ${m.label.toLowerCase()} (${m.hint.toLowerCase()})`, icon: m.icon, run: () => openToday(m.id) })),
     { title: "Random pick from this section", icon: "rift", run: rollHere },
@@ -242,7 +252,12 @@ setCommands([
     { title: "Change the theme", icon: "sparkles", run: () => { location.hash = "themes"; } },
     { title: "Create a theme", icon: "plus", run: () => { location.hash = "themes/studio"; } },
     { title: "Community themes", icon: "globe", run: () => { location.hash = "themes/community"; } },
-    { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") }
+    { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") },
+    { title: "Take the tour of Riftgate", icon: "compass", run: () => startTour() },
+    { title: "Did you know? (turn the facts on or off)", icon: "bulb", run: () => { location.hash = "settings"; } },
+    { title: "Change the card size", icon: "resize", run: () => { location.hash = "settings"; } },
+    { title: "Open the Vault (admins)", icon: "vault", run: () => { location.hash = "vault"; } },
+    { title: "Admin tools (admins)", icon: "shield", run: () => { location.hash = "admin"; } }
 ]);
 
 window.addEventListener("r2-engine-outdated", () => toast("Riftgate was updated. Quit it from the system tray (right-click its icon, Quit) and open it again to finish.", "err", 15000));
@@ -254,9 +269,24 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
 (async function start() {
     buildTitlebar();
     await theme.start(); // journal + your themes, applied before anything paints
+    applyLook(); // card size and type colours
+    const firstStart = !interests.chosen();
     // the opening plays in the theme's colours while everything loads underneath
     appSettings().then((s) => playIntro({ enabled: s.startupAnimation !== false }));
     account.restore();
+    // the age gate and admin status; admins get their sections in the rail
+    let wasAdmin = false, sawMature = false;
+    gate.onChange(() => {
+        if (gate.isAdmin() !== wasAdmin) {
+            wasAdmin = gate.isAdmin(); buildRail(); moveNode(current);
+            if (["vault", "admin"].includes(current)) { if (wasAdmin) { current = null; route(); } else location.hash = "nexus"; return; }
+        }
+        // what may show changed: lists filtered before are filtered again
+        if (gate.canSeeMature() !== sawMature) { sawMature = gate.canSeeMature(); if (current && current !== "settings" && current !== "admin") { const c = current; current = null; location.hash = c; route(); } }
+    });
+    // wait (briefly) for it, so the first lists are already right
+    await Promise.race([gate.start(), new Promise((r) => setTimeout(r, 2500))]);
+    wasAdmin = gate.isAdmin(); sawMature = gate.canSeeMature();
     gamepad.start();
     enableDrop((p) => reading.addEbook(p).then((ok) => { if (ok) { location.hash = "reading"; } return ok; }));
     watchNewInstalls();
@@ -269,6 +299,7 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
         if (r && r.success) { await appSettings({ fresh: true }); forget("load-games"); window.dispatchEvent(new CustomEvent("r2-library-changed")); }
     }, 40 * 1000);
     buildRail();
+    mountFacts(document.getElementById("app"));
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {
         buildRail(); moveNode(current);
@@ -278,4 +309,9 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     window.addEventListener("resize", () => moveNode(current));
     await route();
     if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
+    // then the tour: all of it the first time, afterwards only what's new to you
+    introDone.then(() => new Promise((r) => setTimeout(r, firstStart ? 900 : 1500))).then(async () => {
+        while (document.querySelector(".interests-portal, .wn-modal, .detail, .update-modal")) await new Promise((r) => setTimeout(r, 600));
+        maybeTour({ firstStart });
+    });
 })();

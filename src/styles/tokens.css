@@ -31,13 +31,13 @@
     --st-dropped: #ff4d6d;
     --st-favourite: #ff4fd8;
 
-    /* Content-type colours (kept from Riftgate 1.8) */
+    /* Content-type colours (from Riftgate 1.8; series and apps got their own so every kind is told apart) */
     --type-game: #a66bff;
     --type-film: #39d0ff;
-    --type-series: #a66bff;
+    --type-series: #ffc94a;
     --type-anime: #ff6fd8;
     --type-book: #4fe39a;
-    --type-app: #ffa24a;
+    --type-app: #ff8a3d;
 
     /* Energy gradients */
     --energy: linear-gradient(135deg, var(--amethyst) 0%, var(--rift-pink) 100%);
@@ -72,7 +72,8 @@
     --rail-w: 232px;
     --titlebar-h: 40px;
     --gutter: 32px;
-    --card-w: 178px;
+    --card-scale: 1;
+    --card-w: calc(178px * var(--card-scale));
 
     /* Motion */
     --ease: cubic-bezier(.2, .8, .2, 1);

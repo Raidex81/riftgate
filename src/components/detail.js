@@ -12,6 +12,8 @@ import { hours, ago, dateLong, money, score, countdown, tickCountdowns } from ".
 import { toast } from "./toast.js";
 import { coverQuery } from "./card.js";
 import { recordView } from "../app/foryou.js";
+import * as gate from "../app/mature.js";
+import * as admin from "../app/admin.js";
 
 let current = null;
 
@@ -60,7 +62,8 @@ export function openDetail(item) {
         journalBox(item),
         nextEpisodeBox(item),
         h("div.detail-section", null, h("h3", null, "About"), desc),
-        item.kind === "library" ? manageBox(item, () => closeDetail()) : null);
+        item.kind === "library" ? manageBox(item, () => closeDetail()) : null,
+        adminBox(item));
 
     const onKey = (e) => { if (e.key === "Escape") closeDetail(); };
     document.addEventListener("keydown", onKey);
@@ -312,4 +315,34 @@ function journalBox(item) {
     };
     journal.load().then(render);
     return box;
+}
+
+// Admins only: mark a title as mature (or clear it), or remove it from
+// Riftgate for everyone. Same server lists as Riftgate 1.x, so a decision
+// made in either app applies in both.
+function adminBox(item) {
+    if (!gate.isAdmin() || !gate.modKeys(item).length) return null;
+    const matureBtn = h("button.btn", { type: "button" });
+    const paint = () => { clear(matureBtn).append(icon("eye"), gate.markedMature(item) ? "Clear the mature mark" : "Mark as mature"); };
+    paint();
+    matureBtn.onclick = async () => {
+        matureBtn.disabled = true;
+        const r = await gate.adminToggleMature(item, admin.run);
+        matureBtn.disabled = false;
+        if (r && r.success) { paint(); toast(r.isMature ? "Marked as mature: only adults who turned mature titles on see it" : "Mature mark cleared"); }
+        else if (r) toast(r.error || "That didn't work", "err");
+    };
+    let armed = 0;
+    const removeBtn = h("button.btn.danger", { type: "button" }, icon("trash"), "Remove from Riftgate");
+    removeBtn.onclick = async () => {
+        if (Date.now() - armed > 4000) { armed = Date.now(); clear(removeBtn).append(icon("trash"), "Click again: removes it for everyone"); return; }
+        removeBtn.disabled = true;
+        const r = await gate.adminRemove(item, admin.run);
+        removeBtn.disabled = false;
+        if (r && r.success) { toast(`${item.title} is removed from Riftgate for everyone`); closeDetail(); }
+        else { armed = 0; clear(removeBtn).append(icon("trash"), "Remove from Riftgate"); if (r) toast(r.error || "That didn't work", "err"); }
+    };
+    return h("div.detail-section.admin-box", null, h("h3", null, icon("shield"), "Admin"),
+        h("p.muted", null, "Applies to everyone, in Riftgate 2 and Riftgate 1.x."),
+        h("div.admin-actions", null, matureBtn, removeBtn));
 }

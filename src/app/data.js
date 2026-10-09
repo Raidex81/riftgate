@@ -9,6 +9,7 @@
 // fullPage() pages through the engine's complete internet lists (TMDB,
 // RAWG, Open Library, Gutenberg, itch.io) for every "See all".
 
+import * as gate from "./mature.js";
 import { call, cached, country, forget, settings } from "./api.js";
 import * as I from "./items.js";
 import { registerSource } from "../components/palette.js";
@@ -159,7 +160,7 @@ export async function fullPage(full, page) {
         if (typeof r.totalResults === "number") total = r.totalResults;
         if (def.open && (r.items || []).length && r.totalPages > first + i) open = true;
         (r.items || []).map(def.map).forEach((it) => {
-            if (!it || !it.title || it.mature || seen.has(it.key)) return;
+            if (!it || !it.title || gate.hidden(it) || seen.has(it.key)) return;
             seen.add(it.key);
             items.push(it);
         });

@@ -13,6 +13,7 @@
 // it continues something you love (a sequel, the same series), and a little
 // for quality and freshness. Each pick says why it's there.
 
+import * as gate from "./mature.js";
 import * as D from "./data.js";
 import * as journal from "./store.js";
 import * as seen from "./seen.js";
@@ -99,7 +100,7 @@ export async function picks({ limit = 60 } = {}) {
     const owned = new Set(lib.map((g) => norm(g.title)));
     const libKeys = new Set(lib.map((g) => g.key));
     const pool = C.filter((it) => {
-        if (it.mature || libKeys.has(it.key) || owned.has(norm(it.title))) return false;
+        if (gate.hidden(it) || libKeys.has(it.key) || owned.has(norm(it.title))) return false;
         if (seen.canMark(it) && seen.isSeen(it)) return false;
         const e = journal.entry(it.key);
         return !(e && ["completed", "dropped", "progress"].includes(e.status));
