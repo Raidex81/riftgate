@@ -14,7 +14,7 @@ play, watch and read. You can make your own themes, and Surprise me picks
 the one thing worth your evening. It installs over your current Riftgate
 and keeps your library, shows, books and settings.
 
-![Nexus, Riftgate's home: what's free, in cinemas, new episodes and what you were in the middle of](screenshots/nexus.png)
+![Nexus, Riftgate's home: what's free, in cinemas, new episodes and what you were in the middle of](screenshots/nexus.jpg)
 
 ---
 
@@ -67,7 +67,7 @@ Anything you mark "Not for me" leaves the menu.
 watch, read, or let the rift decide. Narrow it down if you like, and
 Riftgate picks the one thing, skipping what you've already finished.
 
-![Surprise me: pick a mood and the rift picks for you](screenshots/surprise-me.png)
+![Surprise me: pick a mood and the rift picks for you](screenshots/surprise-me.jpg)
 
 **📀 Library** keeps every game, app and VR title you run on one shelf.
 To add something, drop a shortcut or `.exe` anywhere on Riftgate, or let
@@ -76,7 +76,7 @@ install or uninstall later and asks before changing anything. Steam games
 show your real Steam hours. You can sort the shelf any way you like, or
 drag it into your own order.
 
-![Library](screenshots/library.png)
+![Library](screenshots/library.jpg)
 
 **🎁 Free games** collects thousands of games that are free to keep or
 free to play right now. The sources include Steam, Epic Games, every free
@@ -84,34 +84,34 @@ game on GOG, itch.io, giveaway trackers and the big free-to-play titles.
 You get a VR view (native and adapted), genres, popularity and a row for
 everything new this week.
 
-![Free games](screenshots/free-games.png)
+![Free games](screenshots/free-games.jpg)
 
 **🏷️ Deals** shows the biggest current discounts on PC games from Steam
 and dozens of other stores, with review scores and trailers. Prices
 follow your region's currency.
 
-![Deals](screenshots/deals.png)
+![Deals](screenshots/deals.jpg)
 
 **🎬 Theatre** covers what's in cinemas near you (pick your cinema for
 sessions and tickets) and what's coming soon. It shows what's popular on
 each streaming service in your country, plus new series and anime with
 where they stream. Your own shows get a countdown to the next episode.
 
-![Theatre](screenshots/theatre.png)
+![Theatre](screenshots/theatre.jpg)
 
 **📚 Reading room** has best sellers, new releases, free classics, manga
 and comics, plus your own EPUB/PDF library. Drop a book anywhere on
 Riftgate to add it. Books you've read get an "Already read" seal
 everywhere.
 
-![Reading room](screenshots/reading-room.png)
+![Reading room](screenshots/reading-room.jpg)
 
 **📓 Journal** tracks anything, whether it's a game, film, series,
 anime or book. Mark it as playing, watching, reading, planned, completed,
 on hold or dropped, then rate it with gems, follow your progress and keep
 a note. Every card in Riftgate shows its status.
 
-![Journal](screenshots/journal.png)
+![Journal](screenshots/journal.jpg)
 
 **🎨 Themes** gives you 20 built-in looks, plus a studio for your own:
 colours, light or dark, glass, soft, neon, brutal or rounded surfaces,
@@ -119,7 +119,7 @@ patterns, fonts and your own picture as the background. "Match the theme to
 my picture" builds a theme from the picture's colours. You can share a theme
 with everyone or try the ones other people made.
 
-![Themes](screenshots/themes.png)
+![Themes](screenshots/themes.jpg)
 
 **🧩 Applications** lists apps built by the community, each with a credit
 for its creator. Made one yourself? Put it forward from inside the app.
