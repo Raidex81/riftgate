@@ -1,4 +1,4 @@
-// Riftgate 2 — "Open a random rift" (Surprise Me). Picks from the current
+// Riftgate — "Open a random rift" (Surprise Me). Picks from the current
 // view's list: a reel of cards streaks past in front of the portal and
 // decelerates onto the winner, which lands with a flare. Instant with
 // reduced motion. Esc or the backdrop closes it.

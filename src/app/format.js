@@ -1,4 +1,4 @@
-// Riftgate 2 — formatting helpers (plain words, the user's locale).
+// Riftgate — formatting helpers (plain words, the user's locale).
 
 export function hours(seconds) {
     if (!seconds) return null;

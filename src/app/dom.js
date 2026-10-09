@@ -1,4 +1,4 @@
-// Riftgate 2 — tiny DOM toolkit.
+// Riftgate — tiny DOM toolkit.
 // h() builds elements; any string child becomes a text node, so text from
 // games, films, books or the web can never be read as HTML. The only markup
 // ever parsed is the app's own icon SVG (icons.js), which is a constant.

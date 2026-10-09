@@ -422,7 +422,7 @@ function startInstallWatcher(getGamesFilePath, onDetected, onFoldersChanged) {
     console.log("[installer-detect] Watching Desktop/Start Menu shortcuts (first check in 20 s, then on every change, and hourly).");
     setTimeout(run, 20 * 1000);   // shortly after launch (catches installs made while closed)
     setInterval(run, 3600000);    // then once an hour
-    // Riftgate 2: react within seconds when an installer adds (or an
+    // Riftgate: react within seconds when an installer adds (or an
     // uninstaller removes) a Desktop / Start Menu shortcut, instead of
     // waiting for the hourly check. Bursts of changes are folded into one
     // check a few seconds after things settle. No network involved.

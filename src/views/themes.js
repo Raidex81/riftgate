@@ -1,4 +1,4 @@
-// Riftgate 2 — Themes: pick one of the built-in themes, make your own in the
+// Riftgate — Themes: pick one of the built-in themes, make your own in the
 // studio (colours, surface, pattern, font, glow, your own picture) with the
 // whole app as the live preview, share it as a file or with everyone in the
 // community gallery, and use themes other people made.

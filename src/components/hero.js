@@ -1,4 +1,4 @@
-// Riftgate 2 — the Nexus hero: the living rift on the right, a featured
+// Riftgate — the Nexus hero: the living rift on the right, a featured
 // item's art and copy on the left. Rotates through a few highlights.
 
 import { h, icon, clear, coverSrc } from "../app/dom.js";

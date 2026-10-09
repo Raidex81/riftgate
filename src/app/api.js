@@ -1,4 +1,4 @@
-// Riftgate 2 — the bridge to the engine (main process).
+// Riftgate — the bridge to the engine (main process).
 // Every call goes through window.riftgate.invoke (preload allowlist). Answers
 // are memoised for the session so moving between views is instant; pass
 // { fresh: true } to skip the memo (e.g. after a Refresh).

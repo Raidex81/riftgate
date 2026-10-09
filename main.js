@@ -1882,7 +1882,7 @@ ipcMain.handle("update-watchlist-item", async (event, { id, description, trailer
 // status view. (An earlier "new since last visit" notification handler,
 // check-new-episodes, was superseded by this and removed — it was never
 // actually called from the renderer.)
-// Riftgate 2: each show's episode list is kept on disk for 6 hours (episodes
+// each show's episode list is kept on disk for 6 hours (episodes
 // air at most daily), fetched four shows at a time; every entry also carries
 // the next scheduled episode, so countdowns cost no extra request.
 const R2_EPISODES_FILE = "cache-r2-episodes.json";
@@ -3684,7 +3684,7 @@ ipcMain.handle("get-watch-providers", async (event, countryCode) => {
 // Trending row for one specific provider -- "flatrate" (subscription
 // streaming) only, not rent/buy, since that's what "what's on Netflix
 // right now" actually means.
-// Riftgate 2: each service's trending list is kept for 12 hours (it barely
+// each service's trending list is kept for 12 hours (it barely
 // moves within a day, and building it takes dozens of TMDB requests).
 const R2_TRENDING_FILE = "cache-r2-trending-by-provider.json";
 const R2_TRENDING_TTL_MS = 12 * 3600 * 1000;
@@ -4080,7 +4080,7 @@ async function fetchComicsBestSellerPage(page) { return fetchGenreSubsectionPage
 async function fetchComicsNewReleasesPage(page) { return fetchGenreSubsectionPage("subject:comics", "new", page, COMICS_FILTER); }
 
 // Free classics (Project Gutenberg, most downloaded first), one Gutendex
-// page (32 books) at a time, for Riftgate 2's "See all".
+// page (32 books) at a time, for "See all".
 async function fetchClassicsPage(page) {
     const data = await fetchWithRetry(`https://gutendex.com/books/?sort=popular&page=${page}`, 12000);
     const results = (data && Array.isArray(data.results)) ? data.results : [];
@@ -4758,7 +4758,7 @@ ipcMain.handle("select-exe", async () => {
 // behind platform.isProcessRunning() and platform.startInstallWatcher().
 // Both platforms now compare snapshots once an hour: Desktop/Start Menu
 // shortcut targets on Windows, /Applications on Mac.
-// Riftgate 2: the watcher also reacts within seconds to shortcut / Steam
+// the watcher also reacts within seconds to shortcut / Steam
 // library changes, and every check also looks for store installs (Steam,
 // Epic manifests) and for library items that were uninstalled.
 const r2SendToWindow = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
@@ -9207,7 +9207,7 @@ async function r2SteamVr(appId) {
     } catch (e) { return null; }
     return r2CategoryRemember(`steam:${appId}`, vr);
 }
-// Riftgate 2: which Steam game each library item is (a steam:// link, or an
+// which Steam game each library item is (a steam:// link, or an
 // exe inside a Steam library folder, matched through its appmanifest), so
 // Steam's own playtime can be shown on it. Local files only, no network.
 ipcMain.handle("r2-steam-appids", async (event, paths) => {

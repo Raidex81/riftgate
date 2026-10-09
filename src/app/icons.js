@@ -1,4 +1,4 @@
-// Riftgate 2 — icon set. Line icons on a 24px grid, drawn for this app:
+// Riftgate — icon set. Line icons on a 24px grid, drawn for this app:
 // faceted, slightly angular, matching the gem-cut frames. Constant markup
 // only (see dom.js icon()).
 

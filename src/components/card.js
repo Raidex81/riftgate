@@ -1,4 +1,4 @@
-// Riftgate 2 — the universal card. One frame for every kind of content,
+// Riftgate — the universal card. One frame for every kind of content,
 // states from the Riftgate board: default, hover, favourite, continue
 // (progress ring), featured. Journal status shows as a crystal on the art.
 

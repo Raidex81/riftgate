@@ -1,4 +1,4 @@
-// Riftgate 2 — the rift. A procedural portal drawn on canvas: a faceted gem,
+// Riftgate — the rift. A procedural portal drawn on canvas: a faceted gem,
 // a turning ring of rune ticks, forked lightning that strikes, flickers and
 // fades out in an afterglow,
 // and drifting shards. Colours come from the theme tokens, so it follows the

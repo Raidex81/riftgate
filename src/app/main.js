@@ -1,4 +1,4 @@
-// Riftgate 2 — entry point: builds the frame (title bar, rail), routes
+// Riftgate — entry point: builds the frame (title bar, rail), routes
 // between views, wires keyboard shortcuts and the engine's events.
 
 import { h, icon, clear } from "./dom.js";

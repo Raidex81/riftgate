@@ -1,4 +1,4 @@
-// Riftgate 2 — built-in themes. Original palettes in the families that are
+// Riftgate — built-in themes. Original palettes in the families that are
 // popular on uiverse.io (glassmorphism, neumorphism, neon and retro,
 // brutalism, soft gradients, CSS patterns), made for Riftgate.
 // colors: bg (page), panel (rail, panels), card, hover, line, accent,

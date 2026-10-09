@@ -1,4 +1,4 @@
-// Riftgate 2 — your Riftgate account (the same one as in Riftgate).
+// Riftgate — your Riftgate account (the same one as in Riftgate).
 // Optional: everything works signed out; signing in lets you share themes
 // and puts your name on what you share. The engine keeps the session token;
 // this side only knows your username.

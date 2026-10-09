@@ -1,4 +1,4 @@
-// Riftgate 2 — "What do you want to do today?", the heart of Riftgate.
+// Riftgate — "What do you want to do today?", the heart of Riftgate.
 // Step 1: pick a mood (Play, Play free, Watch, Read, or let the rift decide).
 // Step 2: narrow it down (pick up where you left off, something new, a film
 // in cinemas, a free classic…). Then the rift rolls and lands on one thing.

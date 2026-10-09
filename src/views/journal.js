@@ -1,4 +1,4 @@
-// Riftgate 2 — Journal: everything you're playing, watching and reading,
+// Riftgate — Journal: everything you're playing, watching and reading,
 // what you finished, what's next, and how you rated it, across every world.
 
 import { h, icon, clear } from "../app/dom.js";

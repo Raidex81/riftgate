@@ -1,4 +1,4 @@
-// Riftgate 2 — the detail panel. Opens for any item; shows the art, the
+// Riftgate — the detail panel. Opens for any item; shows the art, the
 // trailer, what you can do with it here, and the Journal controls.
 
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";

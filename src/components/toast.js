@@ -1,4 +1,4 @@
-// Riftgate 2 — short confirmations. A toast names what happened, in the
+// Riftgate — short confirmations. A toast names what happened, in the
 // same words as the action that caused it ("Added to Journal").
 
 import { h } from "../app/dom.js";

@@ -1,4 +1,4 @@
-/* Riftgate 2 — design tokens.
+/* Riftgate — design tokens.
    One source of truth for colour, type, space, shape and motion. Views and
    components only ever use these variables, never raw values, so a theme is
    just a different set of tokens (see [data-accent] at the bottom). */

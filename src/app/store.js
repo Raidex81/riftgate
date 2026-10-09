@@ -1,4 +1,4 @@
-// Riftgate 2 — the Journal: one place to track anything across all your
+// Riftgate — the Journal: one place to track anything across all your
 // worlds. Each entry is keyed by item (see items.js journalKey) and holds a
 // status, a 1–5 gem rating, progress (0–100), a note, and a snapshot of the
 // item (title, art, type) so the Journal can show it without re-fetching.

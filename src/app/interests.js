@@ -1,4 +1,4 @@
-// Riftgate 2 — what you're into. Each interest is "Love it" (2), "Sometimes"
+// Riftgate — what you're into. Each interest is "Love it" (2), "Sometimes"
 // (1, the default) or "Not for me" (0). Riftgate follows it everywhere:
 // sections you don't care about leave the rail, Nexus leads with what you
 // love and drops what you don't, the banner and the moods do the same.

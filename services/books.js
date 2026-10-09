@@ -128,7 +128,7 @@ function openLibraryYearIsPlausible(doc, minYear) {
 // Heartstopper, The Bad Guys...), so "manga" in the subjects isn't enough:
 // the book must also look Japanese / East Asian, by its title or author
 // written in Japanese, Korean or Chinese script, or by subjects that say so
-// (Japan, translated from Japanese, shōnen, seinen...). Riftgate 2.
+// (Japan, translated from Japanese, shōnen, seinen...). Riftgate.
 const EAST_ASIAN_SCRIPT = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff66-\uff9f]/;
 const MANGA_ORIGIN = /\b(japan|japanese|shonen|shōnen|shounen|shojo|shōjo|shoujo|seinen|josei|kodomo|isekai|mangaka|manhwa|manhua|korea|korean|webtoon)\b|translated from (the )?japanese|translations from japanese/i;
 const WESTERN_COMICS = /\b(american|juvenile fiction\s*\/\s*humor|superheroes|dc comics|marvel|graphic novels?\s*\/\s*(general|humorous|literary|nonfiction))\b/i;

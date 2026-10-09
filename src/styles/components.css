@@ -1,4 +1,4 @@
-/* Riftgate 2 — components. Every frame is gem-cut (clipped corners, never
+/* Riftgate — components. Every frame is gem-cut (clipped corners, never
    rounded); glow follows the cut because it's a drop-shadow filter on the
    frame's wrapper, not a box-shadow. */
 

@@ -1,4 +1,4 @@
-// Riftgate 2 — data sources. Each loader asks the engine once per session,
+// Riftgate — data sources. Each loader asks the engine once per session,
 // normalises to Items (items.js), and registers with the command palette so
 // search covers everything already loaded.
 //

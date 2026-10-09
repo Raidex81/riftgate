@@ -1,4 +1,4 @@
-// Riftgate 2 — the "See all" browser. Two modes:
+// Riftgate — the "See all" browser. Two modes:
 //   • full: { kind, providerName } — the complete list from the internet
 //     (TMDB, RAWG, Open Library, Gutenberg, itch.io), about 100 per page,
 //     every page reachable, nothing capped;

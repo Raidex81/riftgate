@@ -1,4 +1,4 @@
-/* Riftgate 2 — account portal, rail chip, and the Themes studio. */
+/* Riftgate — account portal, rail chip, and the Themes studio. */
 
 /* ---- Account -------------------------------------------------------------------------- */
 .account-portal {
@@ -501,7 +501,7 @@ body.tv-mode .facts { height: 44px; font-size: var(--t-md); }
 .vault-form h3 svg { width: 18px; height: 18px; color: var(--amethyst-soft); }
 .vault-form .field { display: grid; gap: 6px; }
 .vault-form .field > span { font-size: var(--t-sm); color: var(--dust); }
-.seg.vault-hours { grid-template-columns: repeat(4, 1fr); max-width: 320px; }
+.seg.vault-hours { grid-template-columns: repeat(6, 1fr); max-width: 420px; }
 .vault-form-btns { display: flex; justify-content: flex-end; gap: var(--s2); }
 .vault-list { display: grid; gap: var(--s2); }
 .vault-item { display: flex; align-items: center; gap: var(--s4); padding: var(--s3) var(--s4); background: color-mix(in srgb, var(--nebula) 85%, transparent); border: 1px solid var(--line);

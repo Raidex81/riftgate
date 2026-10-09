@@ -1,5 +1,5 @@
-// Riftgate 2 — sign in / create account / forgot password, and the account
-// chip in the rail. One Riftgate account for Riftgate and Riftgate 2.
+// Riftgate — sign in / create account / forgot password, and the account
+// chip in the rail. One Riftgate account for Riftgate and Riftgate.
 
 import { h, icon, clear } from "../app/dom.js";
 import * as account from "../app/account.js";

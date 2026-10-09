@@ -1,4 +1,4 @@
-// Riftgate 2 — Library: your games, apps and VR, ready to launch.
+// Riftgate — Library: your games, apps and VR, ready to launch.
 
 import { h, icon, clear, art, debounce } from "../app/dom.js";
 import { call, forget } from "../app/api.js";

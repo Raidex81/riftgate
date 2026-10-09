@@ -1,11 +1,11 @@
-// Riftgate 2's own data: the cross-media Journal (status, rating, progress
+// Riftgate's own data: the cross-media Journal (status, rating, progress
 // and a note for any game, film, series, anime or book) and interface
 // preferences. Kept in one JSON file in the app's data folder, written
 // atomically (temp file + rename) so a crash mid-save can't corrupt it.
 //
 // Also the one-time "Import from Riftgate": copies (never moves or shares)
 // the original app's library, shows, books, settings and covers into this
-// app's own data folder, so Riftgate 2 starts with the user's real data
+// app's own data folder, so Riftgate starts with the user's real data
 // while the original keeps working untouched.
 
 const fs = require("fs");
@@ -16,7 +16,7 @@ const SECTIONS = new Set(["journal", "prefs"]);
 const KEY_RE = /^[a-z]+:[^\s]{1,400}$/i;
 
 // Files from the original Riftgate worth bringing over: user data, plus
-// (CACHE_RE) its last known lists, copied only where Riftgate 2 has none.
+// (CACHE_RE) its last known lists, copied only where Riftgate has none.
 const IMPORT_FILES = ["games.json", "watchlist.json", "ebooks.json", "settings.json", "overrides.json", "trailer-cache.json", "freegames-vr.json", "freegames-verified.json"];
 const CACHE_RE = /^(cache-[\w-]+|freegames-[\w-]+|store-deals-[\w-]+)\.json$/;
 const IMPORT_FOLDERS = ["covers", "downloaded-ebooks"];
@@ -107,8 +107,8 @@ function register(ipcMain, app) {
             }
             // Last known lists (free games, deals, books, films...) so the
             // first launch shows everything at once instead of waiting on
-            // every store; Riftgate 2 refreshes them in the background.
-            // Never overwrites a list Riftgate 2 already has.
+            // every store; Riftgate refreshes them in the background.
+            // Never overwrites a list Riftgate already has.
             for (const f of fs.readdirSync(dir)) {
                 if (!CACHE_RE.test(f)) continue;
                 const to = path.join(dest, f);

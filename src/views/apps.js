@@ -1,4 +1,4 @@
-// Riftgate 2 — Applications: apps made by the Riftgate community. Browse,
+// Riftgate — Applications: apps made by the Riftgate community. Browse,
 // visit, and promote your own: a submission goes to the Riftgate admins,
 // who review and publish it here.
 

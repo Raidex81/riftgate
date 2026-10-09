@@ -1,4 +1,4 @@
-// Riftgate 2 — a reorderable stack of rows. Drag a row by its grip (⋮⋮)
+// Riftgate — a reorderable stack of rows. Drag a row by its grip (⋮⋮)
 // to move it, or focus the grip and press ↑/↓. The order is remembered per
 // section; rows added later (a new store, a streaming service) slot into
 // their saved place, and brand-new ones go to the end.

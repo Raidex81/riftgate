@@ -1,4 +1,4 @@
-// Riftgate 2 — Theatre: films in cinemas and coming soon, your shows' new
+// Riftgate — Theatre: films in cinemas and coming soon, your shows' new
 // episodes, new series and anime, and what's popular on each streaming
 // service in your region.
 

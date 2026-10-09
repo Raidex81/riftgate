@@ -1,4 +1,4 @@
-// Riftgate 2 — Free games: everything free to keep or free to play, from
+// Riftgate — Free games: everything free to keep or free to play, from
 // every store, refreshed by the engine. Newly added first, then VR (every
 // VR game from every store), then one row per platform. Pick a platform (or
 // VR) to see all of it, with genre and sort; 100 per page.

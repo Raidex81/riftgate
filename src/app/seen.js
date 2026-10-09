@@ -6,7 +6,7 @@
 import { settings, saveSettings } from "./api.js";
 import * as journal from "./store.js";
 
-// Books ("Already read") are Riftgate 2's own: kept in its store by the
+// Books ("Already read") are Riftgate's own: kept in its store by the
 // book's Journal key, so the same book is marked wherever it shows up.
 let eps = {}, films = {}, books = {}, loaded = null;
 const listeners = new Set();

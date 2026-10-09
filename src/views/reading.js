@@ -1,4 +1,4 @@
-// Riftgate 2 — Reading room: popular and best-selling books, new releases,
+// Riftgate — Reading room: popular and best-selling books, new releases,
 // manga, comics, free classics, and your own eBook library.
 
 import { h, icon, debounce, clear } from "../app/dom.js";

@@ -1,4 +1,4 @@
-// Riftgate 2 — Nexus: everything that matters right now, across every world.
+// Riftgate — Nexus: everything that matters right now, across every world.
 
 import * as gate from "../app/mature.js";
 import { h, icon } from "../app/dom.js";

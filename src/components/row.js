@@ -1,4 +1,4 @@
-// Riftgate 2 — shelves. A row shows the first ROW_LIMIT cards; "See all"
+// Riftgate — shelves. A row shows the first ROW_LIMIT cards; "See all"
 // beside the title opens the browser. Rows backed by an internet list
 // (opts.full) page through everything that exists; the rest show every item
 // already loaded, 100 per page.

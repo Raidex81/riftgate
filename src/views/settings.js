@@ -1,4 +1,4 @@
-// Riftgate 2 — Settings: region, look, your data.
+// Riftgate — Settings: region, look, your data.
 
 import { h, icon, clear } from "../app/dom.js";
 import { call, settings, saveSettings, forget } from "../app/api.js";

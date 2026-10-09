@@ -1,4 +1,4 @@
-// Riftgate 2 — an inline grid that shows 100 items per page with page
+// Riftgate — an inline grid that shows 100 items per page with page
 // buttons below (used when a section is narrowed to one source).
 
 import { h, clear } from "../app/dom.js";

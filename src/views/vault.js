@@ -1,5 +1,5 @@
-// Riftgate — The Vault: share a file for a few hours (1 to 4) or a link for a
-// week (WeTransfer and the like, for anything over the 50 MB file limit) with
+// Riftgate — The Vault: share a file for 1 to 24 hours or a link for 90 days
+// (WeTransfer and the like, for anything over the 50 MB file limit) with
 // the people allowed in. Admins only for now, as in Riftgate 1.x. The server
 // holds the files privately and checks your password on every action; the
 // password is asked once and kept in memory only (see admin.js).
@@ -11,8 +11,8 @@ import * as gate from "../app/mature.js";
 import * as account from "../app/account.js";
 import { toast } from "../components/toast.js";
 
-const HOURS = [1, 2, 3, 4];
-const FILE_MAX = 4 * 3600e3, LINK_MAX = 7 * 24 * 3600e3;
+const HOURS = [1, 2, 4, 8, 12, 24]; // what the server accepts
+const FILE_MAX = 24 * 3600e3, LINK_MAX = 90 * 24 * 3600e3;
 
 const size = (b) => (!b ? "" : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`);
 function left(at) {
@@ -60,7 +60,7 @@ export default {
         root.append(
             h("div.view-head", null,
                 h("div", null, h("h1", null, "The Vault"),
-                    h("p", null, "Share a file for 1 to 4 hours, or a link for 7 days, with the people allowed in. Then it cleans itself up.")),
+                    h("p", null, "Share a file for 1 to 24 hours, or a link for 90 days, with the people allowed in. Then it cleans itself up.")),
                 h("div.actions", null,
                     h("button.btn.primary", { type: "button", onclick: () => composeFile() }, icon("upload"), "Share a file"),
                     h("button.btn", { type: "button", onclick: () => composeLink() }, icon("link"), "Share a link"),
@@ -155,7 +155,7 @@ export default {
                 : links.filter((l) => match(l.description, l.poster_username, l.url)).map(linkRow);
             clear(body).append(...(list.length ? list : [h("div.empty", null, icon(tab === "files" ? "upload" : "link"),
                 h("h3", null, query ? "Nothing matches" : tab === "files" ? "No files shared right now" : "No links shared right now"),
-                h("p", null, query ? "Try other words." : tab === "files" ? "Share a file: it stays here 1 to 4 hours, up to 50 MB." : "Over 50 MB? Share a WeTransfer (or any) link: it stays 7 days."))]));
+                h("p", null, query ? "Try other words." : tab === "files" ? "Share a file: it stays here 1 to 24 hours, up to 50 MB." : "Over 50 MB? Share a WeTransfer (or any) link: it stays 90 days."))]));
         }
 
         async function load() {
@@ -172,7 +172,7 @@ export default {
         }
 
         function composeFile() {
-            let hours = 4;
+            let hours = 2;
             const desc = h("input.input", { type: "text", maxlength: 200, placeholder: "What is it? (optional)" });
             const seg = h("div.seg.vault-hours", { role: "group", "aria-label": "Keep it for" });
             const paintSeg = () => seg.replaceChildren(...HOURS.map((n) => h("button", { type: "button", "aria-pressed": String(hours === n), onclick: () => { hours = n; paintSeg(); } }, h("b", null, `${n} h`))));
@@ -197,7 +197,7 @@ export default {
         function composeLink() {
             const url = h("input.input", { type: "url", placeholder: "https://…", maxlength: 2000 });
             const desc = h("input.input", { type: "text", maxlength: 200, placeholder: "What is it?" });
-            const go = h("button.btn.primary", { type: "submit" }, icon("link"), "Share for 7 days");
+            const go = h("button.btn.primary", { type: "submit" }, icon("link"), "Share for 90 days");
             clear(composer).appendChild(h("form.vault-form", { onsubmit: async (e) => {
                 e.preventDefault();
                 if (!/^https?:\/\/\S+\.\S+/i.test(url.value.trim())) { toast("That doesn't look like a web link", "err"); url.focus(); return; }
@@ -205,7 +205,7 @@ export default {
                 const r = await admin.run("add-shared-link", { url: url.value.trim(), description: desc.value.trim() });
                 go.disabled = false;
                 if (!r || !r.success) return r && toast(r.error || "The link couldn't be shared", "err");
-                toast("Link shared for 7 days"); clear(composer); tab = "links"; load();
+                toast("Link shared for 90 days"); clear(composer); tab = "links"; load();
             } },
                 h("h3", null, icon("link"), "Share a link"),
                 h("label.field", null, h("span", null, "Link"), url),

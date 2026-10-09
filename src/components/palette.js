@@ -1,4 +1,4 @@
-// Riftgate 2 — the command palette (Ctrl+K / "/"): one box to search your
+// Riftgate — the command palette (Ctrl+K / "/"): one box to search your
 // library, your Journal, everything loaded in the app, and the web (Steam,
 // TMDB, Open Library), plus jump to any section.
 

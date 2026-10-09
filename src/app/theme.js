@@ -1,4 +1,4 @@
-// Riftgate 2 — the theme engine. A theme is plain data (colours, surface,
+// Riftgate — the theme engine. A theme is plain data (colours, surface,
 // pattern, font, glow, an optional picture); apply() turns it into design
 // tokens on <html>, so every view follows instantly. Built-in themes come
 // from themes-builtin.js; yours live in r2-themes.json (with pictures).
@@ -25,7 +25,7 @@ export function find(id) { return allThemes().find((t) => t.id === id) || null; 
 export function activeId() { return journal.pref("theme", null) || legacyAccent() || "builtin:rift"; }
 export function active() { return find(activeId()) || BUILTIN_THEMES[0]; }
 
-// Riftgate 2 alpha had accent swatches: map them to the closest theme once
+// Riftgate alpha had accent swatches: map them to the closest theme once
 function legacyAccent() {
     const a = journal.pref("accent", null);
     return { ember: "builtin:ember", cyan: "builtin:deep-ocean", venom: "builtin:forest-night", crimson: "builtin:crimson-night" }[a] || null;

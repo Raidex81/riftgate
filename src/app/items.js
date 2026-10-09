@@ -1,4 +1,4 @@
-// Riftgate 2 — one Item shape for everything.
+// Riftgate — one Item shape for everything.
 // The engine returns a dozen different shapes (library games, free games,
 // deals, TMDB films and series, TVMaze shows, Open Library/Gutenberg books,
 // local eBooks, RAWG upcoming games). Each is normalised here once, so every

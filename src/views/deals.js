@@ -1,4 +1,4 @@
-// Riftgate 2 — Deals: the biggest current PC game discounts across Steam
+// Riftgate — Deals: the biggest current PC game discounts across Steam
 // and dozens of stores, priced in your region's currency.
 
 import { h, icon, clear, debounce } from "../app/dom.js";
