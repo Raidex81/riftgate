@@ -289,6 +289,26 @@ function journalBox(item) {
         note.value = e.note || "";
         note.addEventListener("change", () => journal.update(item.key, { note: note.value.trim() }, snapshot(item)));
         box.appendChild(note);
+
+        // Remove from your Journal: status, rating, favourite, progress and note
+        // all go at once (with a few seconds to undo)
+        if (journal.entry(item.key)) {
+            const removeBtn = h("button.link-btn.jb-remove", { type: "button" }, icon("trash"), "Remove from your Journal");
+            removeBtn.onclick = async () => {
+                const before = { ...journal.entry(item.key) };
+                await journal.update(item.key, { status: null, rating: 0, favourite: false, progress: 0, note: "" });
+                render();
+                const undo = h("button.link-btn", { type: "button", onclick: async () => {
+                    const { item: snap, updatedAt, ...back } = before;
+                    await journal.update(item.key, back, snap || snapshot(item));
+                    render(); toast(`${item.title} is back in your Journal`);
+                } }, "Undo");
+                const gone = h("p.jb-removed", null, icon("check"), `Removed from your Journal. `, undo);
+                box.appendChild(gone);
+                setTimeout(() => gone.remove(), 8000);
+            };
+            box.appendChild(h("div.jb-foot", null, removeBtn));
+        }
     };
     journal.load().then(render);
     return box;

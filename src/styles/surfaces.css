@@ -128,6 +128,12 @@
 .journal-box .head { display: flex; align-items: center; gap: var(--s3); }
 .journal-box .head h3 { font-size: var(--t-lg); }
 .journal-box .head .gems { margin-left: auto; }
+.journal-box .jb-foot { display: flex; justify-content: flex-end; }
+.journal-box .jb-remove { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--dust); }
+.journal-box .jb-remove svg { width: 14px; height: 14px; }
+.journal-box .jb-remove:hover { color: #ff6b81; }
+.journal-box .jb-removed { display: flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--starlight-2); }
+.journal-box .jb-removed svg { width: 14px; height: 14px; color: var(--amethyst-soft); }
 .status-pick { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .status-pick button { opacity: .55; transition: opacity var(--fast); }
 .status-pick button:hover, .status-pick button[aria-pressed="true"] { opacity: 1; }
