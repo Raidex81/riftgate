@@ -2,7 +2,7 @@
 // between views, wires keyboard shortcuts and the engine's events.
 
 import { h, icon, clear } from "./dom.js";
-import { call, on, send, settings as appSettings, forget } from "./api.js";
+import { call, on, send, settings as appSettings, forget, openExternal } from "./api.js";
 import { playIntro, done as introDone } from "../components/intro.js";
 import * as journal from "./store.js";
 import { setDetailOpener } from "../components/card.js";
@@ -56,12 +56,34 @@ let current = null;
 let cleanup = null;
 
 // ---- Title bar -----------------------------------------------------------------
+// "Star on GitHub", back from Riftgate 1.x: the project's real star count (the
+// engine asks GitHub at most every 10 minutes and remembers the last count),
+// a click opens the repository to star it, and coming back to the window
+// refreshes the count so your new star shows up.
+function githubStar() {
+    let url = "https://github.com/Raidex81/Riftgate";
+    const count = h("b.gh-count", null, "–");
+    const btn = h("button.gh-star", { type: "button", title: "Riftgate on GitHub: give it a star", "aria-label": "Star Riftgate on GitHub",
+        onclick: () => { btn.classList.remove("pop"); void btn.offsetWidth; btn.classList.add("pop"); openExternal(url); } },
+        h("span.gh-mark", { "aria-hidden": "true" }), h("span.gh-label", null, "Star"), icon("star"), count);
+    const fmt = (n) => (n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n));
+    const refresh = async (fresh) => {
+        const r = await call("get-github-stars", { fresh });
+        if (r && r.url) url = r.url;
+        if (r && Number.isFinite(r.stars)) { count.textContent = fmt(r.stars); btn.title = `Riftgate on GitHub: ${r.stars.toLocaleString()} star${r.stars === 1 ? "" : "s"}. Click to give it one`; }
+    };
+    refresh(false);
+    window.addEventListener("focus", () => refresh(true));
+    return btn;
+}
+
 function buildTitlebar() {
     const maxBtn = h("button.win-btn", { type: "button", "aria-label": "Maximise", onclick: () => call("window-maximize-toggle") }, icon("max"));
     titlebar.append(
         h("button.search-trigger", { type: "button", onclick: () => openPalette() },
             icon("search"), h("span.grow", null, "Search your universe"), h("kbd", null, "Ctrl K")),
         h("div.titlebar-spacer"),
+        githubStar(),
         bellButton(),
         h("div.win-controls", null,
             h("button.win-btn", { type: "button", "aria-label": "Minimise", onclick: () => call("window-minimize") }, icon("min")),
@@ -74,7 +96,20 @@ function buildTitlebar() {
 const navButtons = new Map();
 const node = h("div.rift-node");
 // Sections you said aren't for you leave the rail (still one Ctrl K away).
-const shownViews = () => VIEWS.filter((v) => !v.interests || interests.wants(...v.interests) || v.id === current);
+// Your own order of the sections (drag them in the rail, or Ctrl + ↑ ↓), kept per group
+const railOrder = () => journal.pref("order:rail", []) || [];
+const shownViews = () => {
+    const order = railOrder();
+    const rank = (v) => { const i = order.indexOf(v.id); return i < 0 ? 1000 + VIEWS.indexOf(v) : i; };
+    const groups = [...new Set(VIEWS.map((v) => v.group))];
+    return VIEWS.filter((v) => !v.interests || interests.wants(...v.interests) || v.id === current)
+        .sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group) || rank(a) - rank(b));
+};
+async function saveRailOrder(ids) {
+    // keep the hidden ones where they were
+    const rest = railOrder().filter((id) => !ids.includes(id));
+    await journal.setPref("order:rail", [...ids, ...rest]);
+}
 function buildRail() {
     clear(rail);
     navButtons.clear();
@@ -83,9 +118,11 @@ function buildRail() {
     shownViews().forEach((v) => {
         if (v.group !== group) { group = v.group; nav.appendChild(h("div.nav-group-label", null, group)); }
         // Clicking the section you're in opens it fresh (e.g. back to its first tab)
-        const b = h("a.nav-item", { href: `#${v.id}`, title: v.label, onclick: (e) => { if (current === v.id) { e.preventDefault(); current = null; route(); } } }, icon(v.icon), h("span", null, v.label));
+        const b = h("a.nav-item", { href: `#${v.id}`, title: `${v.label} (drag to reorder)`, draggable: "true", dataset: { view: v.id, group: v.group },
+            onclick: (e) => { if (current === v.id) { e.preventDefault(); current = null; route(); } } }, icon(v.icon), h("span", null, v.label));
         navButtons.set(v.id, b);
         nav.appendChild(b);
+        railDrag(b, nav);
     });
     const settingsBtn = h("a.nav-item", { href: "#settings", title: "Settings" }, icon("settings"), h("span", null, "Settings"));
     navButtons.set("settings", settingsBtn);
@@ -103,6 +140,36 @@ function buildRail() {
             h("button.btn.primary.today-btn", { type: "button", onclick: () => openToday(), title: "What do you want to do today? (R)" }, icon("dice"), h("span", null, "Surprise me")),
             settingsBtn, accountChip(), version));
     navButtons.get(current)?.setAttribute("aria-current", "page");
+}
+
+// Drag a section up or down within its group; the others slide aside
+let railDragging = null;
+function railDrag(b, nav) {
+    const ids = () => [...nav.querySelectorAll(".nav-item[data-view]")].map((x) => x.dataset.view);
+    const commit = () => { saveRailOrder(ids()); requestAnimationFrame(() => moveNode(current)); };
+    b.addEventListener("dragstart", (e) => { railDragging = b; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/x-riftgate-section", b.dataset.view); requestAnimationFrame(() => b.classList.add("rail-dragging")); });
+    b.addEventListener("dragend", () => { b.classList.remove("rail-dragging"); if (railDragging) { railDragging = null; commit(); } });
+    b.addEventListener("dragover", (e) => {
+        if (!railDragging || railDragging === b || railDragging.dataset.group !== b.dataset.group) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = "move";
+        const r = b.getBoundingClientRect();
+        const ref = e.clientY > r.top + r.height / 2 ? b.nextSibling : b;
+        if (ref === railDragging || railDragging.nextSibling === ref) return;
+        const items = [...nav.querySelectorAll(".nav-item[data-view]")];
+        const before = new Map(items.map((x) => [x, x.getBoundingClientRect().top]));
+        nav.insertBefore(railDragging, ref);
+        items.forEach((x) => { const dy = before.get(x) - x.getBoundingClientRect().top; if (dy) x.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 160, easing: "ease-out" }); });
+        moveNode(current);
+    });
+    b.addEventListener("drop", (e) => e.preventDefault());
+    b.addEventListener("keydown", (e) => {
+        if (!e.ctrlKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        e.preventDefault(); e.stopPropagation();
+        const sib = e.key === "ArrowUp" ? b.previousElementSibling : b.nextElementSibling;
+        if (!sib || !sib.dataset || sib.dataset.group !== b.dataset.group) return;
+        nav.insertBefore(b, e.key === "ArrowUp" ? sib : sib.nextSibling);
+        b.focus(); commit();
+    });
 }
 
 // Riftgate's own gem, the same mark as the original app, tinted by the theme

@@ -4087,7 +4087,8 @@ const BOOK_FULL_LIST_KINDS = new Set([
 // retrying on the next attempt, not stay stuck showing that error for a
 // full day after the vendor's own limit has already lifted.
 function fullListCacheFile(kind) {
-    return `cache-full-list-${kind}.json`;
+    // manga lists were re-filtered in Riftgate 2 (only real manga): fresh caches
+    return /^manga-/.test(kind) ? `cache-full-list-${kind}-v2.json` : `cache-full-list-${kind}.json`;
 }
 
 function readFullListCache(kind, scope, ttlMs = LIST_REFRESH_MIN_AGE_MS) {
@@ -6639,7 +6640,7 @@ ipcMain.handle("get-library-recommended-books", async () => withDailyRefresh("li
 // the grid. Using the same cover-filtering fetch already built for New
 // Releases (which pages through candidates and keeps only the ones that
 // actually have cover art) fixes that the same way it did there.
-ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "cache-manga-books.json", async () => {
+ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books-v2", "cache-manga-books-v2.json", async () => {
     try {
         // Scoped to the actual "manga" subject rather than a loose
         // keyword search, so this doesn't also pull in books that just
@@ -6650,7 +6651,7 @@ ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "c
         // filters out Western comics/graphic novels caught by a broad
         // "comics, graphic novels, manga" umbrella subject tag.
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 150, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-books.json", books);
+        saveDataCache("cache-manga-books-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] Manga fetch failed:", err.message || err);
@@ -6658,7 +6659,7 @@ ipcMain.handle("get-manga-books", async () => withDailyRefresh("manga-books", "c
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-books.json") || []);
+ipcMain.handle("get-cached-manga-books", async () => loadDataCache("cache-manga-books-v2.json") || []);
 
 ipcMain.handle("get-comics-books", async () => withDailyRefresh("comics-books", "cache-comics-books.json", async () => {
     try {
@@ -6681,11 +6682,11 @@ ipcMain.handle("get-cached-comics-books", async () => loadDataCache("cache-comic
 
 // Manga's three subsections -- same cover-art filtering as the original
 // single-grid version (see get-manga-books above), applied per subsection.
-ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular", "cache-manga-popular.json", async () => {
+ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular-v2", "cache-manga-popular-v2.json", async () => {
     try {
         // Rating-sorted -- Manga's "Most Popular".
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "rating", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-popular.json", books);
+        saveDataCache("cache-manga-popular-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-popular fetch failed:", err.message || err);
@@ -6693,13 +6694,13 @@ ipcMain.handle("get-manga-popular", async () => withDailyRefresh("manga-popular"
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-popular", async () => loadDataCache("cache-manga-popular.json") || []);
+ipcMain.handle("get-cached-manga-popular", async () => loadDataCache("cache-manga-popular-v2.json") || []);
 
-ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bestseller", "cache-manga-bestseller.json", async () => {
+ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bestseller-v2", "cache-manga-bestseller-v2.json", async () => {
     try {
         // Most editions -- Manga's "Best Seller" stand-in (see MANGA_FILTER's comment above).
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "editions", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-bestseller.json", books);
+        saveDataCache("cache-manga-bestseller-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-bestseller fetch failed:", err.message || err);
@@ -6707,13 +6708,13 @@ ipcMain.handle("get-manga-bestseller", async () => withDailyRefresh("manga-bests
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-bestseller", async () => loadDataCache("cache-manga-bestseller.json") || []);
+ipcMain.handle("get-cached-manga-bestseller", async () => loadDataCache("cache-manga-bestseller-v2.json") || []);
 
-ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new-releases", "cache-manga-new-releases.json", async () => {
+ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new-releases-v2", "cache-manga-new-releases-v2.json", async () => {
     try {
         // Newest first -- Manga's "New Releases".
         const books = await booksApi.fetchOpenLibraryBooksWithCovers("subject:manga", "new", 40, null, booksApi.openLibraryDocHasSpecificManga, 1950);
-        saveDataCache("cache-manga-new-releases.json", books);
+        saveDataCache("cache-manga-new-releases-v2.json", books);
         return { success: true, books };
     } catch (err) {
         console.error("[books] manga-new-releases fetch failed:", err.message || err);
@@ -6721,7 +6722,7 @@ ipcMain.handle("get-manga-new-releases", async () => withDailyRefresh("manga-new
     }
 }, "books", undefined, BOOKS_REFRESH_MIN_AGE_MS));
 
-ipcMain.handle("get-cached-manga-new-releases", async () => loadDataCache("cache-manga-new-releases.json") || []);
+ipcMain.handle("get-cached-manga-new-releases", async () => loadDataCache("cache-manga-new-releases-v2.json") || []);
 
 // Comics' three subsections, same idea.
 ipcMain.handle("get-comics-popular", async () => withDailyRefresh("comics-popular", "cache-comics-popular.json", async () => {
