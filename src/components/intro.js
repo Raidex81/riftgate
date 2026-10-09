@@ -2,7 +2,8 @@
 // the gem rises out of the tear, lightning strikes from it, the name decodes
 // from alien script, and the rift opens wide onto your Nexus.
 //
-// Same length as Riftgate 1.x's (5.5 s, then a 0.55 s fade). Plays on a real
+// About 7 s: the name stays on screen two seconds once it has fully appeared,
+// so it can be read, then the rift opens (0.55 s) and fades. Plays on a real
 // start only (not on Ctrl+R), never with reduced motion, and not when it's
 // turned off in Settings (the same "startupAnimation" setting as 1.x). Any
 // click, key or controller button skips straight to the opening of the rift.
@@ -10,9 +11,9 @@
 // loads underneath.
 
 import { Rift } from "./rift.js";
-import { createIntroSound } from "./intro-sound.js";
+import { createIntroSound, OPEN_AT, STRIKES } from "./intro-sound.js";
 
-const LENGTH = 5.5, FADE = 0.55;
+const LENGTH = OPEN_AT + .55, FADE = 0.55;
 const TAU = Math.PI * 2;
 const ease = {
     out: (t) => 1 - Math.pow(1 - t, 3),
@@ -66,7 +67,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     // sparks thrown off the tear
     const sparks = [];
     const bolts = [];
-    const strikesAt = [3.02, 3.16, 3.38, 3.9, 4.45];
+    const strikesAt = STRIKES;
     let nextStrike = 0, flash = 0;
     const letters = "RIFTGATE".split("").map((ch, i) => ({ ch, settle: 3.75 + i * .085 }));
 
@@ -92,7 +93,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     let padTimer = setInterval(() => { for (const p of navigator.getGamepads ? navigator.getGamepads() : []) if (p && p.buttons.some((b) => b.pressed)) skip(); }, 120);
 
     // On a skip, time jumps to the opening of the rift
-    const OPEN = 4.95;
+    const OPEN = OPEN_AT;
     let shift = 0;
     let last = 0;
 

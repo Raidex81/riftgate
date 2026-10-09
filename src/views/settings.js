@@ -93,7 +93,7 @@ export default {
             const { playIntro } = await import("../components/intro.js?again=" + Date.now());
             playIntro({ enabled: true, sound: introSel.value !== "silent" });
         } }, icon("play"), "Watch it now");
-        box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts, with its own sound: the tear, the gem, the lightning (5 seconds; any click or key skips it). Only on a real start, never on a reload.",
+        box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts, with its own sound: the tear, the gem, the lightning (7 seconds; any click or key skips it). Only on a real start, never on a reload.",
             h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview)));
 
         // Cards: size, and colour by kind

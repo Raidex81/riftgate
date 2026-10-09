@@ -10,6 +10,11 @@
 // can't drift apart. render() schedules the whole thing ahead instead (used
 // to preview it offline).
 
+// When the rift opens onto the app: the name has fully appeared at 4.85 s,
+// and stays two more seconds so it can be read
+export const OPEN_AT = 6.85;
+export const STRIKES = [3.02, 3.16, 3.38, 3.9, 4.45];
+
 const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI note -> Hz
 
 export function createIntroSound(ac, { volume = 0.7 } = {}) {
@@ -89,9 +94,9 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
                 const dg = gain(0, pre);
                 dg.gain.setValueAtTime(0.0001, at);
                 dg.gain.exponentialRampToValueAtTime(i === 2 ? .04 : .16, at + 2.4);
-                dg.gain.setValueAtTime(i === 2 ? .04 : .16, at + 4.7);
-                dg.gain.exponentialRampToValueAtTime(0.0001, at + 5.3);
-                o.connect(dg); o.start(at); o.stop(at + 5.4);
+                dg.gain.setValueAtTime(i === 2 ? .04 : .16, at + OPEN_AT - .25);
+                dg.gain.exponentialRampToValueAtTime(0.0001, at + OPEN_AT + .35);
+                o.connect(dg); o.start(at); o.stop(at + OPEN_AT + .45);
             });
         },
         // the seed of light beats
@@ -204,7 +209,7 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         },
         // between the strikes the air stays charged: a low arcing hum that spits now and then
         arc(at) {
-            const len = 1.75;
+            const len = OPEN_AT - 2.9; // until the rift opens
             const hum = drive(30), lp = filter("lowpass", 900, .8), g = gain(0, pre);
             hum.connect(lp); lp.connect(g);
             g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(.07, at + .25);
@@ -260,11 +265,10 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
     }
 
     // The timeline, matching intro.js (seconds from the start)
-    const STRIKES = [3.02, 3.16, 3.38, 3.9, 4.45];
     const TIMELINE = [
         [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"], [3.02, "arc"],
         ...STRIKES.map((t, i) => [t, "strike", i]),
-        [3.55, "scramble"], ...Array.from({ length: 8 }, (_, i) => [3.75 + i * .085, "letter", i]), [4.35, "tagline"], [4.95, "open"]
+        [3.55, "scramble"], ...Array.from({ length: 8 }, (_, i) => [3.75 + i * .085, "letter", i]), [4.35, "tagline"], [OPEN_AT, "open"]
     ];
 
     return {

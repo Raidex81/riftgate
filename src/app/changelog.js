@@ -7,6 +7,7 @@ export const CURRENT_NOTES = {
         "New: the opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)",
         "New: Add a show. Search any series or anime, even one Riftgate doesn't list, and add it to My shows (Theatre → My shows → Add a show, or Ctrl K). Its new episodes show up in Nexus",
         "Changed: \"Your shows\" is now My shows, and a show's Track button takes it out again",
+        "Changed: in the opening, the name RIFTGATE stays on screen two seconds once it has fully appeared, before the rift opens onto the app",
         "Fixed: the taskbar icon is blue too, like the app's icon"
     ],
     "2.0.0": [
