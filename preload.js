@@ -18,7 +18,7 @@ const { contextBridge, ipcRenderer, clipboard, webUtils } = require("electron");
 // Renderer -> main, request/response. Every ipcRenderer.invoke(...) channel
 // renderer.js calls.
 const INVOKABLE_CHANNELS = new Set([
-    "r2-store-get", "r2-store-set", "r2-riftgate-available", "r2-import-riftgate", "r2-tv-providers", "r2-app-preview", "r2-submit-app", "r2-account-restore", "r2-account-sign-in", "r2-account-sign-up", "r2-account-set-password", "r2-account-sign-out", "r2-theme-pick-picture", "r2-theme-export", "r2-theme-import", "r2-themes-gallery", "r2-theme-download", "r2-theme-publish", "r2-theme-unpublish", "r2-themes-local-get", "r2-themes-local-set", "r2-show-in-folder", "r2-find-cover", "r2-detect-category", "r2-landscape-art", "r2-steam-appids",
+    "r2-store-get", "r2-store-set", "r2-riftgate-available", "r2-import-riftgate", "r2-tv-providers", "r2-app-preview", "r2-submit-app", "r2-account-restore", "r2-account-sign-in", "r2-account-sign-up", "r2-account-set-password", "r2-account-sign-out", "r2-theme-pick-picture", "r2-theme-export", "r2-theme-import", "r2-themes-gallery", "r2-theme-download", "r2-theme-publish", "r2-theme-unpublish", "r2-themes-local-get", "r2-themes-local-set", "r2-show-in-folder", "r2-find-cover", "r2-detect-category", "r2-landscape-art", "r2-steam-appids", "r2-capture-window",
     "add-admin-reply",
     "add-community-app",
     "add-ebook-to-library",

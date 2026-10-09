@@ -229,8 +229,19 @@ function rollHere() {
     });
 }
 
+// A picture of the window, saved in Pictures\Riftgate (after the palette or
+// any toast has gone, so they aren't in it)
+async function saveScreenshot() {
+    document.querySelectorAll(".toast").forEach((t) => t.remove());
+    await new Promise((r) => setTimeout(r, 450));
+    const r = await call("r2-capture-window");
+    if (r && r.ok) { toast(`Saved in Pictures › Riftgate: ${r.name}`); }
+    else toast("The screenshot couldn't be saved", "err");
+}
+
 // ---- Shortcuts ---------------------------------------------------------------------
 document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); saveScreenshot(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -254,6 +265,7 @@ setCommands([
     { title: "Community themes", icon: "globe", run: () => { location.hash = "themes/community"; } },
     { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") },
     { title: "Take the tour of Riftgate", icon: "compass", run: () => startTour() },
+    { title: "Save a screenshot of Riftgate (Ctrl Shift S)", icon: "download", run: () => saveScreenshot() },
     { title: "Did you know? (turn the facts on or off)", icon: "bulb", run: () => { location.hash = "settings"; } },
     { title: "Change the card size", icon: "resize", run: () => { location.hash = "settings"; } },
     { title: "Open the Vault (admins)", icon: "vault", run: () => { location.hash = "vault"; } },

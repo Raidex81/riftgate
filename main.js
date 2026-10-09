@@ -8776,7 +8776,7 @@ console.log("Online cover fetch (SteamGridDB): via Supabase media-proxy Edge Fun
 console.log("=====================================");
 
 
-// --- Riftgate 2: which service streams each show (New series / New anime) --
+// --- which service streams each show (New series / New anime) --
 // TMDB /tv/{id}/watch/providers for the user's region: subscription first,
 // then free/with ads, then rent/buy. Remembered on disk for 3 days.
 const R2_TV_PROVIDERS_FILE = "cache-r2-tv-providers.json";
@@ -8822,7 +8822,7 @@ ipcMain.handle("r2-tv-providers", async (event, { ids, countryCode, mediaType } 
     return out;
 });
 
-// --- Riftgate 2: promote your own app ----------------------------------------
+// --- promote your own app ----------------------------------------
 // Anyone can put an app they made forward for Applications. Publishing
 // stays with admins (add-community-app needs their credentials), so a
 // submission goes into the existing suggestions queue, clearly marked, for
@@ -8874,7 +8874,7 @@ ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, 
     }
 });
 
-// --- Riftgate 2: account ------------------------------------------------------
+// --- account ------------------------------------------------------
 // One Riftgate account for both apps (same server). The password goes to
 // the server once and is swapped for a session token; only that token is
 // kept, encrypted with the OS (session.dat), and it never reaches the
@@ -8958,7 +8958,7 @@ ipcMain.handle("r2-account-sign-out", async () => {
     return { ok: true };
 });
 
-// --- Riftgate 2: themes ---------------------------------------------------------
+// --- themes ---------------------------------------------------------
 // Pictures and theme files come through the system file dialogs; the
 // community gallery lives in public.r2_themes (supabase migration 0009).
 // Publishing is checked against the signed-in session on the server.
@@ -9043,7 +9043,7 @@ ipcMain.handle("r2-theme-unpublish", async (event, id) => {
     return { ok: !!(r.success && r.result === true) };
 });
 
-// --- Riftgate 2: show a library item in its folder ------------------------------
+// --- show a library item in its folder ------------------------------
 // Only for paths that are actually in the library (never an arbitrary path).
 ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
     try {
@@ -9059,7 +9059,24 @@ ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
     }
 });
 
-// --- Riftgate 2: find a cover for anything that has none (or a broken one) -----
+// --- Save a picture of Riftgate's window (Ctrl K → "Save a screenshot") --------
+// Into Pictures\Riftgate, as a PNG at the window's full resolution.
+ipcMain.handle("r2-capture-window", async () => {
+    try {
+        if (!win || win.isDestroyed()) return { ok: false };
+        const img = await win.webContents.capturePage();
+        const dir = path.join(app.getPath("pictures"), "Riftgate");
+        fs.mkdirSync(dir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+        const file = path.join(dir, `Riftgate ${stamp}.png`);
+        fs.writeFileSync(file, img.toPNG());
+        return { ok: true, name: path.basename(file) };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// --- find a cover for anything that has none (or a broken one) -----
 // One lookup per title, ever: hits are kept for good, misses for a week, in
 // r2-covers.json, so a missing cover costs the APIs a single request.
 const R2_COVER_MISS_MS = 7 * 24 * 3600 * 1000;
@@ -9111,7 +9128,7 @@ ipcMain.handle("r2-find-cover", async (event, { title, kind, year } = {}) => {
     return job;
 });
 
-// --- Riftgate 2: a wide picture for the banner -------------------------------------
+// --- a wide picture for the banner -------------------------------------
 // The banner needs landscape art. Steam games have their own (worked out in the
 // renderer from the appid); for anything else, SteamGridDB's "heroes" (wide
 // banners made for game libraries). Asked once per title: kept in r2-covers.json.
@@ -9140,7 +9157,7 @@ ipcMain.handle("r2-landscape-art", async (event, { title } = {}) => {
     return url;
 });
 
-// --- Riftgate 2: guess whether something you add is a game, a VR game or an app
+// --- guess whether something you add is a game, a VR game or an app
 // From where it lives first (free, instant); a Steam game asks Steam once
 // whether it's VR; anything still unknown gets one SteamGridDB lookup (a
 // database of games). Every answer is remembered in r2-categories.json.
@@ -9242,5 +9259,5 @@ ipcMain.handle("r2-detect-category", async (event, { path: itemPath, name } = {}
     }
 });
 
-// --- Riftgate 2: Journal/preferences store and Import from Riftgate ---------
+// --- Journal/preferences store and Import from Riftgate ---------
 require("./services/r2-store").register(ipcMain, app);
