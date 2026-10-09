@@ -3,6 +3,8 @@
 
 import { h, icon, clear, coverSrc } from "../app/dom.js";
 import { Rift } from "./rift.js";
+import { createIntroSound } from "./intro-sound.js";
+import { settings } from "../app/api.js";
 import { openDetail } from "./detail.js";
 
 // slides: [{ item, kicker, kickerIcon, action: { label, icon, run } }]
@@ -46,6 +48,30 @@ export function hero(slidesPromise) {
         show(0); auto();
     });
 
+    // Click the gem: it strikes, with the opening's lightning sound
+    const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    let lastZap = 0;
+    el.addEventListener("pointermove", (e) => { if (rift) el.classList.toggle("gem-hover", rift.hitGem(...local(e))); });
+    el.addEventListener("pointerleave", () => el.classList.remove("gem-hover"));
+    el.addEventListener("click", (e) => {
+        if (!rift || e.target.closest("button, a") || !rift.hitGem(...local(e))) return;
+        if (performance.now() - lastZap < 220) return;
+        lastZap = performance.now();
+        rift.strikeNow();
+        zap();
+    });
+
     el.destroy = () => { clearInterval(timer); rift && rift.destroy(); };
     return el;
+}
+
+// The opening's lightning sound, on one shared audio context (made on the
+// first click; silent when the opening is set to play without sound)
+let sound = null;
+function zap() {
+    settings().then((s) => {
+        if (s.startupSound === false) return;
+        if (!sound) { const AC = window.AudioContext || window.webkitAudioContext; sound = createIntroSound(new AC({ latencyHint: "interactive" }), { volume: .6 }); }
+        sound.cue("strike", Math.random() < .5 ? 0 : 3);
+    }).catch(() => { /* no sound */ });
 }

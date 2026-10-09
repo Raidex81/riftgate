@@ -37,6 +37,7 @@ import { applyLook } from "./look.js";
 import { mountFacts, follow as factsFollow } from "../components/facts.js";
 import { maybeTour, startTour } from "../components/tour.js";
 import { openAddShow } from "../components/add-show.js";
+import { listenForFarewell } from "../components/farewell.js";
 
 setDetailOpener(openDetail);
 
@@ -310,6 +311,7 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
 // ---- Start ---------------------------------------------------------------------------
 (async function start() {
     buildTitlebar();
+    listenForFarewell(); // the closing sound when Riftgate quits for good
     await theme.start(); // journal + your themes, applied before anything paints
     applyLook(); // card size and type colours
     const firstStart = !interests.chosen();

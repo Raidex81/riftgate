@@ -132,6 +132,14 @@ export class Rift {
         requestAnimationFrame(this.frame);
     }
     stop() { this.running = false; }
+    // A strike on demand (clicking the gem): a main bolt and a fork beside it,
+    // and the portal flares. Returns false when the gem wasn't hit.
+    hitGem(x, y) { const cx = this.w * this.o.cx, cy = this.hgt * this.o.cy; return Math.hypot(x - cx, y - cy) <= this.R * .95; }
+    strikeNow() {
+        const first = this.bolt();
+        this.bolts.push(first, this.bolt(first.ang + Math.PI * (.6 + Math.random() * .8)));
+        if (!this.running) this.draw(0.016);
+    }
     destroy() { this.stop(); this.ro.disconnect(); this.io.disconnect(); document.removeEventListener("visibilitychange", this.onVis); }
 
     frame(now) {

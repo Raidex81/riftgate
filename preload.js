@@ -216,7 +216,7 @@ const LISTENABLE_CHANNELS = new Set([
     "dropzone-file-detected",
     "fullscreen-changed",
     "maximize-changed",
-    "new-install-detected", "r2-missing-detected",
+    "new-install-detected", "r2-missing-detected", "r2-farewell",
     "update-available",
     "update-download-progress",
     "update-downloaded",
@@ -226,7 +226,7 @@ const LISTENABLE_CHANNELS = new Set([
 
 // Renderer -> main, fire-and-forget.
 const SENDABLE_CHANNELS = new Set([
-    "renderer-ready-for-updates"
+    "renderer-ready-for-updates", "r2-farewell-done"
 ]);
 
 contextBridge.exposeInMainWorld("riftgate", {

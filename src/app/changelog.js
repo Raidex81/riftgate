@@ -8,6 +8,8 @@ export const CURRENT_NOTES = {
         "New: Add a show. Search any series or anime, even one Riftgate doesn't list, and add it to My shows (Theatre → My shows → Add a show, or Ctrl K). Its new episodes show up in Nexus",
         "Changed: \"Your shows\" is now My shows, and a show's Track button takes it out again",
         "Changed: in the opening, the name RIFTGATE stays on screen two seconds once it has fully appeared, before the rift opens onto the app",
+        "New: Riftgate says goodbye. When it closes for good, the power dies with a sputtering arc and the app closes in on a point of light (Settings → Opening animation → Sound when Riftgate closes)",
+        "New: click the gem in Nexus and it strikes, with the opening's lightning",
         "Fixed: the taskbar icon is blue too, like the app's icon"
     ],
     "2.0.0": [

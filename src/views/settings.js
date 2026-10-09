@@ -86,6 +86,10 @@ export default {
             await saveSettings({ startupAnimation: introSel.value !== "off", startupSound: introSel.value === "sound" });
             toast(introSel.value === "off" ? "Riftgate opens straight onto Nexus" : `The opening plays ${introSel.value === "sound" ? "with sound" : "silently"} next time Riftgate starts`);
         });
+        // the farewell when Riftgate quits for good
+        const quitCb = h("input", { type: "checkbox", checked: s.quitSound !== false, "aria-label": "Sound when Riftgate closes" });
+        quitCb.addEventListener("change", async () => { await saveSettings({ quitSound: quitCb.checked }); toast(quitCb.checked ? "Riftgate says goodbye when it closes" : "Riftgate closes silently"); });
+        const quitBox = h("label.check", null, quitCb, h("span", null, "Sound when Riftgate closes"));
         const preview = h("button.btn", { type: "button", onclick: async () => {
             const el = document.createElement("div"); el.id = "intro"; el.className = "intro"; el.setAttribute("aria-hidden", "true"); el.appendChild(document.createElement("canvas"));
             document.body.appendChild(el);
@@ -94,7 +98,8 @@ export default {
             playIntro({ enabled: true, sound: introSel.value !== "silent" });
         } }, icon("play"), "Watch it now");
         box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts, with its own sound: the tear, the gem, the lightning (7 seconds; any click or key skips it). Only on a real start, never on a reload.",
-            h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview)));
+            h("div", { style: { display: "grid", gap: "10px", justifyItems: "end" } },
+                h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview), quitBox)));
 
         // Cards: size, and colour by kind
         const sizeSeg = h("div.seg.card-sizes", { role: "group", "aria-label": "Card size" });

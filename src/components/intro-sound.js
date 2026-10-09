@@ -208,6 +208,32 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
             bp.frequency.setValueAtTime(5000, at); bp.frequency.exponentialRampToValueAtTime(1500, at + .5);
             env(g.gain, at, .045, .12, .4); n.connect(bp); bp.connect(g);
         },
+        // Riftgate closing: the power dies. The arc sputters and slows down,
+        // everything is sucked back into the gem (a reversed whoosh), a falling
+        // tone powers down, and the rift shuts with a deep thump and a last chime.
+        farewell(at) {
+            const sp = ac.createBufferSource();
+            sp.buffer = electric(.9, { hz: 60, hzEnd: 9, stutter: true, crack: .6, sparks: 30, decay: .5, level: .9 });
+            const sh = shape(1400, 4200, 11000), sg = gain(.55, post); sp.connect(sh.input); sh.output.connect(sg); sg.connect(verbIn);
+            sp.start(at);
+            // power-down: a saw diving from a hum to nothing through a closing filter
+            const o = ac.createOscillator(); o.type = "sawtooth";
+            o.frequency.setValueAtTime(220, at); o.frequency.exponentialRampToValueAtTime(28, at + 1.0);
+            const lp = filter("lowpass", 3000, 4); lp.frequency.setValueAtTime(3000, at); lp.frequency.exponentialRampToValueAtTime(120, at + 1.0);
+            const og = gain(0, post); env(og.gain, at, .2, .02, 1.0); o.connect(lp); lp.connect(og); o.start(at); o.stop(at + 1.1);
+            // sucked back in: noise sweeping down and swelling toward the close
+            const n = noiseSrc(at, 1.1), bp = filter("bandpass", 5000, 1.2), ng = gain(0, post);
+            bp.frequency.setValueAtTime(5000, at); bp.frequency.exponentialRampToValueAtTime(260, at + 1.0);
+            ng.gain.setValueAtTime(0.0001, at); ng.gain.exponentialRampToValueAtTime(.32, at + .95); ng.gain.exponentialRampToValueAtTime(.0001, at + 1.05);
+            n.connect(bp); bp.connect(ng);
+            // the rift shuts
+            tone("sine", 80, at + 1.0, .75, .004, .7, post, 26);
+            const c = noiseSrc(at + 1.0, .3), cl = filter("lowpass", 900), cg = gain(0, post); env(cg.gain, at + 1.0, .3, .003, .25); c.connect(cl); cl.connect(cg); cg.connect(verbIn);
+            // and the gem's last light
+            bell(NOTE(88), at + .05, .035, 1.0, pan(.3, post));
+            bell(NOTE(76), at + 1.0, .05, 1.3, pan(-.2, post));
+            return 1.55; // seconds until it's done enough to close
+        },
         // the rift opens wide: a great whoosh, a falling boom and a bloom of light
         open(at) {
             const n = noiseSrc(at, 1.6), bp = filter("bandpass", 220, .8), g = gain(0, post);
@@ -251,8 +277,10 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         };
         for (let ch = 0; ch < 2; ch++) {
             const d = buf.getChannelData(ch);
-            const period = sr / (o.hz || 60);
+            const hzAt = (t) => (o.hzEnd ? o.hz + (o.hzEnd - o.hz) * (t / dur) : (o.hz || 60));
+            let period = sr / hzAt(0);
             for (let p = 0; p < n; p += period * (1 + (Math.random() - .5) * .04)) {
+                period = sr / hzAt(p / sr);
                 const t = p / sr, amp = envAt(t) * gateAt(t) * (.6 + Math.random() * .4) * level;
                 if (amp < .002) continue;
                 const len = Math.floor(sr * (.002 + Math.random() * .004)), tau = len * .35, i0 = Math.floor(p);
@@ -299,7 +327,7 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
     return {
         TIMELINE,
         // play one cue now (or at an audio-clock time)
-        cue(name, arg, at = ac.currentTime) { try { cues[name](Math.max(at, ac.currentTime), arg); } catch (e) { /* never break the opening for a sound */ } },
+        cue(name, arg, at = ac.currentTime) { try { return cues[name](Math.max(at, ac.currentTime), arg); } catch (e) { /* never break the opening for a sound */ } },
         // a skip: everything before the opening falls silent at once
         hush() { const t = ac.currentTime; pre.gain.cancelScheduledValues(t); pre.gain.setValueAtTime(pre.gain.value, t); pre.gain.linearRampToValueAtTime(0, t + .08); },
         // schedule the whole soundtrack ahead (for an offline preview)

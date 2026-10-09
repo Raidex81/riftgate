@@ -565,3 +565,15 @@ p.vault-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--dust)
 .addshow-row .btn { height: 34px; padding: 0 var(--s4); flex: none; }
 .addshow-row .btn.following { color: var(--st-progress); }
 .addshow-row .btn.following:hover { color: var(--st-dropped); }
+
+/* ---- Closing: the app closes in on a point of light ------------------------- */
+.farewell { position: fixed; inset: 0; z-index: 9999; pointer-events: all; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 50%, transparent 0, transparent calc(var(--r, 150vmax)), var(--void) calc(var(--r, 150vmax) + 2px));
+    animation: farewell-iris var(--len) cubic-bezier(.7, 0, .84, 0) forwards; }
+@property --r { syntax: "<length>"; inherits: false; initial-value: 150vmax; }
+@keyframes farewell-iris { to { --r: 0px; } }
+.farewell-point { width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 24px 8px var(--amethyst-soft), 0 0 80px 30px color-mix(in srgb, var(--amethyst) 70%, transparent);
+    opacity: 0; animation: farewell-point var(--len) ease-in forwards; }
+@keyframes farewell-point { 0%, 55% { opacity: 0; transform: scale(.4); } 85% { opacity: 1; transform: scale(1.4); } 100% { opacity: 0; transform: scale(.1); } }
+:root.farewell-on .app { transition: transform var(--len, 1s) cubic-bezier(.7, 0, .84, 0), filter var(--len, 1s); transform: scale(.92); filter: brightness(1.4) saturate(1.3); }

@@ -1615,6 +1615,14 @@ async function createWindow() {
 
     win.on("close", (event) => {
         if (!runInBackgroundSetting || isQuitting) {
+            // closing for good: the farewell first, then close for real
+            if (wantsFarewell()) {
+                event.preventDefault();
+                isQuitting = true;
+                playFarewell(() => { if (win && !win.isDestroyed()) win.close(); else app.quit(); });
+            } else if (farewellState === "playing") {
+                event.preventDefault();
+            }
             return;
         }
 
@@ -8542,8 +8550,33 @@ ipcMain.handle("refresh-metadata", async () => {
     }
 });
 
-app.on("before-quit", () => {
+// The farewell: when Riftgate quits for good (tray → Quit, "Close
+// Completely", or closing the window with "run in background" off), the
+// window first plays its closing sound and closes in on the rift, then says
+// it's done ("r2-farewell-done"). Never waits more than 2.5 s, never for an
+// update install, and only once.
+let farewellState = "none"; // none -> playing -> done
+let updateInstalling = false;
+function wantsFarewell() {
+    if (farewellState !== "none" || updateInstalling) return false;
+    if (!win || win.isDestroyed() || win.webContents.isCrashed()) return false;
+    return true;
+}
+function playFarewell(then) {
+    farewellState = "playing";
+    let finished = false;
+    const go = () => { if (finished) return; finished = true; farewellState = "done"; clearTimeout(timer); then(); };
+    const timer = setTimeout(go, 2500);
+    ipcMain.once("r2-farewell-done", go);
+    sendToRenderer("r2-farewell");
+}
+
+app.on("before-quit", (event) => {
     isQuitting = true;
+    if (farewellState === "playing") { event.preventDefault(); return; }
+    if (!wantsFarewell()) return;
+    event.preventDefault();
+    playFarewell(() => app.quit());
 });
 
 app.on("window-all-closed", () => {
@@ -8614,6 +8647,7 @@ app.on("activate", () => {
 
 ipcMain.handle("quit-and-install-update", async () => {
     isQuitting = true;
+    updateInstalling = true; // no farewell: the installer takes over at once
     // quitAndInstall(isSilent, isForceRunAfter) — both default to false,
     // which is what was making this feel manual: isSilent=false pops the
     // NSIS installer's own window (the user had to click through it
