@@ -164,63 +164,35 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
             tone("sine", 2600, at, .05, .01, .2, pan(-.4, pre), 6200);
             bell(NOTE(100), at + .12, .03, 1.2, pan(.4, pre));
         },
-        // lightning, game-style electricity: a hard ZAP the instant the bolt appears,
-        // then a distorted mains BZZZT that stutters on and off with crackling arcs
+        // lightning: a real electric arc, the way games do it. A sharp broadband
+        // crack, then mains-rate (60 Hz) bursts of crackling noise, bright and
+        // stuttering, like a cable shorting out, with sparks spitting over it
         strike(at, i = 0) {
-            const big = i === 0 ? 1 : i === 3 ? .9 : .7;
+            const big = i === 0 ? 1 : i === 3 ? .9 : .72;
             const side = [0, .55, -.5, .3, -.25][i % 5];
-            const dest = pan(side, pre);
-            const dur = .45 + .35 * big;
-            // the zap: a square wave diving from a shriek to a growl, overdriven
-            const zap = ac.createOscillator(); zap.type = "square";
-            zap.frequency.setValueAtTime(2400 + Math.random() * 600, at);
-            zap.frequency.exponentialRampToValueAtTime(70, at + .14);
-            const zg = gain(0, dest); env(zg.gain, at, .32 * big, .001, .16);
-            zap.connect(drive(18)).connect(zg); zap.start(at); zap.stop(at + .2);
-            // the BZZZT: mains-hum saws, clipped hard, stuttering like a shorting cable
-            const hum = drive(60), bp = filter("bandpass", 1100, .6), gate = ac.createGain();
-            hum.connect(bp); bp.connect(gate); gate.connect(dest); gate.connect(verbIn);
-            gate.gain.setValueAtTime(0, at);
-            for (let t = at + .01; t < at + dur;) {
-                const on = .015 + Math.random() * .05, off = Math.random() < .35 ? .01 + Math.random() * .04 : 0;
-                const fade = 1 - (t - at) / dur;
-                gate.gain.setValueAtTime((.22 + Math.random() * .2) * big * (.35 + .65 * fade), t);
-                if (off) gate.gain.setValueAtTime(0, t + on);
-                t += on + off;
-            }
-            gate.gain.setValueAtTime(0, at + dur);
-            [[55, "sawtooth"], [110.7, "sawtooth"], [166, "square"]].forEach(([f, type]) => {
-                const o = ac.createOscillator(); o.type = type;
-                o.frequency.setValueCurveAtTime(new Float32Array(40).map(() => f * (.9 + Math.random() * .25)), at, dur);
-                o.connect(hum); o.start(at); o.stop(at + dur + .02);
-            });
-            // the crackle: a storm of tiny arcs, densest at the start
-            for (let k = 0; k < 26 * big; k++) {
-                const t = at + Math.pow(Math.random(), 1.8) * dur;
-                const n = noiseSrc(t, .012), f = filter("bandpass", 2500 + Math.random() * 6000, 2), g = gain(0, pan(side + (Math.random() - .5) * .6, pre));
-                env(g.gain, t, (.12 + Math.random() * .2) * big, .0008, .004 + Math.random() * .012);
-                n.connect(f); f.connect(g);
-            }
+            const dur = .5 + .35 * big;
+            const src = ac.createBufferSource();
+            src.buffer = electric(dur, { hz: 60, stutter: true, crack: 1, sparks: 70 * big, decay: dur * .55 });
+            const g = gain(.8 * big, null);
+            const sh = shape(1500, 4600, 13000); src.connect(sh.input); sh.output.connect(g); g.connect(pan(side, pre)); g.connect(verbIn);
+            src.start(at);
             // the snap of air underneath, and a short rumble
-            tone("sine", 160, at, .5 * big, .002, .16, dest, 45);
-            const th = noiseSrc(at, 1.6), tlp = filter("lowpass", 240, .7), tg = gain(0, pre);
-            tg.gain.setValueAtTime(0.0001, at + .03); tg.gain.linearRampToValueAtTime(.22 * big, at + .12); tg.gain.exponentialRampToValueAtTime(.0001, at + .5 + .9 * big);
+            tone("sine", 160, at, .45 * big, .002, .14, pan(side, pre), 45);
+            const th = noiseSrc(at, 1.4), tlp = filter("lowpass", 240, .7), tg = gain(0, pre);
+            tg.gain.setValueAtTime(0.0001, at + .03); tg.gain.linearRampToValueAtTime(.16 * big, at + .12); tg.gain.exponentialRampToValueAtTime(.0001, at + .45 + .8 * big);
             th.connect(tlp); tlp.connect(tg); tg.connect(verbIn);
         },
-        // between the strikes the air stays charged: a low arcing hum that spits now and then
+        // between the strikes the air stays charged: an arc that hums at mains
+        // rate, swelling and cutting out, with a high neon-like fizz flickering over it
         arc(at) {
             const len = OPEN_AT - 2.9; // until the rift opens
-            const hum = drive(30), lp = filter("lowpass", 900, .8), g = gain(0, pre);
-            hum.connect(lp); lp.connect(g);
-            g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(.07, at + .25);
-            g.gain.setValueAtTime(.07, at + len - .3); g.gain.exponentialRampToValueAtTime(.0001, at + len);
-            [50, 100.4].forEach((f) => { const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.connect(hum); o.start(at); o.stop(at + len + .05); });
-            for (let k = 0; k < 40; k++) {
-                const t = at + Math.random() * len;
-                const n = noiseSrc(t, .01), f = filter("highpass", 3000), cg = gain(0, pan(Math.random() * 1.4 - .7, pre));
-                env(cg.gain, t, .03 + Math.random() * .06, .0006, .006);
-                n.connect(f); f.connect(cg);
-            }
+            const src = ac.createBufferSource();
+            src.buffer = electric(len, { hz: 60, swell: .7, flicker: true, sparks: 50, level: .55 });
+            const g = gain(0, null);
+            g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(.32, at + .3);
+            g.gain.setValueAtTime(.32, at + len - .35); g.gain.exponentialRampToValueAtTime(.0001, at + len);
+            const sh = shape(2200, 7800, 12500); src.connect(sh.input); sh.output.connect(g); g.connect(pre);
+            src.start(at);
         },
         // the name: alien script scrambling, then a click as each letter settles
         scramble(at) {
@@ -256,6 +228,59 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         }
     };
     function filterTo(type, f, dest) { const b = filter(type, f, 1); b.connect(dest); return b; }
+    // Electricity, built sample by sample: at `hz` (mains rate) the arc fires a
+    // short burst of crackling noise; the bursts swell and cut out (swell),
+    // stutter on and off like a shorting cable (stutter) or flicker like a
+    // failing neon tube (flicker); sparks are single sharp snaps on top, and
+    // `crack` is the opening snap of a strike. Two channels, each its own.
+    function electric(dur, o) {
+        const sr = ac.sampleRate, n = Math.max(1, Math.floor(dur * sr)), buf = ac.createBuffer(2, n, sr);
+        const level = o.level || 1;
+        // on/off pattern shared by both channels
+        const gates = [];
+        for (let t = 0; t < dur;) {
+            const on = o.stutter ? .02 + Math.random() * .07 : o.flicker ? .05 + Math.random() * .3 : dur;
+            const off = o.stutter ? (Math.random() < .4 ? .008 + Math.random() * .035 : 0) : o.flicker ? (Math.random() < .3 ? .01 + Math.random() * .05 : 0) : 0;
+            gates.push([t, t + on, .55 + Math.random() * .45]); t += on + off;
+        }
+        const gateAt = (t) => { for (const [a, b, v] of gates) if (t >= a && t < b) return v; return 0; };
+        const envAt = (t) => {
+            let e = o.decay ? Math.exp(-t / o.decay) : 1;
+            if (o.swell) { const c = (t % o.swell) / o.swell; e *= .3 + .7 * c * c; } // builds up, then snaps off
+            return e * Math.min(1, t / .004);
+        };
+        for (let ch = 0; ch < 2; ch++) {
+            const d = buf.getChannelData(ch);
+            const period = sr / (o.hz || 60);
+            for (let p = 0; p < n; p += period * (1 + (Math.random() - .5) * .04)) {
+                const t = p / sr, amp = envAt(t) * gateAt(t) * (.6 + Math.random() * .4) * level;
+                if (amp < .002) continue;
+                const len = Math.floor(sr * (.002 + Math.random() * .004)), tau = len * .35, i0 = Math.floor(p);
+                for (let j = 0; j < len && i0 + j < n; j++) d[i0 + j] += amp * (Math.random() * 2 - 1) * Math.exp(-j / tau);
+                // the arc's second, weaker discharge in the same cycle (gives the 120 Hz edge)
+                const i1 = i0 + Math.floor(period / 2);
+                for (let j = 0; j < len * .6 && i1 + j < n; j++) d[i1 + j] += amp * .45 * (Math.random() * 2 - 1) * Math.exp(-j / (tau * .6));
+            }
+            for (let k = 0; k < (o.sparks || 0); k++) {
+                const t = Math.pow(Math.random(), o.decay ? 1.6 : 1) * dur, i0 = Math.floor(t * sr);
+                const len = Math.floor(sr * (.0004 + Math.random() * .0018)), amp = (.5 + Math.random() * .9) * (o.decay ? envAt(t) + .2 : .6) * level;
+                for (let j = 0; j < len && i0 + j < n; j++) d[i0 + j] += amp * (Math.random() * 2 - 1) * (1 - j / len);
+            }
+            if (o.crack) {
+                const len = Math.floor(sr * .03);
+                for (let j = 0; j < len && j < n; j++) d[j] += o.crack * (Math.random() * 2 - 1) * Math.exp(-j / (len * .3));
+            }
+            for (let j = 0; j < n; j++) d[j] = Math.max(-1, Math.min(1, d[j])); // a touch of clipping, like a real arc
+        }
+        return buf;
+    }
+    // the tone of electricity: no low end, a hot presence peak, the very top rolled off
+    function shape(hp, peak, lp) {
+        const a = filter("highpass", hp, .7), b = filter("peaking", peak, 1.1), c = filter("lowpass", lp, .7);
+        b.gain.value = 7;
+        a.connect(b); b.connect(c);
+        return { input: a, output: c };
+    }
     // overdrive: a hard-clipping waveshaper (the grit of game electricity)
     function drive(k) {
         const w = ac.createWaveShaper(), n = 1024, c = new Float32Array(n);
