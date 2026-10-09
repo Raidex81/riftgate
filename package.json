@@ -1,7 +1,7 @@
 {
-  "name": "riftgate-2",
-  "version": "2.0.0-alpha.1",
-  "description": "Riftgate 2 - all your worlds, one gateway, reimagined: games, films, series, anime, books, free games and deals in one desktop app.",
+  "name": "riftgate",
+  "version": "2.0.0",
+  "description": "Riftgate - all your worlds, one gateway: games, films, series, anime, books, free games and deals in one desktop app.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -24,8 +24,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.riftgate.app2",
-    "productName": "Riftgate 2",
+    "appId": "com.riftgate.app",
+    "productName": "Riftgate",
     "files": [
       "**/*",
       "!build/icon_preview.png",
@@ -94,7 +94,7 @@
     "publish": {
       "provider": "github",
       "owner": "Raidex81",
-      "repo": "Riftgate2",
+      "repo": "Riftgate",
       "releaseType": "release"
     },
     "win": {
@@ -107,7 +107,7 @@
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Riftgate 2",
+      "shortcutName": "Riftgate",
       "deleteAppDataOnUninstall": false
     },
     "mac": {
@@ -138,5 +138,5 @@
       "sign": false
     }
   },
-  "productName": "Riftgate 2"
+  "productName": "Riftgate"
 }

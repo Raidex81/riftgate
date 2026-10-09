@@ -38,7 +38,7 @@ export default {
         root.append(
             h("div.view-head", null,
                 h("div", null, h("h1", null, "Admin"),
-                    h("p", null, `Signed in as ${account.current().username}, ${role && role.root ? "super admin" : "admin"}. What you do here applies to everyone, in Riftgate 2 and 1.x.`)),
+                    h("p", null, `Signed in as ${account.current().username}, ${role && role.root ? "super admin" : "admin"}. What you do here applies to everyone.`)),
                 h("div.actions", null, lockBtn)),
             tabsEl, body);
 

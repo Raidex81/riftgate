@@ -343,6 +343,6 @@ function adminBox(item) {
         else { armed = 0; clear(removeBtn).append(icon("trash"), "Remove from Riftgate"); if (r) toast(r.error || "That didn't work", "err"); }
     };
     return h("div.detail-section.admin-box", null, h("h3", null, icon("shield"), "Admin"),
-        h("p.muted", null, "Applies to everyone, in Riftgate 2 and Riftgate 1.x."),
+        h("p.muted", null, "Applies to everyone, in every version of Riftgate."),
         h("div.admin-actions", null, matureBtn, removeBtn));
 }

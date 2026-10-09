@@ -220,6 +220,39 @@ if (!app.requestSingleInstanceLock()) {
     app.exit(0);
 }
 
+// Riftgate 2.0 is "Riftgate": it uses the same data folder as Riftgate 1.x,
+// so installing it over 1.x keeps everyone's library, shows, books and
+// settings. Anyone who tried the preview (which ran as "Riftgate 2", with its
+// own folder) brings that newer data along once: the preview's files are
+// copied in, any 1.x file they replace is first saved to a backup folder, and
+// the preview's folder is left as it was.
+(function bringOverPreviewData() {
+    try {
+        const dest = app.getPath("userData");
+        const src = path.join(app.getPath("appData"), "Riftgate 2");
+        const marker = path.join(dest, "r2-preview-merged.json");
+        if (path.resolve(src).toLowerCase() === path.resolve(dest).toLowerCase()) return;
+        if (!fs.existsSync(path.join(src, "r2-data.json")) || fs.existsSync(marker) || fs.existsSync(path.join(dest, "r2-data.json"))) return;
+        fs.mkdirSync(dest, { recursive: true });
+        const backup = path.join(dest, `backup-before-2.0-${new Date().toISOString().slice(0, 10)}`);
+        const skip = /^(Cache|Code Cache|GPUCache|DawnCache|DawnGraphiteCache|DawnWebGPUCache|Local Storage|Session Storage|Network|Shared Dictionary|blob_storage|Crashpad|SingletonLock|SingletonCookie|SingletonSocket|lockfile|Preferences|Local State|logs)$/i;
+        const copied = [];
+        for (const name of fs.readdirSync(src)) {
+            if (skip.test(name)) continue;
+            const from = path.join(src, name), to = path.join(dest, name);
+            if (fs.existsSync(to)) {
+                fs.mkdirSync(backup, { recursive: true });
+                fs.cpSync(to, path.join(backup, name), { recursive: true });
+            }
+            fs.cpSync(from, to, { recursive: true, force: true });
+            copied.push(name);
+        }
+        fs.writeFileSync(marker, JSON.stringify({ at: Date.now(), from: src, copied, backup: fs.existsSync(backup) ? backup : null }));
+    } catch (err) {
+        console.error("[data] bringing over the preview's data failed:", err.message || err);
+    }
+})();
+
 // The window only ever shows Riftgate's own page. Anything that tries to
 // navigate it elsewhere (a stray link, injected markup) is blocked, and
 // new-window requests (target=_blank, window.open — e.g. "Watch on YouTube"
@@ -4087,7 +4120,7 @@ const BOOK_FULL_LIST_KINDS = new Set([
 // retrying on the next attempt, not stay stuck showing that error for a
 // full day after the vendor's own limit has already lifted.
 function fullListCacheFile(kind) {
-    // manga lists were re-filtered in Riftgate 2 (only real manga): fresh caches
+    // manga lists were re-filtered in 2.0 (only real manga): fresh caches
     return /^manga-/.test(kind) ? `cache-full-list-${kind}-v2.json` : `cache-full-list-${kind}.json`;
 }
 

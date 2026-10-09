@@ -3,7 +3,8 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
-    "2.0.0-alpha.1": [
+    "2.0.0": [
+        "Riftgate 2.0, rebuilt from the ground up. It installs over your current Riftgate and keeps your library, shows, books and settings",
         "New look, rebuilt from scratch: a living rift portal, gem-cut cards that glow in your theme's colours, and one design across every section",
         "New: What do you want to do today? Pick a mood (Play, Play free, Watch, Read or Surprise me), narrow it down, and the rift picks the one thing for you, skipping what you've finished",
         "New: Nexus, one page with what matters right now: free games, cinema, new episodes, deals, new series and anime, and what you were in the middle of",
@@ -18,7 +19,7 @@ export const CURRENT_NOTES = {
         "New: Did you know? A fact from the world you're in along the bottom of Riftgate: games, films and series, or books",
         "New: a guided tour on your first start, and a short one whenever something new arrives (Settings replays it)",
         "New: choose the card size, from small to huge, and colour every card by what it is, in Settings",
-        "New: mature titles show only to adults who turn them on, from the date of birth on your Riftgate account, as in Riftgate 1.x",
+        "New: mature titles show only to adults who turn them on, from the date of birth on your Riftgate account, as before",
         "New for admins: the Vault (share files for 1 to 4 hours and links for 7 days) and an Admin section to moderate titles and Vault access",
         "Changed: trailers play large and sharp; free games and deals appear instantly and refresh in the background",
         "Changed: sign in with your Riftgate account; your password is never stored on your PC"
