@@ -239,6 +239,33 @@ async function saveScreenshot() {
     else toast("The screenshot couldn't be saved", "err");
 }
 
+// Every section, one picture each, in the order the README and website use
+// (Pictures\Riftgate): Nexus, Surprise me, Library, Free games, Deals,
+// Theatre, Reading room, Journal, Themes. Any key or click stops it.
+async function screenshotTour() {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    let stopped = false;
+    const stop = () => { stopped = true; };
+    setTimeout(() => { document.addEventListener("keydown", stop, { once: true }); document.addEventListener("pointerdown", stop, { once: true }); }, 600);
+    const shots = [["nexus", 9000], ["today", 4000], ["library", 6000], ["free", 9000], ["deals", 8000], ["theatre", 8000], ["reading", 8000], ["journal", 5000], ["themes", 5000]];
+    let n = 0;
+    toast("Taking a picture of every section. Leave it be for about a minute and a half.", "ok", 4000);
+    await wait(4200);
+    for (const [where, ms] of shots) {
+        if (stopped) break;
+        closeDetail();
+        if (where === "today") { location.hash = "nexus"; await wait(1500); openToday(); }
+        else { location.hash = where; stage.scrollTop = 0; }
+        await wait(ms);
+        if (stopped) break;
+        await saveScreenshot();
+        n++;
+        if (where === "today") document.querySelector(".today-close")?.click();
+    }
+    document.removeEventListener("keydown", stop); document.removeEventListener("pointerdown", stop);
+    toast(stopped ? `Stopped after ${n} pictures` : `Saved ${n} pictures in Pictures › Riftgate`);
+}
+
 // ---- Shortcuts ---------------------------------------------------------------------
 document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); saveScreenshot(); return; }
@@ -266,6 +293,7 @@ setCommands([
     { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") },
     { title: "Take the tour of Riftgate", icon: "compass", run: () => startTour() },
     { title: "Save a screenshot of Riftgate (Ctrl Shift S)", icon: "download", run: () => saveScreenshot() },
+    { title: "Save screenshots of every section (for the README and website)", icon: "grid", run: () => screenshotTour() },
     { title: "Did you know? (turn the facts on or off)", icon: "bulb", run: () => { location.hash = "settings"; } },
     { title: "Change the card size", icon: "resize", run: () => { location.hash = "settings"; } },
     { title: "Open the Vault (admins)", icon: "vault", run: () => { location.hash = "vault"; } },
