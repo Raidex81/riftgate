@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in Riftgate doesn't work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please check the open issues first in case it's already known.
+  - type: input
+    id: version
+    attributes:
+      label: Riftgate version
+      description: Shown in the bottom-right corner of the app (for example v1.7.1)
+      placeholder: v1.7.1
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: System
+      options:
+        - Windows 11
+        - Windows 10
+        - Mac with Apple chip
+        - Mac with Intel chip
+    validations:
+      required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Where in Riftgate?
+      options:
+        - New
+        - Installed
+        - Free Games
+        - Store
+        - Theatre
+        - Reading Room
+        - Applications
+        - Settings / Options
+        - Install or update
+        - Somewhere else
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Free Games
+        2. Click ...
+        3. See ...
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here if they help show the problem.

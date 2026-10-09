@@ -1,0 +1,23 @@
+name: Feature idea
+description: Suggest something new or a better way to do something
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Riftgate to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: The situation where you'd use it.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to build it yourself?
+      options:
+        - No, just suggesting
+        - Yes, I'd like to send a pull request
+        - Maybe, with some guidance
