@@ -1556,7 +1556,9 @@ async function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             sandbox: true,
-            preload: path.join(__dirname, "preload.js")
+            preload: path.join(__dirname, "preload.js"),
+            // the opening's sound plays as Riftgate starts, before any click
+            autoplayPolicy: "no-user-gesture-required"
         }
     });
 
@@ -1822,6 +1824,9 @@ ipcMain.handle("search-tv-shows", async (event, query) => {
             name: r.show.name,
             image: r.show.image ? r.show.image.medium : null,
             premiered: r.show.premiered,
+            network: (r.show.network && r.show.network.name) || (r.show.webChannel && r.show.webChannel.name) || null,
+            status: r.show.status || null,
+            genres: Array.isArray(r.show.genres) ? r.show.genres.slice(0, 3) : [],
             isMature: textContainsMatureKeyword(r.show.name)
                 || textContainsMatureKeyword(r.show.summary)
                 || (Array.isArray(r.show.genres) && r.show.genres.some((g) => textContainsMatureKeyword(g)))

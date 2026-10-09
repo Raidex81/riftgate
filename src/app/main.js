@@ -36,6 +36,7 @@ import * as gate from "./mature.js";
 import { applyLook } from "./look.js";
 import { mountFacts, follow as factsFollow } from "../components/facts.js";
 import { maybeTour, startTour } from "../components/tour.js";
+import { openAddShow } from "../components/add-show.js";
 
 setDetailOpener(openDetail);
 
@@ -291,6 +292,7 @@ setCommands([
     { title: "Create a theme", icon: "plus", run: () => { location.hash = "themes/studio"; } },
     { title: "Community themes", icon: "globe", run: () => { location.hash = "themes/community"; } },
     { title: "Sign in or create a Riftgate account", icon: "gem", run: () => openAccount("in") },
+    { title: "Add a show to My shows (search any series)", icon: "tv", run: () => openAddShow() },
     { title: "Take the tour of Riftgate", icon: "compass", run: () => startTour() },
     { title: "Save a screenshot of Riftgate (Ctrl Shift S)", icon: "download", run: () => saveScreenshot() },
     { title: "Save screenshots of every section (for the README and website)", icon: "grid", run: () => screenshotTour() },
@@ -312,7 +314,7 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     applyLook(); // card size and type colours
     const firstStart = !interests.chosen();
     // the opening plays in the theme's colours while everything loads underneath
-    appSettings().then((s) => playIntro({ enabled: s.startupAnimation !== false }));
+    appSettings().then((s) => playIntro({ enabled: s.startupAnimation !== false, sound: s.startupSound !== false }));
     account.restore();
     // the age gate and admin status; admins get their sections in the rail
     let wasAdmin = false, sawMature = false;

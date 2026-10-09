@@ -194,3 +194,11 @@ export function newFreeGames(list) {
     const cut = Math.max(Date.now() - 7 * 86400000, isFinite(first) ? first + 3600e3 : 0);
     return list.filter((g) => !g.alwaysFree && !CURATED_ONLY.has(g.source) && (g.firstSeenAt || 0) > cut);
 }
+
+// My shows changed (a show added or removed): reload it and its new
+// episodes, and let every row showing them repaint
+export async function watchlistChanged() {
+    forget("get-watchlist"); forget("get-latest-episodes");
+    await Promise.all([watchlist({ fresh: true }), latestEpisodes({ fresh: true })]).catch(() => {});
+    emit("watchlist");
+}

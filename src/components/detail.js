@@ -1,6 +1,7 @@
 // Riftgate — the detail panel. Opens for any item; shows the art, the
 // trailer, what you can do with it here, and the Journal controls.
 
+import * as D from "../app/data.js";
 import { h, icon, art, clear, coverSrc } from "../app/dom.js";
 import { openTickets, ticketsHint } from "../app/regions.js";
 import * as seen from "../app/seen.js";
@@ -180,21 +181,28 @@ function nextEpisodeBox(item) {
 
 function trackButton(item) {
     const b = h("button.btn.primary.lg", { type: "button" }, icon("plus"), "Track this show");
+    let showId = null;
+    const paint = () => { b.classList.toggle("primary", !showId); clear(b).append(icon(showId ? "check" : "plus"), showId ? "In My shows" : "Track this show"); b.title = showId ? "Click to stop following it" : "Add it to My shows: its new episodes show up in Nexus"; };
     cached("get-watchlist").then((list) => {
-        if ((list || []).some((s) => s.name && s.name.toLowerCase() === item.title.toLowerCase())) {
-            b.classList.remove("primary"); clear(b).append(icon("check"), "Tracking");
-            b.disabled = true;
-        }
+        const s = (list || []).find((x) => (item.tvmazeId && x.id === item.tvmazeId) || (x.name && x.name.toLowerCase() === item.title.toLowerCase()));
+        if (s) { showId = s.id; paint(); }
     });
     b.onclick = async () => {
         b.disabled = true;
-        const found = await call("search-tv-shows", item.title);
-        const show = (found || [])[0];
-        if (!show) { toast(`Couldn't find ${item.title} on TVMaze.`, "err"); b.disabled = false; return; }
-        await call("add-to-watchlist", { id: show.id, name: show.name, image: show.image, premiered: show.premiered });
-        forget("get-watchlist"); forget("get-latest-episodes");
-        b.classList.remove("primary"); clear(b).append(icon("check"), "Tracking");
-        toast(`Tracking ${show.name}: new episodes will show in Nexus`);
+        if (showId) {
+            await call("remove-from-watchlist", showId);
+            toast(`${item.title} is no longer in My shows`);
+            showId = null;
+        } else {
+            const found = item.tvmazeId ? [{ id: item.tvmazeId, name: item.title, image: item.image, premiered: item.date }] : await call("search-tv-shows", item.title);
+            const show = (found || [])[0];
+            if (!show) { toast(`Couldn't find ${item.title} on TVMaze. Try Add a show in the Theatre.`, "err"); b.disabled = false; return; }
+            await call("add-to-watchlist", { id: show.id, name: show.name, image: show.image, premiered: show.premiered });
+            toast(`${show.name} is in My shows: new episodes will show up in Nexus`);
+            showId = show.id;
+        }
+        b.disabled = false; paint();
+        D.watchlistChanged();
     };
     return b;
 }

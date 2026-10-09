@@ -3,6 +3,12 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.1": [
+        "New: the opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)",
+        "New: Add a show. Search any series or anime, even one Riftgate doesn't list, and add it to My shows (Theatre → My shows → Add a show, or Ctrl K). Its new episodes show up in Nexus",
+        "Changed: \"Your shows\" is now My shows, and a show's Track button takes it out again",
+        "Fixed: the taskbar icon is blue too, like the app's icon"
+    ],
     "2.0.0": [
         "Riftgate 2.0, rebuilt from the ground up. It installs over your current Riftgate and keeps your library, shows, books and settings",
         "New look, rebuilt from scratch: a living rift portal, gem-cut cards that glow in your theme's colours, and one design across every section",

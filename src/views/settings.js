@@ -79,17 +79,21 @@ export default {
                 h("button.btn", { type: "button", onclick: () => { location.hash = "themes"; } }, icon("sparkles"), "Open Themes"))));
 
         // The opening (same setting as Riftgate 1.x)
-        const introSel = h("select.input", { "aria-label": "Opening animation" }, h("option", { value: "on" }, "Play it"), h("option", { value: "off" }, "Skip it"));
-        introSel.value = s.startupAnimation === false ? "off" : "on";
-        introSel.addEventListener("change", async () => { await saveSettings({ startupAnimation: introSel.value === "on" }); toast(introSel.value === "on" ? "The opening plays next time Riftgate starts" : "Riftgate opens straight onto Nexus"); });
+        const introSel = h("select.input", { "aria-label": "Opening animation" },
+            h("option", { value: "sound" }, "Play it with sound"), h("option", { value: "silent" }, "Play it silently"), h("option", { value: "off" }, "Skip it"));
+        introSel.value = s.startupAnimation === false ? "off" : s.startupSound === false ? "silent" : "sound";
+        introSel.addEventListener("change", async () => {
+            await saveSettings({ startupAnimation: introSel.value !== "off", startupSound: introSel.value === "sound" });
+            toast(introSel.value === "off" ? "Riftgate opens straight onto Nexus" : `The opening plays ${introSel.value === "sound" ? "with sound" : "silently"} next time Riftgate starts`);
+        });
         const preview = h("button.btn", { type: "button", onclick: async () => {
             const el = document.createElement("div"); el.id = "intro"; el.className = "intro"; el.setAttribute("aria-hidden", "true"); el.appendChild(document.createElement("canvas"));
             document.body.appendChild(el);
             try { sessionStorage.removeItem("r2-intro"); } catch (e) { /* ignore */ }
             const { playIntro } = await import("../components/intro.js?again=" + Date.now());
-            playIntro({ enabled: true });
+            playIntro({ enabled: true, sound: introSel.value !== "silent" });
         } }, icon("play"), "Watch it now");
-        box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts (5 seconds; any click or key skips it). Only on a real start, never on a reload.",
+        box.appendChild(setting("Opening animation", "The rift opening as Riftgate starts, with its own sound: the tear, the gem, the lightning (5 seconds; any click or key skips it). Only on a real start, never on a reload.",
             h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview)));
 
         // Cards: size, and colour by kind

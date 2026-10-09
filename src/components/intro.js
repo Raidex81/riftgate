@@ -10,6 +10,7 @@
 // loads underneath.
 
 import { Rift } from "./rift.js";
+import { createIntroSound } from "./intro-sound.js";
 
 const LENGTH = 5.5, FADE = 0.55;
 const TAU = Math.PI * 2;
@@ -31,7 +32,7 @@ const SCRIPT = "ᚱᛁᚠᛏᚷᚨᛖᛟᛞᚹᛉᛜ⟁⌖◇⟐⧫";
 let resolveDone;
 export const done = new Promise((r) => { resolveDone = r; });
 
-export function playIntro({ enabled = true } = {}) {
+export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     const el = document.getElementById("intro");
     const finish = () => { if (el) el.remove(); document.documentElement.classList.remove("intro-on"); resolveDone(); };
     let played = false;
@@ -69,6 +70,17 @@ export function playIntro({ enabled = true } = {}) {
     let nextStrike = 0, flash = 0;
     const letters = "RIFTGATE".split("").map((ch, i) => ({ ch, settle: 3.75 + i * .085 }));
 
+    // The sound (intro-sound.js): each cue fires on the frame that reaches it,
+    // and each bolt's crack on the very frame the bolt appears
+    let sound = null, cueAt = 0, cueList = [];
+    if (withSound) {
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            sound = createIntroSound(new AC({ latencyHint: "interactive" }));
+            cueList = sound.TIMELINE.filter(([, name]) => name !== "strike");
+        } catch (e) { sound = null; }
+    }
+
     let skipAt = null;
     const skip = () => { if (skipAt === null) skipAt = now(); };
     const t0 = performance.now();
@@ -86,7 +98,11 @@ export function playIntro({ enabled = true } = {}) {
 
     function frame() {
         let t = now() + shift;
-        if (skipAt !== null && t < OPEN) { shift += OPEN - t; t = OPEN; skipAt = Infinity; }
+        if (skipAt !== null && t < OPEN) {
+            shift += OPEN - t; t = OPEN; skipAt = Infinity;
+            if (sound) { sound.hush(); while (cueAt < cueList.length && cueList[cueAt][0] < OPEN) cueAt++; }
+        }
+        if (sound) while (cueAt < cueList.length && t >= cueList[cueAt][0]) { const [, name, arg] = cueList[cueAt++]; sound.cue(name, arg); }
         const dt = Math.min(.05, Math.max(0, t - last)); last = t;
         draw(t, dt);
         // the canvas paints the dark itself from now on, so the opening rift can show the app through it
@@ -99,6 +115,7 @@ export function playIntro({ enabled = true } = {}) {
         clearInterval(padTimer);
         window.removeEventListener("resize", size);
         setTimeout(() => { rift.destroy(); finish(); }, FADE * 1000);
+        if (sound) sound.close();
     }
 
     function draw(t, dt) {
@@ -296,6 +313,7 @@ export function playIntro({ enabled = true } = {}) {
         while (nextStrike < strikesAt.length && t >= strikesAt[nextStrike]) {
             const bo = rift.bolt(nextStrike === 1 ? bolts[0] && bolts[0].ang + Math.PI : null);
             bolts.push(bo);
+            if (sound) sound.cue("strike", nextStrike);
             if (nextStrike === 0) flash = 1;
             nextStrike++;
         }

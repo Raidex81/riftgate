@@ -545,3 +545,23 @@ p.vault-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--dust)
 .admin-add { display: flex; gap: var(--s2); max-width: 420px; }
 .admin-add .input { flex: 1; }
 .vault-item > .grow { flex: 1; min-width: 0; }
+
+/* ---- Add a show to My shows -------------------------------------------------- */
+.addshow-box { width: min(680px, 94vw); align-content: start; min-height: 60vh; }
+.addshow-search { display: flex; align-items: center; gap: var(--s2); position: relative; }
+.addshow-search svg { position: absolute; z-index: 1; left: 12px; width: 18px; height: 18px; color: var(--dust); pointer-events: none; }
+.addshow-input { width: 100%; height: 46px; padding-left: 40px; font-size: var(--t-md); }
+.addshow-status:empty { display: none; }
+.addshow-list { display: grid; gap: 6px; }
+.addshow-row { display: flex; align-items: center; gap: var(--s3); padding: 6px var(--s3) 6px 6px; background: var(--nebula-2); border: 1px solid var(--line);
+    clip-path: polygon(var(--cut-sm) 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%, 0 var(--cut-sm)); }
+.addshow-row:hover { border-color: var(--line-strong); }
+.addshow-art { width: 44px; height: 62px; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--nebula-3); color: var(--dust); }
+.addshow-art img { width: 100%; height: 100%; object-fit: cover; }
+.addshow-art svg { width: 20px; height: 20px; }
+.addshow-row .grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.addshow-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addshow-row small { color: var(--dust); font-size: var(--t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addshow-row .btn { height: 34px; padding: 0 var(--s4); flex: none; }
+.addshow-row .btn.following { color: var(--st-progress); }
+.addshow-row .btn.following:hover { color: var(--st-dropped); }

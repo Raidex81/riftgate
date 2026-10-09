@@ -2,6 +2,7 @@
 // episodes, new series and anime, and what's popular on each streaming
 // service in your region.
 
+import { openAddShow } from "../components/add-show.js";
 import * as gate from "../app/mature.js";
 import { h, icon, coverSrc, clear } from "../app/dom.js";
 import { cached, country } from "../app/api.js";
@@ -93,8 +94,10 @@ export default {
         const W = interests.wants;
         const rows = shelf("theatre", [
             row({ title: "In cinemas", icon: "film", items: D.inCinemas().then(noMature), full: { kind: "now-playing" } }),
-            row({ title: "New episodes of your shows", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), empty: "Track a show (open any series → Track this show) and its new episodes land here." }),
-            row({ title: "Your shows", icon: "journal", items: D.watchlist(), hideEmpty: true }),
+            row({ title: "New episodes of your shows", icon: "tv", items: () => Promise.all([D.latestEpisodes(), seen.load()]).then(([l]) => seen.unwatchedFirst(l)), empty: "Follow a show (Add a show, below, or open any series → Track this show) and its new episodes land here." }),
+            row({ title: "My shows", id: "your-shows", icon: "journal", items: () => D.watchlist(),
+                empty: "Follow any series or anime: Add a show finds it, even if Riftgate doesn't list it.",
+                tools: h("button.btn.sm", { type: "button", title: "Search any series and add it to My shows", onclick: () => openAddShow() }, icon("plus"), "Add a show") }),
             row({ title: "Coming to cinemas", icon: "calendar", full: { kind: "upcoming-movies" },
                 items: D.upcomingFilms().then((l) => noMature(l).map((m) => ({ ...m, sub: m.date ? until(m.date) : m.sub }))) }),
             row({ title: "New series", icon: "tv", items: D.newSeries().then(noMature), full: { kind: "new-series" }, enhance: D.withProviders }),
