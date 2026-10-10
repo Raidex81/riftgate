@@ -253,13 +253,14 @@ export class Rift {
         return pts;
     }
 
-    bolt(origin) {
+    // edge: where the bolt leaves the gem, as a fraction of R (default just inside its edge)
+    bolt(origin, edge = .58) {
         const R = this.R;
         const ang = origin != null ? origin + (Math.random() - .5) * .5 : Math.random() * TAU;
         const len = R * (2.1 + Math.random() * 2.3);
         const bend = (Math.random() - .5) * .9;
         // starts just inside the gem's edge, so the strike comes out of the logo
-        const x1 = Math.cos(ang) * R * .58, y1 = Math.sin(ang) * R * .58;
+        const x1 = Math.cos(ang) * R * edge, y1 = Math.sin(ang) * R * edge;
         const x2 = Math.cos(ang + bend) * (R + len), y2 = Math.sin(ang + bend) * (R + len);
         const main = Rift.channel(x1, y1, x2, y2, .18, 7);
         // Dendritic branches, like real lightning: each channel sprouts

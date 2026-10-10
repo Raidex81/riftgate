@@ -280,6 +280,25 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
             ctx.restore();
         });
 
+        // ---- lightning from the gem (3.0 - 4.6 s): each bolt leaves from the
+        // gem's edge and is drawn under the gem, so it never crosses its face
+        rift.ctx = ctx; rift.R = R;
+        while (nextStrike < strikesAt.length && t >= strikesAt[nextStrike]) {
+            const bo = rift.bolt(nextStrike === 1 ? bolts[0] && bolts[0].ang + Math.PI : null, .74);
+            bolts.push(bo);
+            if (sound) sound.cue("strike", nextStrike);
+            if (nextStrike === 0) flash = 1;
+            nextStrike++;
+        }
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 1 - openK;
+        for (let i = bolts.length - 1; i >= 0; i--) {
+            const bo = bolts[i];
+            if (bo.age >= bo.max) { bolts.splice(i, 1); continue; }
+            rift.drawBolt(bo, dt * 1000);
+        }
+        ctx.globalAlpha = 1;
+
         // ---- the gem rises out of the tear (2.25 - 3.0 s), glints, breathes
         const gemIn = seg(t, 2.25, 3.0, ease.back);
         if (gemIn > 0) {
@@ -309,22 +328,6 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
             }
         }
 
-        // ---- lightning from the gem (3.0 - 4.6 s)
-        rift.ctx = ctx; rift.R = R;
-        while (nextStrike < strikesAt.length && t >= strikesAt[nextStrike]) {
-            const bo = rift.bolt(nextStrike === 1 ? bolts[0] && bolts[0].ang + Math.PI : null);
-            bolts.push(bo);
-            if (sound) sound.cue("strike", nextStrike);
-            if (nextStrike === 0) flash = 1;
-            nextStrike++;
-        }
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = 1 - openK;
-        for (let i = bolts.length - 1; i >= 0; i--) {
-            const bo = bolts[i];
-            if (bo.age >= bo.max) { bolts.splice(i, 1); continue; }
-            rift.drawBolt(bo, dt * 1000);
-        }
         ctx.globalAlpha = 1;
         ctx.restore();
 
