@@ -4375,7 +4375,9 @@ ipcMain.handle("set-tv-mode", (event, on) => {
 // share one request.
 // v2: lists saved by the old Overpass-only lookup are dropped — a busy
 // server could leave a city saved as "no cinemas" for a day.
-const CINEMAS_CACHE_FILE = "cache-cinemas-v2.json";
+// v3: a chain's website is only used in the countries where it runs cinemas
+// (cinepolis.com, Cinépolis's Mexican site, blocks visitors from Portugal).
+const CINEMAS_CACHE_FILE = "cache-cinemas-v3.json";
 const CINEMAS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const CINEMAS_EMPTY_TTL_MS = 24 * 60 * 60 * 1000;
 const cinemasInFlight = new Map();

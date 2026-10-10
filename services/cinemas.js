@@ -28,37 +28,39 @@ const RETRY_PAUSE_MS = 2500;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Official sites of the big chains. `match` is compared (lower-case,
-// accents removed) against the cinema's brand, operator and name; a
-// per-country `urls` entry wins over the chain's default `url`.
+// accents removed) against the cinema's brand, operator and name. `in` lists
+// the countries where the chain runs cinemas: a per-country `urls` entry wins
+// over the default `url`, and outside those countries the chain's site isn't
+// used at all (a chain's site for one country often blocks visitors from
+// another, so a search for that cinema is the better link).
 const CINEMA_CHAINS = [
-    { match: ["cinemas nos", "cinema nos", "nos cinemas"], url: "https://www.cinemas.nos.pt/" },
-    { match: ["castello lopes"], url: "https://castellolopescinemas.pt/" },
-    { match: ["cineplace"], url: "https://cineplace.pt/cinemas/" },
-    { match: ["uci"], url: "https://www.ucicinemas.pt/", urls: { IT: "https://www.ucicinemas.it/", DE: "https://www.uci-kinowelt.de/" } },
-    { match: ["cinema city"], url: "https://www.cinemacity.pt/", urls: { PL: "https://www.cinema-city.pl/", CZ: "https://www.cinemacity.cz/", HU: "https://www.cinemacity.hu/", RO: "https://www.cinemacity.ro/", IL: "https://www.cinema-city.co.il/" } },
-    { match: ["amc"], url: "https://www.amctheatres.com/" },
-    { match: ["regal"], url: "https://www.regmovies.com/" },
-    { match: ["cinemark"], url: "https://www.cinemark.com/" },
-    { match: ["odeon"], url: "https://www.odeon.co.uk/" },
-    { match: ["vue"], url: "https://www.myvue.com/" },
-    { match: ["cineworld"], url: "https://www.cineworld.co.uk/" },
-    { match: ["everyman"], url: "https://www.everymancinema.com/" },
-    { match: ["picturehouse"], url: "https://www.picturehouses.com/" },
-    { match: ["pathe"], url: "https://www.pathe.fr/", urls: { NL: "https://www.pathe.nl/", CH: "https://www.pathe.ch/" } },
-    { match: ["ugc"], url: "https://www.ugc.fr/" },
-    { match: ["cgr"], url: "https://www.cgrcinemas.fr/" },
-    { match: ["kinepolis"], url: "https://kinepolis.be/", urls: { FR: "https://kinepolis.fr/", ES: "https://kinepolis.es/", NL: "https://kinepolis.nl/", DE: "https://kinepolis.de/", LU: "https://kinepolis.lu/" } },
-    { match: ["cinesa"], url: "https://www.cinesa.es/" },
-    { match: ["yelmo"], url: "https://www.yelmocines.es/" },
-    { match: ["cinestar"], url: "https://www.cinestar.de/" },
-    { match: ["cinemaxx"], url: "https://www.cinemaxx.de/" },
-    { match: ["cineplex"], url: "https://www.cineplex.com/" },
-    { match: ["hoyts"], url: "https://www.hoyts.com.au/" },
-    { match: ["event cinemas"], url: "https://www.eventcinemas.com.au/" },
-    { match: ["cinepolis"], url: "https://cinepolis.com/" },
-    { match: ["cinemex"], url: "https://cinemex.com/" }
+    { match: ["cinemas nos", "cinema nos", "nos cinemas"], in: ["PT"], url: "https://www.cinemas.nos.pt/" },
+    { match: ["castello lopes"], in: ["PT"], url: "https://castellolopescinemas.pt/" },
+    { match: ["cineplace"], in: ["PT"], url: "https://cineplace.pt/cinemas/" },
+    { match: ["uci"], in: ["PT", "IT", "DE"], url: "https://www.ucicinemas.pt/", urls: { IT: "https://www.ucicinemas.it/", DE: "https://www.uci-kinowelt.de/" } },
+    { match: ["cinema city"], in: ["PT", "PL", "CZ", "HU", "RO", "IL"], url: "https://www.cinemacity.pt/", urls: { PL: "https://www.cinema-city.pl/", CZ: "https://www.cinemacity.cz/", HU: "https://www.cinemacity.hu/", RO: "https://www.cinemacity.ro/", IL: "https://www.cinema-city.co.il/" } },
+    { match: ["amc"], in: ["US"], url: "https://www.amctheatres.com/" },
+    { match: ["regal"], in: ["US"], url: "https://www.regmovies.com/" },
+    { match: ["cinemark"], in: ["US"], url: "https://www.cinemark.com/" },
+    { match: ["odeon"], in: ["GB"], url: "https://www.odeon.co.uk/" },
+    { match: ["vue"], in: ["GB"], url: "https://www.myvue.com/" },
+    { match: ["cineworld"], in: ["GB"], url: "https://www.cineworld.co.uk/" },
+    { match: ["everyman"], in: ["GB"], url: "https://www.everymancinema.com/" },
+    { match: ["picturehouse"], in: ["GB"], url: "https://www.picturehouses.com/" },
+    { match: ["pathe"], in: ["FR", "NL", "CH"], url: "https://www.pathe.fr/", urls: { NL: "https://www.pathe.nl/", CH: "https://www.pathe.ch/" } },
+    { match: ["ugc"], in: ["FR"], url: "https://www.ugc.fr/" },
+    { match: ["cgr"], in: ["FR"], url: "https://www.cgrcinemas.fr/" },
+    { match: ["kinepolis"], in: ["BE", "FR", "ES", "NL", "DE", "LU"], url: "https://kinepolis.be/", urls: { FR: "https://kinepolis.fr/", ES: "https://kinepolis.es/", NL: "https://kinepolis.nl/", DE: "https://kinepolis.de/", LU: "https://kinepolis.lu/" } },
+    { match: ["cinesa"], in: ["ES"], url: "https://www.cinesa.es/" },
+    { match: ["yelmo"], in: ["ES"], url: "https://www.yelmocines.es/" },
+    { match: ["cinestar"], in: ["DE"], url: "https://www.cinestar.de/" },
+    { match: ["cinemaxx"], in: ["DE"], url: "https://www.cinemaxx.de/" },
+    { match: ["cineplex"], in: ["CA"], url: "https://www.cineplex.com/" },
+    { match: ["hoyts"], in: ["AU"], url: "https://www.hoyts.com.au/" },
+    { match: ["event cinemas"], in: ["AU"], url: "https://www.eventcinemas.com.au/" },
+    { match: ["cinepolis"], in: ["MX", "US", "BR", "IN"], url: "https://cinepolis.com/", urls: { US: "https://www.cinepolisusa.com/", BR: "https://www.cinepolis.com.br/", IN: "https://www.cinepolisindia.com/" } },
+    { match: ["cinemex"], in: ["MX"], url: "https://cinemex.com/" }
 ];
-
 function plain(text) {
     return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -75,7 +77,21 @@ function findChain(tags) {
 }
 
 function chainWebsite(chain, countryCode) {
-    return chain ? (chain.urls && chain.urls[countryCode]) || chain.url : null;
+    if (!chain || (chain.in && !chain.in.includes(countryCode))) return null;
+    return (chain.urls && chain.urls[countryCode]) || chain.url;
+}
+
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; } };
+// A website mapped on a cinema that is just a chain's site for another
+// country (cinepolis.com on a cinema outside Mexico, say) is swapped for the
+// chain's site here, or dropped when the chain has none here.
+function ownWebsiteFor(own, countryCode) {
+    if (!own) return null;
+    const host = hostOf(own);
+    const chain = CINEMA_CHAINS.find((c) => c.in && hostOf(c.url) === host);
+    if (!chain) return own;
+    const here = chainWebsite(chain, countryCode);
+    return here && hostOf(here) !== host ? here : here ? own : null;
 }
 
 // "Cinema NOS" or "UCI Cinemas" says only the chain; "Cinema NOS Alvaláxia"
@@ -274,7 +290,7 @@ async function fetchCinemas(countryCode, city, appVersion) {
         if (!name) continue;
         const { lat, lon } = position(el);
         const located = Number.isFinite(lat) && Number.isFinite(lon);
-        const own = cleanWebsite(tags.website || tags["contact:website"] || tags.url);
+        const own = ownWebsiteFor(cleanWebsite(tags.website || tags["contact:website"] || tags.url), countryCode);
         const chainInfo = findChain(tags);
         const chain = own ? null : chainWebsite(chainInfo, countryCode);
         cinemas.push({
@@ -320,4 +336,4 @@ async function fetchCinemas(countryCode, city, appVersion) {
     return unique;
 }
 
-module.exports = { fetchCinemas, CINEMA_CHAINS };
+module.exports = { fetchCinemas, CINEMA_CHAINS, chainWebsite, ownWebsiteFor };

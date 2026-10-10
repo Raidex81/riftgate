@@ -11,6 +11,7 @@ export const CURRENT_NOTES = {
         "New: Riftgate says goodbye. When it closes for good, a soft, calm chord fades out as the app closes in on a point of light (Settings → Opening animation → Sound when Riftgate closes)",
         "New: click the gem in Nexus and it strikes, with the opening's lightning",
         "Changed: Find tickets opens a cinema's own website: the cinema you picked in the Theatre, or else the closest cinema to your city that has a website. It only searches Google when no cinema around has one",
+        "Fixed: a cinema chain's website is only used in the countries where the chain has cinemas, so Find tickets no longer opens a foreign site that blocks you (like Cinépolis's in Portugal)",
         "Fixed: the taskbar icon is blue too, like the app's icon"
     ],
     "2.0.0": [

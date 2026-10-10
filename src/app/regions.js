@@ -39,7 +39,13 @@ export function cinemasNear(cc, refresh = false) {
     const key = cityKey(cc);
     return call("get-cinemas", { countryCode: cc, city: city(), refresh }).then((r) => {
         r = r || { cinemas: [], error: "Couldn't load cinemas." };
-        if (Array.isArray(r.cinemas)) near = { key, list: r.cinemas };
+        if (Array.isArray(r.cinemas)) {
+            near = { key, list: r.cinemas };
+            // a cinema you picked earlier follows its fresh entry (a website
+            // that changed or turned out wrong is updated, not kept forever)
+            const mine = cinema(cc), now = mine && r.cinemas.find((c) => c.id === mine.id);
+            if (now && (now.url || null) !== (mine.url || null)) setCinema(cc, { ...mine, url: now.url || null });
+        }
         return r;
     });
 }
@@ -59,11 +65,12 @@ const siteOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); 
 export async function openTickets(title) {
     await ready;
     const cc = await country();
+    // the engine keeps each city's list two weeks, so this is instant after the first time
+    const r = city() ? await cinemasNear(cc) : { cinemas: [] };
     const c = cinema(cc);
     if (c && c.url) { openExternal(c.url); return; }
     if (!c && city()) {
-        let n = nearestWithSite(cc);
-        if (!n) { const r = await cinemasNear(cc); n = withSite(r.cinemas)[0] || null; }
+        const n = withSite(r.cinemas)[0] || null;
         if (n) {
             openExternal(n.url);
             import("../components/toast.js").then(({ toast }) => toast(`Opening ${n.label || n.name}, the closest cinema with a website. Pick your own cinema in the Theatre.`)).catch(() => {});
