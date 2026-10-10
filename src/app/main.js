@@ -9,7 +9,7 @@ import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
 import { openPalette, setCommands } from "../components/palette.js";
 import { openRoll } from "../components/roll.js";
-import { openToday, MOODS } from "../components/today.js";
+import { openToday, openAsk, MOODS } from "../components/today.js";
 import { toast } from "../components/toast.js";
 import * as interests from "./interests.js";
 import * as theme from "./theme.js";
@@ -283,6 +283,7 @@ setCommands([
     ...ALL.filter((v) => !v.admin).map((v) => ({ title: `Go to ${v.label}`, icon: v.icon, run: () => { location.hash = v.id; } })),
     { title: "What do you want to do today? (Surprise me)", icon: "dice", run: () => openToday() },
     ...MOODS.filter((m) => m.id !== "any").map((m) => ({ title: `Surprise me: ${m.label.toLowerCase()} (${m.hint.toLowerCase()})`, icon: m.icon, run: () => openToday(m.id) })),
+    { title: "Ask the Rift: tell it what you feel like", icon: "sparkles", run: () => openAsk({ free: "free", theatre: "watch", reading: "read", library: "play" }[location.hash.slice(1)] || null) },
     { title: "Random pick from this section", icon: "rift", run: rollHere },
     { title: "Make Riftgate yours (your interests)", icon: "heart", run: () => interests.openInterests() },
     { title: "What's new in Riftgate", icon: "bell", run: () => openWhatsNew() },

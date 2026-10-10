@@ -5,6 +5,8 @@ import { HISTORY } from "./changelog-history.js";
 export const CURRENT_NOTES = {
     "2.0.1": [
         "New: the opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)",
+        "New: Ask the Rift. Tell it what you feel like in your own words (\"a co-op shooter for friends, no horror\", \"something funny and short\", \"a cosy fantasy book\", \"a game like Team Fortress 2\") and it picks three, ranked by real reviews and ratings, and says why. It's in Surprise me and in Free games, the Theatre, the Reading room and the Library. It runs on your computer: free, and nothing you type leaves Riftgate",
+        "Changed: Find tickets only shows for films in cinemas now. A film from a streaming row has Watch on Netflix, YouTube, Prime Video… and opens it there",
         "New: Add a show. Search any series or anime, even one Riftgate doesn't list, and add it to My shows (Theatre → My shows → Add a show, or Ctrl K). Its new episodes show up in Nexus",
         "Changed: \"Your shows\" is now My shows, and a show's Track button takes it out again",
         "Changed: in the opening, the name RIFTGATE stays on screen two seconds once it has fully appeared, before the rift opens onto the app",

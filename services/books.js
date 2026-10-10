@@ -63,6 +63,7 @@ function mapGutenbergBook(b) {
         source: "Project Gutenberg",
         language: (b.languages && b.languages[0]) || null,
         readUrl,
+        subjects: subjects.slice(0, 15).map((x) => String(x).slice(0, 60)),
         isMature
     };
 }
@@ -173,6 +174,9 @@ function mapOpenLibraryBook(doc) {
         buyLink: workKey ? `https://openlibrary.org${workKey}` : null,
         infoLink: workKey ? `https://openlibrary.org${workKey}` : null,
         source: "Open Library",
+        subjects: Array.isArray(doc.subject) ? doc.subject.slice(0, 15).map((x) => String(x).slice(0, 60)) : [],
+        stars: typeof doc.ratings_average === "number" ? Math.round(doc.ratings_average * 100) / 100 : null,
+        ratings: typeof doc.ratings_count === "number" ? doc.ratings_count : null,
         isMature
     };
 }
@@ -186,7 +190,7 @@ async function fetchOpenLibraryBooksPage(query, sort, page, pageSize) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const offset = (Math.max(1, page) - 1) * pageSize;
     const data = await fetchWithRetry(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${offset}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject,ratings_average,ratings_count`,
         10000
     );
     const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
@@ -230,7 +234,7 @@ async function fetchOpenLibraryNewReleasesPage(page, pageSize) {
 async function fetchOpenLibraryBooks(query, sort) {
     const sortParam = sort ? `&sort=${sort}` : "";
     const data = await fetchWithRetry(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=40&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=40&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject,ratings_average,ratings_count`,
         10000
     );
     const docs = (data && Array.isArray(data.docs)) ? data.docs : [];
@@ -262,7 +266,7 @@ async function fetchOpenLibraryBooksWithCovers(query, sort, desiredCount, exclud
         let data;
         try {
             data = await fetchWithRetry(
-                `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${page * pageSize}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject`,
+                `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}${sortParam}&limit=${pageSize}&offset=${page * pageSize}&fields=key,title,author_name,cover_i,first_publish_year,cover_edition_key,ebook_access,subject,ratings_average,ratings_count`,
                 10000
             );
         } catch (err) {

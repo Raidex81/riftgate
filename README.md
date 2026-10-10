@@ -67,6 +67,14 @@ Anything you mark "Not for me" leaves the menu.
 watch, read, or let the rift decide. Narrow it down if you like, and
 Riftgate picks the one thing, skipping what you've already finished.
 
+**✨ Ask the Rift** lets you say it in your own words: "a co-op shooter
+for friends, no horror", "something funny and short", "a cosy fantasy
+book", "a game like Team Fortress 2". It picks three from Riftgate's own
+lists, ranked by real reviews and ratings, and tells you why. It's in
+Surprise me and in Free games, the Theatre, the Reading room and the
+Library, and it runs on your computer: free, and nothing you type leaves
+Riftgate.
+
 ![Surprise me: pick a mood and the rift picks for you](screenshots/surprise-me.jpg)
 
 **📀 Library** keeps every game, app and VR title you run on one shelf.

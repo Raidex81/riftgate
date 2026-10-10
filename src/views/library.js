@@ -9,6 +9,7 @@ import { hours, ago, plural } from "../app/format.js";
 import { missingNotice } from "../app/library-tools.js";
 import { openAddDialog } from "../components/add-dialog.js";
 import * as journal from "../app/store.js";
+import { askButton } from "../components/today.js";
 
 const FILTERS = [
     { id: "all", label: "Everything", test: () => true },
@@ -45,6 +46,7 @@ export default {
             h("div.view-head", null,
                 h("div", null, h("h1", null, "Library"), summary),
                 h("div.actions", null,
+                    askButton("play"),
                     h("button.btn", { type: "button", onclick: () => scanPc(reload) }, icon("search"), "Scan this PC"),
                     h("button.btn.primary", { type: "button", onclick: () => addOne(reload) }, icon("plus"), "Add a game or app"))),
             notices,

@@ -99,7 +99,9 @@ export async function library(opts) {
 }
 export const freeGames = source("free", "get-free-games", I.fromFreeGame, null, "get-cached-free-games");
 export const deals = source("deals", "get-store-deals", I.fromDeal, byCountry, "get-cached-store-deals");
-export const inCinemas = source("cinemas", "get-now-playing-movies", I.fromFilm, byCountry);
+// films showing in cinemas now: the only ones that get Find tickets
+const inCinema = (m) => ({ ...I.fromFilm(m), inCinemas: true });
+export const inCinemas = source("cinemas", "get-now-playing-movies", inCinema, byCountry);
 export const upcomingFilms = source("upcomingFilms", "get-upcoming-movies", I.fromFilm, byCountry);
 export const newSeries = source("series", "get-new-tv-shows", (s) => I.fromTmdbShow(s, false), byCountry);
 export const newAnime = source("anime", "get-new-anime", (s) => I.fromTmdbShow(s, true), byCountry);
@@ -125,7 +127,7 @@ export function refreshAll() { forget(""); loaded.clear(); }
 // `per` engine pages make one page of the browser (about 100 titles).
 const show = (anime) => (s) => I.fromTmdbShow(s, anime);
 export const FULL = {
-    "now-playing": { map: I.fromFilm, per: 5 },
+    "now-playing": { map: inCinema, per: 5 },
     "upcoming-movies": { map: I.fromFilm, per: 5 },
     "new-series": { map: show(false), per: 5, providers: true },
     "new-anime": { map: show(true), per: 5, providers: true },
@@ -161,6 +163,7 @@ export async function fullPage(full, page) {
         if (def.open && (r.items || []).length && r.totalPages > first + i) open = true;
         (r.items || []).map(def.map).forEach((it) => {
             if (!it || !it.title || gate.hidden(it) || seen.has(it.key)) return;
+            if (full.kind === "provider" && full.providerName) it.streamOn = { name: full.providerName };
             seen.add(it.key);
             items.push(it);
         });

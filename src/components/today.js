@@ -6,7 +6,7 @@
 // straight back. Also available inline on Nexus (todayBand).
 
 import * as gate from "../app/mature.js";
-import { h, icon, clear } from "../app/dom.js";
+import { h, icon, clear, coverSrc } from "../app/dom.js";
 import { cached, country } from "../app/api.js";
 import * as D from "../app/data.js";
 import * as journal from "../app/store.js";
@@ -14,6 +14,8 @@ import { fromProviderTitle } from "../app/items.js";
 import { Rift } from "./rift.js";
 import * as interests from "../app/interests.js";
 import { openRoll } from "./roll.js";
+import { openDetail } from "./detail.js";
+import * as ask from "../app/ask.js";
 
 const DAY = 86400000;
 const fromJournal = (types, status = "planned") => journal.entries()
@@ -25,7 +27,7 @@ async function streaming() {
     const cc = await country();
     const providers = ((await cached("get-watch-providers", [cc])) || []).slice(0, 3);
     const lists = await Promise.all(providers.map((p) => cached("get-trending-by-provider", [{ providerName: p.name, countryCode: cc }])
-        .then((l) => (l || []).map((t) => ({ ...fromProviderTitle(t), sub: `On ${p.name}` }))).catch(() => [])));
+        .then((l) => (l || []).map((t) => ({ ...fromProviderTitle(t), sub: `On ${p.name}`, streamOn: { name: p.name, logo: p.logo || null } }))).catch(() => [])));
     return lists.flat();
 }
 
@@ -86,6 +88,14 @@ export const MOODS = [
         ] }
 ];
 
+// Everything Riftgate can suggest, for Ask the Rift when the request
+// reaches beyond the mood you're in ("a film" asked from the Reading room)
+const EVERYTHING = { id: "everything", pool: async () => {
+    const lists = await Promise.all([D.library(), D.freeGames(), D.inCinemas(), D.newSeries(), D.newAnime(), streaming(), D.booksPopular(), D.booksBest(), D.classics(), D.mangaPopular(), D.comicsPopular(), D.ebooks(), D.watchlist()].map(settled));
+    return [...lists.flat(), ...fromJournal(["game", "film", "series", "anime", "book"])];
+} };
+const KIND_MOODS = { play: ["game"], free: ["game"], watch: ["film", "series", "anime"], read: ["book", "manga", "comic"] };
+
 const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…" };
 
 async function poolFor(mood, option, { skipDone }) {
@@ -105,7 +115,8 @@ function remember(item) {
 
 // ---- The portal ------------------------------------------------------------------
 let openNow = null;
-export function openToday(startMood) {
+// opts.ask: open straight on Ask the Rift (the "Ask the Rift" buttons in each section)
+export function openToday(startMood, opts = {}) {
     if (openNow) openNow.close();
     const canvas = h("canvas", { "aria-hidden": "true" });
     const stage = h("div.today-stack");
@@ -114,12 +125,14 @@ export function openToday(startMood) {
         h("button.icon-btn.today-close", { type: "button", "aria-label": "Close", onclick: () => close() }, icon("x")));
     const rift = new Rift(canvas, { cx: .5, cy: .5, scale: 1.25, intensity: .9 });
     const onKey = (e) => {
-        if (e.key !== "Escape" || document.querySelector(".rift-roll")) return;
+        if (e.key !== "Escape" || document.querySelector(".rift-roll, .detail")) return;
         e.stopPropagation();
-        if (stage.dataset.step === "2" && !startMood) moods(); else close();
+        if (stage.dataset.step === "ask" && back) back();
+        else if (stage.dataset.step === "2" && !startMood) moods(); else close();
     };
+    let back = null; // where Esc goes from the answers
     document.addEventListener("keydown", onKey);
-    function close() { rift.destroy(); wrap.remove(); document.removeEventListener("keydown", onKey); openNow = null; }
+    function close() { rift.destroy(); wrap.remove(); document.removeEventListener("keydown", onKey); document.body.classList.remove("asking"); openNow = null; }
     openNow = { close };
     document.body.appendChild(wrap);
 
@@ -129,7 +142,8 @@ export function openToday(startMood) {
             h("p.today-kicker", null, icon("rift"), "Riftgate"),
             h("h1.today-title", null, "What do you want to do today?"),
             moodTiles((m) => options(m), true),
-            h("p.today-hint", null, "Pick a mood. The rift finds the one thing for you."));
+            h("p.today-hint", null, "Pick a mood. The rift finds the one thing for you."),
+            askBox(MOODS.find((m) => m.id === "any"), () => MOODS.find((m) => m.id === "any").options[0], () => journal.pref("today:skipDone", true), moods));
         stage.querySelector(".mood")?.focus();
     }
 
@@ -173,16 +187,116 @@ export function openToday(startMood) {
             if (!ok) { wrap.hidden = false; }
         };
 
+        const box = askBox(mood, () => chosen, () => skipDone, () => options(mood));
         clear(stage).append(
             h("button.btn.ghost.today-back", { type: "button", onclick: moods }, icon("left"), "Moods"),
             h("p.today-kicker", null, icon(mood.icon), mood.label),
             h("h1.today-title", null, mood.id === "any" ? "Anything goes. Narrow it down?" : "How about…"),
-            chips, skip, go);
-        go.focus();
+            chips, skip, go, box);
+        if (opts.ask) { opts.ask = false; box.querySelector("input").focus(); } else go.focus();
+    }
+
+    // ---- Ask the Rift: say what you feel like, in your own words ----------------
+    function askBox(mood, option, skipDone, backTo) {
+        const input = h("input.input.ask-input", { type: "text", maxlength: 160, autocomplete: "off", spellcheck: "false",
+            placeholder: "Or tell the rift what you feel like…", "aria-label": "Tell the rift what you feel like" });
+        const submit = (q) => { q = String(q || "").trim(); if (q) answer(mood, option(), skipDone(), q, backTo); };
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(input.value); } });
+        return h("div.ask", null,
+            h("p.ask-kicker", null, icon("sparkles"), "Ask the Rift"),
+            h("div.ask-bar", null, input,
+                h("button.btn.primary", { type: "button", onclick: () => submit(input.value) }, icon("rift"), "Ask")),
+            h("div.ask-examples", null, (ask.EXAMPLES[mood.id] || ask.EXAMPLES.any).map((t) =>
+                h("button.chip", { type: "button", onclick: () => submit(t) }, t))));
+    }
+
+    async function answer(mood, option, skipDone, q, backTo, req = ask.understand(q)) {
+        stage.dataset.step = "ask";
+        back = backTo;
+        document.body.classList.add("asking"); // a details panel opens above the portal
+        const status = h("p.today-hint", null, "The rift is looking…");
+        clear(stage).append(
+            h("button.btn.ghost.today-back", { type: "button", onclick: backTo }, icon("left"), "Change my request"),
+            h("p.today-kicker", null, icon("sparkles"), "Ask the Rift"),
+            h("h1.today-title.ask-title", null, `“${q}”`),
+            status);
+
+        if (ask.isEmpty(req)) {
+            status.replaceWith(h("div.ask-empty", null,
+                h("p", null, "The rift didn't catch that. Try words like funny, scary, cosy, short, co-op, sci-fi, a book, a film, top rated, a hidden gem… or one of these:"),
+                h("div.ask-examples", null, (ask.EXAMPLES[mood.id] || ask.EXAMPLES.any).map((t) => h("button.chip", { type: "button", onclick: () => answer(mood, option, skipDone, t, backTo) }, t)))));
+            return;
+        }
+        // Which shelves to look on: the mood you're in, unless you asked for another kind
+        const own = KIND_MOODS[mood.id];
+        const wide = mood.id === "any" || (req.kinds.size && own && ![...req.kinds].every((k) => own.includes(k)));
+        let pool;
+        try { pool = await poolFor(mood, wide ? EVERYTHING : option, { skipDone }); } catch { pool = []; }
+        if (stage.dataset.step !== "ask") return;
+        const { picks, likeItem, likeMissing } = ask.rank(req, pool, { limit: 30 });
+
+        const understood = h("div.ask-understood", { "aria-label": "What the rift understood" },
+            h("span.muted", null, "I understood:"),
+            ask.summary(req).map((c) => h(`button.chip.ask-chip.${c.type}`, { type: "button", title: "Remove this and ask again",
+                onclick: () => answer(mood, option, skipDone, q, backTo, ask.drop(req, c)) }, c.label, icon("x"))));
+        const notes = [];
+        if (likeMissing) notes.push(`“${req.like}” isn't in Riftgate's lists, so the rift went by the rest of your words.`);
+        if (likeItem) notes.push(`Going by what ${likeItem.title} is like.`);
+        if (wide && mood.id !== "any") notes.push("Looked everywhere in Riftgate, not only in " + mood.label + ".");
+
+        const grid = h("div.ask-picks");
+        let page = 0;
+        const paint = () => {
+            clear(grid);
+            picks.slice(page * 3, page * 3 + 3).forEach((p, n) => grid.appendChild(pickCard(p, n)));
+            more.hidden = picks.length <= (page + 1) * 3;
+        };
+        const more = h("button.btn.lg", { type: "button", onclick: () => { page++; paint(); } }, icon("refresh"), "Three others");
+        const roll = h("button.btn.lg", { type: "button", onclick: () => {
+            wrap.hidden = true;
+            const ok = openRoll(picks.slice(0, 12).map((p) => p.item), "The rift has chosen…", {
+                onPick: remember, back: { label: "Back to my answers", run: () => { wrap.hidden = false; } },
+                onClose: () => { if (!wrap.hidden) return; close(); } });
+            if (!ok) wrap.hidden = false;
+        } }, icon("dice"), "Let the rift choose");
+        const refine = askBox(mood, () => option, () => skipDone, backTo);
+        refine.querySelector("input").value = q;
+        refine.querySelector("input").placeholder = "Ask something else…";
+        refine.querySelector(".ask-examples").remove();
+
+        status.replaceWith(understood,
+            notes.length ? h("p.ask-note", null, notes.join(" ")) : "",
+            picks.length ? grid : h("p.today-empty.ask-none", null, "Nothing in Riftgate fits all of that. Remove one of the ideas above, or ask with fewer words."),
+            picks.length ? h("div.ask-actions", null, more, picks.length > 3 ? roll : null) : "",
+            refine);
+        if (picks.length) { paint(); grid.querySelector("button")?.focus(); }
+    }
+
+    function pickCard(p, n) {
+        const it = p.item;
+        const kind = { game: "Game", app: "App", film: "Film", series: "Series", anime: "Anime", book: "Book" }[it.type] || "";
+        const where = it.streamOn ? `On ${it.streamOn.name}` : it.inCinemas ? "In cinemas" : it.kind === "free" ? (it.source ? `Free on ${it.source}` : "Free")
+            : it.kind === "library" ? "In your library" : it.kind === "ebook" ? "In your eBooks" : it.sub || "";
+        const art = it.image || it.fallback;
+        return h("button.ask-pick", { type: "button", style: { "--i": String(n) }, "data-type": it.type,
+            onclick: () => { remember(it); openDetail(it); } },
+            h("span.ask-art", null, art ? h("img", { src: coverSrc(art), alt: "", loading: "lazy", onerror: (e) => { e.target.remove(); } }) : icon(it.type === "book" ? "book" : it.type === "game" ? "gem" : "film")),
+            h("span.ask-body", null,
+                h("span.ask-kind", null, [kind, where].filter(Boolean).join(" · ")),
+                h("b.ask-name", null, it.title),
+                p.why.length ? h("span.ask-why", null, p.why.join(" · ")) : null,
+                p.quality ? h("span.ask-score", null, icon("star"), p.quality) : null));
     }
 
     const m = startMood && MOODS.find((x) => x.id === startMood);
+    if (opts.ask && !m) { moods(); stage.querySelector(".ask-input")?.focus(); return; }
     if (m) options(m); else moods();
+}
+
+// "Ask the Rift" in a section: Surprise me, on that section's mood, with the box ready
+export function openAsk(moodId) { openToday(moodId, { ask: true }); }
+export function askButton(moodId) {
+    return h("button.btn.ask-btn", { type: "button", title: "Tell the rift what you feel like, and it picks for you", onclick: () => openAsk(moodId) }, icon("sparkles"), "Ask the Rift");
 }
 
 // The mood tiles, shared by the portal and the Nexus band

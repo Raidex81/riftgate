@@ -303,6 +303,59 @@
 .btn.xl svg { width: 22px; height: 22px; }
 .today-go { margin-top: var(--s3); box-shadow: 0 0 40px color-mix(in srgb, var(--amethyst) 55%, transparent); }
 
+/* Ask the Rift: your own words, inside Surprise me */
+.ask { display: grid; justify-items: center; gap: var(--s3); width: min(760px, 100%); margin-top: var(--s4); }
+.ask-kicker { display: inline-flex; align-items: center; gap: var(--s2); color: var(--amethyst-soft); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: var(--t-xs); }
+.ask-kicker svg { width: 15px; height: 15px; }
+.ask-bar { display: flex; gap: var(--s2); width: 100%; }
+.ask-input { flex: 1; height: 50px; font-size: var(--t-lg); padding: 0 var(--s5); background: color-mix(in srgb, var(--nebula) 90%, transparent); }
+.ask-bar .btn { height: 50px; padding: 0 var(--s6); }
+.ask-examples { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
+.ask-examples .chip { font-size: var(--t-sm); background: color-mix(in srgb, var(--nebula) 80%, transparent); }
+.ask-title { font-size: clamp(28px, 3.4vw, 46px); max-width: 980px; }
+.ask-understood { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--s2); }
+.ask-understood .muted { color: var(--dust); font-size: var(--t-sm); margin-right: var(--s1); }
+.ask-chip { gap: 6px; }
+.ask-chip svg { width: 13px; height: 13px; opacity: .6; }
+.ask-chip:hover svg { opacity: 1; }
+.ask-chip.avoid { border-color: color-mix(in srgb, var(--st-dropped) 60%, var(--line)); }
+.ask-chip.kind, .ask-chip.like { border-color: var(--amethyst); }
+.ask-note { color: var(--dust); font-size: var(--t-sm); max-width: 760px; }
+.ask-empty { display: grid; justify-items: center; gap: var(--s3); color: var(--starlight-2); max-width: 760px; }
+.ask-none { font-size: var(--t-md); }
+.ask-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); width: 100%; }
+.ask-pick {
+    --type: var(--amethyst);
+    display: grid; grid-template-columns: 112px 1fr; gap: var(--s4); align-items: start;
+    padding: var(--s4); text-align: left;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--nebula-3) 94%, transparent), color-mix(in srgb, var(--nebula) 94%, transparent));
+    border: 1px solid var(--line);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    animation: ask-in .5s var(--ease) both; animation-delay: calc(var(--i) * 90ms);
+    transition: transform var(--fast) var(--ease), border-color var(--fast);
+}
+.ask-pick[data-type="game"] { --type: var(--type-game); } .ask-pick[data-type="film"] { --type: var(--type-film); }
+.ask-pick[data-type="series"] { --type: var(--type-series); } .ask-pick[data-type="anime"] { --type: var(--type-anime); }
+.ask-pick[data-type="book"] { --type: var(--type-book); } .ask-pick[data-type="app"] { --type: var(--type-app); }
+.ask-pick:hover, .ask-pick:focus-visible { transform: translateY(-3px); border-color: var(--type); }
+.ask-art { aspect-ratio: 2 / 3; display: grid; place-items: center; overflow: hidden; background: var(--nebula-2); color: var(--dust-2); }
+.ask-art img { width: 100%; height: 100%; object-fit: cover; }
+.ask-pick[data-type="game"] .ask-art, .ask-pick[data-type="app"] .ask-art { aspect-ratio: 460 / 215; align-self: center; }
+.ask-pick[data-type="game"], .ask-pick[data-type="app"] { grid-template-columns: 1fr; }
+.ask-body { display: grid; gap: 6px; min-width: 0; }
+.ask-kind { color: var(--type); font-size: var(--t-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.ask-name { font-family: var(--font-display); font-size: var(--t-xl); line-height: 1.1; color: var(--hi); overflow-wrap: anywhere; }
+.ask-why { color: var(--starlight-2); font-size: var(--t-sm); }
+.ask-score { display: inline-flex; align-items: center; gap: 6px; color: var(--dust); font-size: var(--t-sm); }
+.ask-score svg { width: 14px; height: 14px; color: var(--st-planned); flex: none; }
+.ask-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); }
+@keyframes ask-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@media (max-width: 1100px) { .ask-picks { grid-template-columns: 1fr; max-width: 560px; } }
+@media (prefers-reduced-motion: reduce) { .ask-pick { animation: none; } }
+/* a details panel opened from Ask the Rift sits above the portal */
+.asking .scrim { z-index: 79; }
+.asking .detail { z-index: 79; }
+
 /* Mood tiles: gem-cut, glowing on hover */
 .moods { display: grid; grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); gap: var(--s4); width: 100%; }
 .mood {

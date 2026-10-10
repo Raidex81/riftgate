@@ -95,6 +95,14 @@ export function fromDeal(d) {
     };
 }
 
+// TMDB's genre ids, named (films and series share most of them)
+const TMDB_GENRES = { 28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
+    14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Science Fiction", 10770: "TV Movie",
+    53: "Thriller", 10752: "War", 37: "Western", 10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality",
+    10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics" };
+const tmdbGenres = (ids) => (Array.isArray(ids) ? ids.map((id) => TMDB_GENRES[id]).filter(Boolean) : []);
+const count = (n) => (typeof n === "number" && n >= 0 ? n : null);
+
 export function fromFilm(m) {
     return {
         key: `film:${m.id}`,
@@ -106,6 +114,8 @@ export function fromFilm(m) {
         backdrop: m.backdrop || null,
         date: m.releaseDate || null,
         rating: m.rating || null,
+        votes: count(m.votes),
+        genres: tmdbGenres(m.genreIds),
         tmdbId: m.id,
         url: `https://www.themoviedb.org/movie/${m.id}`,
         mature: !!m.isMature,
@@ -125,6 +135,8 @@ export function fromTmdbShow(s, anime) {
         backdrop: s.backdrop || null,
         date: s.firstAirDate || null,
         rating: s.rating || null,
+        votes: count(s.votes),
+        genres: tmdbGenres(s.genreIds),
         tmdbShowId: s.id,
         url: `https://www.themoviedb.org/tv/${s.id}`,
         mature: !!s.isMature,
@@ -135,9 +147,9 @@ export function fromTmdbShow(s, anime) {
 // A title from a streaming service's catalogue (film or series).
 export function fromProviderTitle(t) {
     if (t.mediaType === "movie") {
-        return fromFilm({ id: t.id, title: t.name, description: t.description, poster: t.image, backdrop: t.backdrop, releaseDate: t.releaseDate, rating: t.rating, isMature: t.isMature });
+        return fromFilm({ id: t.id, title: t.name, description: t.description, poster: t.image, backdrop: t.backdrop, releaseDate: t.releaseDate, rating: t.rating, votes: t.votes, genreIds: t.genreIds, isMature: t.isMature });
     }
-    return fromTmdbShow({ id: t.id, name: t.name, description: t.description, image: t.image, backdrop: t.backdrop, firstAirDate: t.releaseDate, rating: t.rating, isMature: t.isMature }, false);
+    return fromTmdbShow({ id: t.id, name: t.name, description: t.description, image: t.image, backdrop: t.backdrop, firstAirDate: t.releaseDate, rating: t.rating, votes: t.votes, genreIds: t.genreIds, isMature: t.isMature }, false);
 }
 
 // A show the user tracks (TVMaze watchlist entry).
@@ -181,6 +193,10 @@ export function fromBook(b) {
         date: b.publishedDate || null,
         url: b.readUrl || b.buyLink || b.infoLink || b.downloadUrl || null,
         access: b.accessLevel || (b.isFree ? "public" : null),
+        subjects: Array.isArray(b.subjects) ? b.subjects : [],
+        stars: typeof b.stars === "number" ? b.stars : null,   // readers' average, out of 5
+        ratings: count(b.ratings),
+        downloads: count(b.downloadCount),
         workKey: b.workKey || null,
         raw: b
     };

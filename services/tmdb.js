@@ -126,6 +126,8 @@ async function mapProviderMovie(m, tmdbLanguage) {
         releaseDate: m.release_date,
         popularity: m.popularity || 0,
         rating: typeof m.vote_average === "number" && m.vote_average > 0 ? m.vote_average : null,
+        votes: typeof m.vote_count === "number" ? m.vote_count : null,
+        genreIds: Array.isArray(m.genre_ids) ? m.genre_ids.slice(0, 6) : [],
         isMature: !!m.adult || textContainsMatureKeyword(m.title) || textContainsMatureKeyword(m.overview)
     };
 }
@@ -143,6 +145,8 @@ async function mapProviderShow(s, tmdbLanguage) {
         releaseDate: s.first_air_date,
         popularity: s.popularity || 0,
         rating: typeof s.vote_average === "number" && s.vote_average > 0 ? s.vote_average : null,
+        votes: typeof s.vote_count === "number" ? s.vote_count : null,
+        genreIds: Array.isArray(s.genre_ids) ? s.genre_ids.slice(0, 6) : [],
         isMature: textContainsMatureKeyword(s.name) || textContainsMatureKeyword(s.overview)
     };
 }

@@ -15,6 +15,7 @@ import { until } from "../app/format.js";
 import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMyServices, ready as regionReady, cinema, setCinema, cinemasNear, ticketsHint, nearestWithSite } from "../app/regions.js";
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
+import { askButton } from "../components/today.js";
 
 const noMature = (l) => gate.visible(l);
 
@@ -90,7 +91,7 @@ export default {
             h("div", null,
                 h("h1", null, "Theatre"),
                 h("p", null, `What's showing in ${countryName(cc)}, what's streaming on your services, and the shows you follow.`)),
-            h("div.actions", null, countrySel, cityIn, cinemaSel, servicesBtn)), servicesBox);
+            h("div.actions", null, countrySel, cityIn, cinemaSel, servicesBtn, askButton("watch"))), servicesBox);
 
         const W = interests.wants;
         const rows = shelf("theatre", [
@@ -116,7 +117,7 @@ export default {
                 const logo = p.logo ? h("img", { src: coverSrc(p.logo), alt: "", style: { width: "22px", height: "22px", borderRadius: "5px" } }) : null;
                 const r = row({ title: `${mine.length ? "On" : "Popular on"} ${p.name}`, id: `provider-${p.id || p.name}`, icon: "tv", seeAllTitle: `Everything on ${p.name}`,
                     full: { kind: "provider", providerName: p.name },
-                    items: cached("get-trending-by-provider", [{ providerName: p.name, countryCode: cc }]).then((l) => noMature((l || []).map(fromProviderTitle))) });
+                    items: cached("get-trending-by-provider", [{ providerName: p.name, countryCode: cc }]).then((l) => noMature((l || []).map((t) => ({ ...fromProviderTitle(t), streamOn: { name: p.name, logo: p.logo || null } })))) });
                 if (logo) r.querySelector("h2 svg")?.replaceWith(logo);
                 providerRows.push(r);
                 rows.add(r);

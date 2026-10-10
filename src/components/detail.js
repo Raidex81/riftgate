@@ -88,6 +88,25 @@ async function openWhereToWatch(title) {
     openExternal(`https://www.justwatch.com/${locale}/${JW_SEARCH[cc] || "search"}?q=${encodeURIComponent(title)}`);
 }
 
+// Straight to the title on the streaming service, for the services whose
+// search page takes the title in the address. Any other service goes
+// through JustWatch, which links to it.
+const WATCH_ON = [
+    [/youtube/i, (q) => `https://www.youtube.com/results?search_query=${q}`],
+    [/netflix/i, (q) => `https://www.netflix.com/search?q=${q}`],
+    [/prime video|amazon video/i, (q) => `https://www.primevideo.com/search?phrase=${q}`],
+    [/disney/i, (q) => `https://www.disneyplus.com/search?q=${q}`],
+    [/apple tv/i, (q) => `https://tv.apple.com/search?term=${q}`],
+    [/crunchyroll/i, (q) => `https://www.crunchyroll.com/search?q=${q}`]
+];
+const streamService = (item) => (item.streamOn && item.streamOn.name) || (item.provider && item.provider.how !== "buy" && item.provider.name) || null;
+function watchOnButton(item, btn, primary) {
+    const name = streamService(item);
+    if (!name) return null;
+    const known = WATCH_ON.find(([re]) => re.test(name));
+    return btn(`Watch on ${name}`, "play", () => (known ? openExternal(known[1](encodeURIComponent(item.title))) : openWhereToWatch(item.title)), primary);
+}
+
 // ---- Actions per kind --------------------------------------------------------
 function buildActions(item, box, cover) {
     const add = (el) => box.appendChild(el);
@@ -107,19 +126,27 @@ function buildActions(item, box, cover) {
         case "deal":
             add(btn(`View deal on ${item.source || "store"}`, "tag", () => openExternal(item.url), true));
             break;
-        case "film":
-            add(btn("Find tickets", "ticket", () => openTickets(item.title), true));
-            add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
+        case "film": {
+            // tickets only for a film that's in cinemas now; a film from a
+            // streaming service opens on that service
+            const watch = watchOnButton(item, btn, !item.inCinemas);
+            if (item.inCinemas) add(btn("Find tickets", "ticket", () => openTickets(item.title), true));
+            if (watch) add(watch);
+            add(btn("Where to watch", "tv", () => openWhereToWatch(item.title), !item.inCinemas && !watch));
             if (seen.canMark(item)) add(watchedButton(item, false));
             break;
+        }
         case "episode":
             add(watchedButton(item, true));
             add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             break;
-        case "series": case "anime": case "show":
+        case "series": case "anime": case "show": {
             add(trackButton(item));
+            const watch = watchOnButton(item, btn, false);
+            if (watch) add(watch);
             add(btn("Where to watch", "tv", () => openWhereToWatch(item.title)));
             break;
+        }
         case "ebook":
             add(btn("Read", "book", () => call("launch-ebook", item.raw.path), true));
             add(watchedButton(item, false));

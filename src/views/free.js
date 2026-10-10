@@ -11,6 +11,7 @@ import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
+import { askButton } from "../components/today.js";
 
 const SORTS = {
     popular: { label: "Most popular", fn: (a, b) => (b.image ? 1 : 0) - (a.image ? 1 : 0) || b.popularity - a.popularity || (b.firstSeenAt || 0) - (a.firstSeenAt || 0) },
@@ -28,7 +29,7 @@ export default {
         const summary = h("p");
         const body = h("div");
         root.append(
-            h("div.view-head", null, h("div", null, h("h1", null, "Free games"), summary), h("div.actions", null, search, refresh)),
+            h("div.view-head", null, h("div", null, h("h1", null, "Free games"), summary), h("div.actions", null, askButton("free"), search, refresh)),
             h("div", { style: { marginBottom: "36px" } }, chips),
             body);
 

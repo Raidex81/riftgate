@@ -9,6 +9,7 @@ import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
+import { askButton } from "../components/today.js";
 
 // Same flow as the engine expects: copy into the library folder, read the
 // file's own metadata (title, author, cover), then record it.
@@ -32,7 +33,7 @@ export default {
         root.append(
             h("div.view-head", null,
                 h("div", null, h("h1", null, "Reading room"), h("p", null, "Best sellers, new releases, manga, comics and free classics, next to your own eBooks.")),
-                h("div.actions", null, search, add)),
+                h("div.actions", null, askButton("read"), search, add)),
             results, shelves);
 
         shelves.append(shelf("reading", [
