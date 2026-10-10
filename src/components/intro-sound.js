@@ -212,26 +212,29 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         // everything is sucked back into the gem (a reversed whoosh), a falling
         // tone powers down, and the rift shuts with a deep thump and a last chime.
         farewell(at) {
-            const sp = ac.createBufferSource();
-            sp.buffer = electric(.9, { hz: 60, hzEnd: 9, stutter: true, crack: .6, sparks: 30, decay: .5, level: .9 });
-            const sh = shape(1400, 4200, 11000), sg = gain(.55, post); sp.connect(sh.input); sh.output.connect(sg); sg.connect(verbIn);
-            sp.start(at);
-            // power-down: a saw diving from a hum to nothing through a closing filter
-            const o = ac.createOscillator(); o.type = "sawtooth";
-            o.frequency.setValueAtTime(220, at); o.frequency.exponentialRampToValueAtTime(28, at + 1.0);
-            const lp = filter("lowpass", 3000, 4); lp.frequency.setValueAtTime(3000, at); lp.frequency.exponentialRampToValueAtTime(120, at + 1.0);
-            const og = gain(0, post); env(og.gain, at, .2, .02, 1.0); o.connect(lp); lp.connect(og); o.start(at); o.stop(at + 1.1);
-            // sucked back in: noise sweeping down and swelling toward the close
-            const n = noiseSrc(at, 1.1), bp = filter("bandpass", 5000, 1.2), ng = gain(0, post);
-            bp.frequency.setValueAtTime(5000, at); bp.frequency.exponentialRampToValueAtTime(260, at + 1.0);
-            ng.gain.setValueAtTime(0.0001, at); ng.gain.exponentialRampToValueAtTime(.32, at + .95); ng.gain.exponentialRampToValueAtTime(.0001, at + 1.05);
-            n.connect(bp); bp.connect(ng);
-            // the rift shuts
-            tone("sine", 80, at + 1.0, .75, .004, .7, post, 26);
-            const c = noiseSrc(at + 1.0, .3), cl = filter("lowpass", 900), cg = gain(0, post); env(cg.gain, at + 1.0, .3, .003, .25); c.connect(cl); cl.connect(cg); cg.connect(verbIn);
-            // and the gem's last light
-            bell(NOTE(88), at + .05, .035, 1.0, pan(.3, post));
-            bell(NOTE(76), at + 1.0, .05, 1.3, pan(-.2, post));
+            // a calm goodbye: a soft, warm chord that settles a step lower and
+            // fades out through a closing filter, a quiet breath, two gentle chimes
+            const lp = filter("lowpass", 1800, .5), pg = gain(0, post);
+            lp.connect(pg); pg.connect(verbIn);
+            lp.frequency.setValueAtTime(1800, at); lp.frequency.exponentialRampToValueAtTime(260, at + 1.5);
+            pg.gain.setValueAtTime(0.0001, at); pg.gain.linearRampToValueAtTime(.11, at + .25); pg.gain.exponentialRampToValueAtTime(.0001, at + 1.6);
+            [[57, 52], [64, 59], [69, 64], [73, 68]].forEach(([m, to]) => [-4, 4].forEach((c) => {
+                const o = ac.createOscillator(); o.type = "triangle";
+                o.frequency.setValueAtTime(NOTE(m) * Math.pow(2, c / 1200), at);
+                o.frequency.setValueAtTime(NOTE(m) * Math.pow(2, c / 1200), at + .45);
+                o.frequency.exponentialRampToValueAtTime(NOTE(to) * Math.pow(2, c / 1200), at + .9);
+                const og = gain(.14, lp); o.connect(og); o.start(at); o.stop(at + 1.7);
+            }));
+            // a soft breath, like air settling as the rift closes
+            const n = noiseSrc(at, 1.4), bp = filter("bandpass", 1200, .7), ng = gain(0, post);
+            bp.frequency.setValueAtTime(1200, at); bp.frequency.exponentialRampToValueAtTime(300, at + 1.3);
+            ng.gain.setValueAtTime(0.0001, at); ng.gain.linearRampToValueAtTime(.035, at + .5); ng.gain.exponentialRampToValueAtTime(.0001, at + 1.4);
+            n.connect(bp); bp.connect(ng); ng.connect(verbIn);
+            // a low, round hum underneath
+            tone("sine", 110, at, .12, .3, 1.2, post, 82);
+            // the gem's last light
+            bell(NOTE(81), at + .1, .022, 1.4, pan(.25, post));
+            bell(NOTE(76), at + .7, .02, 1.5, pan(-.2, post));
             return 1.55; // seconds until it's done enough to close
         },
         // the rift opens wide: a great whoosh, a falling boom and a bloom of light

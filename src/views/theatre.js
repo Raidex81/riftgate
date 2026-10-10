@@ -12,7 +12,7 @@ import { fromProviderTitle } from "../app/items.js";
 import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
 import { until } from "../app/format.js";
-import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMyServices, ready as regionReady, cinema, setCinema, cinemasNear, ticketsHint } from "../app/regions.js";
+import { COUNTRIES, countryName, city, setCity, setCountry, myServices, setMyServices, ready as regionReady, cinema, setCinema, cinemasNear, ticketsHint, nearestWithSite } from "../app/regions.js";
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
 
@@ -37,9 +37,10 @@ export default {
             clear(cinemaSel);
             cinemaSel.hidden = !city();
             const chosen = cinema(cc);
-            cinemaSel.appendChild(h("option", { value: "" }, `Any cinema in ${city()}`));
+            const n = nearestWithSite(cc);
+            cinemaSel.appendChild(h("option", { value: "" }, n ? `Closest with a website: ${n.label || n.name}` : `Any cinema in ${city()}`));
             if (chosen && !cinemas.some((c) => c.id === chosen.id)) cinemaSel.appendChild(h("option", { value: chosen.id }, chosen.label || chosen.name));
-            cinemas.forEach((c) => cinemaSel.appendChild(h("option", { value: c.id }, [c.label || c.name, typeof c.distanceKm === "number" ? `${c.distanceKm} km` : null, c.url ? null : "web search"].filter(Boolean).join(" · "))));
+            cinemas.forEach((c) => cinemaSel.appendChild(h("option", { value: c.id }, [c.label || c.name, typeof c.distanceKm === "number" ? `${c.distanceKm} km` : null, c.url ? null : "no website"].filter(Boolean).join(" · "))));
             if (state === "loading") cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, "Loading cinemas…"));
             if (state === "error") cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, "Couldn't load cinemas"));
             if (state === "ready" && !cinemas.length) cinemaSel.appendChild(h("option", { value: "__note", disabled: true }, `No cinemas found near ${city()}`));
@@ -59,7 +60,7 @@ export default {
             const c = cinemas.find((x) => x.id === cinemaSel.value) || (cinema(cc) && cinema(cc).id === cinemaSel.value ? cinema(cc) : null);
             await setCinema(cc, c);
             paintCinemas("ready");
-            toast(c ? `Find tickets now opens ${c.name}` : "Find tickets searches every cinema nearby");
+            toast(c ? (c.url ? `Find tickets now opens ${c.name}` : `${c.name} has no website: Find tickets searches its showtimes`) : (nearestWithSite(cc) ? "Find tickets opens the closest cinema with a website" : "Find tickets searches every cinema nearby"));
         });
         cityIn.addEventListener("change", async () => {
             await setCity(cityIn.value);

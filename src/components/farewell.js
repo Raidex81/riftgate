@@ -1,7 +1,6 @@
 // Riftgate — closing for good. When Riftgate really quits (not when it only
-// hides in the tray), the engine asks for a farewell first: the power dies
-// with a sputtering arc, everything is drawn back into the rift, and it shuts
-// with a thump. On screen the app closes in on a point of light, like the
+// hides in the tray), the engine asks for a farewell first: a soft, warm
+// chord settles and fades with two quiet chimes. On screen the app closes in on a point of light, like the
 // opening in reverse. Then the engine finishes quitting (it never waits more
 // than a couple of seconds). Settings → "Sound when Riftgate closes" turns
 // the sound off; the picture stays, it's only about a second.
