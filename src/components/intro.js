@@ -32,10 +32,24 @@ const SCRIPT = "ᚱᛁᚠᛏᚷᚨᛖᛟᛞᚹᛉᛜ⟁⌖◇⟐⧫";
 
 let resolveDone;
 export const done = new Promise((r) => { resolveDone = r; });
+// quiet: the lightning is over and the name has settled (4.85 s), the
+// calmest moment of the opening. The app builds its first page then, not
+// while the tear opens, so building it doesn't make the opening stutter.
+let resolveQuiet;
+export const quiet = new Promise((r) => { resolveQuiet = r; });
+const QUIET_AT = 4.85;
+// When the rift opens onto the app, every other rift (the Nexus banner) may
+// start moving: until then it stays still under the opening, so the two
+// aren't animating at once.
+function riftOpening() {
+    if (window.__riftOpen) return;
+    window.__riftOpen = true;
+    window.dispatchEvent(new Event("r2-intro-opening"));
+}
 
 export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     const el = document.getElementById("intro");
-    const finish = () => { if (el) el.remove(); document.documentElement.classList.remove("intro-on"); resolveDone(); };
+    const finish = () => { if (el) el.remove(); document.documentElement.classList.remove("intro-on"); resolveQuiet(); riftOpening(); resolveDone(); };
     let played = false;
     try { played = sessionStorage.getItem("r2-intro") === "1"; sessionStorage.setItem("r2-intro", "1"); } catch (e) { /* no storage */ }
     if (!el || !enabled || played || matchMedia("(prefers-reduced-motion: reduce)").matches) { finish(); return done; }
@@ -44,7 +58,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     const ctx = canvas.getContext("2d");
     // A Rift that never runs on its own: it lends its rings, its gem and its lightning
     const scratch = document.createElement("canvas");
-    const rift = new Rift(scratch, {});
+    const rift = new Rift(scratch, { still: true });
     rift.stop();
     const col = rift.col;
     const voidCol = getComputedStyle(document.documentElement).getPropertyValue("--void").trim() || "#07040d";
@@ -59,6 +73,15 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     };
     size();
     window.addEventListener("resize", size);
+    // The rune rings (from 1.4 s) and the gem (from 2.25 s) are pictures made
+    // the first time they're drawn; making them then, with the gem's image
+    // decoded on the spot, hitched the opening just as the rift opened. They're
+    // made now instead, while the page is idle (the gem as soon as its image is in).
+    const later = (fn, ms) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: ms }) : setTimeout(fn, 30));
+    later(() => { try { rift.ringSprites(R, col.a, col.soft); } catch (e) { /* drawn on first use instead */ } }, 600);
+    let gemTries = 0;
+    const warmGem = () => { try { if (!rift.logoSprite(R * .78) && ++gemTries < 40) setTimeout(() => later(warmGem, 300), 50); } catch (e) { /* drawn on first use instead */ } };
+    later(warmGem, 900);
 
     // stars that rush toward the rift at first, then settle
     const stars = Array.from({ length: 260 }, () => ({ a: Math.random() * TAU, d: .15 + Math.random() * 1.1, z: .2 + Math.random() * .8, tw: Math.random() * TAU }));
@@ -105,6 +128,8 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
         }
         if (sound) while (cueAt < cueList.length && t >= cueList[cueAt][0]) { const [, name, arg] = cueList[cueAt++]; sound.cue(name, arg); }
         const dt = Math.min(.05, Math.max(0, t - last)); last = t;
+        if (t >= QUIET_AT) resolveQuiet();
+        if (t >= OPEN) riftOpening();
         draw(t, dt);
         // the canvas paints the dark itself from now on, so the opening rift can show the app through it
         if (el.style.background !== "transparent") el.style.background = "transparent";

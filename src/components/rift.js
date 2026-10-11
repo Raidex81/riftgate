@@ -90,7 +90,7 @@ function rgba(hex, a) {
 }
 
 export class Rift {
-    // opts: { cx: 0..1 horizontal centre, cy, scale, intensity }
+    // opts: { cx: 0..1 horizontal centre, cy, scale, intensity, still: never draws by itself (the opening's helper) }
     constructor(canvas, opts = {}) {
         this.c = canvas;
         this.ctx = canvas.getContext("2d");
@@ -123,11 +123,23 @@ export class Rift {
         this.c.width = Math.round(this.w * dpr); this.c.height = Math.round(this.hgt * dpr);
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         this.R = Math.min(this.hgt * .32, this.w * .19) * this.o.scale;
-        if (this.reduced || !this.running) this.draw(0);
+        // (not while it waits under the opening: it moves as soon as the rift opens)
+        if ((this.reduced || !this.running) && !this.o.still && !this.underIntro()) this.draw(0);
     }
+
+    // the opening is still covering the app (see intro.js)
+    underIntro() { return !window.__riftOpen && !!document.getElementById("intro"); }
 
     start() {
         if (this.running || this.reduced || document.hidden) return;
+        // under the opening, stay still until it opens onto the app (see intro.js)
+        if (this.underIntro()) {
+            if (!this.waitingForIntro) {
+                this.waitingForIntro = true;
+                window.addEventListener("r2-intro-opening", () => { this.waitingForIntro = false; this.start(); }, { once: true });
+            }
+            return;
+        }
         this.running = true; this.last = performance.now();
         requestAnimationFrame(this.frame);
     }

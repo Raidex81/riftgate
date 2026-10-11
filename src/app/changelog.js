@@ -4,7 +4,7 @@ import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
     "2.0.2": [
-        "Fixed: the opening runs smoothly. The lightning's glow is drawn in a small layer around each bolt instead of across the whole screen, and the lightning's sound is prepared during the first seconds instead of on the frame it strikes. It looks and sounds exactly the same. The lightning when you click the gem in Nexus is lighter too"
+        "Fixed: the opening runs smoothly. Riftgate no longer builds its first page while the rift tears open (it waits for the calm moment once the name has settled), the Nexus banner stays still under the opening instead of animating unseen, the rings and the gem are prepared before they appear, the lightning's glow is drawn in a small layer around each bolt instead of across the whole screen, and the lightning's sound is prepared ahead instead of on the frame it strikes. It looks and sounds exactly the same. The lightning when you click the gem in Nexus is lighter too"
     ],
     "2.0.1": [
         "New: the opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)",

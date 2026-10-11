@@ -3,7 +3,7 @@
 
 import { h, icon, clear } from "./dom.js";
 import { call, on, send, settings as appSettings, forget, openExternal } from "./api.js";
-import { playIntro, done as introDone } from "../components/intro.js";
+import { playIntro, done as introDone, quiet as introQuiet } from "../components/intro.js";
 import * as journal from "./store.js";
 import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
@@ -352,6 +352,8 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     });
     window.addEventListener("hashchange", route);
     window.addEventListener("resize", () => moveNode(current));
+    // the first page is built once the opening has calmed down (or at once without it)
+    await Promise.race([introQuiet, new Promise((r) => setTimeout(r, 9000))]);
     await route();
     if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
     // then the tour: all of it the first time, afterwards only what's new to you
