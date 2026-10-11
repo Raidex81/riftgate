@@ -77,7 +77,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     if (withSound) {
         try {
             const AC = window.AudioContext || window.webkitAudioContext;
-            sound = createIntroSound(new AC({ latencyHint: "interactive" }));
+            sound = createIntroSound(new AC({ latencyHint: "interactive" }), { prebuild: true });
             cueList = sound.TIMELINE.filter(([, name]) => name !== "strike");
         } catch (e) { sound = null; }
     }

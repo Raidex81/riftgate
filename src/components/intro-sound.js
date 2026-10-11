@@ -17,7 +17,27 @@ export const STRIKES = [3.02, 3.16, 3.38, 3.9, 4.45];
 
 const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI note -> Hz
 
-export function createIntroSound(ac, { volume = 0.7 } = {}) {
+// prebuild: build the heavy sounds (the hall's echo, the arc, every strike)
+// ahead of time, a few milliseconds at a time while the page is idle, so
+// nothing is computed on the frame a bolt strikes (that froze the opening
+// for a tenth of a second right as the lightning began).
+export function createIntroSound(ac, { volume = 0.7, prebuild = false } = {}) {
+    // ---- work done in slices while the page is idle ----
+    const jobs = [];
+    const job = (gen) => { const j = { gen, done: false, value: null }; jobs.push(j); return j; };
+    const finish = (j) => { while (!j.done) { const r = j.gen.next(); if (r.done) { j.done = true; j.value = r.value; } } const i = jobs.indexOf(j); if (i >= 0) jobs.splice(i, 1); return j.value; };
+    let pumping = false;
+    const pump = (deadline) => {
+        const end = performance.now() + Math.min(4, Math.max(2, deadline && deadline.timeRemaining ? deadline.timeRemaining() : 3));
+        while (jobs.length && performance.now() < end) { const j = jobs[0]; const r = j.gen.next(); if (r.done) { j.done = true; j.value = r.value; jobs.shift(); } }
+        pumping = false; schedule();
+    };
+    const schedule = () => {
+        if (pumping || !jobs.length) return;
+        pumping = true;
+        if (window.requestIdleCallback) requestIdleCallback(pump, { timeout: 50 }); else setTimeout(pump, 16);
+    };
+
     const out = ac.createDynamicsCompressor();
     out.threshold.value = -14; out.knee.value = 12; out.ratio.value = 4; out.attack.value = .003; out.release.value = .25;
     const master = ac.createGain(); master.gain.value = volume;
@@ -29,14 +49,14 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
 
     // a big, dark hall for the boom, the chord and the thunder
     const verb = ac.createConvolver();
-    {
+    const hall = job((function* () {
         const len = Math.floor(ac.sampleRate * 3.2), ir = ac.createBuffer(2, len, ac.sampleRate);
         for (let ch = 0; ch < 2; ch++) {
             const d = ir.getChannelData(ch);
-            for (let i = 0; i < len; i++) { const x = i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - x, 2.6) * (x < .01 ? x / .01 : 1); }
+            for (let i = 0; i < len; i++) { const x = i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - x, 2.6) * (x < .01 ? x / .01 : 1); if ((i & 16383) === 16383) yield; }
         }
         verb.buffer = ir;
-    }
+    })());
     // only the body of a sound goes into the hall, so the tail rumbles instead of hissing
     const verbIn = ac.createGain(); verbIn.gain.value = .55;
     const verbLp = ac.createBiquadFilter(); verbLp.type = "lowpass"; verbLp.frequency.value = 2200;
@@ -170,9 +190,8 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         strike(at, i = 0) {
             const big = i === 0 ? 1 : i === 3 ? .9 : .72;
             const side = [0, .55, -.5, .3, -.25][i % 5];
-            const dur = .5 + .35 * big;
             const src = ac.createBufferSource();
-            src.buffer = electric(dur, { hz: 60, stutter: true, crack: 1, sparks: 70 * big, decay: dur * .55 });
+            src.buffer = take(`strike${i}`) || electric(...strikeSpec(i));
             const g = gain(.8 * big, null);
             const sh = shape(1500, 4600, 13000); src.connect(sh.input); sh.output.connect(g); g.connect(pan(side, pre)); g.connect(verbIn);
             src.start(at);
@@ -187,7 +206,7 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         arc(at) {
             const len = OPEN_AT - 2.9; // until the rift opens
             const src = ac.createBufferSource();
-            src.buffer = electric(len, { hz: 60, swell: .7, flicker: true, sparks: 50, level: .55 });
+            src.buffer = take("arc") || electric(...arcSpec());
             const g = gain(0, null);
             g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(.32, at + .3);
             g.gain.setValueAtTime(.32, at + len - .35); g.gain.exponentialRampToValueAtTime(.0001, at + len);
@@ -262,7 +281,9 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
     // stutter on and off like a shorting cable (stutter) or flicker like a
     // failing neon tube (flicker); sparks are single sharp snaps on top, and
     // `crack` is the opening snap of a strike. Two channels, each its own.
-    function electric(dur, o) {
+    function electric(dur, o) { const j = { gen: electricGen(dur, o), done: false, value: null }; return finish(j); }
+    function* electricGen(dur, o) {
+        let work = 0;
         const sr = ac.sampleRate, n = Math.max(1, Math.floor(dur * sr)), buf = ac.createBuffer(2, n, sr);
         const level = o.level || 1;
         // on/off pattern shared by both channels
@@ -291,6 +312,7 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
                 // the arc's second, weaker discharge in the same cycle (gives the 120 Hz edge)
                 const i1 = i0 + Math.floor(period / 2);
                 for (let j = 0; j < len * .6 && i1 + j < n; j++) d[i1 + j] += amp * .45 * (Math.random() * 2 - 1) * Math.exp(-j / (tau * .6));
+                if ((++work & 15) === 0) yield;
             }
             for (let k = 0; k < (o.sparks || 0); k++) {
                 const t = Math.pow(Math.random(), o.decay ? 1.6 : 1) * dur, i0 = Math.floor(t * sr);
@@ -301,7 +323,7 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
                 const len = Math.floor(sr * .03);
                 for (let j = 0; j < len && j < n; j++) d[j] += o.crack * (Math.random() * 2 - 1) * Math.exp(-j / (len * .3));
             }
-            for (let j = 0; j < n; j++) d[j] = Math.max(-1, Math.min(1, d[j])); // a touch of clipping, like a real arc
+            for (let j = 0; j < n; j++) { d[j] = Math.max(-1, Math.min(1, d[j])); if ((j & 32767) === 32767) yield; } // a touch of clipping, like a real arc
         }
         return buf;
     }
@@ -320,6 +342,18 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
         return w;
     }
 
+    // What each electric sound is made of (the same whether built ahead or on the spot)
+    function strikeSpec(i) { const big = i === 0 ? 1 : i === 3 ? .9 : .72, dur = .5 + .35 * big; return [dur, { hz: 60, stutter: true, crack: 1, sparks: 70 * big, decay: dur * .55 }]; }
+    function arcSpec() { return [OPEN_AT - 2.9, { hz: 60, swell: .7, flicker: true, sparks: 50, level: .55 }]; }
+    const ready = new Map();
+    // a sound built ahead: finished now if it isn't quite done; null if it was never started
+    function take(key) { const j = ready.get(key); if (!j) return null; ready.delete(key); return finish(j); }
+    if (prebuild) {
+        ready.set("arc", job(electricGen(...arcSpec())));
+        STRIKES.forEach((_, i) => ready.set(`strike${i}`, job(electricGen(...strikeSpec(i)))));
+    }
+    schedule();
+
     // The timeline, matching intro.js (seconds from the start)
     const TIMELINE = [
         [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"], [3.02, "arc"],
@@ -330,11 +364,16 @@ export function createIntroSound(ac, { volume = 0.7 } = {}) {
     return {
         TIMELINE,
         // play one cue now (or at an audio-clock time)
-        cue(name, arg, at = ac.currentTime) { try { return cues[name](Math.max(at, ac.currentTime), arg); } catch (e) { /* never break the opening for a sound */ } },
+        cue(name, arg, at = ac.currentTime) {
+            try {
+                if (name !== "rush" && !hall.done) finish(hall); // the hall's echo, if idle time hasn't finished it yet
+                return cues[name](Math.max(at, ac.currentTime), arg);
+            } catch (e) { /* never break the opening for a sound */ }
+        },
         // a skip: everything before the opening falls silent at once
         hush() { const t = ac.currentTime; pre.gain.cancelScheduledValues(t); pre.gain.setValueAtTime(pre.gain.value, t); pre.gain.linearRampToValueAtTime(0, t + .08); },
         // schedule the whole soundtrack ahead (for an offline preview)
-        render(start = 0) { TIMELINE.forEach(([t, name, arg]) => cues[name](start + t, arg)); },
+        render(start = 0) { finish(hall); TIMELINE.forEach(([t, name, arg]) => cues[name](start + t, arg)); },
         close() { setTimeout(() => { try { ac.close(); } catch (e) { /* */ } }, 2500); }
     };
 }

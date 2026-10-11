@@ -291,6 +291,30 @@ export class Rift {
         return { main, branches, strikes, age: 0, max: last + .8 + Math.random() * .5, ang };
     }
 
+    // The small canvas a bolt's main channel is painted in (see drawBolt): it
+    // covers the channel plus room for its widest stroke and blur, in screen
+    // pixels, with the screen's own transform. Rebuilt if the screen transform changes.
+    static boltLayer(bo, screen, R) {
+        if (typeof screen.getTransform !== "function") return null;
+        const m = screen.getTransform();
+        const key = [m.a, m.b, m.c, m.d, m.e, m.f, R].join(",");
+        if (bo._layer && bo._layer.key === key) return bo._layer;
+        const scale = Math.max(.6, R / 150);
+        const pad = (44 * scale / 2) * Math.hypot(m.a, m.b) + 40; // half the widest stroke, plus the blur
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const [px, py] of bo.main) {
+            const X = m.a * px + m.c * py + m.e, Y = m.b * px + m.d * py + m.f;
+            if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+        }
+        const bx = Math.floor(x0 - pad), by = Math.floor(y0 - pad);
+        const w = Math.ceil(x1 + pad) - bx, h = Math.ceil(y1 + pad) - by;
+        if (!(w > 0 && h > 0) || w * h > 16e6) return null;
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const x = c.getContext("2d");
+        bo._layer = { key, c, x, bx, by, m: new DOMMatrix([m.a, m.b, m.c, m.d, m.e - bx, m.f - by]) };
+        return bo._layer;
+    }
+
     // How bright a strike is at its age (0..1+): leader, flashes, afterglow
     static brightness(bo) {
         const t = bo.age;
@@ -303,7 +327,16 @@ export class Rift {
     }
 
     drawBolt(bo, dt) {
-        const { ctx, R } = this;
+        const R = this.R, screen = this.ctx;
+        // The main channel glows with a real canvas blur (shadowBlur). Blended
+        // additively ("lighter"), every blurred stroke makes the browser blend
+        // through a temporary layer the size of the whole canvas: six per bolt,
+        // every frame, which is what made the lightning stutter. So the main
+        // channel is painted into a small canvas just around the bolt, then
+        // added to the screen in one go. Additive blending sums the same either
+        // way, so the picture is the same.
+        const lay = Rift.boltLayer(bo, screen, R);
+        let ctx = screen;
         const { a, b, soft } = this.col;
         bo.age += (dt || 0) / 1000;
         const lit = Rift.brightness(bo);
@@ -312,19 +345,28 @@ export class Rift {
         const cool = Math.min(1, Math.max(0, (bo.age - bo.strikes[0]) / (bo.max - bo.strikes[0]))); // 0 white-hot -> 1 theme colour
         const scale = Math.max(.6, R / 150);
         // Three passes per channel (bloom, coloured glow, white-hot core),
-        // drawn in sections that thin and dim toward the tip.
-        const layers = (pts, upto, wf, dim, main = false) => {
-            const n = Math.max(2, Math.floor(pts.length * upto));
+        // drawn in sections that thin and dim toward the tip. Channels of the
+        // same rank share every width and colour, so they're drawn together:
+        // one path per section for all of them, not one per branch (a bolt
+        // has dozens of branches, and five strokes each, per section, per
+        // frame, was the heaviest thing in the whole opening).
+        const layers = (chans, wf, dim, main = false) => {
             const parts = 3;
             for (let p = 0; p < parts; p++) {
-                const from = Math.floor(n * p / parts), to = Math.min(n, Math.floor(n * (p + 1) / parts) + 1);
-                if (to - from < 2) continue;
-                const seg = pts.slice(from, to);
                 const taper = 1 - p * .28;            // width
                 const fade = dim * (1 - p * .22);     // brightness
                 const w = wf * taper;
                 ctx.beginPath();
-                seg.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+                let any = false;
+                for (const [pts, upto] of chans) {
+                    const n = Math.max(2, Math.floor(pts.length * upto));
+                    const from = Math.floor(n * p / parts), to = Math.min(n, Math.floor(n * (p + 1) / parts) + 1);
+                    if (to - from < 2) continue;
+                    any = true;
+                    ctx.moveTo(pts[from][0], pts[from][1]);
+                    for (let i = from + 1; i < to; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+                }
+                if (!any) continue;
                 // wide soft bloom (cheap, no blur): the air glowing around the channel
                 ctx.shadowBlur = 0;
                 ctx.strokeStyle = rgba(b, Math.min(.5, .16 * lit) * fade);
@@ -351,8 +393,24 @@ export class Rift {
                 ctx.stroke();
             }
         };
-        layers(bo.main, reveal, 1, 1, true);
-        bo.branches.forEach((br) => { if (reveal > br.start) layers(br.pts, Math.min(1, (reveal - br.start) / Math.max(.05, 1 - br.start) * 1.6), br.w, br.dim); });
+        if (lay) { ctx = lay.x; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, lay.c.width, lay.c.height); ctx.setTransform(lay.m); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = screen.lineCap; ctx.lineJoin = screen.lineJoin; }
+        layers([[bo.main, reveal]], 1, 1, true);
+        if (lay) {
+            ctx.shadowBlur = 0;
+            ctx = screen;
+            ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(lay.c, lay.bx, lay.by);
+            ctx.restore();
+        }
+        // branches, rank by rank (each rank has its own width and brightness)
+        const ranks = new Map();
+        bo.branches.forEach((br) => {
+            if (reveal <= br.start) return;
+            const key = br.w + "|" + br.dim;
+            if (!ranks.has(key)) ranks.set(key, { w: br.w, dim: br.dim, chans: [] });
+            ranks.get(key).chans.push([br.pts, Math.min(1, (reveal - br.start) / Math.max(.05, 1 - br.start) * 1.6)]);
+        });
+        ranks.forEach((r) => layers(r.chans, r.w, r.dim));
         ctx.shadowBlur = 0;
         // the flash lights up the air along the strike
         if (lit > .45) {

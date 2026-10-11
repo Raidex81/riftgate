@@ -3,6 +3,9 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.2": [
+        "Fixed: the opening runs smoothly. The lightning's glow is drawn in a small layer around each bolt instead of across the whole screen, and the lightning's sound is prepared during the first seconds instead of on the frame it strikes. It looks and sounds exactly the same. The lightning when you click the gem in Nexus is lighter too"
+    ],
     "2.0.1": [
         "New: the opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)",
         "New: Ask the Rift. Tell it what you feel like in your own words (\"a co-op shooter for friends, no horror\", \"something funny and short\", \"a cosy fantasy book\", \"a game like Team Fortress 2\") and it picks three, ranked by real reviews and ratings, and says why. It's in Surprise me and in Free games, the Theatre, the Reading room and the Library. It runs on your computer: free, and nothing you type leaves Riftgate",
