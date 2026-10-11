@@ -16,7 +16,7 @@ and keeps your library, shows, books and settings.
 
 ![Nexus, Riftgate's home: what's free, in cinemas, new episodes and what you were in the middle of](screenshots/nexus.jpg)
 
-**New in 2.1:** Riftgate tells you the moment a game goes free and reminds you
+**New:** Riftgate tells you the moment a game goes free and reminds you
 before it ends, watches your wishlist for price drops, shows what changed
 while you were away, and grows with you: everything you finish becomes a
 relic orbiting your rift, Seals mark what you achieve, and every December

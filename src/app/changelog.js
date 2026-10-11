@@ -3,7 +3,7 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
-    "2.1.0": [
+    "2.0.2": [
         "New: never miss a free game. Riftgate tells you the moment a game goes free to keep on Steam, Epic, GOG and more, and reminds you on its last day if you haven't claimed it. Free games opens on Free to keep right now, with how long each one lasts and a Claim button (Settings → Alerts)",
         "New: your wishlist. Add a game from its details and Riftgate tells you when its price drops. It's the first row in Deals",
         "New: While you were away. Come back after a while and the rift shows what changed: new free games, the ones about to end, new episodes of your shows, price drops on your wishlist",
@@ -12,9 +12,7 @@ export const CURRENT_NOTES = {
         "New: Rift Rewind. Every December, your year in the rift: what you finished, what you loved, your most-played game, your Seals, and a card of your rift to save and share (and Your year so far in the Journal any time)",
         "New: seasonal events. Riftgate changes with the year for a few days at a time, then goes back to your theme by itself. First: the Hallowed Rift, 22 October to 3 November (Settings → Seasonal events)",
         "New: Ask the Rift learns your taste. What you rate highly nudges its picks (\"Because you loved…\"), what you drop nudges them away, and things you've already rated aren't suggested again",
-        "New: Help Riftgate grow. If you say yes, Riftgate counts this PC once a week, anonymously: a random number, the version and Windows or Mac, nothing else (Settings)"
-    ],
-    "2.0.2": [
+        "New: Help Riftgate grow. If you say yes, Riftgate counts this PC once a week, anonymously: a random number, the version and Windows or Mac, nothing else (Settings)",
         "Fixed: the opening runs smoothly. Riftgate no longer builds its first page while the rift tears open (it waits for the calm moment once the name has settled), the Nexus banner stays still under the opening instead of animating unseen, the rings and the gem are prepared before they appear, the lightning's glow is drawn in a small layer around each bolt instead of across the whole screen, and the lightning's sound is prepared ahead instead of on the frame it strikes. It looks and sounds exactly the same. The lightning when you click the gem in Nexus is lighter too"
     ],
     "2.0.1": [

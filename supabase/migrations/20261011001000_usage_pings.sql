@@ -2,7 +2,7 @@
 -- 0010 · r2_usage_pings (opt-in, anonymous "how many PCs opened Riftgate")
 -- -----------------------------------------------------------------------------
 -- Purpose
---   Riftgate 2.1 can count, once a week, that it was opened on a PC, but only
+--   Riftgate 2.0.2 (October 2026 update) can count, once a week, that it was opened on a PC, but only
 --   when the person said yes (Settings → Help Riftgate grow). What is sent: a
 --   random id made on that PC (no name, no account, no IP kept), the app
 --   version and "win"/"mac". One row per PC per week, nothing else.
@@ -13,7 +13,7 @@
 --     weeks: PCs per week, and per version for the latest week.
 --   Rows older than a year are deleted when a new week's first ping arrives.
 -- Prerequisites: 0003 (verify_admin_login).
--- Old-client effect: none (only Riftgate 2.1+ calls it).
+-- Old-client effect: none (only Riftgate 2.0.2's October update and later call it).
 -- Verify:
 --   select public.r2_usage_ping(repeat('a', 32), '2.1.0', 'win');   -- true
 --   select count(*) from public.r2_usage_pings;
