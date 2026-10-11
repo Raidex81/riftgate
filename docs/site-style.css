@@ -303,3 +303,9 @@ footer {
   .pillar-row .pillar-text,
   .pillar-row.reverse .pillar-text { order: 2; }
 }
+
+/* The opening, as a looping video under the hero */
+.trailer { max-width: 1100px; margin: 0 auto 80px; padding: 0 24px; text-align: center; }
+.trailer video { width: 100%; display: block; border-radius: 14px; border: 1px solid rgba(185, 140, 255, .25); box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 60px rgba(139, 61, 255, .25); background: #07050d; }
+.trailer p { margin-top: 14px; color: rgba(237, 230, 255, .7); font-size: .95rem; }
+.trailer a { color: #b98cff; }

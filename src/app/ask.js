@@ -251,6 +251,29 @@ const popularityOf = (i) => {
     return .3;
 };
 
+// ---- Your taste, from the Journal -----------------------------------------------
+// What you rated 4 or 5 (or marked favourite) pulls the ideas it's made of up;
+// what you rated 1 or 2, or dropped, pulls them down. Each idea's weight is
+// small next to what you actually asked for: taste breaks ties, it doesn't
+// overrule you.
+const fromSnapshot = (e) => ({ key: e.key, type: e.item.type, title: e.item.title, genres: e.item.genres || [], subjects: e.item.subjects || [], desc: e.item.about || "", raw: { tags: e.item.tags || [] } });
+export function taste(items) {
+    const byKey = new Map(items.map((i) => [i.key, i]));
+    const w = {}, liked = [];
+    for (const e of journal.entries()) {
+        if (!e.item) continue;
+        const love = e.rating >= 4 || e.favourite, hate = (e.rating && e.rating <= 2) || e.status === "dropped";
+        if (!love && !hate) continue;
+        const it = byKey.get(e.key) || fromSnapshot(e);
+        const has = C.filter((c) => !c.vr && strength(it, c) >= .7);
+        if (!has.length) continue;
+        const k = love ? (e.rating === 5 || e.favourite ? 1.4 : 1) : -.8;
+        has.forEach((c) => { w[c.id] = (w[c.id] || 0) + k; });
+        if (love) liked.push({ title: e.item.title, type: e.item.type, ideas: new Set(has.map((c) => c.id)), at: e.updatedAt || 0 });
+    }
+    return { w, liked: liked.sort((a, b) => b.at - a.at) };
+}
+
 // ---- rank(): request + candidates -> the best few, each with a why --------------
 export function rank(req, items, { exclude = new Set(), limit = 30 } = {}) {
     const year = new Date().getFullYear();
@@ -262,6 +285,7 @@ export function rank(req, items, { exclude = new Set(), limit = 30 } = {}) {
         if (likeItem) C.forEach((c) => { if (!want.includes(c) && !req.avoid.includes(c) && strength(likeItem, c) >= 1) want.push(c); });
     }
     const kinds = req.kinds;
+    const my = taste(items);
     const scored = [];
     for (const i of items) {
         if (!i || !i.title || exclude.has(i.key) || i === likeItem) continue;
@@ -275,6 +299,9 @@ export function rank(req, items, { exclude = new Set(), limit = 30 } = {}) {
         if (req.mods.has("f2p") && (i.kind !== "free" || !i.alwaysFree)) continue;
         if (req.mods.has("mine") && !(i.kind === "library" || i.kind === "ebook" || i.kind === "journal" || i.kind === "show")) continue;
         if (want.some((c) => c.vr) && !i.vr) continue;
+        // you've already rated it: you know it (unless you asked for your own things)
+        const rated = journal.entry(i.key);
+        if (rated && rated.rating && !req.mods.has("mine")) continue;
 
         // fit: share of what you asked for that it has (game-only ideas like
         // "co-op" don't count against a film when you asked for both)
@@ -302,14 +329,33 @@ export function rank(req, items, { exclude = new Set(), limit = 30 } = {}) {
         // your own Journal: what you loved shapes it a little, what you finished stays out (handled by the caller)
         const e = journal.entry(i.key);
         if (e && e.status === "planned") score += .6;
+        // your taste: a nudge toward the kinds of things you loved
+        const ideas = C.filter((c) => !c.vr && my.w[c.id] && strength(i, c) >= .7);
+        const tasteK = Math.max(-1.5, Math.min(1.2, ideas.reduce((s, c) => s + my.w[c.id], 0) * .18));
+        score += tasteK;
         score += Math.random() * .9; // so asking twice doesn't always give the same three
 
         // strongest reasons first: its genre, then what its description says
         const why = hits.slice().sort((x, y) => y[1] - x[1]).map(([c]) => c.label);
-        scored.push({ item: i, score, why, quality: q.text });
+        // "because you loved X": the loved thing sharing most with it (same kind first)
+        if (tasteK >= .3) {
+            const ids = new Set(ideas.map((c) => c.id));
+            const best = my.liked.map((l) => ({ l, n: [...l.ideas].filter((x) => ids.has(x)).length + (l.type === i.type ? .5 : 0) })).filter((x) => x.n >= 1 && x.l.title !== i.title).sort((a, b) => b.n - a.n)[0];
+            if (best) why.unshift(`Because you loved ${best.l.title}`);
+        }
+        scored.push({ item: i, score, why, quality: q.text, taste: tasteK >= .3 });
     }
     scored.sort((a, b) => b.score - a.score);
-    return { picks: scored.slice(0, limit), likeItem, likeMissing: !!req.like && !likeItem };
+    // room for discovery: of each three picks, at most two come from your usual taste
+    const out = [], held = [];
+    for (const s of scored) {
+        const slot = out.length % 3, group = out.slice(out.length - slot);
+        if (s.taste && group.filter((x) => x.taste).length >= 2) { held.push(s); continue; }
+        out.push(s);
+        while (held.length && out.length % 3 === 0) out.push(held.shift());
+        if (out.length >= limit) break;
+    }
+    return { picks: [...out, ...held].slice(0, limit), likeItem, likeMissing: !!req.like && !likeItem };
 }
 
 // Examples to try, per mood (shown as clickable chips under the box)

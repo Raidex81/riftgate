@@ -66,7 +66,28 @@ export default {
                 h("section.setting", null, h("div.grow", null, h("h3", null, "See Riftgate as…"),
                     h("p", null, "Check what other people see without signing out. Only changes what shows on this PC, until Riftgate closes.")), seeAs),
                 h("section.setting", null, h("div.grow", null, h("h3", null, "Moderating a title"),
-                    h("p", null, "Open any film, series, book or game: the Admin box at the bottom of its details marks it as mature or removes it from Riftgate."))));
+                    h("p", null, "Open any film, series, book or game: the Admin box at the bottom of its details marks it as mature or removes it from Riftgate."))),
+                usage());
+        }
+
+        // How many PCs open Riftgate each week (only those whose owners said yes; see Settings)
+        function usage() {
+            const box = h("div.usage-box", null, h("button.btn", { type: "button", onclick: load }, icon("refresh"), "Show the numbers"));
+            async function load() {
+                clear(box).append(h("p.muted", null, "Loading…"));
+                const r = await admin.run("r2-usage-weekly", {});
+                clear(box);
+                if (!r || r.success === false || !r.result) { box.append(h("p.muted", null, (r && r.error) || "Couldn't load the numbers.")); return; }
+                const { weeks = [], versions = [], platforms = {} } = r.result;
+                if (!weeks.length) { box.append(h("p.muted", null, "No counts yet. They come in once people say yes in Settings.")); return; }
+                const max = Math.max(...weeks.map((w) => w.pcs));
+                box.append(
+                    h("div.usage-weeks", null, weeks.slice(0, 12).reverse().map((w) => h("div.usage-week", { title: `Week of ${w.week}: ${w.pcs} PCs` },
+                        h("i", { style: { height: `${Math.max(4, w.pcs / max * 100)}%` } }), h("small", null, w.week.slice(5))))),
+                    h("p.muted", null, `This week: ${weeks[0].pcs} PCs · ${Object.entries(platforms).map(([p, n]) => `${n} ${p === "win" ? "Windows" : p === "mac" ? "Mac" : p}`).join(", ")} · ${versions.map((v) => `${v.pcs} on ${v.version}`).join(", ")}`));
+            }
+            return h("section.setting", null, h("div.grow", null, h("h3", null, "People using Riftgate"),
+                h("p", null, "PCs that opened Riftgate each week, counted anonymously, only for people who said yes to helping (Settings → Help Riftgate grow).")), box);
         }
 
         async function content() {

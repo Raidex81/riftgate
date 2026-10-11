@@ -9,6 +9,7 @@ import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
+import * as alerts from "../app/alerts.js";
 
 const TIERS = [
     { id: 0, label: "Any discount" },
@@ -60,7 +61,10 @@ export default {
                 return;
             }
             const byPop = list.slice().sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+            // your wishlist first: what you're waiting on, at today's best price
+            const wished = alerts.wishlist({ fresh: true }).then((w) => w.items.map((it) => alerts.wishItem(it, w.money)).sort((a, b) => (b.dropped ? 1 : 0) - (a.dropped ? 1 : 0) || (b.price ? b.price.discount : 0) - (a.price ? a.price.discount : 0)));
             body.append(shelf("deals", [
+                row({ title: "My wishlist", icon: "heart", id: "wishlist", items: wished, hideEmpty: true, note: "Riftgate tells you when a price drops" }),
                 row({ title: "Most popular on sale", icon: "flame", items: byPop }),
                 row({ title: "Best reviewed", icon: "star", items: list.filter((d) => d.rating).sort((a, b) => b.rating - a.rating || (b.popularity || 0) - (a.popularity || 0)) }),
                 row({ title: "Biggest discounts", icon: "tag", items: list.slice().sort((a, b) => (b.price.discount || 0) - (a.price.discount || 0)) }),

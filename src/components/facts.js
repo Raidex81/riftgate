@@ -6,7 +6,8 @@
 // a click on → shows the next, × turns it off (Settings turns it back on).
 
 import { h, icon } from "../app/dom.js";
-import { FACTS } from "../app/facts.js";
+import { FACTS, SEASON_FACTS } from "../app/facts.js";
+import * as season from "../app/season.js";
 import * as interests from "../app/interests.js";
 import * as journal from "../app/store.js";
 import { toast } from "./toast.js";
@@ -18,7 +19,15 @@ const ICON = { games: "library", screen: "film", books: "book" };
 const queues = {};
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
+let told = 0;
 function next(world) {
+    // while a season is on, one fact in three is the season's
+    const sf = season.current() && SEASON_FACTS[season.current().id];
+    if (sf && sf[world] && ++told % 3 === 0) {
+        const k = `${season.current().id}:${world}`;
+        if (!queues[k] || !queues[k].length) queues[k] = shuffle(sf[world]);
+        return queues[k].shift();
+    }
     if (!queues[world] || !queues[world].length) queues[world] = shuffle(FACTS[world]);
     return queues[world].shift();
 }

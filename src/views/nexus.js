@@ -12,7 +12,9 @@ import * as journal from "../app/store.js";
 import { hero } from "../components/hero.js";
 import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
-import { todayBand } from "../components/today.js";
+import { todayBand, scaryPicks } from "../components/today.js";
+import * as season from "../app/season.js";
+import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
 import { hours, until, plural } from "../app/format.js";
@@ -91,6 +93,9 @@ function pulse() {
         if (d.length && interests.wants("deals")) item("tag", big.toLocaleString(), "deals at 75% off or more", "deals");
         const newEps = eps.filter((e) => e.date && Date.now() - Date.parse(e.date) < WEEK && !seen.isSeen(e)).length;
         if (eps.length && interests.wants("screen")) item("tv", String(newEps), newEps === 1 ? "episode to watch this week" : "episodes to watch this week", "theatre");
+        // your rift's relics: everything you've completed
+        const relics = journal.entries().filter((e) => e.status === "completed" && e.item).length;
+        if (relics) item("gem", relics.toLocaleString(), `${relics === 1 ? "relic" : "relics"} orbiting your rift`, "journal");
         if (lib.length) {
             const total = lib.reduce((s, g) => s + (g.playtime || 0), 0);
             const n = lib.filter((g) => g.type === "game").length;
@@ -98,6 +103,24 @@ function pulse() {
         }
     });
     return strip;
+}
+
+// After a few days with Riftgate, one polite question: may this PC be counted
+// (anonymously, once a week)? Asked once; Settings changes the answer.
+async function askToCount(root) {
+    const { settings: appSettings, saveSettings, call: engine } = await import("../app/api.js");
+    const first = journal.pref("firstUseAt", null);
+    if (!first) { journal.setPref("firstUseAt", Date.now()); return; }
+    if (Date.now() - first < 3 * 86400e3) return;
+    const s = await appSettings({ fresh: true });
+    if (s.usageStats === true || s.usageStats === false) return;
+    const answer = async (yes) => { await saveSettings({ usageStats: yes }); n.remove(); if (yes) { engine("r2-usage-ping-now"); toast("Thank you! This PC is counted once a week, anonymously."); } };
+    const n = h("div.notice", null, icon("heart"),
+        h("div.grow", null, h("strong", null, "Help Riftgate grow?"),
+            h("p", null, "May Riftgate count this PC once a week as one that uses it? Only a random number, the version and Windows or Mac: never your name, account or anything you do. You can change it in Settings.")),
+        h("button.btn.primary", { type: "button", onclick: () => answer(true) }, icon("check"), "Yes, count it"),
+        h("button.btn", { type: "button", onclick: () => answer(false) }, "No thanks"));
+    root.prepend(n);
 }
 
 async function importNotice(root) {
@@ -126,6 +149,15 @@ export default {
         const body = h("div");
         root.append(hr, pulse(), todayBand(), body);
         importNotice(body);
+        askToCount(body);
+        // Rift Rewind's season (1 December to 15 January): the year, ready to look back on
+        if (rewindSeason() && !journal.pref(`rewind:seen:${rewindYear()}`, false)) {
+            const n = h("div.notice.rw-notice", null, icon("rift"),
+                h("div.grow", null, h("strong", null, `Your ${rewindYear()} Rift Rewind is ready`), h("p", null, "Everything you played, watched and read this year, your favourites, your seals, and your rift on a card to share.")),
+                h("button.btn.primary", { type: "button", onclick: () => { journal.setPref(`rewind:seen:${rewindYear()}`, true); n.remove(); openRewind(rewindYear()); } }, icon("play"), "Watch it"),
+                h("button.icon-btn", { type: "button", "aria-label": "Not now", onclick: () => { journal.setPref(`rewind:seen:${rewindYear()}`, true); n.remove(); } }, icon("x")));
+            body.prepend(n);
+        }
 
         const noMature = (l) => gate.visible(l);
         const rows = [
@@ -146,6 +178,9 @@ export default {
         const IN = { "free-right-now": ["free"], "new-episodes": ["screen"], "in-cinemas": ["screen"], "deals-worth-it": ["deals"],
             "coming-soon": ["games"], "new-series": ["screen"], "new-anime": ["anime"], "books-everyone-s-reading": ["books"] };
         const ids = (r) => IN[r.dataset.rowId] || [];
+        // The Hallowed Rift: the scariest of everything, first
+        if (season.is("halloween")) body.append(row({ title: "Scary picks for Halloween", icon: "flame", id: "season-scary", items: () => scaryPicks({ limit: 30 }), hideEmpty: true,
+            cardOpts: { showType: true }, note: "Games, films, series and books to play, watch and read with the lights off" }));
         body.append(shelf("nexus", interests.byInterest(rows.filter((r) => interests.wants(...ids(r))), ids)));
         return () => hr.destroy();
     },

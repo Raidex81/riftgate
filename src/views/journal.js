@@ -8,6 +8,8 @@ import { TYPE_LABEL } from "../app/items.js";
 import { row } from "../components/row.js";
 import { pagedGrid } from "../components/paged.js";
 import { hours, plural } from "../app/format.js";
+import { sealsSection } from "../components/seals.js";
+import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
 
 const STATUS_ORDER = ["progress", "planned", "completed", "hold", "dropped"];
 
@@ -26,8 +28,10 @@ export default {
 
         root.append(
             h("div.view-head", null, h("div", null, h("h1", null, "Journal"),
-                h("p", null, "Your games, films, series, anime and books in one place. Open anything in Riftgate and set its status, rating and progress."))),
-            stats, favs, h("h2", null, "Everything you track"), filters, list);
+                h("p", null, "Your games, films, series, anime and books in one place. Open anything in Riftgate and set its status, rating and progress.")),
+                h("div.actions", null, h("button.btn.primary", { type: "button", onclick: () => openRewind(rewindSeason() ? rewindYear() : new Date().getFullYear()) },
+                    icon("rift"), rewindSeason() ? `Rift Rewind ${rewindYear()}` : "Your year so far"))),
+            stats, sealsSection(), favs, h("h2", null, "Everything you track"), filters, list);
 
         // Journal entries become Items again (library items keep their Play button)
         const toItem = (e) => libByKey.get(e.key) || { ...e.item, key: e.key, kind: e.item.kind || "journal", desc: "" };

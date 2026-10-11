@@ -16,6 +16,12 @@ and keeps your library, shows, books and settings.
 
 ![Nexus, Riftgate's home: what's free, in cinemas, new episodes and what you were in the middle of](screenshots/nexus.jpg)
 
+**New in 2.1:** Riftgate tells you the moment a game goes free and reminds you
+before it ends, watches your wishlist for price drops, shows what changed
+while you were away, and grows with you: everything you finish becomes a
+relic orbiting your rift, Seals mark what you achieve, and every December
+Rift Rewind looks back on your year. ([Watch the opening](docs/riftgate-opening.mp4))
+
 ---
 
 ## Download
@@ -87,7 +93,9 @@ drag it into your own order.
 ![Library](screenshots/library.jpg)
 
 **🎁 Free games** collects thousands of games that are free to keep or
-free to play right now. The sources include Steam, Epic Games, every free
+free to play right now. **Riftgate tells you the moment a game goes free to
+keep, and reminds you on its last day if you haven't claimed it**: the
+giveaways running today come first, with how long each one lasts. The sources include Steam, Epic Games, every free
 game on GOG, itch.io, giveaway trackers and the big free-to-play titles.
 You get a VR view (native and adapted), genres, popularity and a row for
 everything new this week.
@@ -96,7 +104,8 @@ everything new this week.
 
 **🏷️ Deals** shows the biggest current discounts on PC games from Steam
 and dozens of other stores, with review scores and trailers. Prices
-follow your region's currency.
+follow your region's currency. Put a game on your **wishlist** and
+Riftgate tells you when its price drops.
 
 ![Deals](screenshots/deals.jpg)
 
@@ -117,7 +126,10 @@ everywhere.
 **📓 Journal** tracks anything, whether it's a game, film, series,
 anime or book. Mark it as playing, watching, reading, planned, completed,
 on hold or dropped, then rate it with gems, follow your progress and keep
-a note. Every card in Riftgate shows its status.
+a note. Every card in Riftgate shows its status. **Everything you finish
+becomes a relic orbiting your rift** on Nexus, **Seals** mark what you
+achieve across every world (a few are secret), and **Rift Rewind** looks
+back on your year every December, with a card of your rift to share.
 
 ![Journal](screenshots/journal.jpg)
 
@@ -147,6 +159,16 @@ for its creator. Made one yourself? Put it forward from inside the app.
   into your own order.
 - **Did you know?** shows a fact from the world you're in along the
   bottom, and a short tour introduces Riftgate on your first start.
+- **While you were away**: come back after a while and the rift shows
+  what changed: new free games, the ones about to end, new episodes of
+  your shows, price drops on your wishlist.
+- **Seasonal events**: Riftgate changes with the year for a few days at a
+  time, then goes back to your theme by itself. First up: the Hallowed
+  Rift, 22 October to 3 November.
+- **Private by design**: your library, Journal and everything you do stay
+  on your PC, and Ask the Rift runs there too. The only thing Riftgate can
+  send is an anonymous weekly "this PC used Riftgate", and only if you say
+  yes to it.
 - **Mature titles** show only to adults who turn them on, based on the
   date of birth on their Riftgate account.
 - **Updates itself** on Windows, and always asks first.

@@ -15,6 +15,7 @@ import { coverQuery } from "./card.js";
 import { recordView } from "../app/foryou.js";
 import * as gate from "../app/mature.js";
 import * as admin from "../app/admin.js";
+import * as alerts from "../app/alerts.js";
 
 let current = null;
 
@@ -121,7 +122,11 @@ function buildActions(item, box, cover) {
             }, true));
             break;
         case "free":
-            add(btn("Get it free", "gift", () => openExternal(item.url), true));
+            // claiming it here means no last-day reminder for it
+            add(btn("Get it free", "gift", () => { openExternal(item.url); if (!item.alwaysFree) alerts.claim(item.title); }, true));
+            break;
+        case "wish":
+            if (item.url) add(btn("See the best deal", "tag", () => openExternal(item.url), true));
             break;
         case "deal":
             add(btn(`View deal on ${item.source || "store"}`, "tag", () => openExternal(item.url), true));
@@ -168,7 +173,28 @@ function buildActions(item, box, cover) {
     if (item.url && !["free", "deal", "upcoming", "book", "search", "community"].includes(item.kind)) {
         add(h("button.icon-btn", { type: "button", "aria-label": "Open web page", title: "Open web page", onclick: () => openExternal(item.url) }, icon("external")));
     }
+    if (item.type === "game" && ["deal", "upcoming", "search", "wish"].includes(item.kind)) add(wishButton(item, btn));
     trailerButton(item, box, cover);
+}
+
+// The wishlist: Riftgate watches its price and tells you when it drops
+function wishButton(item, btn) {
+    const b = btn("Add to wishlist", "heart", null, false);
+    let on = false;
+    const paint = () => { clear(b).append(icon(on ? "check" : "heart"), on ? "On your wishlist" : "Add to wishlist"); b.classList.toggle("is-on", on); b.title = on ? "Riftgate tells you when its price drops. Click to take it off" : "Riftgate tells you when its price drops"; };
+    alerts.onWishlist(item.key).then((v) => { on = v; paint(); });
+    b.onclick = async () => {
+        b.disabled = true;
+        if (on) { await alerts.unwish(item.key); on = false; toast(`${item.title} is off your wishlist`); }
+        else {
+            const r = await alerts.wish(item);
+            if (r && r.item) { on = true; toast(r.priced === false ? `${item.title} is on your wishlist. Riftgate will look for its price.` : `${item.title} is on your wishlist: you'll hear when its price drops`); }
+            else toast((r && r.error) || "It couldn't be added. Try again.", "err");
+        }
+        b.disabled = false; paint();
+    };
+    paint();
+    return b;
 }
 
 // The seal, as a button: "Watched it?" until you have
@@ -282,7 +308,11 @@ async function fillDescription(item, el) {
 
 // ---- Journal controls -----------------------------------------------------------
 function snapshot(item) {
-    return { title: item.title, type: item.type, kind: item.kind, image: item.image || null, backdrop: item.backdrop || null, sub: item.sub || "", url: item.url || null, tmdbId: item.tmdbId || null };
+    const raw = item.raw || {};
+    return { title: item.title, type: item.type, kind: item.kind, image: item.image || null, backdrop: item.backdrop || null, sub: item.sub || "", url: item.url || null, tmdbId: item.tmdbId || null,
+        // what it's like, so Ask the Rift can learn your taste from what you rate
+        genres: (item.genres || []).slice(0, 6), tags: (Array.isArray(raw.tags) ? raw.tags : item.genre ? [item.genre] : []).slice(0, 6).map(String),
+        subjects: (item.subjects || []).slice(0, 10), about: String(item.desc || raw.description || "").slice(0, 400) };
 }
 
 function journalBox(item) {

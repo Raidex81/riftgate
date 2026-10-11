@@ -101,6 +101,36 @@ export default {
             h("div", { style: { display: "grid", gap: "10px", justifyItems: "end" } },
                 h("div", { style: { display: "flex", gap: "8px" } }, introSel, preview), quitBox)));
 
+        // Alerts: free games, the wishlist, and watching from the tray
+        {
+            const { alertSettings, keepWatching, startWithWindows } = await import("../app/alerts.js");
+            const a = await alertSettings();
+            const check = (on, label, fn) => { const c = h("input", { type: "checkbox", checked: on || null }); c.addEventListener("change", () => fn(c.checked)); return h("label.check", null, c, h("span", null, label)); };
+            box.appendChild(setting("Alerts", "Riftgate tells you when a game goes free to keep, reminds you on the last day of one you haven't claimed, and tells you when a game on your wishlist gets cheaper. Notifications come from Windows, never more than a few at a time.",
+                h("div", { style: { display: "grid", gap: "8px", justifyItems: "start" } },
+                    check(a.free, "New free games and last-day reminders", async (v) => { await saveSettings({ freeGameAlerts: v }); toast(v ? "Free-game alerts on" : "Free-game alerts off"); }),
+                    check(a.wishlist, "Price drops on my wishlist", async (v) => { await saveSettings({ wishlistAlerts: v }); toast(v ? "Wishlist alerts on" : "Wishlist alerts off"); }),
+                    check(a.background, "Keep watching from the tray when I close the window", async (v) => { await keepWatching(v); toast(v ? "Closing the window now asks whether to keep Riftgate in the tray" : "Closing the window quits Riftgate"); }),
+                    check(a.startup, "Start Riftgate with Windows (in the tray)", async (v) => { await startWithWindows(v); toast(v ? "Riftgate starts with Windows" : "Riftgate no longer starts with Windows"); }))));
+        }
+
+        // Help Riftgate grow: the opt-in weekly count
+        {
+            const c = h("input", { type: "checkbox", checked: s.usageStats === true || null });
+            c.addEventListener("change", async () => { await saveSettings({ usageStats: c.checked }); if (c.checked) call("r2-usage-ping-now"); toast(c.checked ? "Thank you! This PC is counted once a week, anonymously." : "This PC isn't counted any more"); });
+            box.appendChild(setting("Help Riftgate grow", "Count this PC once a week as one that uses Riftgate. Only a random number made on this PC, the version and Windows or Mac are sent: never your name, your account, your library or what you do. It's how Riftgate knows whether new features bring people back.",
+                h("label.check", null, c, h("span", null, "Count this PC"))));
+        }
+
+        // Seasonal events
+        {
+            const season = await import("../app/season.js");
+            const c = h("input", { type: "checkbox", checked: s.seasonalEvents !== false || null });
+            c.addEventListener("change", async () => { await saveSettings({ seasonalEvents: c.checked }); season.setEnabled(c.checked); toast(c.checked ? "Seasonal events on" : "Seasonal events off: Riftgate keeps your theme all year"); });
+            box.appendChild(setting("Seasonal events", "Riftgate changes with the year for a few days at a time, then goes back to your theme by itself: the Hallowed Rift from 22 October to 3 November, with more to come.",
+                h("label.check", null, c, h("span", null, "Join in"))));
+        }
+
         // Cards: size, and colour by kind
         const sizeSeg = h("div.seg.card-sizes", { role: "group", "aria-label": "Card size" });
         const paintSize = () => sizeSeg.replaceChildren(...look.SIZES.map((z) => h("button", { type: "button", "aria-pressed": String(look.cardSize() === z.id),

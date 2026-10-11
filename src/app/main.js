@@ -4,6 +4,12 @@
 import { h, icon, clear } from "./dom.js";
 import { call, on, send, settings as appSettings, forget, openExternal } from "./api.js";
 import { playIntro, done as introDone, quiet as introQuiet } from "../components/intro.js";
+import { markVisits, maybeWelcome } from "../components/welcome.js";
+import * as season from "./season.js";
+import { mountBats } from "../components/bats.js";
+import * as seals from "./seals.js";
+import { announce } from "../components/seals.js";
+import { watchSecrets } from "./secrets.js";
 import * as journal from "./store.js";
 import { setDetailOpener } from "../components/card.js";
 import { openDetail, closeDetail } from "../components/detail.js";
@@ -308,6 +314,8 @@ window.addEventListener("r2-engine-outdated", () => toast("Riftgate was updated.
 
 // ---- Engine events ---------------------------------------------------------------------
 on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to your Library"); });
+// a notification clicked (several new free games at once): straight to that section
+on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.test(d.view)) location.hash = d.view; });
 
 // ---- Start ---------------------------------------------------------------------------
 (async function start() {
@@ -316,8 +324,10 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     await theme.start(); // journal + your themes, applied before anything paints
     applyLook(); // card size and type colours
     const firstStart = !interests.chosen();
+    const lastVisit = markVisits(); // for "While you were away"
     // the opening plays in the theme's colours while everything loads underneath
-    appSettings().then((s) => playIntro({ enabled: s.startupAnimation !== false, sound: s.startupSound !== false }));
+    // a seasonal event (season.js) goes on first, so the opening plays in its colours
+    appSettings().then((s) => { season.start({ on: s.seasonalEvents !== false }); playIntro({ enabled: s.startupAnimation !== false, sound: s.startupSound !== false }); });
     account.restore();
     // the age gate and admin status; admins get their sections in the rail
     let wasAdmin = false, sawMature = false;
@@ -356,8 +366,18 @@ on("app-exited", (d) => { if (d && d.playtimeSeconds) toast("Playtime saved to y
     await Promise.race([introQuiet, new Promise((r) => setTimeout(r, 9000))]);
     await route();
     if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
+    introDone.then(() => { mountBats(); if (season.current() && !season.greeted()) setTimeout(() => toast(season.current().hello, "ok", 9000), 2500); });
+    // Seals: what earns them, then a look now and whenever something changes
+    watchSecrets({ toast });
+    { const hr = new Date().getHours(); if (hr >= 2 && hr < 5) seals.flag("night-owl"); }
+    if (season.is("halloween")) seals.flag("hallowed");
+    seals.onEarned(announce);
+    let sealTimer = null;
+    const lookAgain = () => { clearTimeout(sealTimer); sealTimer = setTimeout(() => seals.check(), 1500); };
+    introDone.then(() => setTimeout(() => { seals.check(); journal.subscribe(lookAgain); }, 4000));
     // then the tour: all of it the first time, afterwards only what's new to you
     introDone.then(() => new Promise((r) => setTimeout(r, firstStart ? 900 : 1500))).then(async () => {
+        if (!firstStart) await maybeWelcome(lastVisit).catch(() => false);
         while (document.querySelector(".interests-portal, .wn-modal, .detail, .update-modal")) await new Promise((r) => setTimeout(r, 600));
         maybeTour({ firstStart });
     });

@@ -465,6 +465,14 @@ const DEFAULT_SETTINGS = {
     // "auto" = on while a controller is connected, "on", or "off".
     tvMode: "auto",
     startupAnimation: true,
+    // Alerts (see r2RunAlerts): new free games and last-day reminders, wishlist price drops
+    freeGameAlerts: true,
+    wishlistAlerts: true,
+    seasonalEvents: true,
+    // Opt-in anonymous weekly count (null = not asked yet)
+    usageStats: null,
+    usageId: null,
+    usageLastWeek: null,
     deviceId: null,
     username: null,
     // SteamID64 the user enters in Settings, plus the last playtime pull
@@ -4821,6 +4829,162 @@ const r2InstallWatcher = platform.startInstallWatcher(
 );
 setTimeout(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 25 * 1000);
 setInterval(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 3600000);
+
+// --- Alerts: free games and wishlist price drops (services/alerts.js) -----------
+// Checked a minute after start, then every three hours while Riftgate runs
+// (in the tray too, when "Keep running in the background" is on). A game
+// newly free to keep gets one notification; one you haven't claimed gets a
+// reminder on its last day; a game on your wishlist gets one when its best
+// price drops. Each can be turned off in Settings.
+const alerts = require("./services/alerts");
+const ALERTS_FILE = () => path.join(app.getPath("userData"), "r2-alerts.json");
+const WISHLIST_FILE = () => path.join(app.getPath("userData"), "r2-wishlist.json");
+const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { return fallback; } };
+const writeJson = (file, data) => { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch (e) { console.error("[alerts] save failed:", e.message || e); } };
+const currentSettings = () => ({ ...DEFAULT_SETTINGS, ...readJson(SETTINGS_FILE, {}) });
+let alertsBusy = false;
+
+function r2Notify({ title, body, image, onClick }) {
+    try {
+        const { Notification } = require("electron");
+        if (!Notification.isSupported()) return;
+        const n = new Notification({ title, body, icon: resolveIconPath("icon.ico"), silent: false });
+        n.on("click", () => { try { onClick && onClick(); } catch (e) { /* */ } });
+        n.show();
+    } catch (e) { console.error("[alerts] notification failed:", e.message || e); }
+}
+function r2ShowWindow() { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } }
+function r2LogAlert(state, event) { state.events = [{ ...event, at: Date.now() }, ...(state.events || [])].slice(0, 60); }
+
+async function r2CheckGiveaways() {
+    const s = currentSettings();
+    const st = readJson(ALERTS_FILE(), {});
+    let list;
+    try { list = await alerts.fetchGiveaways(); } catch (e) { console.error("[alerts] giveaways:", e.message || e); return; }
+    const { fresh, ending, state } = alerts.diffGiveaways(st.giveaways, list);
+    st.giveaways = state;
+    fresh.forEach((g) => r2LogAlert(st, { type: "free", key: g.key, name: g.name, store: g.store, url: g.url, image: g.image || null, endsAt: g.endsAt || null }));
+    writeJson(ALERTS_FILE(), st);
+    r2SendToWindow("r2-alerts-changed", { fresh: fresh.length, ending: ending.length });
+    if (s.freeGameAlerts === false) return;
+    const until = (g) => (g.endsAt ? ` until ${new Date(g.endsAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}` : "");
+    const claim = (g) => () => { r2ClaimGiveaway(g.key); if (g.url) shell.openExternal(g.url); };
+    if (fresh.length > 2) {
+        r2Notify({ title: `${fresh.length} games just went free`, body: fresh.slice(0, 3).map((g) => g.name).join(", ") + (fresh.length > 3 ? "…" : "") + ". Free to keep, in Riftgate's Free games.",
+            onClick: () => { r2ShowWindow(); r2SendToWindow("r2-alert-open", { view: "free" }); } });
+    } else fresh.forEach((g) => r2Notify({ title: `Free to keep: ${g.name}`, body: `On ${g.store}${until(g)}. Click to claim it.`, onClick: claim(g) }));
+    ending.forEach((g) => r2Notify({ title: `Last day: ${g.name} is free`, body: `Free to keep on ${g.store} until ${new Date(g.endsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. Click to claim it before it's gone.`, onClick: claim(g) }));
+}
+function r2ClaimGiveaway(keyOrName) {
+    const st = readJson(ALERTS_FILE(), {});
+    const g = st.giveaways || (st.giveaways = { seen: {}, reminded: {}, claimed: {} });
+    const key = g.seen && g.seen[keyOrName] ? keyOrName : alerts.normalizeName(keyOrName);
+    g.claimed = { ...(g.claimed || {}), [key]: Date.now() };
+    writeJson(ALERTS_FILE(), st);
+    return true;
+}
+
+async function r2WishlistRate() {
+    const cur = CURRENCY_BY_COUNTRY[currentSettings().country] || "USD";
+    const rate = await fetchUsdToTargetRate(cur);
+    return typeof rate === "number" ? { currency: cur, rate } : { currency: "USD", rate: 1 };
+}
+const r2Money = (usd, { currency, rate }) => { try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(usd * rate); } catch (e) { return `$${usd.toFixed(2)}`; } };
+
+async function r2CheckWishlist(force) {
+    const wl = readJson(WISHLIST_FILE(), { items: [] });
+    const ids = (wl.items || []).map((it) => it.cheapsharkId).filter(Boolean);
+    if (!ids.length || (!force && Date.now() - (wl.checkedAt || 0) < 6 * 3600e3)) return;
+    let prices;
+    try { prices = await alerts.cheapSharkPrices([...new Set(ids)]); } catch (e) { console.error("[alerts] wishlist prices:", e.message || e); return; }
+    const { drops, items } = alerts.diffPrices(wl.items, prices);
+    writeJson(WISHLIST_FILE(), { ...wl, items, checkedAt: Date.now() });
+    if (!drops.length) return;
+    const st = readJson(ALERTS_FILE(), {});
+    drops.forEach((d) => r2LogAlert(st, { type: "drop", key: d.item.key, name: d.item.title, price: d.price, was: d.was, retail: d.retail, image: d.item.image || null }));
+    writeJson(ALERTS_FILE(), st);
+    r2SendToWindow("r2-alerts-changed", { drops: drops.length });
+    if (currentSettings().wishlistAlerts === false) return;
+    const money = await r2WishlistRate();
+    drops.forEach((d) => r2Notify({
+        title: `${d.item.title} is ${Math.round((1 - d.price / d.retail) * 100)}% off`,
+        body: `${r2Money(d.price, money)} (was ${r2Money(d.was, money)}). On your Riftgate wishlist. Click to see the deal.`,
+        onClick: () => shell.openExternal(d.item.dealID ? `https://www.cheapshark.com/redirect?dealID=${encodeURIComponent(d.item.dealID)}` : `https://www.cheapshark.com/search#q:${encodeURIComponent(d.item.title)}`)
+    }));
+}
+
+async function r2RunAlerts() {
+    if (alertsBusy) return;
+    alertsBusy = true;
+    try { await r2CheckGiveaways(); await r2CheckWishlist(false); } finally { alertsBusy = false; }
+}
+setTimeout(r2RunAlerts, 60 * 1000);
+setInterval(r2RunAlerts, 3 * 3600e3);
+
+// Save a picture the app made (Rift Rewind's card): asks where, Pictures by default
+ipcMain.handle("r2-save-image", async (event, { name, dataUrl } = {}) => {
+    const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
+    if (!m || m[1].length > 30e6) return { ok: false };
+    const safe = String(name || "Riftgate").replace(/[^\w .-]+/g, "").slice(0, 80) || "Riftgate";
+    const r = await dialog.showSaveDialog(win, { title: "Save picture", defaultPath: path.join(app.getPath("pictures"), `${safe}.png`), filters: [{ name: "PNG picture", extensions: ["png"] }] });
+    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(r.filePath, Buffer.from(m[1], "base64"));
+    return { ok: true, path: r.filePath };
+});
+
+// --- Opt-in usage count (supabase/migrations/..._usage_pings.sql) ----------------
+// Only with a yes in Settings: once a week, "a PC opened Riftgate" (a random id
+// made here, the version, win/mac). Nothing about the person, nothing else.
+function r2Week(d = new Date()) { const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); m.setUTCDate(m.getUTCDate() - ((m.getUTCDay() + 6) % 7)); return m.toISOString().slice(0, 10); }
+async function r2UsagePing() {
+    const s = currentSettings();
+    if (s.usageStats !== true) return;
+    const week = r2Week();
+    if (s.usageLastWeek === week) return;
+    let id = /^[0-9a-f]{32}$/.test(s.usageId || "") ? s.usageId : crypto.randomBytes(16).toString("hex");
+    const r = await callAdminRpc("r2_usage_ping", { p_install: id, p_version: String(app.getVersion()).slice(0, 20), p_platform: process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : "linux" });
+    if (r && r.success && r.result === true) writeJson(SETTINGS_FILE, { ...currentSettings(), usageId: id, usageLastWeek: week });
+}
+setTimeout(() => r2UsagePing().catch(() => {}), 2 * 60 * 1000);
+setInterval(() => r2UsagePing().catch(() => {}), 6 * 3600e3);
+ipcMain.handle("r2-usage-ping-now", async () => { await r2UsagePing().catch(() => {}); return true; });
+ipcMain.handle("r2-usage-weekly", async (event, { username, password } = {}) => {
+    if (typeof username !== "string" || typeof password !== "string") return { success: false, error: "Sign in as an admin." };
+    return callAdminRpc("r2_usage_weekly", { input_username: username, input_password: password });
+});
+
+ipcMain.handle("r2-alerts-giveaways", async () => {
+    const st = readJson(ALERTS_FILE(), {});
+    return { live: alerts.liveGiveaways(st.giveaways), events: st.events || [] };
+});
+ipcMain.handle("r2-alerts-claim", async (event, keyOrName) => (typeof keyOrName === "string" && keyOrName.length < 300 ? r2ClaimGiveaway(keyOrName) : false));
+ipcMain.handle("r2-alerts-check", async () => { await r2RunAlerts(); return true; });
+ipcMain.handle("r2-wishlist-get", async () => {
+    const wl = readJson(WISHLIST_FILE(), { items: [] });
+    return { items: wl.items || [], checkedAt: wl.checkedAt || null, money: await r2WishlistRate() };
+});
+ipcMain.handle("r2-wishlist-add", async (event, item = {}) => {
+    const title = typeof item.title === "string" ? item.title.trim().slice(0, 200) : "";
+    const key = typeof item.key === "string" ? item.key.slice(0, 300) : "";
+    if (!title || !key) return { error: "That game can't be added." };
+    const wl = readJson(WISHLIST_FILE(), { items: [] });
+    if ((wl.items || []).some((it) => it.key === key)) return { item: wl.items.find((it) => it.key === key) };
+    let found = null;
+    try { found = await alerts.findCheapSharkGame({ title, steamAppId: /^\d{1,10}$/.test(String(item.steamAppId || "")) ? String(item.steamAppId) : null }); } catch (e) { /* offline: kept, priced later */ }
+    const it = { key, title, image: typeof item.image === "string" ? item.image.slice(0, 1000) : (found && found.thumb) || null, cheapsharkId: found ? found.id : null, addedAt: Date.now() };
+    if (found) {
+        try { const p = (await alerts.cheapSharkPrices([found.id]))[found.id]; if (p) Object.assign(it, { price: p.price, retail: p.retail, dealID: p.dealID, lowest: p.lowest, alertPrice: p.price, checkedAt: Date.now() }); } catch (e) { /* priced on the next check */ }
+    }
+    wl.items = [it, ...(wl.items || [])].slice(0, 300);
+    writeJson(WISHLIST_FILE(), wl);
+    return { item: it, priced: !!found };
+});
+ipcMain.handle("r2-wishlist-remove", async (event, key) => {
+    const wl = readJson(WISHLIST_FILE(), { items: [] });
+    wl.items = (wl.items || []).filter((it) => it.key !== key);
+    writeJson(WISHLIST_FILE(), wl);
+    return true;
+});
 // coming back to Riftgate is a good moment to look again (at most every 10 minutes)
 let r2LastFocusCheck = 0;
 app.on("browser-window-focus", () => {
@@ -8680,6 +8844,8 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+    // Windows shows notifications under the app's id (the installer's shortcut carries the same one)
+    if (process.platform === "win32") app.setAppUserModelId("com.riftgate.app");
     // Content-Security-Policy, applied at the network layer (not a <meta>
     // tag) so it can't be bypassed by anything that gets injected into the
     // page. script-src/style-src stay locked to 'self' (style-src also

@@ -46,6 +46,9 @@ export function entries() { return Object.entries(state.journal).map(([key, v]) 
 export async function update(key, patch, snapshot) {
     const prev = state.journal[key] || {};
     const next = { ...prev, ...patch };
+    // when it was finished (kept even if its rating or note changes later): relics, Seals and Rift Rewind count by it
+    if (patch.status === "completed" && prev.status !== "completed") next.completedAt = Date.now();
+    if (patch.status && patch.status !== "completed") delete next.completedAt;
     if (snapshot) next.item = snapshot;
     const empty = !next.status && !next.rating && !next.progress && !next.note && !next.favourite;
     if (empty) delete state.journal[key]; else state.journal[key] = { ...next, updatedAt: Date.now() };

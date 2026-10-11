@@ -6,6 +6,9 @@ import { Rift } from "./rift.js";
 import { createIntroSound } from "./intro-sound.js";
 import { settings } from "../app/api.js";
 import { openDetail } from "./detail.js";
+import * as journal from "../app/store.js";
+import { flag } from "../app/seals.js";
+import { toast } from "./toast.js";
 
 // slides: [{ item, kicker, kickerIcon, action: { label, icon, run } }]
 export function hero(slidesPromise) {
@@ -20,7 +23,16 @@ export function hero(slidesPromise) {
         h("div.hero-copy", null, kicker, title, desc, actions), dots);
 
     let rift = null, slides = [], i = 0, timer = null, front = artA;
-    requestAnimationFrame(() => { rift = new Rift(canvas); });
+    requestAnimationFrame(() => { rift = new Rift(canvas); rift.setRelics(relics()); });
+    // your rift grows: everything you finish becomes a relic orbiting it
+    const offJournal = journal.subscribe((k) => { if (rift && !String(k).startsWith("pref:")) rift.setRelics(relics()); });
+    // the old code (secrets.js): a golden storm
+    const onSecret = (e) => {
+        if (!rift || !el.isConnected || !e.detail || e.detail.id !== "old-code") return;
+        let n = 0; const storm = setInterval(() => { if (!el.isConnected || ++n > 14) return clearInterval(storm); rift.strikeNow({ golden: true }); if (n % 3 === 1) zap(); }, 380);
+    };
+    window.addEventListener("r2-secret", onSecret);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (window.__pendingStorm) { window.__pendingStorm = false; setTimeout(() => onSecret({ detail: { id: "old-code" } }), 700); } }));
 
     function show(n) {
         if (!slides.length) return;
@@ -57,12 +69,21 @@ export function hero(slidesPromise) {
         if (!rift || e.target.closest("button, a") || !rift.hitGem(...local(e))) return;
         if (performance.now() - lastZap < 220) return;
         lastZap = performance.now();
-        rift.strikeNow();
+        // one strike in forty is golden (a secret Seal)
+        const golden = Math.random() < 1 / 40;
+        rift.strikeNow({ golden });
         zap();
+        if (golden) { flag("golden"); toast("A golden strike. One in forty."); }
     });
 
-    el.destroy = () => { clearInterval(timer); rift && rift.destroy(); };
+    el.destroy = () => { clearInterval(timer); offJournal(); window.removeEventListener("r2-secret", onSecret); rift && rift.destroy(); };
     return el;
+}
+
+// Relics: one per thing you've completed, in its kind's colour, oldest first
+function relics() {
+    return journal.entries().filter((e) => e.status === "completed" && e.item).sort((a, b) => (a.completedAt || a.updatedAt || 0) - (b.completedAt || b.updatedAt || 0))
+        .map((e) => ({ type: e.item.type || "game", at: e.completedAt || e.updatedAt || 0 }));
 }
 
 // The opening's lightning sound, on one shared audio context (made on the

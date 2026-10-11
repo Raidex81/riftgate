@@ -16,6 +16,8 @@ import * as interests from "../app/interests.js";
 import { openRoll } from "./roll.js";
 import { openDetail } from "./detail.js";
 import * as ask from "../app/ask.js";
+import * as season from "../app/season.js";
+import { bump } from "../app/seals.js";
 
 const DAY = 86400000;
 const fromJournal = (types, status = "planned") => journal.entries()
@@ -96,7 +98,25 @@ const EVERYTHING = { id: "everything", pool: async () => {
 } };
 const KIND_MOODS = { play: ["game"], free: ["game"], watch: ["film", "series", "anime"], read: ["book", "manga", "comic"] };
 
-const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…" };
+const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…", spooky: "If you dare…" };
+
+// ---- The Hallowed Rift (season.js) -------------------------------------------------
+// The scariest things Riftgate has, by what reviewers and players think of them
+export async function scaryPicks({ limit = 30, kinds = null } = {}) {
+    const pool = await poolFor(null, EVERYTHING, { skipDone: true });
+    const req = ask.understand("something scary");
+    if (kinds) kinds.forEach((k) => req.kinds.add(k));
+    return ask.rank(req, pool, { limit }).picks.map((p) => p.item);
+}
+const SPOOKY = { id: "spooky", label: "Trick or treat", hint: "Something scary, any kind", icon: "flame", energy: true,
+    options: [
+        { id: "any", label: "Anything scary", icon: "flame", pool: () => scaryPicks({ limit: 60 }) },
+        { id: "play", label: "A scary game", icon: "library", pool: () => scaryPicks({ limit: 40, kinds: ["game"] }) },
+        { id: "watch", label: "A scary film or series", icon: "film", pool: () => scaryPicks({ limit: 40, kinds: ["film", "series"] }) },
+        { id: "read", label: "A scary book", icon: "book", pool: () => scaryPicks({ limit: 30, kinds: ["book"] }) }
+    ] };
+const SPOOKY_EXAMPLES = ["Something scary for Halloween night", "A horror game to play with friends", "A creepy film with great reviews", "A ghost story to read"];
+const examplesFor = (id) => (season.is("halloween") ? [...SPOOKY_EXAMPLES.slice(0, 2), ...(ask.EXAMPLES[id] || ask.EXAMPLES.any).slice(0, 3)] : (ask.EXAMPLES[id] || ask.EXAMPLES.any));
 
 async function poolFor(mood, option, { skipDone }) {
     let items = ((await option.pool()) || []).filter((i) => i && i.title && !gate.hidden(i));
@@ -109,6 +129,7 @@ async function poolFor(mood, option, { skipDone }) {
     return fresh.length >= 3 ? fresh : items;
 }
 function remember(item) {
+    bump("rolls");
     const recent = (journal.pref("today:recent", []) || []).filter((k) => k !== item.key);
     journal.setPref("today:recent", [item.key, ...recent].slice(0, 12));
 }
@@ -200,13 +221,13 @@ export function openToday(startMood, opts = {}) {
     function askBox(mood, option, skipDone, backTo) {
         const input = h("input.input.ask-input", { type: "text", maxlength: 160, autocomplete: "off", spellcheck: "false",
             placeholder: "Or tell the rift what you feel like…", "aria-label": "Tell the rift what you feel like" });
-        const submit = (q) => { q = String(q || "").trim(); if (q) answer(mood, option(), skipDone(), q, backTo); };
+        const submit = (q) => { q = String(q || "").trim(); if (q) { bump("asks"); answer(mood, option(), skipDone(), q, backTo); } };
         input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(input.value); } });
         return h("div.ask", null,
             h("p.ask-kicker", null, icon("sparkles"), "Ask the Rift"),
             h("div.ask-bar", null, input,
                 h("button.btn.primary", { type: "button", onclick: () => submit(input.value) }, icon("rift"), "Ask")),
-            h("div.ask-examples", null, (ask.EXAMPLES[mood.id] || ask.EXAMPLES.any).map((t) =>
+            h("div.ask-examples", null, examplesFor(mood.id).map((t) =>
                 h("button.chip", { type: "button", onclick: () => submit(t) }, t))));
     }
 
@@ -224,7 +245,7 @@ export function openToday(startMood, opts = {}) {
         if (ask.isEmpty(req)) {
             status.replaceWith(h("div.ask-empty", null,
                 h("p", null, "The rift didn't catch that. Try words like funny, scary, cosy, short, co-op, sci-fi, a book, a film, top rated, a hidden gem… or one of these:"),
-                h("div.ask-examples", null, (ask.EXAMPLES[mood.id] || ask.EXAMPLES.any).map((t) => h("button.chip", { type: "button", onclick: () => answer(mood, option, skipDone, t, backTo) }, t)))));
+                h("div.ask-examples", null, examplesFor(mood.id).map((t) => h("button.chip", { type: "button", onclick: () => answer(mood, option, skipDone, t, backTo) }, t)))));
             return;
         }
         // Which shelves to look on: the mood you're in, unless you asked for another kind
@@ -302,6 +323,7 @@ export function askButton(moodId) {
 // The mood tiles, shared by the portal and the Nexus band
 export function moodTiles(onPick, big) {
     const moods = interests.byInterest(MOODS.filter((m) => !m.interests || interests.wants(...m.interests)), (m) => m.interests || ["__"]);
+    if (season.is("halloween")) moods.splice(Math.max(0, moods.length - 1), 0, SPOOKY); // just before the wild card
     const any = moods.findIndex((m) => m.id === "any");
     if (any >= 0) moods.push(moods.splice(any, 1)[0]); // the wild card always last
     return h(`div.moods${big ? ".big" : ""}`, { style: { "--n": String(moods.length) } }, moods.map((m) =>

@@ -5,8 +5,8 @@ Everything Riftgate runs on Supabase, kept as code. Production project:
 
 ## Current state (Riftgate 2.0)
 
-- **Database:** migrations `0001`–`0009` below are all applied (`0009`,
-  the shared theme gallery, is new for 2.0). `select public.get_backend_info();` shows the live version;
+- **Database:** migrations `0001`–`0009` below are applied; **`0010` (the opt-in usage
+  count, new for 2.1) still needs applying** in the SQL Editor before 2.1's count works (the app works without it). `select public.get_backend_info();` shows the live version;
   the app reads it to decide which server features it can use.
 - **Edge Functions deployed:**
 
@@ -41,6 +41,7 @@ Everything Riftgate runs on Supabase, kept as code. Production project:
   | 0007 | `20260926000700_vault_function.sql` | Vault through the `vault` function, bucket private + 50 MB |
   | 0008 | `20260926000800_vault_clean_fix.sql` | "Clean Vault now" passes Supabase's safe-delete check |
   | 0009 | `20261002000900_r2_themes.sql` | Shared theme gallery: `public.r2_themes` (public read only), `r2_publish_theme` / `r2_delete_theme` checked against the login session, `r2_use_theme` counter. Safe to run twice. Verify: `select count(*) from public.r2_themes;` |
+  | 0010 | `20261011001000_usage_pings.sql` | Opt-in anonymous weekly count (Riftgate 2.1): `public.r2_usage_pings` (no direct access), `r2_usage_ping(install, version, platform)` records this week's visit, `r2_usage_weekly(username, password)` for admins. Safe to run twice. Verify: `select public.r2_usage_ping(repeat('a', 32), '2.1.0', 'win');` then `delete from public.r2_usage_pings where install = repeat('a', 32);` |
 
 - `rollback/` — one undo script per migration (0008 needs none).
 - `tests/` — `run.sh` applies every migration to a throwaway local

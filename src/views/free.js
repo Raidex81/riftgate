@@ -12,6 +12,9 @@ import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
 import { plural } from "../app/format.js";
 import { askButton } from "../components/today.js";
+import { giveawayStrip } from "../components/giveaways.js";
+import { openDetail } from "../components/detail.js";
+import { slug } from "../app/items.js";
 
 const SORTS = {
     popular: { label: "Most popular", fn: (a, b) => (b.image ? 1 : 0) - (a.image ? 1 : 0) || b.popularity - a.popularity || (b.firstSeenAt || 0) - (a.firstSeenAt || 0) },
@@ -28,8 +31,11 @@ export default {
         const refresh = h("button.btn", { type: "button" }, icon("refresh"), "Refresh");
         const summary = h("p");
         const body = h("div");
+        // the giveaways running today, with their deadlines (a card opens the game's details when Riftgate has it)
+        const strip = giveawayStrip({ onOpen: (g) => { const it = all.find((x) => slug(x.title) === slug(g.name)); if (it) openDetail(it); else if (g.url) import("../app/api.js").then((m) => m.openExternal(g.url)); } });
         root.append(
             h("div.view-head", null, h("div", null, h("h1", null, "Free games"), summary), h("div.actions", null, askButton("free"), search, refresh)),
+            strip,
             h("div", { style: { marginBottom: "36px" } }, chips),
             body);
 

@@ -27,7 +27,11 @@ const FEATURES = [
     { id: "rail-drag", at: ".rail .nav", title: "Your order", text: "New: drag the sections in the menu to put them in your own order (or Ctrl + ↑ ↓)." },
     { id: "gh-star", at: ".gh-star", title: "Star on GitHub is back", text: "The project's star count, and one click to add yours." },
     { id: "facts", at: ".facts", title: "Did you know?", text: "New: a fact from the world you're in, along the bottom. The × turns it off." },
-    { id: "card-size", at: ".nav-item[href='#settings']", title: "Bigger or smaller cards", text: "New in Settings: choose the card size, and whether cards are coloured by kind." }
+    { id: "card-size", at: ".nav-item[href='#settings']", title: "Bigger or smaller cards", text: "New in Settings: choose the card size, and whether cards are coloured by kind." },
+    { id: "ask-rift", at: ".today-btn", title: "Ask the Rift", text: "New: tell the rift what you feel like, in your own words, and it picks three, by real reviews. It's in Surprise me and in each section." },
+    { id: "free-alerts", at: ".nav-item[href='#free']", title: "Never miss a free game", text: "New: Riftgate tells you when a game goes free and reminds you on its last day. Claim it from Free to keep right now." },
+    { id: "wishlist", at: ".nav-item[href='#deals']", title: "Your wishlist", text: "New: add a game to your wishlist from its details, and Riftgate tells you when its price drops." },
+    { id: "seals", at: ".nav-item[href='#journal']", title: "Your rift grows", text: "New: everything you finish becomes a relic orbiting the Nexus rift, and Seals mark what you achieve. A few are secret." }
 ];
 
 const done = () => new Set(journal.pref("tour:done", []) || []);

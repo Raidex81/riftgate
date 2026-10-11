@@ -21,7 +21,7 @@ const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI note -> Hz
 // ahead of time, a few milliseconds at a time while the page is idle, so
 // nothing is computed on the frame a bolt strikes (that froze the opening
 // for a tenth of a second right as the lightning began).
-export function createIntroSound(ac, { volume = 0.7, prebuild = false } = {}) {
+export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = null } = {}) {
     // ---- work done in slices while the page is idle ----
     const jobs = [];
     const job = (gen) => { const j = { gen, done: false, value: null }; jobs.push(j); return j; };
@@ -256,6 +256,33 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false } = {}) {
             bell(NOTE(76), at + .7, .02, 1.5, pan(-.2, post));
             return 1.55; // seconds until it's done enough to close
         },
+        // The Hallowed Rift (season.js): a haunted wind under the opening, a
+        // low choir breathing in a minor key, and a distant howl as the rings draw
+        haunt(at) {
+            const end = at + 6.4;
+            // wind: noise through a slowly wandering band, gusting
+            const n = noiseSrc(at, 6.6), bp = filter("bandpass", 420, 2.2), wg = gain(0, pre);
+            [[0, 380], [1.3, 820], [2.4, 460], [3.6, 980], [4.9, 520], [6.4, 300]].forEach(([dt, f]) => bp.frequency.linearRampToValueAtTime(f, at + dt));
+            wg.gain.setValueAtTime(0.0001, at); wg.gain.linearRampToValueAtTime(.075, at + 1.2); wg.gain.linearRampToValueAtTime(.05, at + 2.6);
+            wg.gain.linearRampToValueAtTime(.085, at + 3.8); wg.gain.exponentialRampToValueAtTime(.0001, end);
+            n.connect(bp); bp.connect(wg); wg.connect(verbIn);
+            // choir: a D minor chord on detuned saws, through a dark filter, with a slow vibrato
+            const lp = filter("lowpass", 700, .7), cg = gain(0, pre);
+            lp.connect(cg); cg.connect(verbIn);
+            cg.gain.setValueAtTime(0.0001, at + .5); cg.gain.linearRampToValueAtTime(.03, at + 2.2); cg.gain.setValueAtTime(.03, at + 4.2); cg.gain.exponentialRampToValueAtTime(.0001, end);
+            const vib = ac.createOscillator(), vg = gain(9, null); vib.frequency.value = 4.6; vib.connect(vg); vib.start(at); vib.stop(end + .1);
+            [50, 57, 62, 65].forEach((m) => [-7, 7].forEach((c) => {
+                const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = NOTE(m); o.detune.value = c; vg.connect(o.detune);
+                const og = gain(.18, lp); o.connect(og); o.start(at + .5); o.stop(end + .1);
+            }));
+            // a far-off howl, mostly echo
+            const hw = at + 1.9, ho = ac.createOscillator(); ho.type = "sine";
+            ho.frequency.setValueAtTime(360, hw); ho.frequency.exponentialRampToValueAtTime(640, hw + .7); ho.frequency.linearRampToValueAtTime(590, hw + 1.4); ho.frequency.exponentialRampToValueAtTime(290, hw + 2.4);
+            const hv = ac.createOscillator(), hvg = gain(14, null); hv.frequency.value = 5.5; hv.connect(hvg); hvg.connect(ho.detune);
+            const hb = filter("bandpass", 700, 1.4), hg = gain(0, null); env(hg.gain, hw, .05, .5, 1.9, .2);
+            ho.connect(hb); hb.connect(hg); hg.connect(verbIn); hg.connect(gain(.25, pre));
+            ho.start(hw); hv.start(hw); ho.stop(hw + 2.8); hv.stop(hw + 2.8);
+        },
         // the rift opens wide: a great whoosh, a falling boom and a bloom of light
         open(at) {
             const n = noiseSrc(at, 1.6), bp = filter("bandpass", 220, .8), g = gain(0, post);
@@ -356,10 +383,12 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false } = {}) {
 
     // The timeline, matching intro.js (seconds from the start)
     const TIMELINE = [
+        ...(season === "halloween" ? [[.15, "haunt"]] : []),
         [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"], [3.02, "arc"],
         ...STRIKES.map((t, i) => [t, "strike", i]),
         [3.55, "scramble"], ...Array.from({ length: 8 }, (_, i) => [3.75 + i * .085, "letter", i]), [4.35, "tagline"], [OPEN_AT, "open"]
     ];
+    TIMELINE.sort((x, y) => x[0] - y[0]);
 
     return {
         TIMELINE,

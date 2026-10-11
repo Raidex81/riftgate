@@ -89,6 +89,9 @@ function rgba(hex, a) {
     return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
 }
 
+// A golden strike's colours
+const GOLD = { a: "#ffae00", b: "#ff6a00", soft: "#ffe39a", core: "#fffbe8" };
+
 export class Rift {
     // opts: { cx: 0..1 horizontal centre, cy, scale, intensity, still: never draws by itself (the opening's helper) }
     constructor(canvas, opts = {}) {
@@ -113,7 +116,8 @@ export class Rift {
     }
 
     readColours() {
-        this.col = { a: cssColor("--amethyst", "#8b3dff"), b: cssColor("--rift-pink", "#e03cff"), soft: cssColor("--amethyst-soft", "#b98cff") };
+        // core: the lightning's white-hot centre (a season may tint it, see season.js)
+        this.col = { a: cssColor("--amethyst", "#8b3dff"), b: cssColor("--rift-pink", "#e03cff"), soft: cssColor("--amethyst-soft", "#b98cff"), core: cssColor("--bolt-core", "#ffffff") };
     }
 
     resize() {
@@ -147,9 +151,11 @@ export class Rift {
     // A strike on demand (clicking the gem): a main bolt and a fork beside it,
     // and the portal flares. Returns false when the gem wasn't hit.
     hitGem(x, y) { const cx = this.w * this.o.cx, cy = this.hgt * this.o.cy; return Math.hypot(x - cx, y - cy) <= this.R * .95; }
-    strikeNow() {
-        const first = this.bolt();
-        this.bolts.push(first, this.bolt(first.ang + Math.PI * (.6 + Math.random() * .8)));
+    // golden: a rare golden strike (a secret, see secrets.js)
+    strikeNow({ golden = false } = {}) {
+        const first = this.bolt(), second = this.bolt(first.ang + Math.PI * (.6 + Math.random() * .8));
+        if (golden) first.golden = second.golden = true;
+        this.bolts.push(first, second);
         if (!this.running) this.draw(0.016);
     }
     destroy() { this.stop(); this.ro.disconnect(); this.io.disconnect(); document.removeEventListener("visibilitychange", this.onVis); }
@@ -327,6 +333,85 @@ export class Rift {
         return bo._layer;
     }
 
+    // Relics (hero.js): one small crystal per thing you've completed, in its
+    // kind's colour, orbiting just outside the rune rings. The ring of them
+    // is drawn once into a picture and turned; the newest (three days) glow.
+    setRelics(list) {
+        this.relics = Array.isArray(list) ? list.slice(-240) : [];
+        this._relicSprite = null;
+        if (!this.running) this.draw(0);
+    }
+    relicSprite(R) {
+        const n = this.relics.length;
+        const key = `${n}|${Math.round(R)}|${this.relics.map((r) => r.type[0]).join("")}`;
+        if (this._relicSprite && this._relicSprite.key === key) return this._relicSprite;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        const rad = R * 1.7, half = Math.ceil(rad + R * .2);
+        const c = document.createElement("canvas"); c.width = c.height = Math.ceil(half * 2 * dpr);
+        const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, half * dpr, half * dpr);
+        const colours = {};
+        this.relics.forEach((r, i) => {
+            const col = colours[r.type] || (colours[r.type] = cssColor(`--type-${r.type}`, this.col.soft));
+            const ang = -Math.PI / 2 + (i / Math.max(n, 24)) * TAU;      // a ring that fills as you finish more
+            const s = R * .034;
+            x.save(); x.rotate(ang); x.translate(0, -rad);
+            x.shadowColor = col; x.shadowBlur = 8;
+            x.fillStyle = col; x.globalAlpha = .92;
+            x.beginPath(); x.moveTo(0, -s * 1.5); x.lineTo(s, 0); x.lineTo(0, s * 1.5); x.lineTo(-s, 0); x.closePath(); x.fill();
+            x.shadowBlur = 0; x.fillStyle = "rgba(255,255,255,.55)";
+            x.beginPath(); x.moveTo(0, -s * 1.5); x.lineTo(s * .45, -s * .2); x.lineTo(0, 0); x.closePath(); x.fill();
+            x.restore();
+        });
+        this._relicSprite = { key, c, half, rad, n, colours };
+        return this._relicSprite;
+    }
+    drawRelics(R, t) {
+        if (!this.relics || !this.relics.length) return;
+        const ctx = this.ctx, sp = this.relicSprite(R);
+        const turn = t * .025;
+        ctx.save();
+        ctx.rotate(turn);
+        ctx.drawImage(sp.c, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+        // the newest relics breathe light
+        ctx.globalCompositeOperation = "lighter";
+        const now = Date.now(), n = this.relics.length;
+        this.relics.forEach((r, i) => {
+            if (now - r.at > 3 * 86400e3) return;
+            const ang = -Math.PI / 2 + (i / Math.max(n, 24)) * TAU;
+            const x = Math.sin(ang) * sp.rad, y = -Math.cos(ang) * sp.rad;
+            const k = .55 + .45 * Math.sin(t * 2.4 + i);
+            const g = ctx.createRadialGradient(x, y, 0, x, y, R * .16);
+            g.addColorStop(0, rgba(sp.colours[r.type] || this.col.soft, .55 * k)); g.addColorStop(1, rgba(sp.colours[r.type] || this.col.soft, 0));
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R * .16, 0, TAU); ctx.fill();
+        });
+        ctx.restore();
+    }
+
+    // Will-o'-wisps: small ghost lights in spectral green and ember orange,
+    // drifting round the portal, bobbing, flickering, now and then fading out
+    // and back somewhere else.
+    drawWisps(dt, R, t) {
+        const ctx = this.ctx;
+        if (!this.wisps) this.wisps = Array.from({ length: 11 }, (_, i) => ({ ang: Math.random() * TAU, r: 1.7 + Math.random() * .85, sp: (.05 + Math.random() * .1) * (Math.random() < .5 ? -1 : 1), ph: Math.random() * TAU, sz: .05 + Math.random() * .05, green: i % 3 !== 0 }));
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const w of this.wisps) {
+            w.ang += w.sp * (dt || 0);
+            const x = Math.cos(w.ang) * R * w.r, y = Math.sin(w.ang) * R * w.r * .62 + Math.sin(t * 1.3 + w.ph) * R * .08;
+            const life = Math.pow(Math.max(0, Math.sin(t * .35 + w.ph)), 1.5);       // fades out and back
+            const flick = .65 + .35 * Math.sin(t * 9 + w.ph * 3) * Math.sin(t * 4.3 + w.ph);
+            const al = life * flick;
+            if (al < .03) continue;
+            const rr = R * w.sz * (1 + .25 * Math.sin(t * 2 + w.ph));
+            const col = w.green ? "#9dff7a" : "#ff9a3c";
+            const g = ctx.createRadialGradient(x, y, 0, x, y, rr * 3.2);
+            g.addColorStop(0, rgba("#ffffff", .9 * al)); g.addColorStop(.18, rgba(col, .75 * al)); g.addColorStop(1, rgba(col, 0));
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, y, rr * 3.2, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+    }
+
     // How bright a strike is at its age (0..1+): leader, flashes, afterglow
     static brightness(bo) {
         const t = bo.age;
@@ -349,7 +434,8 @@ export class Rift {
         // way, so the picture is the same.
         const lay = Rift.boltLayer(bo, screen, R);
         let ctx = screen;
-        const { a, b, soft } = this.col;
+        const col = bo.golden ? GOLD : this.col;
+        const { a, b, soft } = col;
         bo.age += (dt || 0) / 1000;
         const lit = Rift.brightness(bo);
         // the leader reveals the channel progressively; once struck it's whole
@@ -399,8 +485,8 @@ export class Rift {
                 ctx.stroke();
                 // white-hot core, cooling to the theme colour
                 ctx.shadowBlur = main ? Math.min(6, 4 * scale * Math.min(1, lit)) : 0;
-                ctx.shadowColor = "#ffffff";
-                ctx.strokeStyle = cool < .35 ? rgba("#ffffff", Math.min(1, lit * 1.25) * fade) : rgba(soft, Math.min(1, lit * .95) * fade);
+                ctx.shadowColor = col.core || "#ffffff";
+                ctx.strokeStyle = cool < .35 ? rgba(col.core || "#ffffff", Math.min(1, lit * 1.25) * fade) : rgba(soft, Math.min(1, lit * .95) * fade);
                 ctx.lineWidth = Math.max(.5, (1.4 + Math.min(1, lit) * 1.1 - cool * .8) * scale * w);
                 ctx.stroke();
             }
@@ -507,6 +593,11 @@ export class Rift {
         spin(ring.inner, t * .08, 1.1);
         spin(ring.outer, -t * .12 + .4, .8); // the outer ring turns the other way, a bit faster
         ctx.globalCompositeOperation = "source-over";
+
+        // Your relics, then (in the Hallowed Rift) the will-o'-wisps
+        if (!this.o.still) this.drawRelics(R, t);
+        // The Hallowed Rift (season.js): will-o'-wisps drift around the rings
+        if (document.documentElement.dataset.season === "halloween") this.drawWisps(dt, R, t);
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to
         // the theme's accent; a drawn crystal stands in until it has loaded.

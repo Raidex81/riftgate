@@ -88,3 +88,33 @@ export const FACTS = {
         "Romance is the best-selling genre of fiction."
     ]
 };
+
+// Seasonal facts, mixed in while a season is on (season.js): one in three
+export const SEASON_FACTS = {
+    halloween: {
+        games: [
+            "Resident Evil is called Biohazard in Japan.",
+            "Alone in the Dark (1992) is often called the first 3D survival horror game.",
+            "Silent Hill's famous fog also hid how little of the town the PlayStation could draw at once.",
+            "Luigi's Mansion was one of the Nintendo GameCube's launch games in 2001.",
+            "Each of Pac-Man's ghosts hunts its own way: Blinky chases you straight, Pinky aims ahead of you.",
+            "Sweet Home (1989), a Famicom horror game, inspired the first Resident Evil."
+        ],
+        screen: [
+            "The mask Michael Myers wears in Halloween (1978) was a Captain Kirk mask, painted white.",
+            "Halloween (1978) was shot in about 20 days, on a budget of around $300,000.",
+            "The Exorcist (1973) was the first horror film nominated for the Oscar for Best Picture.",
+            "The actors of The Blair Witch Project (1999) filmed most of it themselves.",
+            "Ray Parker Jr.'s Ghostbusters theme reached number one in the United States in 1984.",
+            "Psycho (1960) was shot in black and white partly so the shower scene wouldn't be too gory."
+        ],
+        books: [
+            "Mary Shelley began Frankenstein during a ghost-story contest with Lord Byron in 1816.",
+            "Bram Stoker's Dracula was first published in 1897.",
+            "Edgar Allan Poe's The Raven was first published in 1845.",
+            "Carrie (1974) was Stephen King's first published novel.",
+            "Jack-o'-lanterns were first carved from turnips in Ireland and Scotland; pumpkins came later, in America.",
+            "Washington Irving's The Legend of Sleepy Hollow, with its Headless Horseman, came out in 1820."
+        ]
+    }
+};
