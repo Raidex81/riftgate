@@ -8,15 +8,15 @@ Downloads for every version are on the [releases page](https://github.com/Raidex
 
 **New**
 
-- Never miss a free game. Riftgate tells you the moment a game goes free to keep on Steam, Epic, GOG and more, and reminds you on its last day if you haven't claimed it. Free games opens on Free to keep right now, with how long each one lasts and a Claim button (Settings → Alerts)
+- Never miss a free game. Riftgate tells you the moment a game goes free to keep on Steam, Epic, GOG and more, and reminds you on its last day if you haven't claimed it. Free games opens on Free to keep right now, with how long each one lasts and a Claim button (Settings → Alerts).
 - Your wishlist. Add a game from its details and Riftgate tells you when its price drops. It's the first row in Deals.
 - While you were away. Come back after a while and the rift shows what changed: new free games, the ones about to end, new episodes of your shows, price drops on your wishlist.
 - Your rift grows. Everything you finish becomes a relic orbiting the Nexus rift, in its kind's colour.
 - Seals. Twenty small achievements across games, films, series and books, in the Journal. Three are secret.
-- Rift Rewind. Every December, your year in the rift: what you finished, what you loved, your most-played game, your Seals, and a card of your rift to save and share (and Your year so far in the Journal any time)
-- Seasonal events. Riftgate changes with the year for a few days at a time, then goes back to your theme by itself. First: the Hallowed Rift, 22 October to 3 November (Settings → Seasonal events)
+- Rift Rewind. Every December, your year in the rift: what you finished, what you loved, your most-played game, your Seals, and a card of your rift to save and share (and Your year so far in the Journal any time).
+- Seasonal events. Riftgate changes with the year for a few days at a time, then goes back to your theme by itself. First: the Hallowed Rift, 22 October to 3 November (Settings → Seasonal events).
 - Ask the Rift learns your taste. What you rate highly nudges its picks ("Because you loved…"), what you drop nudges them away, and things you've already rated aren't suggested again.
-- Help Riftgate grow. If you say yes, Riftgate counts this PC once a week, anonymously: a random number, the version and Windows or Mac, nothing else (Settings)
+- Help Riftgate grow. If you say yes, Riftgate counts this PC once a week, anonymously: a random number, the version and Windows or Mac, nothing else (Settings).
 
 **Fixed**
 
@@ -26,10 +26,10 @@ Downloads for every version are on the [releases page](https://github.com/Raidex
 
 **New**
 
-- The opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it)
+- The opening has sound. The tear rips open, the gem bursts through with a boom and a crystal chord, and every bolt of lightning cracks the instant it strikes, then rolls into thunder (Settings → Opening animation: with sound, silently, or skip it).
 - Ask the Rift. Tell it what you feel like in your own words ("a co-op shooter for friends, no horror", "something funny and short", "a cosy fantasy book", "a game like Team Fortress 2") and it picks three, ranked by real reviews and ratings, and says why. It's in Surprise me and in Free games, the Theatre, the Reading room and the Library. It runs on your computer: free, and nothing you type leaves Riftgate.
 - Add a show. Search any series or anime, even one Riftgate doesn't list, and add it to My shows (Theatre → My shows → Add a show, or Ctrl K). Its new episodes show up in Nexus.
-- Riftgate says goodbye. When it closes for good, a soft, calm chord fades out as the app closes in on a point of light (Settings → Opening animation → Sound when Riftgate closes)
+- Riftgate says goodbye. When it closes for good, a soft, calm chord fades out as the app closes in on a point of light (Settings → Opening animation → Sound when Riftgate closes).
 - Click the gem in Nexus and it strikes, with the opening's lightning.
 
 **Changed**
@@ -41,7 +41,7 @@ Downloads for every version are on the [releases page](https://github.com/Raidex
 
 **Fixed**
 
-- A cinema chain's website is only used in the countries where the chain has cinemas, so Find tickets no longer opens a foreign site that blocks you (like Cinépolis's in Portugal)
+- A cinema chain's website is only used in the countries where the chain has cinemas, so Find tickets no longer opens a foreign site that blocks you (like Cinépolis's in Portugal).
 - The taskbar icon is blue too, like the app's icon.
 
 ## 2.0.0
@@ -61,7 +61,7 @@ Riftgate 2.0, rebuilt from the ground up. It installs over your current Riftgate
 - Applications. Anyone can put forward an app they made for the admins to publish.
 - Ctrl+K searches everything at once, and goes anywhere.
 - Did you know? A fact from the world you're in along the bottom of Riftgate: games, films and series, or books.
-- A guided tour on your first start, and a short one whenever something new arrives (Settings replays it)
+- A guided tour on your first start, and a short one whenever something new arrives (Settings replays it).
 - Choose the card size, from small to huge, and colour every card by what it is, in Settings.
 - Mature titles show only to adults who turn them on, from the date of birth on your Riftgate account, as before.
 - for admins: The Vault (share files for 1 to 24 hours and links for 90 days) and an Admin section to moderate titles and Vault access.
@@ -69,7 +69,7 @@ Riftgate 2.0, rebuilt from the ground up. It installs over your current Riftgate
 **Changed**
 
 - Riftgate's icon is blue, like the gem inside the app.
-- A picture you choose for a theme fills the whole screen, whatever its shape (Whole picture and Tile are still there)
+- A picture you choose for a theme fills the whole screen, whatever its shape (Whole picture and Tile are still there).
 - Trailers play large and sharp; free games and deals appear instantly and refresh in the background.
 - Sign in with your Riftgate account; your password is never stored on your PC.
 
@@ -108,7 +108,7 @@ New in Free Games: Warcraft Rumble (Battle.net); Battlefield REDSEC, skate., The
 
 **New**
 
-- Content-type color coding — all action buttons (Launch, Get it Free, Find Tickets, Add to My Shows, etc.) now use color-coded buttons by content type for quick visual recognition: Games (purple), Movies (cyan), Books (green), Apps (orange)
+- Content-type color coding — all action buttons (Launch, Get it Free, Find Tickets, Add to My Shows, etc.) now use color-coded buttons by content type for quick visual recognition: Games (purple), Movies (cyan), Books (green), Apps (orange).
 - Theatre section now distinguishes between different content types with unique colors — Movies (cyan), Series (purple), Anime (pink) — so you can see at a glance what type of content you're browsing.
 
 **Changed**
@@ -124,7 +124,7 @@ New in Free Games: Warcraft Rumble (Battle.net); Battlefield REDSEC, skate., The
 **New**
 
 - Play with a controller or a TV remote — the D-pad, stick or arrow keys move a highlight around everything on screen; A opens, B goes back, X plays or gets a game, LB/RB switch sections and ☰ Menu opens the side panel. Down and up go row by row, to the item right under (or the first one of a shorter row); lists like country and city change only after pressing A on them. Button hints show at the bottom.
-- TV mode makes the whole interface bigger for the couch. It turns on by itself while a controller is connected (or set it to Always on / Off in the side panel under Display)
+- TV mode makes the whole interface bigger for the couch. It turns on by itself while a controller is connected (or set it to Always on / Off in the side panel under Display).
 - Riftgate asks once where you are (country and city), so cinemas, release dates, streaming and prices are right from the start. New accounts give it while signing up.
 - Country and city lists next to In Theaters and Upcoming Movies, always in sync, with "Other city…" to type any city — the cinema list follows.
 - Select a card with the controller or remote to reach everything on it — Details, ▶ Trailer, 🔊 Sound on/off, Play / Get / Tickets. Y opens details and X the main button straight away.
@@ -152,7 +152,7 @@ New in Free Games: Warcraft Rumble (Battle.net); Battlefield REDSEC, skate., The
 
 ## 1.7.2
 
-Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list)
+Your cinema is remembered for each city, and the Surprise Me wheel's Find Tickets uses it too. Cinema list from OpenStreetMap, refreshed every two weeks (or with ↻ Refresh cinema list).
 
 **New**
 
@@ -199,7 +199,7 @@ Fixed (Mac): Riftgate's icon now shows in the menu bar, and clicking the Dock ic
 
 **New**
 
-- Books in My Library that have no cover of their own now get their real published cover looked up online (Open Library, then Google Books)
+- Books in My Library that have no cover of their own now get their real published cover looked up online (Open Library, then Google Books).
 
 **Fixed**
 
@@ -297,7 +297,7 @@ Security: repeated wrong passwords now lock the account for a while, and stored 
 
 **New**
 
-- Applications rebuilt — each app now shows a GitHub avatar (or a generated icon if it isn't hosted on GitHub), a "NEW" badge for recent additions, a clickable link to the creator's GitHub profile, and a visit counter, plus a search box and a sort dropdown (Newest / Most Visited / Name / Author)
+- Applications rebuilt — each app now shows a GitHub avatar (or a generated icon if it isn't hosted on GitHub), a "NEW" badge for recent additions, a clickable link to the creator's GitHub profile, and a visit counter, plus a search box and a sort dropdown (Newest / Most Visited / Name / Author).
 
 ## 1.3.12
 
@@ -404,7 +404,7 @@ Removed: the redundant mature-content checkbox from the search bar.
 
 **Changed**
 
-- Applications always sits last in the section list now, and eBook Apps always sits last among the Reading Room tabs (after Manga and Comics)
+- Applications always sits last in the section list now, and eBook Apps always sits last among the Reading Room tabs (after Manga and Comics).
 - More breathing room in the header and Reading Room tabs — a divider now separates the search/login area from the notification/Surprise Me/power icons, and the tabs sit in their own lightly-shaded strip instead of everything reading as one dense row.
 - Every Reading Room tab (Buy Books, Discover Online, My Library, Manga, Comics) now shows its search bar in the same spot and its description in the same expandable "ⓘ About" format, instead of each tab looking laid out differently.
 
@@ -543,7 +543,7 @@ Improved: auto-update checks are more reliable, with proper retries instead of a
 **New**
 
 - Buy Books — a third Reading Room tab for current/mainstream books with purchase links, plus Most Popular, Best Seller, and New Releases lists.
-- Applications section now has real content — recommended free eBook readers and a ranked Top 5 (free and paid)
+- Applications section now has real content — recommended free eBook readers and a ranked Top 5 (free and paid).
 - Manually add or change a book's cover on any book, anywhere in Reading Room.
 - Surprise Me now covers all three Reading Room tabs, including Buy Books.
 
