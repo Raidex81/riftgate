@@ -55,8 +55,9 @@ thing. In short:
 
 | File | What it is |
 |---|---|
-| `main.js` | Electron main process: windows, IPC handlers, all network calls |
-| `services/` | Main-process helpers (free games, Steam, TMDB, books, platform-specific code for Windows/Mac) |
+| `main.js` | Electron main process: start, window, IPC validation, and wiring the engine's sections together |
+| `engine/` | The engine's sections (alerts, account, themes…), `core/` (data folder, settings, window, session) and `providers.js` (outside sources failing gracefully) |
+| `services/` | Main-process helpers, one outside API each (free games, Steam, TMDB, books, platform-specific code for Windows/Mac) |
 | `preload.js` | The bridge between UI and main process, with an allowlist of IPC channels |
 | `index.html`, `src/` | The whole interface: ES modules and CSS, no framework, no build step. `src/app/` (state, data, the engine bridge, themes), `src/components/` (cards, rows, details…), `src/views/` (one file per section), `src/styles/` (`tokens.css` holds every colour, size and timing) |
 | `supabase/` | Database migrations, Edge Functions and their tests |
@@ -69,7 +70,17 @@ These are checked in review, so please follow them:
 - **Network calls happen in the main process only.** The UI asks for data
   through `window.riftgate.invoke(...)`.
 - **New IPC channels** must be added to the allowlist in `preload.js`, and
-  their handler in `main.js` must validate every argument it receives.
+  their handler must validate every argument it receives.
+- **Sections stay independent.** An engine section (`engine/*.js`) never
+  requires another, and an interface section (`src/views/*.js`) never
+  imports another; share through `engine/core/` or `src/app/`. A window
+  event or storage key two files share is declared in
+  `scripts/deps-rules.js`. `node scripts/check-deps.js` checks all of it.
+- **Outside sources can fail.** Lists keep their last good copy and serve
+  it when a refresh fails (calling `providers.servedSaved(savedAt)`), a
+  failed refresh never overwrites good data, and rows use the shared
+  states in `src/app/sources.js` instead of their own error text. See
+  "When a source fails" in ARCHITECTURE.md.
 - **Text from outside Riftgate** (game names, descriptions, anything from
   an API or a web page) goes into the page as text, with `h()` from
   `src/app/dom.js` or `textContent`, never `innerHTML`.
@@ -99,11 +110,13 @@ These are checked in review, so please follow them:
    (`fix/card-heights`, `feature/see-all-books`, …).
 2. Make your change and try it with `npm start` on your system. If it
    touches something platform-specific, say which platforms you tested.
+   Run `node scripts/check-deps.js` and `node tests/providers.test.js`;
+   if you changed the engine, `node scripts/engine-surface.js --call --check`.
 3. Don't change the version number or the changelog — that happens when a
    release is made.
 4. Open the pull request and fill in the template. The **Build Check**
-   workflow builds Riftgate on Windows and macOS automatically; it must
-   pass.
+   workflow runs those checks and builds Riftgate on Windows and macOS
+   automatically; it must pass.
 5. Be patient with review — this is a spare-time project. Changes may be
    asked for; that's normal and not a judgement of your work.
 

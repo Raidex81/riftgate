@@ -13,9 +13,24 @@ export const RESTART_HINT = "Riftgate needs a full restart to finish updating: r
 let warnedOutdated = false;
 export function engineOutdated() { return warnedOutdated; }
 
+// Beside each answer the engine can say which outside sources failed while
+// answering and whether the answer is a saved copy ({ failed, savedAt,
+// offline }; see sources.js). The last word for each channel + arguments is
+// kept here for rows and See all to show.
+const metas = new Map();
+const keyOf = (channel, args) => channel + JSON.stringify(args);
+export function metaOf(channel, args = []) { return metas.get(keyOf(channel, args)) || null; }
+let noteAnswer = () => {};
+export function onAnswerMeta(fn) { noteAnswer = fn; }
+
 export async function call(channel, ...args) {
     try {
-        return await bridge().invoke(channel, ...args);
+        const b = bridge();
+        if (!b.invokeMeta) return await b.invoke(channel, ...args);
+        const { value, meta } = await b.invokeMeta(channel, ...args);
+        metas.set(keyOf(channel, args), meta || null);
+        if (meta) noteAnswer(meta);
+        return value;
     } catch (err) {
         console.error(`[r2] ${channel} failed:`, err);
         if (/No handler registered|not an allowed invoke channel/i.test(String(err && err.message))) {
@@ -39,6 +54,7 @@ export function cached(channel, args = [], { fresh = false } = {}) {
 
 export function forget(prefix) {
     for (const k of [...memo.keys()]) if (k.startsWith(prefix)) memo.delete(k);
+    for (const k of [...metas.keys()]) if (k.startsWith(prefix)) metas.delete(k);
 }
 
 export function on(channel, fn) {

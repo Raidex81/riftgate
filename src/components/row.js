@@ -7,13 +7,38 @@
 //         returns either — functions repaint when their data refreshes),
 //         wide, cardOpts, seeAllTitle, empty, hideEmpty, tools, limit,
 //         full: { kind, providerName }, enhance: async (items) => items,
-//         seeAll: async () => items (what See all lists, when it's more than the row) }
+//         seeAll: async () => items (what See all lists, when it's more than the row),
+//         quietSource: the section shows its source's state itself (sectionState) }
 
 import { h, icon, clear } from "../app/dom.js";
 import { slug } from "../app/items.js";
 import * as D from "../app/data.js";
 import { card, skeletonCard } from "./card.js";
 import { openBrowser } from "./browser.js";
+import { describe, retry } from "../app/sources.js";
+
+// The same two states on every row when an outside source fails (sources.js):
+// a small "Saved 3 h ago" beside the title when the row shows a saved copy,
+// and a clear message with Try again in place of the cards when there's
+// nothing to show.
+export function sourceNote(state) {
+    return h("button.source-chip", { type: "button", title: state.text + " Click to try again.", onclick: (e) => { e.currentTarget.classList.add("is-busy"); retry(); } },
+        icon("refresh"), state.label);
+}
+// For a section fed by one source (Free games, Deals): its state once, beside
+// the section's title, instead of on every row. Rows there pass quietSource.
+export function sectionState(slot, items) {
+    clear(slot);
+    const state = describe(D.statusOf(items), (items || []).length);
+    if (state && state.kind === "saved") slot.appendChild(sourceNote(state));
+    return state;
+}
+export function sourceFailed(state) {
+    return h("div.source-failed", { role: "status" },
+        icon(state.label === "Offline" ? "wifi-off" : "alert"),
+        h("p", null, state.text),
+        h("button.btn.sm", { type: "button", onclick: (e) => { e.currentTarget.disabled = true; retry(); } }, icon("refresh"), "Try again"));
+}
 
 export const ROW_LIMIT = 20;
 
@@ -23,6 +48,7 @@ export function row(opts) {
     const right = h("button.row-arrow", { type: "button", "aria-label": "Scroll right", onclick: () => page(1) }, icon("right"));
     const seeAll = h("button.see-all", { type: "button", hidden: true }, "See all", icon("arrow"));
     const count = h("span.row-note");
+    const stateSlot = h("span.row-state");
     const grip = h("button.row-grip", { type: "button", title: "Drag to reorder (or focus and use ↑ ↓)", "aria-label": `Move ${opts.title}` }, icon("grip"));
 
     const head = h("div.row-head", null,
@@ -30,6 +56,7 @@ export function row(opts) {
         h("h2", null, opts.icon ? icon(opts.icon) : null, opts.title),
         seeAll,
         opts.note ? h("span.row-note", null, opts.note) : count,
+        stateSlot,
         h("div.row-tools", null, opts.tools || null, left, right));
     const el = h("section.row", { "aria-label": opts.title, dataset: { rowId: opts.id || slug(opts.title) } }, head, track);
 
@@ -45,16 +72,25 @@ export function row(opts) {
 
     let shownKeys = "";
     function paint(items) {
+        const state = opts.quietSource ? null : describe(D.statusOf(items), (items || []).filter(Boolean).length);
         items = (items || []).filter(Boolean);
-        const keys = items.slice(0, limit).map((i) => i.key + (i.provider ? "@" + i.provider.name : "")).join("|");
+        clear(stateSlot);
+        if (state && state.kind === "saved") stateSlot.appendChild(sourceNote(state));
+        const keys = items.slice(0, limit).map((i) => i.key + (i.provider ? "@" + i.provider.name : "")).join("|") + (state ? "#" + state.kind : "");
         if (keys === shownKeys && track.firstChild && !track.querySelector(".skeleton")) return;
         shownKeys = keys;
         const x = track.scrollLeft;
         clear(track);
         if (!items.length) {
+            left.hidden = right.hidden = true;
+            if (state && state.kind === "failed") {
+                // a source failed: say so, even on a row that hides when it's simply empty
+                el.hidden = false;
+                track.appendChild(sourceFailed(state));
+                return;
+            }
             if (opts.hideEmpty) { el.hidden = true; return; }
             track.appendChild(h("p.row-empty", null, opts.empty || "Nothing here right now."));
-            left.hidden = right.hidden = true;
             return;
         }
         el.hidden = false;
@@ -83,7 +119,7 @@ export function row(opts) {
             }
         }).catch((err) => {
             console.error(err);
-            clear(track).appendChild(h("p.row-empty", null, "This row couldn't load. Check your connection, then refresh."));
+            clear(track).appendChild(sourceFailed({ label: "Error", text: "This row couldn't load." }));
         });
     }
     load();

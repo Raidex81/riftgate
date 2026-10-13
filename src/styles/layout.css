@@ -203,3 +203,27 @@ kbd {
             transparent calc(100% - var(--bleed) + 90px));
 }
 .app.is-wide .facts { padding-left: calc(var(--gutter) + var(--bleed)); padding-right: calc(var(--s2) + var(--bleed)); }
+
+/* ---- Sources not answering (components/sources-banner.js) ---------------------- */
+.app > .source-banner { /* beats themes.css's ".app > *" */
+    position: absolute; top: calc(var(--titlebar-h) + var(--s3)); left: var(--rail-w); right: 0;
+    margin-inline: auto; width: max-content;
+    z-index: 40; max-width: min(760px, calc(100vw - var(--rail-w) - 40px));
+    grid-area: auto;
+    display: flex; align-items: center; gap: var(--s3);
+    padding: var(--s2) var(--s2) var(--s2) var(--s4);
+    font-size: var(--t-sm); color: var(--starlight-2);
+    background: color-mix(in srgb, var(--nebula-2, var(--nebula)) 92%, transparent);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(10px);
+    clip-path: polygon(var(--cut-sm) 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%, 0 var(--cut-sm));
+    animation: fade var(--mid) var(--ease);
+}
+.source-banner[hidden] { display: none; }
+.source-banner > svg { width: 17px; height: 17px; flex: none; color: var(--amethyst-soft); }
+.source-banner span { flex: 1; }
+.source-banner button { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 4px 10px; color: var(--starlight); }
+.source-banner button svg { width: 14px; height: 14px; }
+.source-banner-retry { border: 1px solid var(--line-strong); }
+.source-banner-retry:hover, .source-banner-close:hover { background: var(--nebula-3); }

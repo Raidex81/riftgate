@@ -25,14 +25,17 @@ were extended. 1.x stays available on the `v1` branch.
 ┌──────────────────────────────────────────────────────────────┐
 │  Main process (Node.js), the engine                          │
 │                                                              │
-│   main.js  ──requires──▶  services/                          │
-│   (~9,300 lines:            supabase.js   http.js            │
-│    window/app lifecycle,    steam.js      tvmaze.js          │
-│    ~210 IPC handlers,       books.js      github.js          │
-│    IPC validation, CSP,     tmdb.js       free-games.js      │
-│    local HTTP server)       cinemas.js    content-filters.js │
-│                             r2-store.js (Journal, themes)    │
-│                             platform/ (windows.js, mac.js)   │
+│   main.js: start, window, tray, IPC validation, CSP, local   │
+│   │        server, and wiring the sections together          │
+│   ├─▶ engine/  one section each: alerts, account, themes,    │
+│   │            apps, cinemas, install-watch, pictures, usage │
+│   ├─▶ engine/providers.js  outside sources: health, backing  │
+│   │            off, saved copies                             │
+│   ├─▶ engine/core/  shared: data folder, settings, window,   │
+│   │            account session                               │
+│   └─▶ services/  one outside API each: supabase, http, steam,│
+│                tvmaze, books, github, tmdb, free-games,      │
+│                cinemas, alerts, r2-store, platform/          │
 │                                                              │
 │   Serves the UI over http://127.0.0.1:<random port>/         │
 └───────────────────────────┬──────────────────────────────────┘
@@ -89,8 +92,22 @@ pass these checks:
 
 Roughly in the order you'd want to read it:
 
-- `main.js`: the app and window lifecycle, IPC handler wiring, the local
-  server, CSP and IPC-sender validation.
+- `main.js`: the app and window lifecycle, the local server, CSP and
+  IPC-sender validation, wiring the engine's sections together, and the
+  sections not moved out yet (free games, deals, theatre, books, the
+  library, the Vault, updates).
+- `engine/*.js`: one section of the engine each (`alerts.js`,
+  `account.js`, `themes.js`, `apps.js`, `cinemas.js`,
+  `install-watch.js`, `pictures.js`, `usage.js`). Each exports
+  `register(ipcMain, deps)` and owns its IPC channels and timers.
+  Sections never require each other: what one needs from another is
+  passed in by `main.js` when it registers it, so every link between
+  sections is visible in one place. See [Section boundaries](#section-boundaries).
+- `engine/core/`: what every section shares. `data.js` is the data
+  folder (atomic writes), `settings.js` the settings and their defaults,
+  `window.js` the window, `session.js` the account session.
+- `engine/providers.js`: every outside source and how the engine behaves
+  when one fails. See [When a source fails](#when-a-source-fails).
 - `preload.js`: the only bridge between the engine and the interface. See
   [IPC architecture](#ipc-architecture).
 - `services/*.js`: dependency-light modules that hold the actual external
@@ -362,6 +379,76 @@ background only when they're old:
 A cover found for a title is kept for good, and a miss is retried after
 a week. The interface also memoises every answer for the session.
 
+## When a source fails
+
+Any of the sources above can be offline, slow, rate-limited or down.
+Riftgate handles all of them the same way (`engine/providers.js`,
+`src/app/sources.js`):
+
+- **Every request is watched.** `providers.install()` wraps Node's
+  `http`/`https` once at start, so every request, from any section or
+  service, is attributed to its provider by host (media-proxy requests
+  by vendor, through `providers.track()`). A provider's health (last
+  answered, last failed and why: offline, timed out, busy, down) is kept
+  in `cache-provider-health.json`.
+- **A failing host is left alone for a while.** After three network
+  failures in a row (not a 404), requests to that host fail at once for
+  90 seconds, doubling up to 10 minutes, instead of waiting for a
+  timeout each time. One success, or Try again, resets it.
+- **Saved copies beat empty rows.** Every list keeps its last good copy.
+  When a refresh fails, the saved copy is served (`withDailyRefresh`,
+  free games, deals, episodes, trending lists, cinemas, streaming
+  services), and a failed refresh never overwrites a good copy. The
+  section calls `providers.servedSaved(savedAt)` when it does.
+- **The interface is told, beside the answer.** Each IPC call runs in
+  its own async context. When a provider failed during it, or a saved
+  copy was served, the answer travels as
+  `{ __riftgateMeta: { failed, savedAt, offline }, value }`; preload.js
+  unwraps it, so `invoke()` always returns the usual value and only
+  `invokeMeta()` (used by `api.js`) sees the meta. Return shapes never
+  change.
+- **One look everywhere.** `sources.js` turns that into three states. A
+  row showing a saved copy gets a "Saved 3 h ago" chip beside its title.
+  A row with nothing to show says which source didn't answer and why,
+  with Try again. Neither applies when all is well. Sections fed by one
+  source (Free games, Deals) show the chip once beside their title. A
+  small notice under the title bar names the sources that aren't
+  answering, and Settings → Sources lists every source's health. Try
+  again (anywhere) stops the engine backing off, forgets the session's
+  answers and draws the section again; coming back online does that by
+  itself.
+- **Timeouts everywhere.** Every HTTP helper has one (8 to 15 seconds),
+  so no source can hold a row up forever.
+
+`tests/providers.test.js` covers the engine side without a network.
+
+## Section boundaries
+
+New features shouldn't quietly depend on other sections.
+`scripts/check-deps.js` enforces the rules in `scripts/deps-rules.js`,
+in CI (Build Check) on every push:
+
+- **Engine layers:** `services/` → `engine/core/` → `engine/providers.js`
+  → `engine/*.js` sections → `main.js`. A module only requires layers
+  below it, and sections never require each other.
+- **Interface layers:** `src/app/` (logic, state) → `src/components/`
+  (shared pieces) → `src/views/` (sections) → `src/app/main.js`.
+  Sections never import each other. The few deliberate exceptions are
+  listed with their reason.
+- **IPC:** every channel is handled once; everything the interface calls
+  is allowed by preload.js and handled; everything the engine sends the
+  window can be heard; a new handler that nothing calls is flagged.
+- **Messages no import shows:** window events (`CustomEvent`) and
+  storage keys shared between files have to be declared, with what they
+  connect.
+
+`scripts/engine-surface.js` loads the engine with a stand-in Electron
+and records every IPC channel, app event and module it wires up; with
+`--call` it also calls each handler with the network cut off and records
+the shape of each answer. Comparing two runs proves an engine refactor
+changed nothing the interface sees (`--cases` compares answers for given
+arguments; `--check` is what CI runs).
+
 ## Local vs. cloud data
 
 **Local** data lives in the operating system's per-user app data folder
@@ -443,9 +530,13 @@ the actual steps.
 
 ## Roadmap
 
-- **Split `main.js` by subsystem** (`ipc/`, `games/`, `free-games/`,
-  `media/`, `vault/`, `auth/`, `system/`, next to `services/`). The
-  interface split is done (2.0); the engine split isn't.
+- **Finish splitting `main.js`** into `engine/` sections. Done: core
+  (data folder, settings, window, session), alerts, account, themes,
+  apps, cinemas, install watching, pictures, usage. Next: free games,
+  deals, theatre, books, the library, the Vault, updates.
+- **Retire the 1.x-only IPC handlers.** 67 handlers aren't called by
+  the 2.x interface (old login and admin flows, the old eBook manager).
+  `check-deps.js` keeps that number from growing.
 - **Automated tests in CI.** The interface has a Playwright harness
   against a mocked engine, used during development. Running it on every
   push, plus a launch-and-click-through smoke test on Windows, is next.
@@ -463,7 +554,7 @@ the actual steps.
   install, so Mac users download each new `.dmg`.
 - **Account emails only reach the owner for now.** Emails go through
   Resend's test sender until a real sending domain is set up.
-- **`main.js` is still large** (~9,300 lines). See [Roadmap](#roadmap).
+- **`main.js` is still large** (~8,800 lines). See [Roadmap](#roadmap).
 - **The Mac build is only partly verified.** The Mac Smoke Test checks
   that it installs, launches and loads every section on GitHub's Apple
   silicon and Intel Macs. The hands-on parts of

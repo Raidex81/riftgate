@@ -19,7 +19,7 @@ const { contextBridge, ipcRenderer, clipboard, webUtils } = require("electron");
 // renderer.js calls.
 const INVOKABLE_CHANNELS = new Set([
     "r2-store-get", "r2-store-set", "r2-riftgate-available", "r2-import-riftgate", "r2-tv-providers", "r2-app-preview", "r2-submit-app", "r2-account-restore", "r2-account-sign-in", "r2-account-sign-up", "r2-account-set-password", "r2-account-sign-out", "r2-theme-pick-picture", "r2-theme-export", "r2-theme-import", "r2-themes-gallery", "r2-theme-download", "r2-theme-publish", "r2-theme-unpublish", "r2-themes-local-get", "r2-themes-local-set", "r2-show-in-folder", "r2-find-cover", "r2-detect-category", "r2-landscape-art", "r2-steam-appids", "r2-capture-window",
-    "r2-alerts-giveaways", "r2-alerts-claim", "r2-alerts-check", "r2-wishlist-get", "r2-wishlist-add", "r2-wishlist-remove", "r2-save-image", "r2-usage-ping-now", "r2-usage-weekly",
+    "r2-alerts-giveaways", "r2-alerts-claim", "r2-alerts-check", "r2-wishlist-get", "r2-wishlist-add", "r2-wishlist-remove", "r2-save-image", "r2-usage-ping-now", "r2-usage-weekly", "r2-provider-status", "r2-provider-retry",
     "add-admin-reply",
     "add-community-app",
     "add-ebook-to-library",
@@ -214,6 +214,7 @@ const INVOKABLE_CHANNELS = new Set([
 // Main -> renderer, push events (autoupdater status, window state, etc.).
 const LISTENABLE_CHANNELS = new Set([
     "app-exited",
+    "r2-provider-status-changed",
     "dropzone-file-detected",
     "fullscreen-changed",
     "maximize-changed",
@@ -230,13 +231,24 @@ const SENDABLE_CHANNELS = new Set([
     "renderer-ready-for-updates", "r2-farewell-done"
 ]);
 
+// When a source failed during a call, or the answer is a saved copy, the
+// engine sends { __riftgateMeta: { failed, savedAt, offline }, value }
+// (engine/providers.js). invoke() always hands back just the value;
+// invokeMeta() hands back { value, meta } for the interface's status display.
+const META = "__riftgateMeta";
+const split = (res) => (res && typeof res === "object" && !Array.isArray(res) && Object.prototype.hasOwnProperty.call(res, META))
+    ? { value: res.value, meta: res[META] }
+    : { value: res, meta: null };
+function checkedInvoke(channel, args) {
+    if (!INVOKABLE_CHANNELS.has(channel)) {
+        throw new Error(`Blocked: "${channel}" is not an allowed invoke channel`);
+    }
+    return ipcRenderer.invoke(channel, ...args).then(split);
+}
+
 contextBridge.exposeInMainWorld("riftgate", {
-    invoke: (channel, ...args) => {
-        if (!INVOKABLE_CHANNELS.has(channel)) {
-            throw new Error(`Blocked: "${channel}" is not an allowed invoke channel`);
-        }
-        return ipcRenderer.invoke(channel, ...args);
-    },
+    invoke: (channel, ...args) => checkedInvoke(channel, args).then((r) => r.value),
+    invokeMeta: (channel, ...args) => checkedInvoke(channel, args),
 
     on: (channel, callback) => {
         if (!LISTENABLE_CHANNELS.has(channel)) {

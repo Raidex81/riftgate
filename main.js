@@ -17,6 +17,15 @@ const {
     callEdgeFunction
 } = require("./services/supabase");
 const platform = require("./services/platform");
+// Every outside request is watched from here on: which provider it belongs
+// to, provider health, backing off one that keeps failing, and telling the
+// interface when a source failed or a saved copy was used (engine/providers.js).
+const providers = require("./engine/providers");
+const windowRef = require("./engine/core/window");
+providers.install({
+    dir: app.getPath("userData"),
+    onChange: (status) => windowRef.send("r2-provider-status-changed", status)
+});
 
 // --- Per-vendor API usage tracking (local, best-effort) ---------------------
 // Riftgate has no way to see a vendor's real account-level quota or reset
@@ -96,13 +105,13 @@ function vendorQuotaMessage(vendor) {
 
 async function mediaProxyGetJson(vendor, proxyPath, query) {
     recordVendorRequest(vendor);
-    return _mediaProxyGetJson(vendor, proxyPath, query);
+    return providers.track(vendor, _mediaProxyGetJson(vendor, proxyPath, query));
 }
 
 async function mediaProxyGetJsonPlain(vendor, proxyPath, query) {
     recordVendorRequest(vendor);
     try {
-        return await _mediaProxyGetJsonPlain(vendor, proxyPath, query);
+        return await providers.track(vendor, _mediaProxyGetJsonPlain(vendor, proxyPath, query));
     } catch (err) {
         if (err && err.quotaExceeded) recordVendorQuotaHit(err.vendor || vendor, err.message);
         throw err;
@@ -185,6 +194,7 @@ async function withDailyRefresh(name, cacheFileName, fetchFn, resultKey, scope, 
     // slightly-old data is more resilient than alarming the user over
     // something transient.
     if (hasCached && !(result && result.quotaExceeded)) {
+        providers.servedSaved(readListRefreshMeta(name).lastRefreshedAt);
         return { success: true, [resultKey]: cached };
     }
     return result;
@@ -206,9 +216,11 @@ async function withDailyRefreshArray(name, cacheFileName, fetchFn, scope, ttlMs 
             markListRefreshed(name, scope);
             return fresh;
         }
+        if (cached.length > 0) providers.servedSaved(readListRefreshMeta(name).lastRefreshedAt);
         return cached.length > 0 ? cached : fresh;
     } catch (err) {
         console.error(`[list] ${name} refresh failed:`, err.message || err);
+        if (cached.length > 0) providers.servedSaved(readListRefreshMeta(name).lastRefreshedAt);
         return cached;
     }
 }
@@ -286,7 +298,7 @@ const github = require("./services/github");
 const booksApi = require("./services/books");
 const { textContainsMatureKeyword } = require("./services/content-filters");
 const steam = require("./services/steam");
-const { fetchCinemas } = require("./services/cinemas");
+// (cinemas: engine/cinemas.js)
 const {
     fetchEpicFreeGames,
     fetchGogFreeGames,
@@ -352,7 +364,7 @@ ipcMain.handle = (channel, listener) => {
             console.warn(`[ipc] blocked "${channel}" from untrusted sender: ${from}`);
             throw new Error("Untrusted IPC sender");
         }
-        return listener(event, ...args);
+        return providers.runCall(() => listener(event, ...args));
     });
 };
 
@@ -430,64 +442,8 @@ let tray = null;
 let runInBackgroundSetting = false;
 let isQuitting = false;
 
-const DEFAULT_SETTINGS = {
-    uiSounds: true,
-    startupSound: true,
-    ambientBackground: true,
-    colorTheme: "riftgate",
-    lastSeenVersion: null,
-    lastSeenTourVersion: null,
-    launchAtStartup: false,
-    defaultCategory: "ask",
-    confirmBeforeRemove: true,
-    gridDensity: "comfortable",
-    trailerVolume: 50,
-    runInBackground: false,
-    dismissedImports: [],
-    categoryOrder: ["game", "vr", "app", "other"],
-    sectionOrder: ["new", "installed", "free-games", "theatre", "reading-room", "shared-folder", "applications"],
-    // The single app-wide region setting -- drives Theatre (showtimes,
-    // streaming providers), New tab (upcoming movies/shows region), and
-    // Store (Steam pricing region + display currency). movieCountry and
-    // upcomingMoviesCountry below are legacy/superseded: kept only so an
-    // existing install's prior choice can be migrated into `country`
-    // instead of silently resetting to US (see renderer.js).
-    country: "US",
-    movieCountry: "US",
-    upcomingMoviesCountry: "US",
-    startupSection: "new",
-    lastReadingRoomTab: "buyfree",
-    movieCity: "",
-    // "Your cinema" per city, keyed "PT|Lisbon" -> { id, name, label, url }.
-    cinemaByCity: {},
-    // Country + city asked once per computer (see maybeAskLocation).
-    locationConfirmed: false,
-    // "auto" = on while a controller is connected, "on", or "off".
-    tvMode: "auto",
-    startupAnimation: true,
-    // Alerts (see r2RunAlerts): new free games and last-day reminders, wishlist price drops
-    freeGameAlerts: true,
-    wishlistAlerts: true,
-    seasonalEvents: true,
-    // Opt-in anonymous weekly count (null = not asked yet)
-    usageStats: null,
-    usageId: null,
-    usageLastWeek: null,
-    deviceId: null,
-    username: null,
-    // SteamID64 the user enters in Settings, plus the last playtime pull
-    // from Steam's API — see refresh-steam-playtime below. Not a secret,
-    // just an identifier (like a username), so it's fine to sit in plain
-    // settings.json alongside everything else here.
-    steamId64: "",
-    steamPlaytimes: {},
-    steamPlaytimesUpdatedAt: null,
-    // "Mark as seen/watched" state for TV episodes (keyed by
-    // "showId|season|number", so a newly aired episode gets a fresh key
-    // and naturally shows as unwatched) and movies (keyed by TMDB id).
-    seenEpisodes: {},
-    seenMovies: {}
-};
+// What every new install starts with: engine/core/settings.js
+const { DEFAULT_SETTINGS } = require("./engine/core/settings");
 
 // Tracks currently-running launched processes so the UI can show
 // "Running" instead of "Launch", and flips back when the process exits.
@@ -1569,6 +1525,7 @@ async function createWindow() {
             autoplayPolicy: "no-user-gesture-required"
         }
     });
+    windowRef.set(win); // for the engine sections that talk to the window (engine/core/window.js)
 
     // width/height above (1400x900) is only ever the UN-maximized restore
     // size (what the window returns to if the user later unmaximizes it) --
@@ -1915,7 +1872,15 @@ ipcMain.handle("get-latest-episodes", async () => {
     const episodesOf = async (show) => {
         const hit = cache[show.id];
         if (hit && Date.now() - (hit.at || 0) < R2_EPISODES_TTL_MS) return hit.eps;
-        const eps = (await tvmaze.getShowEpisodes(show.id) || []).map((e) => ({ season: e.season, number: e.number, name: e.name, airstamp: e.airstamp, airdate: e.airdate }));
+        let fetched;
+        try {
+            fetched = await tvmaze.getShowEpisodes(show.id);
+        } catch (err) {
+            // TVmaze didn't answer: the episodes Riftgate already knew still count
+            if (hit && Array.isArray(hit.eps)) { providers.servedSaved(hit.at); return hit.eps; }
+            throw err;
+        }
+        const eps = (fetched || []).map((e) => ({ season: e.season, number: e.number, name: e.name, airstamp: e.airstamp, airdate: e.airdate }));
         cache[show.id] = { at: Date.now(), eps }; dirty = true;
         return eps;
     };
@@ -2688,7 +2653,9 @@ async function runFreeGamesRefresh(forceFullCheck) {
     // retried for real next time instead of waiting out the full 24h.
     if (allFree.length === 0) {
         console.error("[free-games] All stores returned zero results — treating as a failed fetch, keeping previous cache.");
-        return loadDataCache("cache-free-games.json") || [];
+        const previous = loadDataCache("cache-free-games.json") || [];
+        if (previous.length) providers.servedSaved(readFreeGamesLastRefresh());
+        return previous;
     }
 
     // Track when Riftgate first saw each one, so the "Newly Added" row can
@@ -3453,6 +3420,16 @@ async function performStoreDealsRefresh(countryCode) {
         const [steamDeals, cheapSharkDeals] = await Promise.all([fetchSteamDeals(countryCode), fetchCheapSharkDeals()]);
         let deals = [...steamDeals, ...cheapSharkDeals].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
+        // Both stores answering with nothing means both failed (offline, a
+        // store down): keep the last list and its date rather than saving an
+        // empty one over it, so Deals isn't wiped until a fetch works again.
+        if (deals.length === 0) {
+            const previous = loadDataCache("cache-store-deals.json") || [];
+            console.error(`[store] no deals from any store — keeping the previous ${previous.length}.`);
+            if (previous.length) providers.servedSaved(readStoreDealsLastRefresh());
+            return previous;
+        }
+
         // Deduplicate deals: the same game can appear from multiple sources
         // or multiple resellers. Keep only the cheapest deal per game using
         // the same grouping logic as the CheapShark-only dedup (gameID,
@@ -3721,6 +3698,12 @@ ipcMain.handle("get-trending-by-provider", async (event, args = {}) => {
         cache[key] = { at: Date.now(), list };
         Object.keys(cache).forEach((k) => { if (Date.now() - (cache[k].at || 0) > 7 * R2_TRENDING_TTL_MS) delete cache[k]; });
         saveDataCache(R2_TRENDING_FILE, cache);
+        return list;
+    }
+    // TMDB didn't answer: the last list for this service beats an empty row
+    if (hit && Array.isArray(hit.list) && hit.list.length) {
+        providers.servedSaved(hit.at);
+        return hit.list;
     }
     return list;
 });
@@ -4382,57 +4365,8 @@ ipcMain.handle("set-tv-mode", (event, on) => {
     return true;
 });
 
-// --- Cinemas near the chosen city ("Your cinema" picker) ------------------
-// OpenStreetMap asks apps to keep request volume low, so each city's list is
-// kept on disk for two weeks (a day when nothing was found, so a city that
-// was just mapped shows up soon), and concurrent asks for the same city
-// share one request.
-// v2: lists saved by the old Overpass-only lookup are dropped — a busy
-// server could leave a city saved as "no cinemas" for a day.
-// v3: a chain's website is only used in the countries where it runs cinemas
-// (cinepolis.com, Cinépolis's Mexican site, blocks visitors from Portugal).
-const CINEMAS_CACHE_FILE = "cache-cinemas-v3.json";
-const CINEMAS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
-const CINEMAS_EMPTY_TTL_MS = 24 * 60 * 60 * 1000;
-const cinemasInFlight = new Map();
-
-ipcMain.handle("get-cinemas", async (event, { countryCode, city, refresh } = {}) => {
-    const cc = typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode) ? countryCode : null;
-    const cityName = typeof city === "string" ? city.trim() : "";
-    if (!cc || !cityName || cityName.length > 80) return { cinemas: [], error: null };
-
-    const key = `${cc}|${cityName.toLowerCase()}`;
-    const cache = loadDataCache(CINEMAS_CACHE_FILE) || {};
-    const cached = cache[key];
-    if (cached && Array.isArray(cached.cinemas) && !refresh) {
-        const ttl = cached.cinemas.length > 0 ? CINEMAS_TTL_MS : CINEMAS_EMPTY_TTL_MS;
-        if (Date.now() - (cached.savedAt || 0) < ttl) return { cinemas: cached.cinemas, error: null };
-    }
-
-    if (!cinemasInFlight.has(key)) {
-        const job = fetchCinemas(cc, cityName, app.getVersion())
-            .then((cinemas) => {
-                const fresh = loadDataCache(CINEMAS_CACHE_FILE) || {};
-                fresh[key] = { savedAt: Date.now(), cinemas };
-                // Keep the file small: only the 40 most recently fetched cities.
-                const keys = Object.keys(fresh).sort((x, y) => (fresh[y].savedAt || 0) - (fresh[x].savedAt || 0));
-                keys.slice(40).forEach((k) => delete fresh[k]);
-                saveDataCache(CINEMAS_CACHE_FILE, fresh);
-                return cinemas;
-            })
-            .finally(() => cinemasInFlight.delete(key));
-        cinemasInFlight.set(key, job);
-    }
-
-    try {
-        return { cinemas: await cinemasInFlight.get(key), error: null };
-    } catch (err) {
-        console.error(`[cinemas] ${cc} ${cityName} failed:`, err.message || err);
-        // An old list beats none when OpenStreetMap is busy.
-        if (cached && Array.isArray(cached.cinemas)) return { cinemas: cached.cinemas, error: null };
-        return { cinemas: [], error: "Couldn't load cinemas right now — try again in a moment." };
-    }
-});
+// --- Cinemas near the chosen city: engine/cinemas.js ------------------------------
+require("./engine/cinemas").register(ipcMain);
 
 // --- "NEW" section: upcoming movies, new TV shows, upcoming games ---------
 
@@ -4786,213 +4720,18 @@ ipcMain.handle("select-exe", async () => {
     return result.filePaths[0];
 });
 
-// Process tracking (isProcessRunning/getAllProcesses) and the
-// freshly-installed-app watcher live in services/platform/{windows,mac}.js
-// behind platform.isProcessRunning() and platform.startInstallWatcher().
-// Both platforms now compare snapshots once an hour: Desktop/Start Menu
-// shortcut targets on Windows, /Applications on Mac.
-// the watcher also reacts within seconds to shortcut / Steam
-// library changes, and every check also looks for store installs (Steam,
-// Epic manifests) and for library items that were uninstalled.
-const r2SendToWindow = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
-function r2StoreInstallCheck() {
-    try {
-        const snapFile = path.join(app.getPath("userData"), "r2-store-snapshot.json");
-        const found = platform.scanStoreManifests() || [];
-        let previous = null;
-        try { previous = new Set(JSON.parse(fs.readFileSync(snapFile, "utf8")).map((p) => String(p).toLowerCase())); } catch (e) { previous = null; }
-        fs.writeFileSync(snapFile, JSON.stringify(found.map((g) => g.path)));
-        if (!previous) return; // first run: this is the baseline
-        let inLibrary = new Set(), dismissed = new Set();
-        try { inLibrary = new Set(JSON.parse(fs.readFileSync(GAMES_FILE, "utf8")).map((g) => String(g.path || "").toLowerCase())); } catch (e) { /* none yet */ }
-        try { dismissed = new Set((JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")).dismissedImports || []).map((p) => String(p).toLowerCase())); } catch (e) { /* none */ }
-        const fresh = found.filter((g) => g.path && !previous.has(g.path.toLowerCase()) && !inLibrary.has(g.path.toLowerCase()) && !dismissed.has(g.path.toLowerCase()))
-            .map((g) => ({ name: g.name, path: g.path, source: g.source, category: "game" }));
-        if (fresh.length) r2SendToWindow("new-install-detected", fresh);
-    } catch (err) {
-        console.error("[r2-install-detect]", err.message || err);
-    }
-}
-let r2MissingBusy = false;
-async function r2MissingCheck() {
-    if (r2MissingBusy) return;
-    r2MissingBusy = true;
-    try {
-        const missing = await r2FindMissingGames();
-        if (missing.length) r2SendToWindow("r2-missing-detected", missing);
-    } finally { r2MissingBusy = false; }
-}
-const r2InstallWatcher = platform.startInstallWatcher(
-    () => GAMES_FILE,
-    (candidates) => r2SendToWindow("new-install-detected", candidates),
-    () => { r2StoreInstallCheck(); r2MissingCheck(); }
-);
-setTimeout(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 25 * 1000);
-setInterval(() => { r2StoreInstallCheck(); r2MissingCheck(); }, 3600000);
-
-// --- Alerts: free games and wishlist price drops (services/alerts.js) -----------
-// Checked a minute after start, then every three hours while Riftgate runs
-// (in the tray too, when "Keep running in the background" is on). A game
-// newly free to keep gets one notification; one you haven't claimed gets a
-// reminder on its last day; a game on your wishlist gets one when its best
-// price drops. Each can be turned off in Settings.
-const alerts = require("./services/alerts");
-const ALERTS_FILE = () => path.join(app.getPath("userData"), "r2-alerts.json");
-const WISHLIST_FILE = () => path.join(app.getPath("userData"), "r2-wishlist.json");
-const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { return fallback; } };
-const writeJson = (file, data) => { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch (e) { console.error("[alerts] save failed:", e.message || e); } };
-const currentSettings = () => ({ ...DEFAULT_SETTINGS, ...readJson(SETTINGS_FILE, {}) });
-let alertsBusy = false;
-
-function r2Notify({ title, body, image, onClick }) {
-    try {
-        const { Notification } = require("electron");
-        if (!Notification.isSupported()) return;
-        const n = new Notification({ title, body, icon: resolveIconPath("icon.ico"), silent: false });
-        n.on("click", () => { try { onClick && onClick(); } catch (e) { /* */ } });
-        n.show();
-    } catch (e) { console.error("[alerts] notification failed:", e.message || e); }
-}
-function r2ShowWindow() { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } }
-function r2LogAlert(state, event) { state.events = [{ ...event, at: Date.now() }, ...(state.events || [])].slice(0, 60); }
-
-async function r2CheckGiveaways() {
-    const s = currentSettings();
-    const st = readJson(ALERTS_FILE(), {});
-    let list;
-    try { list = await alerts.fetchGiveaways(); } catch (e) { console.error("[alerts] giveaways:", e.message || e); return; }
-    const { fresh, ending, state } = alerts.diffGiveaways(st.giveaways, list);
-    st.giveaways = state;
-    fresh.forEach((g) => r2LogAlert(st, { type: "free", key: g.key, name: g.name, store: g.store, url: g.url, image: g.image || null, endsAt: g.endsAt || null }));
-    writeJson(ALERTS_FILE(), st);
-    r2SendToWindow("r2-alerts-changed", { fresh: fresh.length, ending: ending.length });
-    if (s.freeGameAlerts === false) return;
-    const until = (g) => (g.endsAt ? ` until ${new Date(g.endsAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}` : "");
-    const claim = (g) => () => { r2ClaimGiveaway(g.key); if (g.url) shell.openExternal(g.url); };
-    if (fresh.length > 2) {
-        r2Notify({ title: `${fresh.length} games just went free`, body: fresh.slice(0, 3).map((g) => g.name).join(", ") + (fresh.length > 3 ? "…" : "") + ". Free to keep, in Riftgate's Free games.",
-            onClick: () => { r2ShowWindow(); r2SendToWindow("r2-alert-open", { view: "free" }); } });
-    } else fresh.forEach((g) => r2Notify({ title: `Free to keep: ${g.name}`, body: `On ${g.store}${until(g)}. Click to claim it.`, onClick: claim(g) }));
-    ending.forEach((g) => r2Notify({ title: `Last day: ${g.name} is free`, body: `Free to keep on ${g.store} until ${new Date(g.endsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. Click to claim it before it's gone.`, onClick: claim(g) }));
-}
-function r2ClaimGiveaway(keyOrName) {
-    const st = readJson(ALERTS_FILE(), {});
-    const g = st.giveaways || (st.giveaways = { seen: {}, reminded: {}, claimed: {} });
-    const key = g.seen && g.seen[keyOrName] ? keyOrName : alerts.normalizeName(keyOrName);
-    g.claimed = { ...(g.claimed || {}), [key]: Date.now() };
-    writeJson(ALERTS_FILE(), st);
-    return true;
-}
-
-async function r2WishlistRate() {
-    const cur = CURRENCY_BY_COUNTRY[currentSettings().country] || "USD";
-    const rate = await fetchUsdToTargetRate(cur);
-    return typeof rate === "number" ? { currency: cur, rate } : { currency: "USD", rate: 1 };
-}
-const r2Money = (usd, { currency, rate }) => { try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(usd * rate); } catch (e) { return `$${usd.toFixed(2)}`; } };
-
-async function r2CheckWishlist(force) {
-    const wl = readJson(WISHLIST_FILE(), { items: [] });
-    const ids = (wl.items || []).map((it) => it.cheapsharkId).filter(Boolean);
-    if (!ids.length || (!force && Date.now() - (wl.checkedAt || 0) < 6 * 3600e3)) return;
-    let prices;
-    try { prices = await alerts.cheapSharkPrices([...new Set(ids)]); } catch (e) { console.error("[alerts] wishlist prices:", e.message || e); return; }
-    const { drops, items } = alerts.diffPrices(wl.items, prices);
-    writeJson(WISHLIST_FILE(), { ...wl, items, checkedAt: Date.now() });
-    if (!drops.length) return;
-    const st = readJson(ALERTS_FILE(), {});
-    drops.forEach((d) => r2LogAlert(st, { type: "drop", key: d.item.key, name: d.item.title, price: d.price, was: d.was, retail: d.retail, image: d.item.image || null }));
-    writeJson(ALERTS_FILE(), st);
-    r2SendToWindow("r2-alerts-changed", { drops: drops.length });
-    if (currentSettings().wishlistAlerts === false) return;
-    const money = await r2WishlistRate();
-    drops.forEach((d) => r2Notify({
-        title: `${d.item.title} is ${Math.round((1 - d.price / d.retail) * 100)}% off`,
-        body: `${r2Money(d.price, money)} (was ${r2Money(d.was, money)}). On your Riftgate wishlist. Click to see the deal.`,
-        onClick: () => shell.openExternal(d.item.dealID ? `https://www.cheapshark.com/redirect?dealID=${encodeURIComponent(d.item.dealID)}` : `https://www.cheapshark.com/search#q:${encodeURIComponent(d.item.title)}`)
-    }));
-}
-
-async function r2RunAlerts() {
-    if (alertsBusy) return;
-    alertsBusy = true;
-    try { await r2CheckGiveaways(); await r2CheckWishlist(false); } finally { alertsBusy = false; }
-}
-setTimeout(r2RunAlerts, 60 * 1000);
-setInterval(r2RunAlerts, 3 * 3600e3);
-
-// Save a picture the app made (Rift Rewind's card): asks where, Pictures by default
-ipcMain.handle("r2-save-image", async (event, { name, dataUrl } = {}) => {
-    const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
-    if (!m || m[1].length > 30e6) return { ok: false };
-    const safe = String(name || "Riftgate").replace(/[^\w .-]+/g, "").slice(0, 80) || "Riftgate";
-    const r = await dialog.showSaveDialog(win, { title: "Save picture", defaultPath: path.join(app.getPath("pictures"), `${safe}.png`), filters: [{ name: "PNG picture", extensions: ["png"] }] });
-    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
-    fs.writeFileSync(r.filePath, Buffer.from(m[1], "base64"));
-    return { ok: true, path: r.filePath };
+// --- Sections that live in engine/ ---------------------------------------------
+// Each one registers its own IPC handlers and timers. What one needs from
+// another section is passed in here, so every link between sections is
+// written down in this one place (scripts/check-deps.js keeps it that way).
+require("./engine/install-watch").register({ findMissingGames: () => r2FindMissingGames() });
+require("./engine/alerts").register(ipcMain, {
+    usdRate: (currency) => fetchUsdToTargetRate(currency),
+    currencyFor: (country) => CURRENCY_BY_COUNTRY[country],
+    iconPath: () => resolveIconPath("icon.ico")
 });
-
-// --- Opt-in usage count (supabase/migrations/..._usage_pings.sql) ----------------
-// Only with a yes in Settings: once a week, "a PC opened Riftgate" (a random id
-// made here, the version, win/mac). Nothing about the person, nothing else.
-function r2Week(d = new Date()) { const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); m.setUTCDate(m.getUTCDate() - ((m.getUTCDay() + 6) % 7)); return m.toISOString().slice(0, 10); }
-async function r2UsagePing() {
-    const s = currentSettings();
-    if (s.usageStats !== true) return;
-    const week = r2Week();
-    if (s.usageLastWeek === week) return;
-    let id = /^[0-9a-f]{32}$/.test(s.usageId || "") ? s.usageId : crypto.randomBytes(16).toString("hex");
-    const r = await callAdminRpc("r2_usage_ping", { p_install: id, p_version: String(app.getVersion()).slice(0, 20), p_platform: process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : "linux" });
-    if (r && r.success && r.result === true) writeJson(SETTINGS_FILE, { ...currentSettings(), usageId: id, usageLastWeek: week });
-}
-setTimeout(() => r2UsagePing().catch(() => {}), 2 * 60 * 1000);
-setInterval(() => r2UsagePing().catch(() => {}), 6 * 3600e3);
-ipcMain.handle("r2-usage-ping-now", async () => { await r2UsagePing().catch(() => {}); return true; });
-ipcMain.handle("r2-usage-weekly", async (event, { username, password } = {}) => {
-    if (typeof username !== "string" || typeof password !== "string") return { success: false, error: "Sign in as an admin." };
-    return callAdminRpc("r2_usage_weekly", { input_username: username, input_password: password });
-});
-
-ipcMain.handle("r2-alerts-giveaways", async () => {
-    const st = readJson(ALERTS_FILE(), {});
-    return { live: alerts.liveGiveaways(st.giveaways), events: st.events || [] };
-});
-ipcMain.handle("r2-alerts-claim", async (event, keyOrName) => (typeof keyOrName === "string" && keyOrName.length < 300 ? r2ClaimGiveaway(keyOrName) : false));
-ipcMain.handle("r2-alerts-check", async () => { await r2RunAlerts(); return true; });
-ipcMain.handle("r2-wishlist-get", async () => {
-    const wl = readJson(WISHLIST_FILE(), { items: [] });
-    return { items: wl.items || [], checkedAt: wl.checkedAt || null, money: await r2WishlistRate() };
-});
-ipcMain.handle("r2-wishlist-add", async (event, item = {}) => {
-    const title = typeof item.title === "string" ? item.title.trim().slice(0, 200) : "";
-    const key = typeof item.key === "string" ? item.key.slice(0, 300) : "";
-    if (!title || !key) return { error: "That game can't be added." };
-    const wl = readJson(WISHLIST_FILE(), { items: [] });
-    if ((wl.items || []).some((it) => it.key === key)) return { item: wl.items.find((it) => it.key === key) };
-    let found = null;
-    try { found = await alerts.findCheapSharkGame({ title, steamAppId: /^\d{1,10}$/.test(String(item.steamAppId || "")) ? String(item.steamAppId) : null }); } catch (e) { /* offline: kept, priced later */ }
-    const it = { key, title, image: typeof item.image === "string" ? item.image.slice(0, 1000) : (found && found.thumb) || null, cheapsharkId: found ? found.id : null, addedAt: Date.now() };
-    if (found) {
-        try { const p = (await alerts.cheapSharkPrices([found.id]))[found.id]; if (p) Object.assign(it, { price: p.price, retail: p.retail, dealID: p.dealID, lowest: p.lowest, alertPrice: p.price, checkedAt: Date.now() }); } catch (e) { /* priced on the next check */ }
-    }
-    wl.items = [it, ...(wl.items || [])].slice(0, 300);
-    writeJson(WISHLIST_FILE(), wl);
-    return { item: it, priced: !!found };
-});
-ipcMain.handle("r2-wishlist-remove", async (event, key) => {
-    const wl = readJson(WISHLIST_FILE(), { items: [] });
-    wl.items = (wl.items || []).filter((it) => it.key !== key);
-    writeJson(WISHLIST_FILE(), wl);
-    return true;
-});
-// coming back to Riftgate is a good moment to look again (at most every 10 minutes)
-let r2LastFocusCheck = 0;
-app.on("browser-window-focus", () => {
-    if (Date.now() - r2LastFocusCheck < 10 * 60 * 1000) return;
-    r2LastFocusCheck = Date.now();
-    if (r2InstallWatcher && r2InstallWatcher.checkNow) r2InstallWatcher.checkNow();
-    r2StoreInstallCheck(); r2MissingCheck();
-});
+require("./engine/pictures").register(ipcMain);
+require("./engine/usage").register(ipcMain);
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];
@@ -7419,58 +7158,11 @@ ipcMain.handle("save-settings", async (event, partialSettings) => {
 // server can revoke — never the password. Older backends still get the
 // previous behaviour (the password itself, encrypted), and a password saved
 // by an older app version is exchanged for a token the first time it's read.
-const SESSION_TOKEN_MIN_SCHEMA = 5;
-const SERVER_SIDE_EMAIL_MIN_SCHEMA = 6;
-const DEVICE_BOUND_PASSWORD_MIN_SCHEMA = 3;
-
-let cachedBackendInfo = null;
-
-// Asks the server which hardened features it has. A server that predates the
-// check (404) or can't be reached counts as version 0 — and isn't cached, so
-// the next call asks again.
-async function getBackendSchemaVersion() {
-    if (cachedBackendInfo) return cachedBackendInfo.schema_version || 0;
-    const r = await callAdminRpc("get_backend_info", {});
-    if (r.success && r.result && typeof r.result === "object") {
-        cachedBackendInfo = r.result;
-        return cachedBackendInfo.schema_version || 0;
-    }
-    return 0;
-}
-
-function readSessionFile() {
-    if (!fs.existsSync(SESSION_FILE) || !safeStorage.isEncryptionAvailable()) return null;
-    try {
-        const parsed = JSON.parse(safeStorage.decryptString(fs.readFileSync(SESSION_FILE)));
-        return parsed && parsed.username ? parsed : null;
-    } catch (err) {
-        // Corrupt, left over in plain text by an old version, or encrypted by
-        // another Windows user profile — same as having no session.
-        return null;
-    }
-}
-
-function writeSessionFile(payload) {
-    fs.writeFileSync(SESSION_FILE, safeStorage.encryptString(JSON.stringify(payload)));
-}
-
-function deleteSessionFile() {
-    if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
-}
-
-async function createServerSession(username, password) {
-    const r = await callAdminRpc("create_login_session", { input_username: username, input_password: password });
-    if (r.success && r.result && r.result.success && typeof r.result.token === "string") {
-        return { ok: true, token: r.result.token };
-    }
-    // reachable-but-refused vs. network failure matters to the caller
-    return { ok: false, refused: r.success };
-}
-
-function revokeServerSession(username, token) {
-    // Best effort — an unreachable server just means the token expires on its own.
-    return callAdminRpc("revoke_login_session", { input_username: username, input_token: token }).catch(() => null);
-}
+const {
+    SESSION_TOKEN_MIN_SCHEMA, SERVER_SIDE_EMAIL_MIN_SCHEMA, DEVICE_BOUND_PASSWORD_MIN_SCHEMA,
+    getBackendSchemaVersion, readSessionFile, writeSessionFile, deleteSessionFile,
+    createServerSession, revokeServerSession, readDeviceIdSync, hasReservedAdminSuffix
+} = require("./engine/core/session"); // shared with engine/account.js and engine/themes.js
 
 ipcMain.handle("save-login-session", async (event, { username, password }) => {
     try {
@@ -7548,15 +7240,6 @@ ipcMain.handle("clear-login-session", async () => {
     }
 });
 
-// This install's own device id (see get-device-id below), or null.
-function readDeviceIdSync() {
-    try {
-        const current = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
-        return typeof current.deviceId === "string" ? current.deviceId : null;
-    } catch (err) {
-        return null;
-    }
-}
 
 // A random ID generated once and stored locally, never tied to any
 // personal information — this is what makes a username "belong" to a
@@ -7602,12 +7285,6 @@ ipcMain.handle("get-all-usernames", async () => {
 // identical to a genuine admin anywhere their name is shown, even
 // though they'd have none of the actual permissions. Blocking these
 // suffixes at registration prevents that impersonation outright.
-const RESERVED_USERNAME_SUFFIXES = ["_adm", "_root", "_admin", "_administrator"];
-
-function hasReservedAdminSuffix(username) {
-    const lower = username.toLowerCase();
-    return RESERVED_USERNAME_SUFFIXES.some((suffix) => lower.endsWith(suffix));
-}
 
 ipcMain.handle("check-username-available", async (event, username) => {
     if (hasReservedAdminSuffix(username)) {
@@ -8496,105 +8173,8 @@ ipcMain.handle("export-suggestions-txt", async (event, { username, password }) =
     }
 });
 
-// --- Applications (community-recommended apps) --------------------------
-// A public, browsable list of third-party apps recommended by admins —
-// this is open content for everyone (like Free Games or Theatre), not
-// gated like The Vault. Only adding an app, editing its description, or
-// removing it requires admin credentials, checked server-side via the
-// exact same verify_admin_login every other admin-gated action in this
-// app already uses (so this works for regular admins and super admins
-// alike, matching the "admins or super admins" requirement with zero
-// extra logic).
-
-ipcMain.handle("get-community-apps", async () => {
-    try {
-        const result = await supabaseRequest("community_apps?select=*&order=created_at.desc", "GET");
-        if (result.statusCode !== 200 || !Array.isArray(result.body)) {
-            return { success: false, apps: [] };
-        }
-        return { success: true, apps: result.body };
-    } catch (err) {
-        console.error("[apps] fetch failed:", err.message || err);
-        return { success: false, apps: [] };
-    }
-});
-
-ipcMain.handle("add-community-app", async (event, { adminUsername, adminPassword, name, url, author, description }) => {
-    const trimmedName = (name || "").trim();
-    const trimmedUrl = (url || "").trim();
-
-    if (!trimmedName || !trimmedUrl) {
-        return { success: false, error: "Both a name and a link are required." };
-    }
-
-    try {
-        new URL(trimmedUrl);
-    } catch (err) {
-        return { success: false, error: "That doesn't look like a valid link — make sure it includes https://." };
-    }
-
-    // The repo owner IS the author for a GitHub link — no extra request
-    // needed, it's already right there in the URL.
-    const repoPath = github.extractRepoPath(trimmedUrl);
-    let finalAuthor = (author || "").trim() || null;
-    if (!finalAuthor && repoPath) {
-        finalAuthor = repoPath.split("/")[0];
-    }
-
-    let finalDescription = (description || "").trim() || null;
-    if (!finalDescription) {
-        finalDescription = await github.fetchRepoDescription(trimmedUrl);
-    }
-
-    const result = await callAdminRpc("add_community_app", {
-        p_admin_username: adminUsername,
-        p_admin_password: adminPassword,
-        p_name: trimmedName,
-        p_url: trimmedUrl,
-        p_author: finalAuthor,
-        p_description: finalDescription
-    });
-
-    if (!result.success) return result;
-    if (result.result === null) return { success: false, error: "Not authorized." };
-    return { success: true, autoAuthor: finalAuthor, autoDescription: finalDescription };
-});
-
-ipcMain.handle("update-community-app-details", async (event, { adminUsername, adminPassword, appId, author, description }) => {
-    const result = await callAdminRpc("update_community_app_details", {
-        p_admin_username: adminUsername,
-        p_admin_password: adminPassword,
-        p_app_id: appId,
-        p_author: (author || "").trim() || null,
-        p_description: (description || "").trim() || null
-    });
-    return { success: result.success && !!result.result, error: result.error };
-});
-
-ipcMain.handle("delete-community-app", async (event, { adminUsername, adminPassword, appId }) => {
-    const result = await callAdminRpc("delete_community_app", {
-        p_admin_username: adminUsername,
-        p_admin_password: adminPassword,
-        p_app_id: appId
-    });
-    return { success: result.success && !!result.result, error: result.error };
-});
-
-// Public counter, not admin-gated — anyone browsing Applications can bump
-// this just by clicking Visit, same as request-share-access above is a
-// public RPC call with no admin credentials. The RPC itself (see
-// community-apps-visits.sql) only ever adds exactly 1 to exactly one row,
-// so there's no arbitrary-write risk in leaving this open to every client.
-ipcMain.handle("increment-community-app-visit", async (event, appId) => {
-    try {
-        const result = await supabaseRequest("rpc/increment_community_app_visit", "POST", { p_app_id: appId });
-        if (result.statusCode !== 200) return { success: false };
-        return { success: true, visitCount: typeof result.body === "number" ? result.body : null };
-    } catch (err) {
-        console.error("[apps] visit increment failed:", err.message || err);
-        return { success: false };
-    }
-});
+// --- Applications (community apps, and putting your own forward): engine/apps.js --
+require("./engine/apps").register(ipcMain);
 
 ipcMain.handle("open-data-folder", async () => {
     shell.openPath(app.getPath("userData"));
@@ -9026,7 +8606,8 @@ ipcMain.handle("r2-tv-providers", async (event, { ids, countryCode, mediaType } 
                 out[id] = p;
                 cache[`${kind}:${cc}:${id}`] = { p, at: Date.now() };
             } catch (err) {
-                out[id] = null;
+                const old = cache[`${kind}:${cc}:${id}`];
+                if (old) { out[id] = old.p; providers.servedSaved(old.at); } else out[id] = null;
             }
         }
     };
@@ -9039,226 +8620,9 @@ ipcMain.handle("r2-tv-providers", async (event, { ids, countryCode, mediaType } 
     return out;
 });
 
-// --- promote your own app ----------------------------------------
-// Anyone can put an app they made forward for Applications. Publishing
-// stays with admins (add-community-app needs their credentials), so a
-// submission goes into the existing suggestions queue, clearly marked, for
-// an admin to review and publish with the tools they already have.
-// r2-app-preview fills the form from a GitHub link (owner, description, stars).
-let r2LastAppSubmitAt = 0;
-ipcMain.handle("r2-app-preview", async (event, rawUrl) => {
-    const repoPath = typeof rawUrl === "string" ? github.extractRepoPath(rawUrl.trim()) : null;
-    if (!repoPath) return { github: false };
-    try {
-        const data = await fetchWithRetry(`https://api.github.com/repos/${repoPath}`, 8000, 1);
-        return {
-            github: true,
-            name: data && data.name ? String(data.name) : repoPath.split("/")[1],
-            author: repoPath.split("/")[0],
-            description: (data && typeof data.description === "string" && data.description.trim()) || null,
-            stars: data && typeof data.stargazers_count === "number" ? data.stargazers_count : null,
-            language: (data && data.language) || null,
-            homepage: (data && data.homepage) || null
-        };
-    } catch (err) {
-        return { github: true, author: repoPath.split("/")[0], name: repoPath.split("/")[1] };
-    }
-});
-ipcMain.handle("r2-submit-app", async (event, { name, url, author, description, contact } = {}) => {
-    const clip = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
-    const n = clip(name, 80), u = clip(url, 300), a = clip(author, 80), d = clip(description, 600), c = clip(contact, 120);
-    if (!n || !u) return { success: false, error: "Your app needs a name and a link." };
-    let parsed;
-    try { parsed = new URL(u); } catch { return { success: false, error: "That link doesn't look right. Include https://" }; }
-    if (parsed.protocol !== "https:") return { success: false, error: "Use an https:// link." };
-    if (Date.now() - r2LastAppSubmitAt < 60 * 1000) return { success: false, error: "One moment: wait a minute between submissions." };
-    const lines = [
-        "[App submission]",
-        `Name: ${n}`,
-        `Link: ${u}`,
-        `Author: ${a || github.extractRepoPath(u)?.split("/")[0] || "not given"}`,
-        `Description: ${d || "not given"}`,
-        c ? `Contact: ${c}` : null,
-        "Sent from Riftgate (Applications > Promote your app). Add it under Applications when approved."
-    ].filter(Boolean);
-    try {
-        const result = await supabaseRequest("suggestions", "POST", { username: a || null, suggestion_text: lines.join("\n") });
-        if (result.statusCode === 201) { r2LastAppSubmitAt = Date.now(); return { success: true }; }
-        return { success: false, error: "The submission didn't go through. Try again in a moment." };
-    } catch (err) {
-        console.error("[apps] submission failed:", err.message || err);
-        return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
-    }
-});
-
-// --- account ------------------------------------------------------
-// One Riftgate account for both apps (same server). The password goes to
-// the server once and is swapped for a session token; only that token is
-// kept, encrypted with the OS (session.dat), and it never reaches the
-// interface: the interface only ever learns the username.
-const R2_USERNAME_RE = /^[A-Za-z0-9_.-]{3,24}$/;
-async function r2DeviceId() {
-    let id = readDeviceIdSync();
-    if (id) return id;
-    let current = {};
-    try { current = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")); } catch {}
-    current.deviceId = crypto.randomUUID();
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(current, null, 2));
-    return current.deviceId;
-}
-async function r2StartSession(username, password) {
-    if (!safeStorage.isEncryptionAvailable()) return { ok: true, username, remembered: false };
-    const created = await createServerSession(username, password);
-    if (!created.ok) return created.refused ? { ok: false, error: "Wrong username or password." } : { ok: false, error: "Couldn't reach the server. Check your connection." };
-    const previous = readSessionFile();
-    if (previous && previous.token) revokeServerSession(previous.username, previous.token);
-    writeSessionFile({ username, token: created.token });
-    return { ok: true, username, remembered: true };
-}
-function r2Session() {
-    const s = readSessionFile();
-    return s && typeof s.username === "string" && typeof s.token === "string" ? s : null;
-}
-
-ipcMain.handle("r2-account-restore", async () => {
-    const s = r2Session();
-    if (!s) return { signedIn: false };
-    const r = await callAdminRpc("redeem_login_session", { input_username: s.username, input_token: s.token });
-    if (!r.success) return { signedIn: true, username: s.username, offline: true }; // can't check now: trust it until we can
-    if (r.result !== true) { deleteSessionFile(); return { signedIn: false, expired: true }; }
-    return { signedIn: true, username: s.username };
-});
-
-ipcMain.handle("r2-account-sign-in", async (event, { username, password } = {}) => {
-    username = String(username || "").trim();
-    if (!username || typeof password !== "string" || !password) return { ok: false, error: "Enter your username and password." };
-    const setup = await callAdminRpc("login_needs_password_setup", { input_username: username });
-    if (setup.success && setup.result === true) return { ok: false, needsSetup: true, username };
-    return r2StartSession(username, password);
-});
-
-ipcMain.handle("r2-account-sign-up", async (event, { username, password, dateOfBirth } = {}) => {
-    username = String(username || "").trim();
-    if (!R2_USERNAME_RE.test(username)) return { ok: false, error: "Usernames are 3 to 24 letters, numbers, dots, dashes or underscores." };
-    if (hasReservedAdminSuffix(username)) return { ok: false, error: "That ending is reserved for admins. Pick another username." };
-    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
-    if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return { ok: false, error: "That date of birth doesn't look right." };
-    try {
-        const taken = await supabaseRequest(`usernames?username=eq.${encodeURIComponent(username)}&select=id`, "GET");
-        if (taken.statusCode === 200 && Array.isArray(taken.body) && taken.body.length) return { ok: false, error: "That username is taken. Try another." };
-        const deviceId = await r2DeviceId();
-        const reg = await supabaseRequest("usernames", "POST", { username, device_id: deviceId, date_of_birth: dateOfBirth || null });
-        if (reg.statusCode === 409) return { ok: false, error: "That username was just taken. Try another." };
-        if (reg.statusCode !== 201) return { ok: false, error: "Couldn't create the account. Try again in a moment." };
-        const pw = await callAdminRpc("set_own_login_password", { input_username: username, new_password: password, input_device_id: deviceId });
-        if (!pw.success || pw.result !== true) return { ok: false, error: "Your username is saved, but the password wasn't. Sign in to set it." };
-        return r2StartSession(username, password);
-    } catch (err) {
-        console.error("[account] sign-up failed:", err.message || err);
-        return { ok: false, error: "Couldn't reach the server. Check your connection." };
-    }
-});
-
-// An account registered in Riftgate without a password yet (same device only)
-ipcMain.handle("r2-account-set-password", async (event, { username, password } = {}) => {
-    if (typeof password !== "string" || password.length < 8) return { ok: false, error: "Use at least 8 characters for your password." };
-    const deviceId = await r2DeviceId();
-    const r = await callAdminRpc("set_own_login_password", { input_username: String(username || ""), new_password: password, input_device_id: deviceId });
-    if (!r.success || r.result !== true) return { ok: false, error: "This account's password can only be set from the computer that created it." };
-    return r2StartSession(String(username), password);
-});
-
-ipcMain.handle("r2-account-sign-out", async () => {
-    const s = r2Session();
-    if (s) await revokeServerSession(s.username, s.token);
-    deleteSessionFile();
-    return { ok: true };
-});
-
-// --- themes ---------------------------------------------------------
-// Pictures and theme files come through the system file dialogs; the
-// community gallery lives in public.r2_themes (supabase migration 0009).
-// Publishing is checked against the signed-in session on the server.
-const R2_IMAGE_TYPES = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif" };
-ipcMain.handle("r2-theme-pick-picture", async () => {
-    const r = await dialog.showOpenDialog(win, { title: "Choose a picture for your theme", properties: ["openFile"], filters: [{ name: "Pictures", extensions: Object.keys(R2_IMAGE_TYPES).map((e) => e.slice(1)) }] });
-    if (r.canceled || !r.filePaths[0]) return null;
-    const file = r.filePaths[0];
-    const type = R2_IMAGE_TYPES[path.extname(file).toLowerCase()];
-    if (!type) return { error: "That isn't a picture Riftgate can use." };
-    if (fs.statSync(file).size > 30 * 1024 * 1024) return { error: "That picture is over 30 MB. Pick a smaller one." };
-    return { dataUrl: `data:${type};base64,${fs.readFileSync(file).toString("base64")}`, name: path.basename(file) };
-});
-ipcMain.handle("r2-theme-export", async (event, { name, theme } = {}) => {
-    const safe = String(name || "theme").replace(/[^\w .-]+/g, "").trim().slice(0, 60) || "theme";
-    const r = await dialog.showSaveDialog(win, { title: "Share this theme as a file", defaultPath: `${safe}.riftgate-theme`, filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme"] }] });
-    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
-    fs.writeFileSync(r.filePath, JSON.stringify({ riftgateTheme: 1, theme }, null, 1));
-    return { ok: true, path: r.filePath };
-});
-ipcMain.handle("r2-theme-import", async () => {
-    const r = await dialog.showOpenDialog(win, { title: "Open a Riftgate theme", properties: ["openFile"], filters: [{ name: "Riftgate theme", extensions: ["riftgate-theme", "json"] }] });
-    if (r.canceled || !r.filePaths[0]) return null;
-    try {
-        if (fs.statSync(r.filePaths[0]).size > 40 * 1024 * 1024) return { error: "That file is too big to be a theme." };
-        const data = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8"));
-        if (!data || data.riftgateTheme !== 1 || typeof data.theme !== "object") return { error: "That file isn't a Riftgate theme." };
-        return { theme: data.theme };
-    } catch (err) {
-        return { error: "That file couldn't be read as a theme." };
-    }
-});
-function r2ThemesMissing(res) {
-    const b = res && res.body;
-    return res && (res.statusCode === 404 || (b && (b.code === "42P01" || b.code === "PGRST205" || b.code === "PGRST202")));
-}
-ipcMain.handle("r2-themes-gallery", async (event, { sort, query, page } = {}) => {
-    const order = sort === "new" ? "created_at.desc" : "uses.desc,created_at.desc";
-    const p = Math.max(0, Math.min(200, parseInt(page, 10) || 0));
-    let q = `r2_themes?select=id,author,name,theme,thumb,uses,created_at&order=${order}&limit=48&offset=${p * 48}`;
-    const text = String(query || "").replace(/[^\w .-]/g, "").trim().slice(0, 40);
-    if (text) q += `&or=(name.ilike.*${encodeURIComponent(text)}*,author.ilike.*${encodeURIComponent(text)}*)`;
-    try {
-        const res = await supabaseRequest(q, "GET");
-        if (r2ThemesMissing(res)) return { available: false, themes: [] };
-        if (res.statusCode !== 200 || !Array.isArray(res.body)) return { available: true, themes: [], error: "The gallery didn't answer. Try again in a moment." };
-        return { available: true, themes: res.body };
-    } catch (err) {
-        return { available: true, themes: [], error: "Couldn't reach the gallery. Check your connection." };
-    }
-});
-ipcMain.handle("r2-theme-download", async (event, id) => {
-    const n = parseInt(id, 10);
-    if (!(n > 0)) return null;
-    try {
-        const res = await supabaseRequest(`r2_themes?id=eq.${n}&select=wallpaper`, "GET");
-        supabaseRequest("rpc/r2_use_theme", "POST", { p_id: n }).catch(() => {});
-        return { wallpaper: res.statusCode === 200 && Array.isArray(res.body) && res.body[0] ? res.body[0].wallpaper || null : null };
-    } catch (err) {
-        return { wallpaper: null };
-    }
-});
-ipcMain.handle("r2-theme-publish", async (event, { name, theme, thumb, wallpaper } = {}) => {
-    const s = r2Session();
-    if (!s) return { ok: false, signIn: true, error: "Sign in to share themes with everyone." };
-    const json = JSON.stringify(theme || {});
-    if (json.length > 16000) return { ok: false, error: "This theme has too much in it to share." };
-    if (wallpaper && String(wallpaper).length > 700000) return { ok: false, error: "The picture is too large to share. Try a smaller one." };
-    const r = await callAdminRpc("r2_publish_theme", {
-        input_username: s.username, input_token: s.token,
-        p_name: String(name || "").trim().slice(0, 40), p_theme: theme || {},
-        p_thumb: thumb || null, p_wallpaper: wallpaper || null
-    });
-    if (!r.success) return { ok: false, error: r.error && /function|schema/i.test(String(r.error)) ? "The community gallery isn't switched on yet." : "Couldn't share the theme. Try again in a moment." };
-    const out = r.result || {};
-    return out.success ? { ok: true, id: out.id } : { ok: false, error: out.error || "Couldn't share the theme." };
-});
-ipcMain.handle("r2-theme-unpublish", async (event, id) => {
-    const s = r2Session();
-    if (!s) return { ok: false, signIn: true };
-    const r = await callAdminRpc("r2_delete_theme", { input_username: s.username, input_token: s.token, p_id: parseInt(id, 10) || 0 });
-    return { ok: !!(r.success && r.result === true) };
-});
+// --- account and themes: engine/account.js, engine/themes.js ---------------------
+require("./engine/account").register(ipcMain);
+require("./engine/themes").register(ipcMain);
 
 // --- show a library item in its folder ------------------------------
 // Only for paths that are actually in the library (never an arbitrary path).
@@ -9276,22 +8640,6 @@ ipcMain.handle("r2-show-in-folder", async (event, itemPath) => {
     }
 });
 
-// --- Save a picture of Riftgate's window (Ctrl K → "Save a screenshot") --------
-// Into Pictures\Riftgate, as a PNG at the window's full resolution.
-ipcMain.handle("r2-capture-window", async () => {
-    try {
-        if (!win || win.isDestroyed()) return { ok: false };
-        const img = await win.webContents.capturePage();
-        const dir = path.join(app.getPath("pictures"), "Riftgate");
-        fs.mkdirSync(dir, { recursive: true });
-        const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
-        const file = path.join(dir, `Riftgate ${stamp}.png`);
-        fs.writeFileSync(file, img.toPNG());
-        return { ok: true, name: path.basename(file) };
-    } catch (err) {
-        return { ok: false, error: err.message };
-    }
-});
 
 // --- find a cover for anything that has none (or a broken one) -----
 // One lookup per title, ever: hits are kept for good, misses for a week, in
@@ -9477,4 +8825,8 @@ ipcMain.handle("r2-detect-category", async (event, { path: itemPath, name } = {}
 });
 
 // --- Journal/preferences store and Import from Riftgate ---------
+// --- outside sources: health and Try again (engine/providers.js) --------------
+ipcMain.handle("r2-provider-status", () => providers.status());
+ipcMain.handle("r2-provider-retry", (event, id) => { providers.retry(typeof id === "string" ? id : undefined); return providers.status(); });
+
 require("./services/r2-store").register(ipcMain, app);

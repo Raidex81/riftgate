@@ -9,6 +9,7 @@
 import { h, icon, clear, debounce } from "../app/dom.js";
 import { card, skeletonCard } from "./card.js";
 import * as D from "../app/data.js";
+import { call } from "../app/api.js";
 
 const PAGE = 100;
 const KIND_PLURAL = { game: "Games", app: "Apps", vr: "VR", other: "Other", film: "Films", series: "Series", anime: "Anime", book: "Books" };
@@ -122,7 +123,7 @@ export function openBrowser({ title, items = [], full = null, cardOpts }) {
         grid.appendChild(frag);
         if (error) {
             grid.appendChild(h("div.empty", { style: { gridColumn: "1 / -1" } }, icon("info"), h("h3", null, error),
-                h("button.btn", { type: "button", onclick: () => go(pageNo) }, icon("refresh"), "Try again")));
+                h("button.btn", { type: "button", onclick: async () => { pageCache.delete(pageNo); await call("r2-provider-retry"); go(pageNo); } }, icon("refresh"), "Try again")));
         } else if (!shown.length) {
             grid.appendChild(h("p.row-empty", null, query ? `Nothing on this page matches “${query}”.` : "Nothing on this page."));
         }

@@ -31,6 +31,15 @@ jobs:
 
       - run: npm ci
 
+      # Sections stay independent, and outside sources fail gracefully
+      # (scripts/deps-rules.js, engine/providers.js): fast checks first.
+      - name: Section boundaries
+        run: node scripts/check-deps.js
+      - name: Outside sources (providers)
+        run: node tests/providers.test.js
+      - name: Engine loads and every handler is callable
+        run: node scripts/engine-surface.js --call --check
+
       - name: Build (packaged, not published)
         run: npx electron-builder --publish never
         env:

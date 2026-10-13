@@ -16,9 +16,42 @@ import * as look from "../app/look.js";
 import * as gate from "../app/mature.js";
 import * as facts from "../components/facts.js";
 import { startTour } from "../components/tour.js";
+import { shortAgo, retry as retrySources, clearFailing } from "../app/sources.js";
 
 function setting(title, desc, control) {
     return h("section.setting", null, h("div.grow", null, h("h3", null, title), h("p", null, desc)), control);
+}
+
+const REASON = { offline: "can't be reached", timeout: "too slow to answer", busy: "busy", down: "having trouble", resting: "resting after failing", quota: "at its limit for now", error: "not answering" };
+
+// Settings → Sources: what each outside service is for and whether it's
+// answering. When one isn't, rows show what Riftgate saved from it.
+function sourcesSetting() {
+    const list = h("ul.sources-list");
+    const paint = (all) => {
+        clear(list);
+        const used = (all || []).filter((p) => p.state !== "unused");
+        if (!used.length) { list.appendChild(h("li.muted", null, "Riftgate hasn't needed any of them yet.")); return; }
+        used.sort((a, b) => (a.state === "failing" ? 0 : 1) - (b.state === "failing" ? 0 : 1) || a.label.localeCompare(b.label));
+        for (const p of used) {
+            const bad = p.state === "failing";
+            list.appendChild(h(`li.source-row${bad ? ".is-failing" : ""}`, null,
+                h("span.source-dot", { "aria-hidden": "true" }),
+                h("b", null, p.label), h("span.muted", null, p.what),
+                h("span.source-when", null, bad
+                    ? `${REASON[p.reason] || REASON.error}${p.lastOkAt ? `, last answered ${shortAgo(p.lastOkAt)}` : ""}`
+                    : `Answering${p.lastOkAt ? `, ${shortAgo(p.lastOkAt)}` : ""}`)));
+        }
+    };
+    const load = async () => paint(await call("r2-provider-status"));
+    load();
+    const again = h("button.btn", { type: "button", onclick: async () => { again.disabled = true; clearFailing(); await retrySources(); await load(); again.disabled = false; toast("Trying every source again"); } }, icon("refresh"), "Try again");
+    const sec = h("section.setting.sources", null,
+        h("div.grow", null, h("h3", null, "Sources"),
+            h("p", null, "The services Riftgate reads films, games, deals and books from. When one isn't answering, Riftgate shows what it saved from it and tries again later."),
+            list),
+        again);
+    return sec;
 }
 
 export default {
@@ -233,6 +266,9 @@ export default {
             toast(r && r.success === false ? (r.error || "Steam playtime couldn't be read. Is your profile's game details public?") : "Steam playtime updated", r && r.success === false ? "err" : "ok");
         };
         box.appendChild(setting("Steam playtime", "Your public Steam profile's hours, shown on your games. Paste your SteamID64 (find it on steamid.io) or your Steam profile link.", h("div", { style: { display: "flex", gap: "8px" } }, steamIn, steamBtn)));
+
+        // Sources: every outside service Riftgate reads from, and how it's doing
+        box.appendChild(sourcesSetting());
 
         // Data
         box.appendChild(setting("Your data", "Library, Journal, covers and settings live in Riftgate's data folder on this PC.",

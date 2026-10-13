@@ -624,3 +624,13 @@
 .usage-week { width: 24px; height: 100%; display: grid; grid-template-rows: 1fr auto; align-items: end; justify-items: center; gap: 4px; }
 .usage-week i { width: 100%; background: var(--energy); }
 .usage-week small { font-size: 10px; color: var(--dust); }
+
+/* Settings → Sources */
+.setting.sources { align-items: flex-start; }
+.sources-list { list-style: none; padding: 0; display: grid; gap: 6px; margin-top: var(--s3); font-size: var(--t-sm); }
+.source-row { display: grid; grid-template-columns: 10px auto 1fr auto; align-items: center; gap: var(--s3); }
+.source-row .muted { color: var(--dust); }
+.source-when { color: var(--dust); text-align: right; }
+.source-dot { width: 8px; height: 8px; background: #3ecf8e; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.source-row.is-failing .source-dot { background: #ff9f43; }
+.source-row.is-failing .source-when { color: #ffb36b; }

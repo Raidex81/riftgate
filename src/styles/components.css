@@ -333,3 +333,36 @@ select.input option { background: var(--nebula); }
 .gems button.on { color: var(--amethyst-soft); filter: drop-shadow(0 0 4px var(--amethyst)); }
 .gems button:hover { transform: scale(1.15); }
 .gems.readonly button { pointer-events: none; width: 13px; height: 13px; }
+
+/* ---- When an outside source fails (sources.js) ---------------------------------
+   One look everywhere: a small chip beside the title when a row shows a saved
+   copy, and a calm message with Try again where the cards would be. */
+.row-state:empty { display: none; }
+.source-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px 2px 7px;
+    font-size: var(--t-xs); color: var(--dust);
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--nebula) 70%, transparent);
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+    transition: color var(--fast), border-color var(--fast);
+}
+.source-chip svg { width: 13px; height: 13px; }
+.source-chip:hover { color: var(--starlight); border-color: var(--line-strong); }
+.source-chip.is-busy svg { animation: source-spin 1s linear infinite; }
+@keyframes source-spin { to { transform: rotate(360deg); } }
+.source-failed {
+    display: flex; align-items: center; gap: var(--s4);
+    min-height: 120px; width: 100%;
+    padding: var(--s5) var(--s6);
+    color: var(--starlight-2);
+    border: 1px dashed color-mix(in srgb, var(--line-strong) 80%, transparent);
+    background: color-mix(in srgb, var(--nebula) 55%, transparent);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.source-failed > svg { width: 26px; height: 26px; flex: none; color: var(--amethyst-soft); }
+.source-failed p { max-width: 70ch; font-size: var(--t-sm); }
+.source-failed .btn { flex: none; }
+.browser .source-failed { margin: var(--s6); width: auto; }
+.view-head h1 .view-state { display: inline-flex; vertical-align: middle; margin-left: var(--s3); }
+.view-state:empty { display: none; }

@@ -2,7 +2,7 @@
 // between views, wires keyboard shortcuts and the engine's events.
 
 import { h, icon, clear } from "./dom.js";
-import { call, on, send, settings as appSettings, forget, openExternal } from "./api.js";
+import { call, on, send, settings as appSettings, forget, openExternal, onAnswerMeta } from "./api.js";
 import { playIntro, done as introDone, quiet as introQuiet } from "../components/intro.js";
 import { markVisits, maybeWelcome } from "../components/welcome.js";
 import * as season from "./season.js";
@@ -42,6 +42,8 @@ import * as gate from "./mature.js";
 import { applyLook } from "./look.js";
 import { mountFacts, follow as factsFollow } from "../components/facts.js";
 import { maybeTour, startTour } from "../components/tour.js";
+import { noteAnswer } from "./sources.js";
+import { mountSourcesBanner } from "../components/sources-banner.js";
 import { openAddShow } from "../components/add-show.js";
 import { listenForFarewell } from "../components/farewell.js";
 
@@ -371,6 +373,11 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
     }, 40 * 1000);
     buildRail();
     mountFacts(document.getElementById("app"));
+    // when an outside source fails: the notice under the title bar, and Try
+    // again drawing the section again from scratch (sources.js)
+    onAnswerMeta(noteAnswer);
+    mountSourcesBanner(document.getElementById("app"));
+    window.addEventListener("r2-retry", () => { const c = current; current = null; if (c) route(); });
     // Interests change the rail and what Nexus leads with
     interests.onChange(() => {
         buildRail(); moveNode(current);

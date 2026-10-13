@@ -35,6 +35,8 @@ export const ICONS = {
     dice: '<path d="M12 2.5 20.5 7.5v9L12 21.5l-8.5-5v-9z"/><path d="M3.5 7.5 12 12.5l8.5-5M12 12.5v9"/><circle cx="12" cy="7.2" r=".9" fill="currentColor"/><circle cx="7.6" cy="13.5" r=".9" fill="currentColor"/><circle cx="16.4" cy="13.5" r=".9" fill="currentColor"/>',
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     gemSolid: '<path d="M12 2.5 20 8l-3 11.5H7L4 8z" fill="currentColor"/>',
+    alert: '<path d="M12 3.5 21 19.5H3z"/><path d="M12 10v4.5M12 17h.01"/>',
+    "wifi-off": '<path d="M3 3l18 18"/><path d="M8.5 16.2a5 5 0 0 1 7 0M5.3 12.9a9.5 9.5 0 0 1 5.2-2.6M13.6 10.4a9.5 9.5 0 0 1 5.1 2.5M2 9.6a14 14 0 0 1 4.6-2.7M10.6 5.8A14 14 0 0 1 22 9.6"/><path d="M12 19.5h.01"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5M4 13a8 8 0 0 0 14.5 4.5"/><path d="M5 3v4h4M19 21v-4h-4"/>',
     trophy: '<path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0zM12 13.5v4M8.5 20.5h7M16.5 6H20a3 3 0 0 1-3.5 3.5M7.5 6H4a3 3 0 0 0 3.5 3.5"/>',
     tv: '<rect x="3" y="5" width="18" height="12.5" rx="1"/><path d="M8.5 21h7M12 17.5V21"/>',

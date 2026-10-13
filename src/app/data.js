@@ -10,9 +10,10 @@
 // RAWG, Open Library, Gutenberg, itch.io) for every "See all".
 
 import * as gate from "./mature.js";
-import { call, cached, country, forget, settings } from "./api.js";
+import { call, cached, country, forget, settings, metaOf } from "./api.js";
 import * as I from "./items.js";
 import { registerSource } from "../components/palette.js";
+import { describe } from "./sources.js";
 
 // The engine answers either with a plain array or { success, <key>: [...] }.
 export function unwrap(res) {
@@ -27,12 +28,37 @@ const listeners = new Set();
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit(name) { for (const fn of [...listeners]) { try { fn(name); } catch (err) { console.error(err); } } }
 
+// Each list can carry .status: whether a source failed while loading it, or
+// whether it's a saved copy (see sources.js). It isn't an item, so it never
+// shows up in for…of, map or length, and it carries through the filter, map,
+// slice, flatMap and concat that sections apply before handing a list to a
+// row (sort works in place, so it keeps it anyway).
+class Listed extends Array {}
+for (const m of ["filter", "map", "slice", "flatMap", "concat"]) {
+    const base = Array.prototype[m];
+    Object.defineProperty(Listed.prototype, m, {
+        value(...a) { const r = base.apply(this, a); if (r instanceof Listed) setStatus(r, this.status); return r; },
+        writable: true, configurable: true
+    });
+}
+function setStatus(list, status) {
+    Object.defineProperty(list, "status", { value: status || null, enumerable: false, configurable: true, writable: true });
+    return list;
+}
+export function withStatus(items, status) {
+    const list = items instanceof Listed ? items : Listed.from(items || []);
+    return setStatus(list, status);
+}
+export const statusOf = (items) => (items && items.status) || null;
+
 const loaded = new Map(); // name -> Item[] (for search)
+const resets = new Set(); // each source's "forget this session's answer"
 function source(name, channel, map, argsFn, quickChannel) {
     let current = null; // promise of Item[] for this session
-    const mapAll = (raw) => unwrap(raw).map(map).filter((x) => x && x.title);
+    resets.add(() => { current = null; });
+    const mapAll = (raw) => withStatus(unwrap(raw).map(map).filter((x) => x && x.title), null);
     const live = (args, fresh) => cached(channel, args, { fresh }).then((raw) => {
-        const items = mapAll(raw);
+        const items = withStatus(mapAll(raw), metaOf(channel, args));
         loaded.set(name, items);
         return items;
     });
@@ -49,9 +75,14 @@ function source(name, channel, map, argsFn, quickChannel) {
                 if (!quick.length) return full;
                 loaded.set(name, quick);
                 full.then((items) => {
-                    if (!items.length) return;
+                    if (!items.length) {
+                        // the refresh failed: keep showing the saved list, and say so
+                        if (items.status && items.status.failed && items.status.failed.length) { withStatus(quick, { ...items.status, savedAt: items.status.savedAt || null }); emit(name); }
+                        return;
+                    }
                     current = Promise.resolve(items);
-                    if (sameKeys(items, quick)) return;
+                    // same list, but now it can say it's a saved copy: repaint for that too
+                    if (sameKeys(items, quick) && !items.status) return;
                     emit(name);
                 });
                 return quick;
@@ -121,7 +152,9 @@ export const communityApps = source("apps", "get-community-apps", I.fromCommunit
 
 registerSource("all", () => [...loaded.values()].flat());
 
-export function refreshAll() { forget(""); loaded.clear(); }
+export function refreshAll() { forget(""); loaded.clear(); for (const r of resets) r(); }
+// Try again (sources.js): every list is asked for again
+window.addEventListener("r2-sources-reset", () => { loaded.clear(); for (const r of resets) r(); });
 
 // ---- Complete lists from the internet, page by page ---------------------------
 // `per` engine pages make one page of the browser (about 100 titles).
@@ -150,12 +183,20 @@ export async function fullPage(full, page) {
     if (!def) return { items: [], page, pages: 1, total: 0, error: "This list can't be browsed." };
     const cc = await country();
     const first = (page - 1) * def.per + 1;
-    const res = await Promise.all(Array.from({ length: def.per }, (_, i) =>
-        cached("get-full-list", [{ kind: full.kind, page: first + i, countryCode: cc, providerName: full.providerName || undefined }])));
+    const argsFor = (i) => [{ kind: full.kind, page: first + i, countryCode: cc, providerName: full.providerName || undefined }];
+    const res = await Promise.all(Array.from({ length: def.per }, (_, i) => cached("get-full-list", argsFor(i))));
     const seen = new Set();
     const items = [];
-    let enginePages = null, total = null, error = null, open = false;
+    let enginePages = null, total = null, error = null, open = false, failedMeta = null;
     res.forEach((r, i) => {
+        const meta = metaOf("get-full-list", argsFor(i));
+        const sourceFailed = !!(meta && meta.failed && meta.failed.length) && !(r && (r.items || []).length);
+        if (sourceFailed) error = error || "Couldn't load this page.";
+        if (!r || sourceFailed || (r.error && !(r.items || []).length)) {
+            // don't keep a failed page for the session: Try again asks again
+            forget("get-full-list" + JSON.stringify(argsFor(i)));
+            if (meta && meta.failed && meta.failed.length) failedMeta = failedMeta || meta;
+        }
         if (!r) { error = error || "Couldn't load this page. Try again in a moment."; return; }
         if (r.error && !(r.items || []).length) error = error || r.error;
         if (typeof r.totalPages === "number") enginePages = Math.max(enginePages || 0, r.totalPages);
@@ -171,6 +212,8 @@ export async function fullPage(full, page) {
     let pages = enginePages ? Math.max(1, Math.ceil(enginePages / def.per)) : page;
     if (open) pages = null; // itch.io and similar: no end announced
     if (def.providers) await withProviders(items);
+    // a source that didn't answer: say which, the same way rows do
+    if (!items.length && failedMeta) error = describe(failedMeta, 0).text;
     return { items, page, pages, total, error: items.length ? null : error };
 }
 

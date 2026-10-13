@@ -7,9 +7,9 @@ const https = require("https");
 // Parses the body as JSON and resolves with it regardless of status code.
 // Some callers need to inspect an error body that comes back on a non-2xx
 // status rather than have it thrown away.
-function httpsGetJson(url, headers) {
+function httpsGetJson(url, headers, timeoutMs) {
     return new Promise((resolve, reject) => {
-        https.get(url, { headers }, (res) => {
+        const req = https.get(url, { headers }, (res) => {
             let data = "";
             res.on("data", (chunk) => (data += chunk));
             res.on("end", () => {
@@ -20,6 +20,8 @@ function httpsGetJson(url, headers) {
                 }
             });
         }).on("error", reject);
+        // a provider that never answers must not hold a row up forever
+        req.setTimeout(timeoutMs || 15000, () => req.destroy(new Error("Request timed out")));
     });
 }
 

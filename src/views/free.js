@@ -6,7 +6,7 @@
 import { h, icon, clear, debounce } from "../app/dom.js";
 import { call, forget } from "../app/api.js";
 import * as D from "../app/data.js";
-import { row } from "../components/row.js";
+import { row, sectionState, sourceFailed } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
 import { pagedGrid } from "../components/paged.js";
 import { toast } from "../components/toast.js";
@@ -30,11 +30,13 @@ export default {
         const search = h("input.input", { type: "search", placeholder: "Search free games", "aria-label": "Search free games", style: { width: "240px" } });
         const refresh = h("button.btn", { type: "button" }, icon("refresh"), "Refresh");
         const summary = h("p");
+        const stateSlot = h("span.view-state"); // "Saved 3 h ago" when the store didn't answer
         const body = h("div");
+        let sourceState = null;
         // the giveaways running today, with their deadlines (a card opens the game's details when Riftgate has it)
         const strip = giveawayStrip({ onOpen: (g) => { const it = all.find((x) => slug(x.title) === slug(g.name)); if (it) openDetail(it); else if (g.url) import("../app/api.js").then((m) => m.openExternal(g.url)); } });
         root.append(
-            h("div.view-head", null, h("div", null, h("h1", null, "Free games"), summary), h("div.actions", null, askButton("free"), search, refresh)),
+            h("div.view-head", null, h("div", null, h("h1", null, "Free games", stateSlot), summary), h("div.actions", null, askButton("free"), search, refresh)),
             strip,
             h("div", { style: { marginBottom: "36px" } }, chips),
             body);
@@ -49,6 +51,7 @@ export default {
                 refresh.disabled = false;
             }
             all = await D.freeGames({ fresh });
+            sourceState = sectionState(stateSlot, all);
             newSet = new Set(D.newFreeGames(all));
             const n = newSet.size;
             summary.textContent = `${plural(all.length, "free game")} right now${n ? `, ${n} added this week` : ""}. Free to keep or free to play, from every store.`;
@@ -78,17 +81,18 @@ export default {
 
             const rows = [];
             const fresh = list.filter(isNew).sort(SORTS.newest.fn);
-            if (fresh.length) rows.push(row({ title: "Newly added", icon: "sparkles", items: fresh, seeAllTitle: "Free games added this week" }));
-            if (vr.length) rows.push(row({ title: "VR", icon: "vr", note: `${vr.length.toLocaleString()} from every store`,
+            if (fresh.length) rows.push(row({ title: "Newly added", icon: "sparkles", items: fresh, quietSource: true, seeAllTitle: "Free games added this week" }));
+            if (vr.length) rows.push(row({ title: "VR", icon: "vr", quietSource: true, note: `${vr.length.toLocaleString()} from every store`,
                 items: vr.slice().sort((a, b) => (a.vr === "native" ? 0 : 1) - (b.vr === "native" ? 0 : 1) || SORTS.popular.fn(a, b)), seeAllTitle: "Every free VR game" }));
             platforms.forEach(([src, l]) => {
                 // itch.io has far more free games than any list can hold: its See all pages through all of them
                 const itch = /^itch/i.test(src) && !q;
-                rows.push(row({ title: src, icon: "gift", items: l.slice().sort(SORTS.popular.fn), note: `${l.length.toLocaleString()} free`,
+                rows.push(row({ title: src, icon: "gift", quietSource: true, items: l.slice().sort(SORTS.popular.fn), note: `${l.length.toLocaleString()} free`,
                     seeAllTitle: itch ? "Free on itch.io, newest and popular" : `Free on ${src}`, full: itch ? { kind: "itch" } : null }));
             });
             if (rows.length) body.appendChild(shelf("free", rows));
-            if (!list.length) body.appendChild(h("div.empty", null, icon("gift"), h("h3", null, q ? `No free game matches “${query}”` : "No free games loaded yet"), h("p", null, q ? "Try another name." : "Press Refresh to check every store now.")));
+            if (!list.length && !q && sourceState && sourceState.kind === "failed") body.appendChild(sourceFailed(sourceState));
+            else if (!list.length) body.appendChild(h("div.empty", null, icon("gift"), h("h3", null, q ? `No free game matches “${query}”` : "No free games loaded yet"), h("p", null, q ? "Try another name." : "Press Refresh to check every store now.")));
         }
 
         // One platform (or VR): every game, with genre and sort
