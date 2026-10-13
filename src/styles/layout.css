@@ -44,7 +44,7 @@
     display: flex; align-items: center; gap: var(--s3);
     width: min(520px, 46vw);
     height: 28px;
-    margin-left: calc(var(--rail-w) - var(--s4) - 2px);
+    margin-left: calc(var(--rail-w) - var(--s4) - 2px + var(--bleed, 0px));
     padding: 0 var(--s3);
     color: var(--dust);
     background: var(--nebula);
@@ -163,7 +163,8 @@ kbd {
 }
 .view {
     padding: var(--s8) var(--gutter) var(--s16);
-    max-width: 1880px;
+    max-width: var(--view-max);
+    margin-inline: auto;
     animation: view-in var(--mid) var(--ease);
 }
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -179,3 +180,26 @@ kbd {
     .nav-item { justify-content: center; padding: 0; }
     .brand { justify-content: center; padding: 0 0 var(--s6); }
 }
+
+/* ---- Wide and ultrawide screens (21:9, 32:9) ------------------------------------
+   The page grows with the screen up to a width you can take in without turning
+   your head, and stays centred. --bleed (set by main.js) is how far the stage
+   reaches past it on each side: the Nexus banner spans it, the rest of the page
+   keeps to the column, and two faint rift seams frame it. */
+:root { --view-max: 1880px; }
+@media (min-width: 2300px) { :root { --view-max: 2400px; } }
+@media (min-width: 3200px) { :root { --view-max: 2880px; } }
+@media (min-width: 4400px) { :root { --view-max: 3360px; } }
+.app.is-wide .stage {
+    background:
+        linear-gradient(90deg,
+            transparent calc(var(--bleed) - 90px),
+            color-mix(in srgb, var(--amethyst) 5%, transparent) calc(var(--bleed) - 1px),
+            color-mix(in srgb, var(--amethyst) 22%, transparent) var(--bleed),
+            transparent calc(var(--bleed) + 1px),
+            transparent calc(100% - var(--bleed) - 1px),
+            color-mix(in srgb, var(--rift-pink) 18%, transparent) calc(100% - var(--bleed)),
+            color-mix(in srgb, var(--rift-pink) 4%, transparent) calc(100% - var(--bleed) + 1px),
+            transparent calc(100% - var(--bleed) + 90px));
+}
+.app.is-wide .facts { padding-left: calc(var(--gutter) + var(--bleed)); padding-right: calc(var(--s2) + var(--bleed)); }

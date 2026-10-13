@@ -126,7 +126,12 @@ export class Rift {
         this.w = Math.max(1, r.width); this.hgt = Math.max(1, r.height);
         this.c.width = Math.round(this.w * dpr); this.c.height = Math.round(this.hgt * dpr);
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        this.R = Math.min(this.hgt * .32, this.w * .19) * this.o.scale;
+        // on a wide screen the banner bleeds past the page: the portal keeps its
+        // place beside the words, inside the page's own width (--bleed each side)
+        const bleed = parseFloat(getComputedStyle(this.c).getPropertyValue("--bleed")) || 0;
+        const inner = Math.max(1, this.w - 2 * bleed);
+        this.cxPx = bleed + inner * this.o.cx;
+        this.R = Math.min(this.hgt * .32, inner * .19) * this.o.scale;
         // (not while it waits under the opening: it moves as soon as the rift opens)
         if ((this.reduced || !this.running) && !this.o.still && !this.underIntro()) this.draw(0);
     }
@@ -150,7 +155,7 @@ export class Rift {
     stop() { this.running = false; }
     // A strike on demand (clicking the gem): a main bolt and a fork beside it,
     // and the portal flares. Returns false when the gem wasn't hit.
-    hitGem(x, y) { const cx = this.w * this.o.cx, cy = this.hgt * this.o.cy; return Math.hypot(x - cx, y - cy) <= this.R * .95; }
+    hitGem(x, y) { const cx = this.cxPx ?? this.w * this.o.cx, cy = this.hgt * this.o.cy; return Math.hypot(x - cx, y - cy) <= this.R * .95; }
     // golden: a rare golden strike (a secret, see secrets.js)
     strikeNow({ golden = false } = {}) {
         const first = this.bolt(), second = this.bolt(first.ang + Math.PI * (.6 + Math.random() * .8));
@@ -528,7 +533,7 @@ export class Rift {
 
     draw(dt) {
         const { ctx, w, hgt: H, R } = this;
-        const cx = w * this.o.cx, cy = H * this.o.cy;
+        const cx = this.cxPx ?? w * this.o.cx, cy = H * this.o.cy;
         const { a, b, soft } = this.col;
         const t = this.t;
         ctx.clearRect(0, 0, w, H);

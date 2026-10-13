@@ -67,6 +67,22 @@ const SETTINGS = { id: "settings", label: "Settings", icon: "settings", view: se
 const ALL = [...VIEWS, SETTINGS];
 
 const stage = document.getElementById("stage");
+// Wide and ultrawide screens: the page keeps a comfortable width (--view-max,
+// layout.css), centred; --bleed is how far the stage reaches past it each side.
+{
+    const app = document.getElementById("app");
+    let last = -1;
+    const fitWide = () => {
+        const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--view-max")) || 1880;
+        const b = Math.max(0, Math.floor((stage.clientWidth - max) / 2));
+        if (b === last) return;
+        last = b;
+        app.style.setProperty("--bleed", b + "px");
+        app.classList.toggle("is-wide", b > 0);
+    };
+    new ResizeObserver(fitWide).observe(stage);
+    fitWide();
+}
 const rail = document.getElementById("rail");
 const titlebar = document.getElementById("titlebar");
 let current = null;
