@@ -26,10 +26,13 @@ Rift Rewind looks back on your year. ([Watch the opening](docs/riftgate-opening.
 
 ## Download
 
-### 👉 [Download the latest version](https://github.com/Raidex81/Riftgate/releases/latest)
+### 👉 [Download the latest version](https://github.com/Raidex81/riftgate/releases/latest)
 
-It's free. On that page, open **Assets** and pick the file for your
-computer:
+[![Latest version](https://img.shields.io/github/v/release/Raidex81/riftgate?label=latest%20version&color=8b3dff)](https://github.com/Raidex81/riftgate/releases/latest)
+
+It's free. On that page, pick the file for your computer at the top of
+the notes (or under **Assets**). The other files there (`.zip`,
+`.blockmap`, `.yml`) are for automatic updates; you don't need them.
 
 | Computer | File |
 |---|---|
@@ -38,14 +41,17 @@ computer:
 | Mac with Intel chip | `Riftgate-<version>.dmg` |
 
 > **Already using Riftgate on Windows?** You don't need to download
-> anything: Riftgate offers you 2.0 by itself, asks before installing, and
-> keeps all your data.
+> anything: Riftgate offers each new version by itself, asks before
+> installing, and keeps your library, shows, books and settings.
 >
 > **Windows first install:** Windows may show a blue "Windows protected
 > your PC" screen the first time you run the installer. Riftgate isn't
 > digitally signed yet, and Windows shows this screen for unsigned apps
 > from independent developers. Click **More info → Run anyway**. It only
 > happens once, because later updates install through the app itself.
+>
+> **Not sure which Mac you have?** Apple menu → About This Mac: "Chip:
+> Apple M…" means Apple chip, "Processor: Intel…" means Intel.
 >
 > **Mac first install:** open the `.dmg`, drag Riftgate into
 > Applications, then **right-click → Open** the first time (or go to
@@ -57,6 +63,9 @@ computer:
 
 You don't need an account: everything works the moment it opens. Signing
 in is only for extras like sharing themes and sending suggestions.
+
+What changed in each version: [CHANGELOG.md](CHANGELOG.md) (the same notes
+as **What's new** inside Riftgate).
 
 ---
 

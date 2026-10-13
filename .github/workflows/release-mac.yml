@@ -48,3 +48,10 @@ jobs:
           # APPLE_ID: ${{ secrets.APPLE_ID }}                           # Apple ID email, for notarization
           # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+  # Every release page gets its notes from the in-app changelog.
+  notes:
+    needs: release-mac
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-notes.yml

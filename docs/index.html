@@ -22,7 +22,7 @@
       <a href="#download">Download</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-small" href="https://github.com/Raidex81/Riftgate/releases/latest">Download</a>
+    <a class="btn btn-primary btn-small" href="#download">Download</a>
   </div>
 </header>
 
@@ -174,12 +174,52 @@
 
 <section class="download" id="download">
   <h2>Get Riftgate</h2>
-  <p>It's free. Open the release page, look for <strong>Assets</strong>, and grab the file for your computer: <code>Riftgate-Setup-…exe</code> for Windows, <code>Riftgate-…-arm64.dmg</code> for a Mac with an Apple chip (M1 or newer), or <code>Riftgate-….dmg</code> for an Intel Mac.</p>
-  <a class="btn btn-primary btn-large" href="https://github.com/Raidex81/Riftgate/releases/latest">👉 Download the latest version</a>
+  <p class="dl-version" id="dl-version">Free for Windows and Mac.</p>
+  <div class="dl-buttons" id="dl-buttons">
+    <a class="btn btn-primary btn-large" href="https://github.com/Raidex81/riftgate/releases/latest">👉 Download the latest version</a>
+  </div>
+  <p class="download-note" id="dl-fallback">On the release page, open <strong>Assets</strong> and pick the file for your computer: <code>Riftgate-Setup-…exe</code> for Windows, <code>Riftgate-…-arm64.dmg</code> for a Mac with an Apple chip (M1 or newer), or <code>Riftgate-….dmg</code> for an Intel Mac. The other files there are for automatic updates; you don't need them.</p>
+  <p class="download-note"><strong>Not sure which Mac you have?</strong> Apple menu → About This Mac: "Chip: Apple M…" means Apple chip, "Processor: Intel…" means Intel.</p>
   <p class="download-note"><strong>Already using Riftgate on Windows?</strong> You don't need to download anything: Riftgate offers each new version by itself, asks before installing, and keeps your library, shows, books and settings.</p>
-  <p class="download-note"><strong>Windows:</strong> a blue "Windows protected your PC" screen may appear the first time. Riftgate isn't digitally signed yet, and Windows shows this for unsigned apps from independent developers. Click <strong>More info → Run anyway</strong>. It only happens once, because later updates install through the app.</p>
-  <p class="download-note"><strong>Mac:</strong> drag Riftgate into Applications, then <strong>right-click → Open</strong> the first time (or System Settings → Privacy &amp; Security → <strong>Open Anyway</strong>). If macOS says the app "is damaged", run <code>xattr -cr /Applications/Riftgate.app</code> in Terminal. For now, download each new version by hand on a Mac.</p>
+  <p class="download-note"><strong>Windows first install:</strong> a blue "Windows protected your PC" screen may appear the first time. Riftgate isn't digitally signed yet, and Windows shows this for unsigned apps from independent developers. Click <strong>More info → Run anyway</strong>. It only happens once, because later updates install through the app.</p>
+  <p class="download-note"><strong>Mac first install:</strong> open the <code>.dmg</code> and drag Riftgate into Applications. The first time, <strong>right-click → Open</strong> (or System Settings → Privacy &amp; Security → <strong>Open Anyway</strong>). If macOS says the app "is damaged", run <code>xattr -cr /Applications/Riftgate.app</code> in Terminal and open it again. The Mac version isn't signed yet, so it can't update itself: download the new <code>.dmg</code> for each new version. Your library and settings are kept.</p>
+  <p class="download-note"><a href="https://github.com/Raidex81/riftgate/blob/main/CHANGELOG.md">Every version's changes</a> · <a href="https://github.com/Raidex81/riftgate/releases">All releases</a></p>
 </section>
+<script>
+// The download section names the real latest release: its version, date, and
+// a direct button for each computer, straight from GitHub. If GitHub can't be
+// reached, the plain "Download the latest version" link above stays.
+(function () {
+  var REPO = "Raidex81/riftgate";
+  var mb = function (b) { return Math.round(b / 1048576) + " MB"; };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var ua = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || "";
+  var isMac = /mac/i.test(ua), isWin = /win/i.test(ua);
+  fetch("https://api.github.com/repos/" + REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (rel) {
+      var v = String(rel.tag_name || "").replace(/^v/, "");
+      var find = function (name) { return (rel.assets || []).filter(function (a) { return a.name === name; })[0]; };
+      var files = [
+        { os: "win", label: "Windows 10 or 11", a: find("Riftgate-Setup-" + v + ".exe") },
+        { os: "mac", label: "Mac with Apple chip", a: find("Riftgate-" + v + "-arm64.dmg") },
+        { os: "mac", label: "Mac with Intel chip", a: find("Riftgate-" + v + ".dmg") }
+      ].filter(function (f) { return f.a; });
+      if (!v || !files.length) return;
+      files.sort(function (x, y) { var p = function (f) { return (isMac && f.os === "mac") || (isWin && f.os === "win") ? 0 : 1; }; return p(x) - p(y); });
+      var when = rel.published_at ? new Date(rel.published_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "";
+      document.getElementById("dl-version").innerHTML = "Latest version: <strong>Riftgate " + esc(v) + "</strong>" + (when ? ", released " + esc(when) : "") +
+        ' · <a href="' + esc(rel.html_url) + '">What\'s new in ' + esc(v) + "</a>";
+      document.getElementById("dl-buttons").innerHTML = files.map(function (f, i) {
+        var mine = (isMac && f.os === "mac") || (isWin && f.os === "win");
+        return '<a class="btn ' + (mine || (!isMac && !isWin && i === 0) ? "btn-primary" : "btn-ghost") + ' btn-large" href="' + esc(f.a.browser_download_url) + '">' +
+          "⬇ " + esc(f.label) + '<span class="dl-file">' + esc(f.a.name) + " · " + mb(f.a.size) + "</span></a>";
+      }).join("");
+      document.getElementById("dl-fallback").textContent = "These buttons download the installer directly. Everything else on the release page is for automatic updates.";
+    })
+    .catch(function () { /* keep the plain link */ });
+})();
+</script>
 
 <section class="faq" id="faq">
   <h2>Frequently asked questions</h2>

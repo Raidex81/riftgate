@@ -309,3 +309,9 @@ footer {
 .trailer video { width: 100%; display: block; border-radius: 14px; border: 1px solid rgba(185, 140, 255, .25); box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 60px rgba(139, 61, 255, .25); background: #07050d; }
 .trailer p { margin-top: 14px; color: rgba(237, 230, 255, .7); font-size: .95rem; }
 .trailer a { color: #b98cff; }
+
+/* Download: the real latest version, a direct button per computer */
+.dl-version { color: var(--text-muted); margin-bottom: 18px !important; }
+.dl-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 6px 0 22px; }
+.dl-buttons .btn { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; min-width: 240px; }
+.dl-file { font-size: 12px; font-weight: 500; opacity: .75; letter-spacing: .01em; }

@@ -26,3 +26,10 @@ jobs:
           # Upload into the existing release even if it was created more
           # than 2 hours ago.
           EP_GH_IGNORE_TIME: "true"
+
+  # Every release page gets its notes from the in-app changelog.
+  notes:
+    needs: release-windows
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-notes.yml

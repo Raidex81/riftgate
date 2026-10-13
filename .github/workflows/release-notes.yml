@@ -1,0 +1,37 @@
+# Writes a release's description from the in-app changelog
+# (scripts/release-notes.js): which file to download for each computer, with
+# sizes, what the other files are for, how to install or update, and what's
+# new. The two Publish workflows run it at the end, so every release page
+# has its notes. Run it by hand (Actions → Release notes → Run workflow) to
+# rewrite an existing release's notes after editing src/app/changelog.js.
+name: Release notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, like 2.0.2 (empty: the one in package.json)"
+        required: false
+  workflow_call:
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Write the release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          V="${INPUT_VERSION:-$(node -p "require('./package.json').version")}"
+          V="${V#v}"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v$V" --jq .assets > assets.json
+          node scripts/release-notes.js "$V" --sizes assets.json > notes.md
+          gh release edit "v$V" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          echo "Notes written for v$V:" && cat notes.md
