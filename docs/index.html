@@ -42,10 +42,32 @@
   </div>
 </section>
 
-<section class="trailer" aria-label="Riftgate's opening">
-  <video src="riftgate-opening.mp4" poster="riftgate-opening-poster.jpg" autoplay muted loop playsinline preload="metadata"></video>
-  <p>The rift opening, as Riftgate starts. <a href="https://github.com/Raidex81/Riftgate/releases/latest">Get it</a> to hear it too.</p>
+<section class="trailer" aria-label="Riftgate in 22 seconds">
+  <div class="trailer-frame">
+    <video id="promo" src="riftgate-promo.mp4" poster="riftgate-promo-poster.jpg" autoplay muted loop playsinline preload="metadata"></video>
+    <button class="trailer-sound" id="promo-sound" type="button" aria-pressed="false" aria-label="Turn the sound on">
+      <span aria-hidden="true">♪</span><span class="label">Sound on</span>
+    </button>
+  </div>
+  <p>Riftgate in 22 seconds, with its own music. <a href="https://github.com/Raidex81/Riftgate/releases/latest">Get it free</a>.</p>
 </section>
+<script>
+// Browsers only start videos silently: the button brings the music in (and
+// starts again from the top so you hear it from the first note).
+(function () {
+  var v = document.getElementById("promo"), b = document.getElementById("promo-sound");
+  if (!v || !b) return;
+  b.addEventListener("click", function () {
+    var on = v.muted;
+    if (on) { v.currentTime = 0; }
+    v.muted = !on;
+    v.play().catch(function () {});
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Turn the sound off" : "Turn the sound on");
+    b.querySelector(".label").textContent = on ? "Sound off" : "Sound on";
+  });
+})();
+</script>
 
 <section class="pillars" id="features">
   <div class="section-head">
