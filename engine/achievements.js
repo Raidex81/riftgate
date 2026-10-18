@@ -168,8 +168,10 @@ function register(ipcMain, { steamApi }) {
     }
 
     // ---- the background look at games you've played -------------------------------
+    // force: look again at every game you've played (after you change your
+    // Steam privacy, say), not only the ones whose playtime changed
     let sweeping = null;
-    function sweep() {
+    function sweep({ force = false } = {}) {
         if (sweeping) return sweeping;
         sweeping = (async () => {
             if (!steamId()) return summary();
@@ -177,7 +179,7 @@ function register(ipcMain, { steamApi }) {
             const s = readSummary();
             const due = Object.entries(minutes)
                 .filter(([appid, m]) => validAppId(appid) && m > 0)
-                .filter(([appid, m]) => { const g = s.games[appid]; return !g || g.playtimeAt !== m || Date.now() - (g.at || 0) > RECHECK_UNCHANGED; })
+                .filter(([appid, m]) => { const g = s.games[appid]; return force || !g || g.playtimeAt !== m || Date.now() - (g.at || 0) > RECHECK_UNCHANGED; })
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, SWEEP_MAX);
             let fresh = 0, i = 0, stop = false;
@@ -197,7 +199,9 @@ function register(ipcMain, { steamApi }) {
                 }
             };
             await Promise.all([worker(), worker(), worker()]);
-            const done = readSummary(); done.sweptAt = Date.now(); data.writeJson(summaryFile(), done);
+            const done = readSummary(); done.sweptAt = Date.now();
+            if (!stop && force) delete done.state; // Steam answered: whatever stopped it before is gone
+            data.writeJson(summaryFile(), done);
             if (fresh > 0) windowRef.send("r2-achievements-changed", { unlocked: fresh });
             return summary();
         })().finally(() => { sweeping = null; });
@@ -217,7 +221,7 @@ function register(ipcMain, { steamApi }) {
         }
     });
     ipcMain.handle("r2-achievements-summary", async () => summary());
-    ipcMain.handle("r2-achievements-sweep", async () => sweep().catch(() => summary()));
+    ipcMain.handle("r2-achievements-sweep", async (event, opts = {}) => sweep({ force: !!(opts && opts.force) }).catch(() => summary()));
 }
 
 module.exports = { register, classify };

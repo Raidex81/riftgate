@@ -2,6 +2,7 @@
 // app/achievements.js; the Journal's Trophy room is trophy-room.js).
 
 import { h, icon, clear, coverSrc } from "../app/dom.js";
+import { openExternal } from "../app/api.js";
 import * as A from "../app/achievements.js";
 import { shortAgo } from "../app/sources.js";
 
@@ -60,10 +61,36 @@ const VIEWS = [
     { id: "all", label: "All", hint: "Every achievement in this game", pick: A.all }
 ];
 
+// Steam answers "Profile is not public" for achievements when the profile's
+// Game details aren't Public, even if the profile itself is: what to change,
+// a button to the setting and one to look again. check() resolves to the
+// new state; "still private" says Steam can be slow to notice.
+export function privateNote(check, { tries = 0 } = {}) {
+    const again = h("button.btn.sm", { type: "button" }, icon("refresh"), "Check again");
+    const el = h("div.ach-note.ach-private", null,
+        h("p", null, icon("lock"), h("b", null, "Steam is keeping your achievements private."),
+            " It only shares them when your profile's ", h("b", null, "Game details"), " are set to Public."),
+        h("ol", null,
+            h("li", null, "Open your Steam privacy settings (signed in to Steam)."),
+            h("li", null, "Set ", h("b", null, "Game details"), " to ", h("b", null, "Public"), "."),
+            h("li", null, "Come back here and press Check again.")),
+        tries ? h("p.muted", null, "Still private. Steam can take a few minutes to notice the change, so try again shortly.") : null,
+        h("div.ach-private-actions", null,
+            h("button.btn.sm.primary", { type: "button", onclick: () => openExternal(A.PRIVACY_URL) }, icon("external"), "Open Steam privacy settings"),
+            again));
+    again.onclick = async () => {
+        again.disabled = true; again.classList.add("is-busy");
+        const state = await check().catch(() => null);
+        if (state === "private" && el.isConnected) el.replaceWith(privateNote(check, { tries: tries + 1 }));
+        else { again.disabled = false; again.classList.remove("is-busy"); }
+    };
+    return el;
+}
+
 // A note when there's nothing to show, saying what to do about it
-function noteFor(state) {
+function noteFor(state, check) {
+    if (state === "private") return privateNote(check);
     if (state === "no-steamid") return h("p.ach-note", null, "Add your SteamID64 in ", h("a", { href: "#settings" }, "Settings"), " (Steam playtime) and your achievements show up here.");
-    if (state === "private") return h("p.ach-note", null, "Steam keeps your achievements private. In Steam: your profile → Edit Profile → Privacy Settings → Game details: Public. Then they show up here.");
     if (state === "server-update") return h("p.ach-note", null, "Achievements need a small update to Riftgate's online service, coming shortly.");
     return h("p.ach-note", null, "Steam didn't answer. ", h("button.linkish", { type: "button", "data-retry": "1" }, "Try again"));
 }
@@ -84,18 +111,20 @@ export function achievementsBox(item) {
         again.classList.add("is-busy");
         const r = await A.game(appid, { fresh }).catch(() => null);
         again.classList.remove("is-busy");
-        if (!box.isConnected && !fresh) { /* still being built: fine */ }
-        if (!r || r.state === "none") { box.hidden = true; return; }
+        if (!r || r.state === "none") { box.hidden = true; return r && r.state; }
         if (r.state !== "ok") {
-            clear(body).append(noteFor(r.state));
+            // the private note keeps itself on screen while it's still private
+            if (r.state === "private" && body.querySelector(".ach-private")) return r.state;
+            clear(body).append(noteFor(r.state, () => load(true)));
             const btn = body.querySelector("[data-retry]");
             if (btn) btn.onclick = () => load(true);
-            return;
+            return r.state;
         }
         data = r;
         if (!view) view = r.unlocked === r.total ? "rarest" : r.unlocked === 0 ? "next" : "next";
         paint();
         if (fresh) A.summary({ fresh: true });
+        return r.state;
     }
     again.onclick = () => load(true);
 

@@ -748,3 +748,11 @@
 .trophy-perfect { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .chip.is-perfect { color: var(--tier-legendary); border-color: color-mix(in srgb, var(--tier-legendary) 50%, transparent); }
 .chip.is-perfect svg { width: 14px; height: 14px; }
+
+/* Steam says the achievements are private: what to change, and two buttons */
+.ach-private { display: grid; gap: var(--s2); border-style: solid; border-color: color-mix(in srgb, var(--amethyst-soft) 45%, var(--line)); }
+.ach-private > p:first-child { color: var(--starlight); }
+.ach-private > p:first-child svg { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; color: var(--amethyst-soft); }
+.ach-private ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.ach-private-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
+.ach-private-actions .is-busy svg { animation: source-spin 1s linear infinite; }

@@ -135,6 +135,10 @@ const call = (c, ...a) => handlers[c]({}, ...a);
     s = await call("r2-achievements-sweep");
     assert.strictEqual(s.state, "private");
     PROFILE = "public";
+    // "Check again" (force) looks at every game you've played and clears it
+    calls = 0; s = await call("r2-achievements-sweep", { force: true });
+    assert.ok(calls >= 1, "check again asks Steam even when nothing was played");
+    assert.strictEqual(s.state, null, "the private note goes once Steam answers");
 
     // nonsense in, nothing out
     assert.strictEqual((await call("r2-achievements-game", "../etc")).state, "none");

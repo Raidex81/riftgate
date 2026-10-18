@@ -5,10 +5,24 @@ import { h, icon, clear, coverSrc } from "../app/dom.js";
 import * as A from "../app/achievements.js";
 import * as D from "../app/data.js";
 import { openDetail } from "./detail.js";
+import { privateNote } from "./achievements.js";
+
+// once per run: when nothing has been looked at yet, look now instead of
+// waiting for the engine's first background look
+let lookedNow = false;
+let tries = 0; // "Check again" presses that came back still private
+const checkAgain = () => A.sweep({ force: true }).then((s) => {
+    const state = (s && s.state) || "ok";
+    tries = state === "private" ? tries + 1 : 0;
+    return state;
+});
+const title = () => h("div.trophy-head", null, h("h2", null, icon("trophy"), "Trophy room"), h("p.muted", null, "Your Steam achievements, across every game"));
 
 export function trophyRoom() {
     const sec = h("section.trophy-room", { hidden: true });
     let turn = 0; // a newer paint wins over one still waiting
+    // paint again once the answer is counted, so "still private" shows
+    const check = async () => { const state = await checkAgain(); paint(); return state; };
     async function paint() {
         const mine = ++turn;
         const s = await A.summary();
@@ -16,11 +30,18 @@ export function trophyRoom() {
         const t = A.totals(s);
         clear(sec);
         if (!s.steamId || !t.games) {
-            // nothing yet: a quiet hint, only if there's something to say
+            // nothing yet: say why, and what to do about it
             if (!s.steamId) {
                 sec.append(h("p.trophy-hint.muted", null, icon("trophy"), "Your Steam achievements can live here too: add your SteamID64 in ", h("a", { href: "#settings" }, "Settings"), "."));
-                sec.hidden = false;
-            } else sec.hidden = true;
+            } else if (s.state === "private") {
+                sec.append(title(), privateNote(check, { tries }));
+            } else if (s.state === "server-update") {
+                sec.append(title(), h("p.ach-note", null, "Achievements need a small update to Riftgate's online service, coming shortly."));
+            } else if (!s.sweptAt) {
+                sec.append(title(), h("p.trophy-hint.muted", null, icon("refresh"), "Looking at the Steam games you've played…"));
+                if (!lookedNow) { lookedNow = true; A.sweep().catch(() => {}); }
+            } else { sec.hidden = true; return; } // looked: none of your games has achievements
+            sec.hidden = false;
             return;
         }
         sec.hidden = false;
@@ -29,7 +50,7 @@ export function trophyRoom() {
         const libFor = (appid) => lib.find((it) => String(it.steamAppId) === String(appid));
         const openGame = (appid) => { const it = libFor(appid); if (it) openDetail(it); };
 
-        sec.append(h("div.trophy-head", null, h("h2", null, icon("trophy"), "Trophy room"), h("p.muted", null, "Your Steam achievements, across every game")));
+        sec.append(title());
         const stat = (n, label, extra) => h("div.trophy-stat", null, h("b", null, n), h("span", null, label), extra || null);
         sec.append(h("div.trophy-stats", null,
             stat(t.unlocked.toLocaleString(), `achievements, of ${t.total.toLocaleString()} in ${t.games} game${t.games === 1 ? "" : "s"}`),
@@ -37,7 +58,7 @@ export function trophyRoom() {
             t.rarest ? stat(`${t.rarest.percent}%`, `rarest: ${t.rarest.name}`, h("small.muted", null, t.rarest.game || "")) : null,
             stat(`${t.avg}%`, "done on average, in games you've started")));
 
-        if (s.state === "private") sec.append(h("p.ach-note", null, "Steam stopped sharing your achievements: your profile's Game details are private now."));
+        if (s.state === "private") sec.append(privateNote(check, { tries }));
 
         // recently unlocked, across games
         if (s.recent && s.recent.length) {

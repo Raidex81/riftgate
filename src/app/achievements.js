@@ -75,13 +75,18 @@ export function summary({ fresh = false } = {}) {
     }
     return summaryP;
 }
-// a look at the games you've played lately (the engine also does this by itself)
-export async function sweep() {
-    const s = await call("r2-achievements-sweep");
+// a look at the games you've played lately (the engine also does this by
+// itself); force: every game you've played, e.g. after changing your privacy
+export async function sweep({ force = false } = {}) {
+    const s = await call("r2-achievements-sweep", { force });
     if (s) { summaryP = Promise.resolve(s); noteSeals(s); for (const fn of [...listeners]) { try { fn(); } catch (e) { /* */ } } }
     return s;
 }
 on("r2-achievements-changed", () => summary({ fresh: true }));
+
+// Where Steam keeps the setting that hides achievements from everyone else
+// ("Game details"), for the private state's button
+export const PRIVACY_URL = "https://steamcommunity.com/my/edit/settings";
 
 // what the summary says about one game
 let perfectSet = new Set();
