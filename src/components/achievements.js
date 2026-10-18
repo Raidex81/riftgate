@@ -22,6 +22,16 @@ function ringOf(pct, perfect) {
     return svg;
 }
 
+// An achievement's picture; if Steam doesn't have it after all, a trophy
+// instead of a broken image
+export function iconImg(url, cls) {
+    const blank = () => h(`span.${cls}.blank`, null, icon("trophy"));
+    if (!url) return blank();
+    const img = h(`img.${cls}`, { src: coverSrc(url), alt: "", loading: "lazy" });
+    img.addEventListener("error", () => img.replaceWith(blank()), { once: true });
+    return img;
+}
+
 export const gem = (tier) => h("span.ach-gem", { dataset: { tier: tier ? tier.id : "none" }, "aria-hidden": "true" });
 
 function rarityOf(a) {
@@ -35,7 +45,7 @@ function tile(a) {
     const t = A.tierOf(a.percent);
     const el = h("div.ach-tile", { dataset: { tier: t ? t.id : "none" }, class: a.achieved ? "is-unlocked" : "is-locked" });
     const img = a.achieved ? a.icon : (a.iconGray || a.icon);
-    el.append(img ? h("img.ach-icon", { src: coverSrc(img), alt: "", loading: "lazy" }) : h("span.ach-icon.blank", null, icon("trophy")));
+    el.append(iconImg(img, "ach-icon"));
     const text = h("div.ach-text");
     if (a.hidden && !a.achieved) {
         // a secret: veiled until you ask

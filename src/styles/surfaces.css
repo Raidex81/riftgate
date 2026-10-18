@@ -736,6 +736,8 @@
     background: var(--nebula-2); border-top: 3px solid var(--tier); transition: background var(--fast); }
 .trophy-unlock:hover { background: var(--nebula-3); }
 .trophy-unlock img, .trophy-unlock .blank { width: 48px; height: 48px; object-fit: cover; margin-bottom: 4px; }
+.trophy-unlock .blank { display: grid; place-items: center; background: var(--nebula-3); color: var(--dust); }
+.trophy-unlock .blank svg { width: 22px; height: 22px; }
 .trophy-unlock b { font-size: var(--t-sm); color: var(--starlight); line-height: 1.25; }
 .trophy-unlock small { font-size: var(--t-xs); color: var(--dust); }
 .trophy-near { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s3); }

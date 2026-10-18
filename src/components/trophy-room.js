@@ -1,11 +1,11 @@
 // Riftgate — the Journal's Trophy room: your Steam achievements across every
 // game (the logic is in app/achievements.js).
 
-import { h, icon, clear, coverSrc } from "../app/dom.js";
+import { h, icon, clear } from "../app/dom.js";
 import * as A from "../app/achievements.js";
 import * as D from "../app/data.js";
 import { openDetail } from "./detail.js";
-import { privateNote } from "./achievements.js";
+import { privateNote, iconImg } from "./achievements.js";
 
 // once per run: when nothing has been looked at yet, look now instead of
 // waiting for the engine's first background look
@@ -66,7 +66,7 @@ export function trophyRoom() {
             for (const a of s.recent.slice(0, 12)) {
                 const tier = A.tierOf(a.percent);
                 strip.append(h("button.trophy-unlock", { type: "button", dataset: { tier: tier ? tier.id : "none" }, title: `${a.name}, ${a.game || ""}${typeof a.percent === "number" ? ` · ${a.percent}% of players` : ""}`, onclick: () => openGame(a.appid) },
-                    a.icon ? h("img", { src: coverSrc(a.icon), alt: "", loading: "lazy" }) : h("span.blank", null, icon("trophy")),
+                    iconImg(a.icon, "trophy-icon"),
                     h("b", null, a.name), h("small", null, a.game || ""), h("small.muted", null, A.dayLabel(a.at))));
             }
             sec.append(h("h3", null, "Recently unlocked"), strip);

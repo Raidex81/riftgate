@@ -36,6 +36,14 @@ const gameFile = (appid) => path.join(dir(), `${appid}.json`);
 const summaryFile = () => data.file("achievements-summary.json");
 const validAppId = (v) => (/^\d{1,10}$/.test(String(v)) ? String(v) : null);
 
+// Achievement icons: Steam's Web API still hands out links on its old image
+// hosts (steamcdn-a.akamaihd.net and friends), where newer icons were never
+// put, so some show as broken pictures. Every icon lives on the current one.
+function steamIcon(u) {
+    const m = /\/(?:steamcommunity\/public\/images|community_assets\/images)\/apps\/(\d+)\/([0-9a-f]{40}\.(?:jpg|jpeg|png|gif))$/i.exec(String(u || ""));
+    return m ? `https://shared.fastly.steamstatic.com/community_assets/images/apps/${m[1]}/${m[2]}` : (u || null);
+}
+
 // Why there's nothing to show, in words the interface can act on
 class Unavailable extends Error { constructor(state, message) { super(message || state); this.state = state; } }
 
@@ -69,7 +77,7 @@ function register(ipcMain, { steamApi }) {
             const game = (r && r.game) || {};
             const list = ((game.availableGameStats || {}).achievements || []).map((a) => ({
                 id: String(a.name), name: String(a.displayName || a.name), desc: String(a.description || ""),
-                icon: a.icon || null, iconGray: a.icongray || null, hidden: Number(a.hidden) === 1
+                icon: steamIcon(a.icon), iconGray: steamIcon(a.icongray), hidden: Number(a.hidden) === 1
             }));
             g.schema = { at: Date.now(), name: game.gameName || null, list };
             return g.schema;
@@ -130,7 +138,7 @@ function register(ipcMain, { steamApi }) {
         saveGame(appid, g);
         const items = schema.list.map((a) => {
             const t = unlocks.map[a.id];
-            return { ...a, achieved: !!t, unlockedAt: t > 1 ? t * 1000 : null, percent: typeof rarity.map[a.id] === "number" ? rarity.map[a.id] : null };
+            return { ...a, icon: steamIcon(a.icon), iconGray: steamIcon(a.iconGray), achieved: !!t, unlockedAt: t > 1 ? t * 1000 : null, percent: typeof rarity.map[a.id] === "number" ? rarity.map[a.id] : null };
         });
         const out = { state: "ok", appid, name: schema.name, total: items.length, unlocked: items.filter((a) => a.achieved).length, items, updatedAt: unlocks.at };
         noteSummary(appid, out);
@@ -162,7 +170,10 @@ function register(ipcMain, { steamApi }) {
     function summary() {
         const s = readSummary();
         const recent = [];
-        for (const [appid, g] of Object.entries(s.games)) for (const a of g.recent || []) recent.push({ ...a, appid, game: g.name });
+        for (const [appid, g] of Object.entries(s.games)) {
+            if (g.rarest) g.rarest.icon = steamIcon(g.rarest.icon); // saved before icons moved host
+            for (const a of g.recent || []) recent.push({ ...a, icon: steamIcon(a.icon), appid, game: g.name });
+        }
         recent.sort((a, b) => b.at - a.at);
         return { steamId: !!steamId(), state: s.state || null, games: s.games, recent: recent.slice(0, 40), sweptAt: s.sweptAt || null };
     }
@@ -224,4 +235,4 @@ function register(ipcMain, { steamApi }) {
     ipcMain.handle("r2-achievements-sweep", async (event, opts = {}) => sweep({ force: !!(opts && opts.force) }).catch(() => summary()));
 }
 
-module.exports = { register, classify };
+module.exports = { register, classify, steamIcon };

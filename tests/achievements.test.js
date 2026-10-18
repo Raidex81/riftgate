@@ -140,6 +140,13 @@ const call = (c, ...a) => handlers[c]({}, ...a);
     assert.ok(calls >= 1, "check again asks Steam even when nothing was played");
     assert.strictEqual(s.state, null, "the private note goes once Steam answers");
 
+    // icons on Steam's old image hosts move to the current one
+    const { steamIcon } = require("../engine/achievements");
+    const hash = "2fa7b21557c86467e25be27e764e26bf4d88d48f";
+    for (const old of [`https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/1172710/${hash}.jpg`, `https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/1172710/${hash}.jpg`])
+        assert.strictEqual(steamIcon(old), `https://shared.fastly.steamstatic.com/community_assets/images/apps/1172710/${hash}.jpg`);
+    assert.strictEqual(steamIcon("a.jpg"), "a.jpg"); assert.strictEqual(steamIcon(null), null);
+
     // nonsense in, nothing out
     assert.strictEqual((await call("r2-achievements-game", "../etc")).state, "none");
     console.log("achievements: all checks passed");
