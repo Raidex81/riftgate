@@ -4,6 +4,24 @@ Every Riftgate version, newest first. This file is made from the same notes as *
 
 Downloads for every version are on the [releases page](https://github.com/Raidex81/riftgate/releases).
 
+## 2.0.3
+
+**New**
+
+- Your Steam achievements. A Steam game's details show every achievement: what you can get next (the ones most players earn first), what you unlocked by day, your rarest, and the full list. Each one wears a gem in its rarity (Legendary, Epic, Rare, Uncommon, Common), and hidden ones stay veiled until you choose to see them. It needs your SteamID64 in Settings and your Steam profile's Game details set to Public.
+- The Trophy room in the Journal. Your achievements across every game: totals, what you unlocked lately, the games closest to 100% and your perfect games. If Steam keeps them private, it says what to change, opens the setting and checks again.
+- Almost 100% in Nexus, the games where only a few achievements are left. Perfect games wear a gold trophy on their card, and there are two new Seals: Perfectionist and One in a hundred.
+- When a site Riftgate uses isn't answering, it says so. Rows show what Riftgate saved last, with how old it is, a notice names what's down and has Try again, and everything fills back in by itself once you're back online. Settings → Sources shows how each one is doing.
+
+**Changed**
+
+- On wide and ultrawide screens the page grows with the screen and stays centred, the Nexus banner spans the full width with the rift beside the words, and Settings flows into columns.
+
+**Fixed**
+
+- Deals no longer empties its list when both stores are down at once; it keeps the last one it had.
+- New episodes and trending rows show what Riftgate saved when the site behind them doesn't answer, instead of nothing.
+
 ## 2.0.2
 
 **New**

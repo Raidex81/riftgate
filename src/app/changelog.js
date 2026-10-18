@@ -3,6 +3,15 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.3": [
+        "New: your Steam achievements. A Steam game's details show every achievement: what you can get next (the ones most players earn first), what you unlocked by day, your rarest, and the full list. Each one wears a gem in its rarity (Legendary, Epic, Rare, Uncommon, Common), and hidden ones stay veiled until you choose to see them. It needs your SteamID64 in Settings and your Steam profile's Game details set to Public",
+        "New: the Trophy room in the Journal. Your achievements across every game: totals, what you unlocked lately, the games closest to 100% and your perfect games. If Steam keeps them private, it says what to change, opens the setting and checks again",
+        "New: Almost 100% in Nexus, the games where only a few achievements are left. Perfect games wear a gold trophy on their card, and there are two new Seals: Perfectionist and One in a hundred",
+        "New: when a site Riftgate uses isn't answering, it says so. Rows show what Riftgate saved last, with how old it is, a notice names what's down and has Try again, and everything fills back in by itself once you're back online. Settings → Sources shows how each one is doing",
+        "Changed: on wide and ultrawide screens the page grows with the screen and stays centred, the Nexus banner spans the full width with the rift beside the words, and Settings flows into columns",
+        "Fixed: Deals no longer empties its list when both stores are down at once; it keeps the last one it had",
+        "Fixed: new episodes and trending rows show what Riftgate saved when the site behind them doesn't answer, instead of nothing"
+    ],
     "2.0.2": [
         "New: never miss a free game. Riftgate tells you the moment a game goes free to keep on Steam, Epic, GOG and more, and reminds you on its last day if you haven't claimed it. Free games opens on Free to keep right now, with how long each one lasts and a Claim button (Settings → Alerts)",
         "New: your wishlist. Add a game from its details and Riftgate tells you when its price drops. It's the first row in Deals",
