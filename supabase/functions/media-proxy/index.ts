@@ -104,6 +104,9 @@ const ALLOWED_PATHS: Record<string, RegExp[]> = {
   ],
   steam: [
     /^\/IPlayerService\/GetOwnedGames\/v0001\/?$/,
+    // achievements (engine/achievements.js): the game's list, and yours
+    /^\/ISteamUserStats\/GetSchemaForGame\/v2\/?$/,
+    /^\/ISteamUserStats\/GetPlayerAchievements\/v0001\/?$/,
   ],
 };
 

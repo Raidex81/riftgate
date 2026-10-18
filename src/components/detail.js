@@ -16,6 +16,7 @@ import { recordView } from "../app/foryou.js";
 import * as gate from "../app/mature.js";
 import * as admin from "../app/admin.js";
 import * as alerts from "../app/alerts.js";
+import { achievementsBox } from "./achievements.js";
 
 let current = null;
 
@@ -62,6 +63,7 @@ export function openDetail(item) {
         cover, closeBtn,
         h("div.detail-main", null, poster, head),
         journalBox(item),
+        achievementsBox(item),
         nextEpisodeBox(item),
         h("div.detail-section", null, h("h3", null, "About"), desc),
         item.kind === "library" ? manageBox(item, () => closeDetail()) : null,

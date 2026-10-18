@@ -634,3 +634,117 @@
 .source-dot { width: 8px; height: 8px; background: #3ecf8e; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .source-row.is-failing .source-dot { background: #ff9f43; }
 .source-row.is-failing .source-when { color: #ffb36b; }
+
+/* ---- Steam achievements (components/achievements.js, trophy-room.js) -------------
+   Rarity tiers are gems in their own colour, the same everywhere. */
+:root {
+    --tier-common: #a59bbf;
+    --tier-uncommon: #4fe39a;
+    --tier-rare: #39a8ff;
+    --tier-epic: #b66bff;
+    --tier-legendary: #ffc94a;
+}
+[data-tier="common"] { --tier: var(--tier-common); }
+[data-tier="uncommon"] { --tier: var(--tier-uncommon); }
+[data-tier="rare"] { --tier: var(--tier-rare); }
+[data-tier="epic"] { --tier: var(--tier-epic); }
+[data-tier="legendary"] { --tier: var(--tier-legendary); }
+[data-tier="none"] { --tier: var(--line-strong); }
+.ach-gem { display: inline-block; width: 10px; height: 12px; flex: none; background: var(--tier); clip-path: polygon(50% 0, 100% 35%, 80% 100%, 20% 100%, 0 35%); box-shadow: 0 0 8px var(--tier); }
+
+.ach-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s3); }
+.ach-head h3 { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; }
+.ach-head h3 svg { width: 16px; height: 16px; }
+.ach-head .muted { font-size: var(--t-xs); color: var(--dust-2); }
+.ach-refresh { margin-left: auto; width: 30px; height: 30px; }
+.ach-refresh.is-busy svg { animation: source-spin 1s linear infinite; }
+.ach-note { font-size: var(--t-sm); color: var(--starlight-2); padding: var(--s4) var(--s5); border: 1px dashed var(--line); background: color-mix(in srgb, var(--nebula) 55%, transparent); }
+.ach-note a, .linkish { color: var(--amethyst-soft); text-decoration: underline; }
+.ach-loading { display: grid; gap: 8px; }
+.skeleton-line { display: block; height: 14px; width: 70%; background: linear-gradient(90deg, var(--nebula-2), var(--nebula-3), var(--nebula-2)); background-size: 200% 100%; animation: skel 1.2s linear infinite; }
+.skeleton-line.short { width: 40%; }
+@keyframes skel { to { background-position: -200% 0; } }
+
+.ach-overview { display: flex; gap: var(--s5); align-items: center; padding: var(--s4) var(--s5); margin-bottom: var(--s4);
+    background: linear-gradient(110deg, color-mix(in srgb, var(--amethyst) 12%, var(--nebula)), var(--nebula));
+    border: 1px solid var(--line);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.ach-ring { width: 74px; height: 74px; flex: none; transform: rotate(-90deg); }
+.ach-ring circle { fill: none; stroke-width: 6; }
+.ach-ring .track { stroke: var(--nebula-3); }
+.ach-ring .fill { stroke: var(--amethyst); stroke-linecap: round; filter: drop-shadow(0 0 5px var(--amethyst)); transition: stroke-dashoffset var(--slow) var(--ease); }
+.ach-ring.is-perfect .fill { stroke: var(--tier-legendary); filter: drop-shadow(0 0 7px var(--tier-legendary)); }
+.ach-ring text { transform: rotate(90deg); transform-origin: 32px 32px; fill: var(--hi); font: 700 15px var(--font); text-anchor: middle; }
+.ach-ring text.long { font-size: 12px; }
+.ach-overview-text { flex: 1; min-width: 0; display: grid; gap: 7px; }
+.ach-overview-text > p { font-size: var(--t-md); }
+.ach-perfect { display: inline-flex; align-items: center; gap: 6px; color: var(--tier-legendary); font-weight: 700; }
+.ach-perfect svg { width: 18px; height: 18px; }
+.ach-tiers { display: flex; height: 7px; gap: 2px; }
+.ach-tierbar { background: var(--tier); box-shadow: 0 0 6px color-mix(in srgb, var(--tier) 60%, transparent); min-width: 6px; }
+.ach-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--t-xs); color: var(--dust); }
+.ach-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ach-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--t-xs); color: var(--dust); }
+.ach-facts b { color: var(--starlight-2); font-weight: 600; }
+.ach-views { margin-bottom: var(--s3); }
+
+.ach-list { display: grid; gap: 6px; }
+.ach-day { font-size: var(--t-xs); color: var(--dust-2); text-transform: uppercase; letter-spacing: .08em; margin: var(--s3) 0 2px; }
+.ach-day:first-child { margin-top: 0; }
+.ach-tile { position: relative; display: grid; grid-template-columns: 46px 1fr auto; gap: var(--s3); align-items: center;
+    padding: 8px 12px 8px 8px; background: var(--nebula-2); border-left: 3px solid var(--tier); }
+.ach-tile.is-locked { background: color-mix(in srgb, var(--nebula-2) 70%, transparent); }
+.ach-tile.is-locked .ach-icon { filter: grayscale(1) brightness(.7); opacity: .75; }
+.ach-tile.is-unlocked[data-tier="legendary"] { background: linear-gradient(90deg, color-mix(in srgb, var(--tier-legendary) 14%, var(--nebula-2)), var(--nebula-2) 60%); }
+.ach-tile.is-unlocked[data-tier="epic"] { background: linear-gradient(90deg, color-mix(in srgb, var(--tier-epic) 12%, var(--nebula-2)), var(--nebula-2) 60%); }
+.ach-icon { width: 46px; height: 46px; object-fit: cover; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.ach-icon.blank { display: grid; place-items: center; background: var(--nebula-3); color: var(--dust); }
+.ach-icon.blank svg { width: 20px; height: 20px; }
+.ach-text { min-width: 0; }
+.ach-name { display: block; font-size: var(--t-sm); color: var(--starlight); }
+.ach-desc { font-size: var(--t-xs); color: var(--dust); margin-top: 2px; }
+.ach-tile .veil { display: none; }
+.ach-tile.is-hidden .real { display: none; }
+.ach-tile.is-hidden .veil { display: inline; }
+.ach-tile.is-hidden .ach-name .veil { font-style: italic; color: var(--starlight-2); }
+.ach-reveal { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: var(--t-xs); color: var(--amethyst-soft); }
+.ach-reveal svg { width: 13px; height: 13px; }
+.ach-side { display: grid; justify-items: end; gap: 3px; text-align: right; }
+.ach-rarity { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--tier); }
+.ach-rarity b { font-weight: 700; }
+.ach-rarity small { color: var(--dust-2); }
+.ach-when { font-size: var(--t-xs); color: var(--dust-2); }
+.ach-more { margin-top: var(--s3); }
+
+/* the Journal's Trophy room */
+.trophy-room { margin: 0 0 var(--s10); }
+.trophy-room[hidden] { display: none; }
+.trophy-head { display: flex; align-items: baseline; gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s4); }
+.trophy-head h2 { display: inline-flex; align-items: center; gap: var(--s2); }
+.trophy-head h2 svg { width: 22px; height: 22px; color: var(--tier-legendary); }
+.trophy-room h3 { font-size: var(--t-md); color: var(--dust); font-weight: 600; margin: var(--s6) 0 var(--s3); }
+.trophy-hint { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-sm); }
+.trophy-hint svg { width: 16px; height: 16px; }
+.trophy-hint a { color: var(--amethyst-soft); text-decoration: underline; }
+.trophy-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s4); }
+.trophy-stat { display: grid; gap: 2px; padding: var(--s4) var(--s5); background: var(--nebula); border: 1px solid var(--line);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.trophy-stat b { font: 700 var(--t-2xl) var(--font-display); color: var(--hi); }
+.trophy-stat span { font-size: var(--t-sm); color: var(--dust); }
+.trophy-recent { display: flex; gap: var(--s3); overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.trophy-unlock { flex: none; width: 150px; display: grid; justify-items: start; gap: 3px; padding: 10px; text-align: left;
+    background: var(--nebula-2); border-top: 3px solid var(--tier); transition: background var(--fast); }
+.trophy-unlock:hover { background: var(--nebula-3); }
+.trophy-unlock img, .trophy-unlock .blank { width: 48px; height: 48px; object-fit: cover; margin-bottom: 4px; }
+.trophy-unlock b { font-size: var(--t-sm); color: var(--starlight); line-height: 1.25; }
+.trophy-unlock small { font-size: var(--t-xs); color: var(--dust); }
+.trophy-near { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s3); }
+.trophy-game { display: grid; gap: 6px; text-align: left; padding: var(--s3) var(--s4); background: var(--nebula-2); transition: background var(--fast); }
+.trophy-game:hover { background: var(--nebula-3); }
+.trophy-game b { font-size: var(--t-sm); color: var(--starlight); }
+.trophy-game small { font-size: var(--t-xs); color: var(--dust); }
+.trophy-game .bar { display: block; height: 5px; background: var(--nebula-3); }
+.trophy-game .bar i { display: block; height: 100%; background: var(--energy, var(--amethyst)); }
+.trophy-perfect { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chip.is-perfect { color: var(--tier-legendary); border-color: color-mix(in srgb, var(--tier-legendary) 50%, transparent); }
+.chip.is-perfect svg { width: 14px; height: 14px; }

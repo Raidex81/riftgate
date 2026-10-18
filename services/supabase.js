@@ -184,6 +184,10 @@ async function mediaProxyGetJsonPlain(vendor, proxyPath, query) {
         const err = new Error(message);
         err.vendor = vendor;
         err.quotaExceeded = isQuotaExceededMessage(message);
+        // the vendor's own answer, for callers that tell "private" or "not
+        // found" apart from "down" (Steam achievements)
+        err.statusCode = statusCode;
+        err.body = parsed;
         throw err;
     }
     return parsed;

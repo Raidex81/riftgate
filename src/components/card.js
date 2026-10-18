@@ -9,6 +9,7 @@ import { TYPE_LABEL } from "../app/items.js";
 import { hidden as gateHidden } from "../app/mature.js";
 import * as seen from "../app/seen.js";
 import { ambient } from "./ambient.js";
+import * as ach from "../app/achievements.js";
 
 let openDetail = () => {};
 export function setDetailOpener(fn) { openDetail = fn; }
@@ -57,6 +58,19 @@ function paintJournal(el, item) {
     }
     if (e.status === "progress" && e.progress > 0) artEl.appendChild(ring(e.progress));
 }
+
+// A Steam game with every achievement unlocked wears a small trophy
+let askedSummary = false;
+function paintPerfect(el, item) {
+    if (!item.steamAppId) return;
+    if (!askedSummary) { askedSummary = true; ach.summary(); } // the first Steam game on screen asks once
+    const has = el.querySelector(".ach-mark");
+    if (ach.isPerfect(item.steamAppId)) {
+        if (!has) el.querySelector(".card-art").appendChild(h("span.ach-mark", { title: "Perfect: every Steam achievement unlocked" }, icon("trophy")));
+    } else if (has) has.remove();
+}
+// when the summary arrives (or changes), mark the cards already on screen
+ach.onChange(() => { for (const set of live.values()) for (const el of set) if (el.isConnected && el._item) paintPerfect(el, el._item); });
 
 // What to search for when a card has no picture (or a broken one)
 export function coverQuery(item) {
@@ -113,6 +127,7 @@ export function card(item, opts) {
     el.appendChild(h("div.card-frame", null, h("div.card-body", null, a, info)));
 
     paintJournal(el, item);
+    paintPerfect(el, item);
     if (seen.canMark(item) && opts.watched !== false) paintSeen(el, item);
     if (!live.has(item.key)) live.set(item.key, new Set());
     live.get(item.key).add(el);

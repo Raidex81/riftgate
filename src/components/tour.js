@@ -31,6 +31,7 @@ const FEATURES = [
     { id: "ask-rift", at: ".today-btn", title: "Ask the Rift", text: "New: tell the rift what you feel like, in your own words, and it picks three, by real reviews. It's in Surprise me and in each section." },
     { id: "free-alerts", at: ".nav-item[href='#free']", title: "Never miss a free game", text: "New: Riftgate tells you when a game goes free and reminds you on its last day. Claim it from Free to keep right now." },
     { id: "wishlist", at: ".nav-item[href='#deals']", title: "Your wishlist", text: "New: add a game to your wishlist from its details, and Riftgate tells you when its price drops." },
+    { id: "achievements", at: ".nav-item[href='#journal']", title: "Your Steam achievements", text: "New: open a Steam game for its achievements, sorted by what's within reach, and see them all in the Journal's Trophy room." },
     { id: "seals", at: ".nav-item[href='#journal']", title: "Your rift grows", text: "New: everything you finish becomes a relic orbiting the Nexus rift, and Seals mark what you achieve. A few are secret." }
 ];
 

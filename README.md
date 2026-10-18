@@ -96,8 +96,11 @@ Riftgate.
 To add something, drop a shortcut or `.exe` anywhere on Riftgate, or let
 it find your Steam games and installed apps. Riftgate notices what you
 install or uninstall later and asks before changing anything. Steam games
-show your real Steam hours. You can sort the shelf any way you like, or
-drag it into your own order.
+show your real Steam hours and **your Steam achievements**, organised for
+playing: what's within reach next, your newest, your rarest, each with
+its rarity as a gem, and hidden ones kept secret until you choose to
+look. Games you've finished 100% wear a trophy. You can sort the shelf any
+way you like, or drag it into your own order.
 
 ![Library](screenshots/library.jpg)
 
@@ -137,7 +140,8 @@ anime or book. Mark it as playing, watching, reading, planned, completed,
 on hold or dropped, then rate it with gems, follow your progress and keep
 a note. Every card in Riftgate shows its status. **Everything you finish
 becomes a relic orbiting your rift** on Nexus, **Seals** mark what you
-achieve across every world (a few are secret), and **Rift Rewind** looks
+achieve across every world (a few are secret), the **Trophy room**
+gathers your Steam achievements from every game, and **Rift Rewind** looks
 back on your year every December, with a card of your rift to share.
 
 ![Journal](screenshots/journal.jpg)

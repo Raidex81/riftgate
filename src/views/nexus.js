@@ -18,6 +18,7 @@ import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
 import * as interests from "../app/interests.js";
 import { toast } from "../components/toast.js";
 import { hours, until, plural } from "../app/format.js";
+import * as ach from "../app/achievements.js";
 
 const WEEK = 7 * 86400000;
 
@@ -143,6 +144,16 @@ async function importNotice(root) {
     root.prepend(n);
 }
 
+// Steam games close to 100%: library cards that say how many achievements are left
+async function almost100() {
+    const [s, lib] = await Promise.all([ach.summary(), D.library().catch(() => [])]);
+    const byId = new Map(lib.filter((it) => it.steamAppId).map((it) => [String(it.steamAppId), it]));
+    return ach.almostThere(s).map((g) => {
+        const it = byId.get(String(g.appid));
+        return it && { ...it, sub: `${g.left} achievement${g.left === 1 ? "" : "s"} to 100%` };
+    }).filter(Boolean);
+}
+
 export default {
     async render(root) {
         const hr = hero(slides());
@@ -162,6 +173,8 @@ export default {
         const noMature = (l) => gate.visible(l);
         const rows = [
             row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true }, seeAllTitle: "Your journey: everything you added", seeAll: () => journey().then((j) => j.all) }),
+            row({ title: "Almost 100%", id: "almost-100", icon: "trophy", items: almost100, hideEmpty: true,
+                note: "Steam games where only a few achievements are left" }),
             row({ title: "Picked for you", icon: "sparkles", items: () => foryou.picks({ limit: 60 }), hideEmpty: true, cardOpts: { showType: true, reasons: true },
                 note: "From what you play, watch, read and open", seeAllTitle: "Picked for you" }),
             row({ title: "Free right now", icon: "gift", seeAllTitle: "All free games",
@@ -175,7 +188,7 @@ export default {
             row({ title: "Books everyone's reading", icon: "book", items: () => D.booksPopular(), full: { kind: "buy-books-popular" }, seeAllTitle: "Most popular books" })
         ];
         // Only what you're into, what you love first (a manual order still wins)
-        const IN = { "free-right-now": ["free"], "new-episodes": ["screen"], "in-cinemas": ["screen"], "deals-worth-it": ["deals"],
+        const IN = { "almost-100": ["games"], "free-right-now": ["free"], "new-episodes": ["screen"], "in-cinemas": ["screen"], "deals-worth-it": ["deals"],
             "coming-soon": ["games"], "new-series": ["screen"], "new-anime": ["anime"], "books-everyone-s-reading": ["books"] };
         const ids = (r) => IN[r.dataset.rowId] || [];
         // The Hallowed Rift: the scariest of everything, first

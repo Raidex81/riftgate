@@ -366,3 +366,10 @@ select.input option { background: var(--nebula); }
 .browser .source-failed { margin: var(--s6); width: auto; }
 .view-head h1 .view-state { display: inline-flex; vertical-align: middle; margin-left: var(--s3); }
 .view-state:empty { display: none; }
+
+/* a Steam game with every achievement unlocked (card.js paintPerfect) */
+.ach-mark { position: absolute; right: var(--s2); bottom: var(--s2); z-index: 1; width: 26px; height: 26px; display: grid; place-items: center;
+    color: #2a1a00; background: var(--tier-legendary, #ffc94a); box-shadow: 0 0 12px color-mix(in srgb, #ffc94a 70%, transparent);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.ach-mark svg { width: 14px; height: 14px; }
+.card-art:has(.progress-ring) .ach-mark { bottom: 50px; }

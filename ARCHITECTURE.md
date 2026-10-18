@@ -98,7 +98,7 @@ Roughly in the order you'd want to read it:
   library, the Vault, updates).
 - `engine/*.js`: one section of the engine each (`alerts.js`,
   `account.js`, `themes.js`, `apps.js`, `cinemas.js`,
-  `install-watch.js`, `pictures.js`, `usage.js`). Each exports
+  `install-watch.js`, `pictures.js`, `usage.js`, `achievements.js`). Each exports
   `register(ipcMain, deps)` and owns its IPC channels and timers.
   Sections never require each other: what one needs from another is
   passed in by `main.js` when it registers it, so every link between
@@ -354,7 +354,8 @@ it gets the most layers:
 | RAWG | Game data, upcoming games | `media-proxy` (key server-side) |
 | SteamGridDB | Cover art, wide banner art | `media-proxy` (key server-side) |
 | YouTube Data API | Trailer search | `media-proxy` (key server-side) |
-| Steam Store / SteamSpy / Steam Web API | Free-to-play listings, app details, VR flags, public playtime | Direct |
+| Steam Store / SteamSpy / Steam Web API | Free-to-play listings, app details, VR flags, achievement rarity | Direct |
+| Steam Web API (keyed) | Your playtime, your achievements and each game's achievement list | `media-proxy` (key server-side) |
 | Gutendex (Project Gutenberg) | Free eBooks | Direct |
 | Open Library | Books, manga, comics | Direct |
 | TVMaze | Episodes and air dates | Direct |
@@ -378,6 +379,23 @@ background only when they're old:
 
 A cover found for a title is kept for good, and a miss is retried after
 a week. The interface also memoises every answer for the session.
+
+## Steam achievements
+
+`engine/achievements.js` reads three things from Steam: the game's
+achievement list (names, descriptions, icons, hidden or not; through
+`media-proxy`, kept 30 days), yours (through `media-proxy`, kept an hour)
+and how many players have each one (public, kept a week). It needs the
+SteamID64 in Settings and the profile's "Game details" set to Public,
+like Steam playtime. A summary of every game (`achievements-summary.json`)
+is refreshed in the background, but only for games whose Steam playtime
+changed since the last look, so idle games cost nothing.
+
+`src/app/achievements.js` decides the order everywhere: Next up (what
+you haven't got, the most-earned first), Recent (by day), Rarest, All,
+with rarity tiers from Common to Legendary. They show in a Steam game's
+details, the Journal's Trophy room, Nexus (Almost 100%), as a trophy on
+perfect games' cards, and in two Seals.
 
 ## When a source fails
 

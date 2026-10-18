@@ -35,6 +35,8 @@ export const SEALS = [
     { id: "rift-walker", name: "Rift walker", hint: "Ask the Rift 10 times", icon: "sparkles", rarity: 1, test: (s) => s.asks >= 10, progress: (s) => [s.asks, 10] },
     { id: "fate", name: "Trust in fate", hint: "Open 10 things the rift chose for you", icon: "dice", rarity: 2, test: (s) => s.rolls >= 10, progress: (s) => [s.rolls, 10] },
     { id: "night-owl", name: "Night owl", hint: "Open Riftgate between 2 and 5 in the morning", icon: "clock", rarity: 1, test: (s) => s.nightOwl },
+    { id: "perfectionist", name: "Perfectionist", hint: "Unlock every Steam achievement in a game", icon: "trophy", rarity: 3, test: (s) => s.achPerfect },
+    { id: "one-in-100", name: "One in a hundred", hint: "Unlock a Steam achievement fewer than 1% of players have", icon: "gem", rarity: 3, test: (s) => s.achLegendary },
     { id: "hallowed", name: "Hallowed", hint: "Be there while the Hallowed Rift is open (late October)", icon: "flame", rarity: 2, test: (s) => s.halloween },
     // secrets
     { id: "old-code", name: "The old code", hint: "Some codes are older than Riftgate itself", icon: "gem", rarity: 4, secret: true, test: (s) => s.oldCode },
@@ -58,6 +60,7 @@ export async function stats() {
         library: lib.length, triad,
         claims: count("claims"), asks: count("asks"), rolls: count("rolls"),
         dropSeen: flagged("drop-seen"), nightOwl: flagged("night-owl"), halloween: flagged("hallowed"),
+        achPerfect: flagged("ach-perfect"), achLegendary: flagged("ach-legendary"),
         oldCode: flagged("old-code"), golden: flagged("golden"), knock: flagged("knock")
     };
 }
