@@ -8425,8 +8425,10 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
-    // Windows shows notifications under the app's id (the installer's shortcut carries the same one)
-    if (process.platform === "win32") app.setAppUserModelId("com.riftgate.app");
+    // Windows shows notifications under the app's id (the installer's shortcut carries the same one).
+    // Running from the project folder (npm start) uses its own id, so Windows never ties the
+    // installed Riftgate's taskbar icon to Electron's.
+    if (process.platform === "win32") app.setAppUserModelId(app.isPackaged ? "com.riftgate.app" : "com.riftgate.app.dev");
     // Content-Security-Policy, applied at the network layer (not a <meta>
     // tag) so it can't be bypassed by anything that gets injected into the
     // page. script-src/style-src stay locked to 'self' (style-src also
