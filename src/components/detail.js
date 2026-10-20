@@ -288,8 +288,12 @@ function playTrailer(raw, isUrl, title) {
             allow: "autoplay; encrypted-media; picture-in-picture; fullscreen",
             allowfullscreen: true, title: `${title} trailer`
         });
+    // a way out for a video that can't play inside Riftgate ("Video unavailable")
+    const onYouTube = isUrl ? null : h("button.btn.sm.trailer-youtube", { type: "button", title: "Open this trailer on YouTube, in your browser",
+        onclick: () => { openExternal(`https://www.youtube.com/watch?v=${raw}`); close(); } }, icon("external"), "Watch on YouTube");
     const stage = h("div.trailer-stage", { role: "dialog", "aria-modal": "true", "aria-label": `${title} trailer`, onclick: (e) => { if (e.target === stage) close(); } },
         h("div.trailer-frame", null, player),
+        onYouTube,
         h("button.icon-btn.trailer-close", { type: "button", "aria-label": "Close trailer", onclick: () => close() }, icon("x")));
     // Esc closes the trailer only (the panel underneath stays open)
     const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(); } };

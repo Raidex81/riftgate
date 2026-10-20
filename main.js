@@ -274,16 +274,29 @@ function isAppPageUrl(url) {
         && url.startsWith(`http://127.0.0.1:${localServerPort}/`);
 }
 
+// A YouTube video page (not the embedded player): "Watch on YouTube" inside a
+// trailer that can't play here tries to open one of these in the window itself
+const isYouTubeWatchUrl = (url) => /^https:\/\/(www\.|m\.)?(youtube\.com\/(watch|shorts\/)|youtu\.be\/)/i.test(String(url || ""));
+
 app.on("web-contents-created", (event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
         if (/^https:\/\//i.test(url)) shell.openExternal(url);
         return { action: "deny" };
     });
     const blockOffAppNavigation = (navEvent, url) => {
-        if (!isAppPageUrl(url)) navEvent.preventDefault();
+        if (isAppPageUrl(url)) return;
+        navEvent.preventDefault();
+        if (isYouTubeWatchUrl(url)) shell.openExternal(url); // into the browser, where it plays
     };
     contents.on("will-navigate", blockOffAppNavigation);
     contents.on("will-redirect", blockOffAppNavigation);
+    // the same link aimed at the trailer's own frame (YouTube won't show its
+    // video page inside another app, so it would just go blank)
+    contents.on("will-frame-navigate", (navEvent) => {
+        if (navEvent.isMainFrame || !isYouTubeWatchUrl(navEvent.url)) return;
+        navEvent.preventDefault();
+        shell.openExternal(navEvent.url);
+    });
 });
 const {
     httpsGetJson,
@@ -5333,7 +5346,9 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
     let quotaExceeded = false;
 
     async function youtubeSearch(query, orderByViews, categoryId) {
-        const params = { part: "snippet", maxResults: "1", type: "video", q: query };
+        // videoEmbeddable: only videos their owner lets play inside other
+        // apps; any other one shows YouTube's "Video unavailable" in the player
+        const params = { part: "snippet", maxResults: "1", type: "video", videoEmbeddable: "true", q: query };
         if (orderByViews) params.order = "viewCount";
         if (categoryId) params.videoCategoryId = categoryId;
 
