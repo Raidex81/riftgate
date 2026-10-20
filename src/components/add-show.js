@@ -85,3 +85,54 @@ export function openAddShow(startQuery = "") {
         if (changed) D.watchlistChanged();
     }
 }
+
+// "Manage My shows": every show you follow, each with Remove (and Undo,
+// until the window closes), so a series you stopped watching is one click away
+export function openManageShows() {
+    if (openNow) return;
+    let changed = false;
+    const list = h("div.addshow-list", { role: "list" });
+    const status = h("p.muted.addshow-status", { role: "status" }, "Loading your shows…");
+    const box = h("div.wn-box.addshow-box", null,
+        h("div.wn-head", null, h("h2", null, "My shows"),
+            h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: () => close() }, icon("x"))),
+        h("p.muted", null, "The series and anime you follow. Remove one you've stopped watching: its episodes leave Nexus and the Theatre."),
+        status, list);
+    const wrap = h("div.wn-modal", { role: "dialog", "aria-modal": "true", "aria-label": "Manage My shows", onclick: (e) => { if (e.target === wrap) close(); } }, box);
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    openNow = { input: box };
+
+    cached("get-watchlist", [], { fresh: true }).then((shows) => {
+        shows = (shows || []).filter((s) => s && s.name).sort((a, b) => a.name.localeCompare(b.name));
+        status.textContent = shows.length ? `${shows.length} ${shows.length === 1 ? "show" : "shows"}` : "You don't follow any shows yet. Add a show finds any series or anime.";
+        for (const s of shows) {
+            let removed = false;
+            const btn = h("button.btn", { type: "button" });
+            const row = h("div.addshow-row", { role: "listitem" },
+                h("div.addshow-art", null, s.image ? h("img", { src: coverSrc(s.image), alt: "", loading: "lazy" }) : icon("tv")),
+                h("div.grow", null, h("b", null, s.name), s.premiered ? h("small", null, `Since ${String(s.premiered).slice(0, 4)}`) : null),
+                btn);
+            const paint = () => { row.classList.toggle("is-removed", removed); clear(btn).append(icon(removed ? "refresh" : "trash"), removed ? "Undo" : "Remove"); btn.title = removed ? `Follow ${s.name} again` : `Stop following ${s.name}`; };
+            btn.onclick = async () => {
+                btn.disabled = true;
+                if (!removed) { await call("remove-from-watchlist", s.id); toast(`${s.name} is no longer in My shows`); }
+                else {
+                    const r = await call("add-to-watchlist", { id: s.id, name: s.name, image: s.image, premiered: s.premiered });
+                    if (r === null) { btn.disabled = false; toast("It couldn't be added back. Try again.", "err"); return; }
+                    toast(`${s.name} is back in My shows`);
+                }
+                removed = !removed; changed = true; btn.disabled = false; paint();
+            };
+            paint();
+            list.appendChild(row);
+        }
+    }).catch(() => { status.textContent = "Your shows couldn't be loaded. Try again."; });
+
+    function close() {
+        wrap.remove(); document.removeEventListener("keydown", onKey, true);
+        openNow = null;
+        if (changed) D.watchlistChanged();
+    }
+}

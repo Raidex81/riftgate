@@ -246,7 +246,8 @@ function nextEpisodeBox(item) {
 function trackButton(item) {
     const b = h("button.btn.primary.lg", { type: "button" }, icon("plus"), "Track this show");
     let showId = null;
-    const paint = () => { b.classList.toggle("primary", !showId); clear(b).append(icon(showId ? "check" : "plus"), showId ? "In My shows" : "Track this show"); b.title = showId ? "Click to stop following it" : "Add it to My shows: its new episodes show up in Nexus"; };
+    // followed: say plainly what a click does
+    const paint = () => { b.classList.toggle("primary", !showId); clear(b).append(icon(showId ? "trash" : "plus"), showId ? "Remove from My shows" : "Track this show"); b.title = showId ? "It's in My shows. Click to stop following it" : "Add it to My shows: its new episodes show up in Nexus"; };
     cached("get-watchlist").then((list) => {
         const s = (list || []).find((x) => (item.tvmazeId && x.id === item.tvmazeId) || (x.name && x.name.toLowerCase() === item.title.toLowerCase()));
         if (s) { showId = s.id; paint(); }

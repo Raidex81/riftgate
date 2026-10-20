@@ -577,3 +577,5 @@ p.vault-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--dust)
     opacity: 0; animation: farewell-point var(--len) ease-in forwards; }
 @keyframes farewell-point { 0%, 55% { opacity: 0; transform: scale(.4); } 85% { opacity: 1; transform: scale(1.4); } 100% { opacity: 0; transform: scale(.1); } }
 :root.farewell-on .app { transition: transform var(--len, 1s) cubic-bezier(.7, 0, .84, 0), filter var(--len, 1s); transform: scale(.92); filter: brightness(1.4) saturate(1.3); }
+.addshow-row.is-removed { opacity: .55; }
+.addshow-row.is-removed b { text-decoration: line-through; }
