@@ -175,6 +175,8 @@ export default {
             row({ title: "Continue your journey", icon: "rift", items: continueJourney(), hideEmpty: true, cardOpts: { showType: true }, seeAllTitle: "Your journey: everything you added", seeAll: () => journey().then((j) => j.all) }),
             row({ title: "Almost 100%", id: "almost-100", icon: "trophy", items: almost100, hideEmpty: true,
                 note: "Steam games where only a few achievements are left" }),
+            row({ title: "News from your games", id: "game-news", icon: "bell", items: () => D.gameNews(), hideEmpty: true, cardOpts: { showType: false },
+                note: "Updates and patch notes from the Steam games you play" }),
             row({ title: "Picked for you", icon: "sparkles", items: () => foryou.picks({ limit: 60 }), hideEmpty: true, cardOpts: { showType: true, reasons: true },
                 note: "From what you play, watch, read and open", seeAllTitle: "Picked for you" }),
             row({ title: "Free right now", icon: "gift", seeAllTitle: "All free games",
@@ -188,7 +190,7 @@ export default {
             row({ title: "Books everyone's reading", icon: "book", items: () => D.booksPopular(), full: { kind: "buy-books-popular" }, seeAllTitle: "Most popular books" })
         ];
         // Only what you're into, what you love first (a manual order still wins)
-        const IN = { "almost-100": ["games"], "free-right-now": ["free"], "new-episodes": ["screen"], "in-cinemas": ["screen"], "deals-worth-it": ["deals"],
+        const IN = { "almost-100": ["games"], "game-news": ["games"], "free-right-now": ["free"], "new-episodes": ["screen"], "in-cinemas": ["screen"], "deals-worth-it": ["deals"],
             "coming-soon": ["games"], "new-series": ["screen"], "new-anime": ["anime"], "books-everyone-s-reading": ["books"] };
         const ids = (r) => IN[r.dataset.rowId] || [];
         // The Hallowed Rift: the scariest of everything, first

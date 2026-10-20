@@ -1,5 +1,5 @@
 // Riftgate — Reading room: popular and best-selling books, new releases,
-// manga, comics, free classics, and your own eBook library.
+// manga, comics, free classics and audiobooks, and your own eBook library.
 
 import { h, icon, debounce, clear } from "../app/dom.js";
 import { call } from "../app/api.js";
@@ -45,7 +45,8 @@ export default {
             row({ title: "New manga", icon: "sparkles", items: () => D.mangaNew(), full: { kind: "manga-new-releases" }, hideEmpty: true }),
             row({ title: "Comics", icon: "book", items: () => D.comicsPopular(), full: { kind: "comics-popular" }, seeAllTitle: "Popular comics" }),
             row({ title: "New comics", icon: "sparkles", items: () => D.comicsNew(), full: { kind: "comics-new-releases" }, hideEmpty: true }),
-            row({ title: "Free classics", icon: "gift", note: "Public domain, free to read", items: () => D.classics(), full: { kind: "classics" }, seeAllTitle: "Free classics" })
+            row({ title: "Free classics", icon: "gift", note: "Public domain, free to read", items: () => D.classics(), full: { kind: "classics" }, seeAllTitle: "Free classics" }),
+            row({ title: "Free audiobooks", id: "audiobooks", icon: "play", note: "Public domain, read by volunteers (LibriVox)", items: () => D.audiobooks(), hideEmpty: true, seeAllTitle: "Free audiobooks" })
         ]));
 
         search.addEventListener("input", debounce(async () => {

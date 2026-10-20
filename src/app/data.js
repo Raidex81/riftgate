@@ -149,6 +149,26 @@ export const comicsNew = source("comicsNew", "get-comics-new-releases", I.fromBo
 export const classics = source("classics", "get-popular-ebooks", I.fromBook, null, "get-cached-popular-ebooks");
 export const ebooks = source("ebooks", "get-ebooks", I.fromEbook);
 export const communityApps = source("apps", "get-community-apps", I.fromCommunityApp);
+export const seasonAnime = source("seasonAnime", "r2-anime-season", I.fromSeasonAnime);
+export const audiobooks = source("audiobooks", "r2-audiobooks", I.fromAudiobook);
+
+// The Steam games you've played lately (newest first), with their Steam app id
+export async function recentSteamGames(n = 10) {
+    const lib = await library();
+    return lib.map((it) => ({ it, id: it.steamAppId || (((it.raw && /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(it.raw.path || "")) || [])[1]) }))
+        .filter((x) => x.id && x.it.type === "game")
+        .sort((a, b) => (b.it.lastPlayed || 0) - (a.it.lastPlayed || 0) || (b.it.playtime || 0) - (a.it.playtime || 0))
+        .slice(0, n);
+}
+// News from those games: each one's newest post from the last month
+export async function gameNews() {
+    const games = await recentSteamGames(10);
+    if (!games.length) return withStatus([], null);
+    const ids = games.map((g) => g.id);
+    const byId = new Map(games.map((g) => [g.id, { ...g.it, steamAppId: g.id }]));
+    const raw = await cached("r2-steam-news-recent", [ids]);
+    return withStatus(unwrap(raw).map((n) => I.fromGameNews(n, byId.get(String(n.appid)))).filter(Boolean), metaOf("r2-steam-news-recent", [ids]));
+}
 
 registerSource("all", () => [...loaded.values()].flat());
 

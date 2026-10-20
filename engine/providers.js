@@ -30,7 +30,7 @@ const PROVIDERS = [
     { id: "steamgriddb", label: "SteamGridDB", what: "covers", hosts: [/(^|\.)steamgriddb\.com$/] },
     { id: "youtube", label: "YouTube", what: "trailers", hosts: [] }, // only through the media proxy
     { id: "googlebooks", label: "Google Books", what: "book covers", hosts: [/^www\.googleapis\.com$/] },
-    { id: "steam", label: "Steam", what: "games, deals and playtime", hosts: [/^store\.steampowered\.com$/, /^api\.steampowered\.com$/, /^steamcommunity\.com$/] },
+    { id: "steam", label: "Steam", what: "games, deals, playtime and news", hosts: [/^store\.steampowered\.com$/, /^api\.steampowered\.com$/, /^steamcommunity\.com$/] },
     { id: "steamspy", label: "SteamSpy", what: "free Steam games", hosts: [/(^|\.)steamspy\.com$/] },
     { id: "cheapshark", label: "CheapShark", what: "deals and prices", hosts: [/(^|\.)cheapshark\.com$/] },
     { id: "epic", label: "Epic Games", what: "free games", hosts: [/^store-site-backend-static(-ipv4)?\.ak\.epicgames\.com$/, /^graphql\.epicgames\.com$/, /^store\.epicgames\.com$/] },
@@ -40,6 +40,8 @@ const PROVIDERS = [
     { id: "tvmaze", label: "TVmaze", what: "episodes", hosts: [/^api\.tvmaze\.com$/] },
     { id: "openlibrary", label: "Open Library", what: "books", hosts: [/^openlibrary\.org$/] },
     { id: "gutenberg", label: "Project Gutenberg", what: "free classics", hosts: [/^gutendex\.com$/] },
+    { id: "librivox", label: "LibriVox", what: "free audiobooks", hosts: [/(^|\.)librivox\.org$/] },
+    { id: "jikan", label: "MyAnimeList (Jikan)", what: "this season's anime", hosts: [/^api\.jikan\.moe$/] },
     { id: "osm", label: "OpenStreetMap", what: "cinemas near you", hosts: [/^overpass(-api)?\./, /^nominatim\.openstreetmap\.org$/] },
     { id: "github", label: "GitHub", what: "updates and app info", hosts: [/^api\.github\.com$/] },
     { id: "riftgate", label: "Riftgate online", what: "accounts, themes and apps", hosts: [/\.supabase\.co$/] },

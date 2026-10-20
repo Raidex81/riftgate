@@ -4747,6 +4747,8 @@ require("./engine/alerts").register(ipcMain, {
 require("./engine/pictures").register(ipcMain);
 require("./engine/usage").register(ipcMain);
 require("./engine/achievements").register(ipcMain, { steamApi: (p, query) => mediaProxyGetJsonPlain("steam", p, query) });
+// News of your Steam games, this season's anime, free audiobooks (public sources, no key)
+require("./engine/content").register(ipcMain);
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];

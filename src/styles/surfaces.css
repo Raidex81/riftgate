@@ -760,3 +760,18 @@
 .ach-private ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
 .ach-private-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
 .ach-private-actions .is-busy svg { animation: source-spin 1s linear infinite; }
+
+/* a Steam game's news in its details */
+.game-news[hidden] { display: none; }
+.news-head { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s3); }
+.news-head h3 { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; }
+.news-head h3 svg { width: 16px; height: 16px; }
+.news-head .muted { font-size: var(--t-xs); color: var(--dust-2); }
+.news-list { display: grid; gap: var(--s3); }
+.news-item { display: grid; gap: 4px; padding: var(--s3) var(--s4); background: var(--nebula-2); border-left: 3px solid var(--amethyst); }
+.news-meta { display: flex; gap: var(--s2); align-items: center; font-size: var(--t-xs); color: var(--dust); }
+.news-tag { padding: 0 6px; font-weight: 700; color: var(--on-accent); background: var(--amethyst); }
+.news-title { color: var(--starlight); font-size: var(--t-sm); }
+.news-text { font-size: var(--t-xs); color: var(--dust); line-height: 1.5; }
+.news-read { justify-self: start; display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); }
+.news-read svg { width: 12px; height: 12px; }

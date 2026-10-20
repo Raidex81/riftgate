@@ -248,6 +248,16 @@ select.input option { background: var(--nebula); }
 .shelf .row:hover .row-grip, .shelf .row-grip:focus-visible, .shelf.is-sorting .row-grip { opacity: 1; }
 .shelf .row-grip:hover { color: var(--amethyst-soft); }
 .shelf .row-grip:active { cursor: grabbing; }
+/* hiding a row: a small × that shows with the grip */
+.row-hide { display: none; }
+.shelf .row-hide { display: inline-grid; width: 28px; height: 28px; opacity: 0; transition: opacity var(--fast); }
+.shelf .row-hide svg { width: 14px; height: 14px; }
+.shelf .row:hover .row-hide, .shelf .row-hide:focus-visible { opacity: .75; }
+.shelf .row-hide:hover { opacity: 1; }
+.shelf-hidden { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: var(--s2) 0 var(--s8); font-size: var(--t-sm); }
+.shelf-hidden[hidden] { display: none; }
+.shelf-hidden > span { display: inline-flex; align-items: center; gap: 6px; }
+.shelf-hidden > span svg { width: 15px; height: 15px; }
 .shelf .row.dragging { opacity: .45; outline: 1px dashed var(--amethyst); outline-offset: 8px; }
 .shelf.is-sorting .row-track { pointer-events: none; }
 .page-jump { width: 84px; height: 34px; }

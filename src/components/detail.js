@@ -17,6 +17,7 @@ import * as gate from "../app/mature.js";
 import * as admin from "../app/admin.js";
 import * as alerts from "../app/alerts.js";
 import { achievementsBox } from "./achievements.js";
+import { newsBox } from "./game-news.js";
 
 let current = null;
 
@@ -64,6 +65,7 @@ export function openDetail(item) {
         h("div.detail-main", null, poster, head),
         journalBox(item),
         achievementsBox(item),
+        newsBox(item),
         nextEpisodeBox(item),
         h("div.detail-section", null, h("h3", null, "About"), desc),
         item.kind === "library" ? manageBox(item, () => closeDetail()) : null,
@@ -159,7 +161,9 @@ function buildActions(item, box, cover) {
             add(watchedButton(item, false));
             break;
         case "book": case "search":
-            if (item.url) add(btn(item.access === "public" ? "Read free" : "Open", "book", () => openExternal(item.url), true));
+            if (item.url) add(item.listen
+                ? btn("Listen free", "play", () => openExternal(item.url), true)
+                : btn(item.access === "public" ? "Read free" : "Open", "book", () => openExternal(item.url), true));
             if (seen.canMark(item)) add(watchedButton(item, !item.url));
             break;
         case "community":
@@ -171,8 +175,13 @@ function buildActions(item, box, cover) {
         case "upcoming":
             if (item.url) add(btn("Open on RAWG", "external", () => openExternal(item.url), true));
             break;
+        case "news":
+            // a post from the game's developers: read it on Steam, or open the game
+            add(btn("Read it on Steam", "external", () => openExternal(item.url), true));
+            if (item.game) add(btn(`Open ${item.game.title}`, "play", () => openDetail(item.game)));
+            break;
     }
-    if (item.url && !["free", "deal", "upcoming", "book", "search", "community"].includes(item.kind)) {
+    if (item.url && !["free", "deal", "upcoming", "book", "search", "community", "news"].includes(item.kind)) {
         add(h("button.icon-btn", { type: "button", "aria-label": "Open web page", title: "Open web page", onclick: () => openExternal(item.url) }, icon("external")));
     }
     if (item.type === "game" && ["deal", "upcoming", "search", "wish"].includes(item.kind)) add(wishButton(item, btn));

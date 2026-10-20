@@ -103,7 +103,10 @@ export default {
             row({ title: "Coming to cinemas", icon: "calendar", full: { kind: "upcoming-movies" },
                 items: D.upcomingFilms().then((l) => noMature(l).map((m) => ({ ...m, sub: m.date ? until(m.date) : m.sub }))) }),
             row({ title: "New series", icon: "tv", items: D.newSeries().then(noMature), full: { kind: "new-series" }, enhance: D.withProviders }),
-            W("anime") ? row({ title: "New anime", icon: "sparkles", items: D.newAnime().then(noMature), full: { kind: "new-anime" }, enhance: D.withProviders }) : null].filter(Boolean));
+            W("anime") ? row({ title: "New anime", icon: "sparkles", items: D.newAnime().then(noMature), full: { kind: "new-anime" }, enhance: D.withProviders }) : null,
+            // this season, with when each new episode airs where you are (MyAnimeList, through Jikan)
+            W("anime") ? row({ title: "Airing this season", id: "anime-season", icon: "calendar", items: () => D.seasonAnime().then(noMature), hideEmpty: true,
+                note: "With when new episodes air, in your time" }) : null].filter(Boolean));
         root.append(rows);
 
         // Streaming services: yours (or the region's top six), each with its

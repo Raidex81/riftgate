@@ -363,6 +363,9 @@ it gets the most layers:
 | CheapShark | Deals across many stores | Direct |
 | Epic Games Store, GOG, itch.io, GamerPower | Free games | Direct (public endpoints, parsed where there's no formal API) |
 | OpenStreetMap (Overpass) | Cinemas near your city | Direct, cached two weeks per city |
+| Steam news (`ISteamNews`) | Your Steam games' announcements and patch notes (Nexus, a game's details) | Direct, no key, kept 6 hours per game |
+| Jikan (MyAnimeList) | This season's anime, with when new episodes air (Theatre) | Direct, no key, kept 12 hours |
+| LibriVox | Free public-domain audiobooks (Reading room) | Direct, no key, kept a day |
 | Resend | Account emails | `account-email` Edge Function (key server-side) |
 
 The four proxied sources are the ones that need a paid or rate-limited
@@ -370,7 +373,8 @@ key, so routing them server-side keeps the key out of everyone's
 installed copy. The direct sources are public, keyless APIs.
 
 **Keeping API use low.** Lists are cached on disk and refreshed in the
-background only when they're old:
+background only when they're old, and a row you've hidden (the × in its
+header; `src/components/shelf.js`) asks for nothing at all:
 
 - free games, deals and books by age,
 - episodes for 6 hours per show,

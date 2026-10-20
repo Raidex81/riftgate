@@ -50,6 +50,9 @@ export function row(opts) {
     const count = h("span.row-note");
     const stateSlot = h("span.row-state");
     const grip = h("button.row-grip", { type: "button", title: "Drag to reorder (or focus and use ↑ ↓)", "aria-label": `Move ${opts.title}` }, icon("grip"));
+    // hide it (in a section's shelf): it stops loading, and the shelf lists it to bring back
+    const hideBtn = h("button.icon-btn.row-hide", { type: "button", title: "Hide this row", "aria-label": `Hide ${opts.title}`,
+        onclick: () => hideBtn.dispatchEvent(new CustomEvent("row-hide", { bubbles: true })) }, icon("x"));
 
     const head = h("div.row-head", null,
         grip,
@@ -57,10 +60,12 @@ export function row(opts) {
         seeAll,
         opts.note ? h("span.row-note", null, opts.note) : count,
         stateSlot,
-        h("div.row-tools", null, opts.tools || null, left, right));
+        h("div.row-tools", null, opts.tools || null, left, right, hideBtn));
     const el = h("section.row", { "aria-label": opts.title, dataset: { rowId: opts.id || slug(opts.title) } }, head, track);
 
     function page(dir) { track.scrollBy({ left: dir * (track.clientWidth - 60), behavior: "smooth" }); }
+    // shown or not by its contents (an empty row that hides itself); a row you hid stays hidden
+    const show = (v) => { el._autoHidden = !v; el.hidden = !v || el.dataset.userHidden === "1"; };
 
     const limit = opts.limit || ROW_LIMIT;
     const title = opts.seeAllTitle || opts.title;
@@ -85,15 +90,15 @@ export function row(opts) {
             left.hidden = right.hidden = true;
             if (state && state.kind === "failed") {
                 // a source failed: say so, even on a row that hides when it's simply empty
-                el.hidden = false;
+                show(true);
                 track.appendChild(sourceFailed(state));
                 return;
             }
-            if (opts.hideEmpty) { el.hidden = true; return; }
+            if (opts.hideEmpty) { show(false); return; }
             track.appendChild(h("p.row-empty", null, opts.empty || "Nothing here right now."));
             return;
         }
-        el.hidden = false;
+        show(true);
         left.hidden = right.hidden = false;
         const frag = document.createDocumentFragment();
         items.slice(0, limit).forEach((it) => frag.appendChild(card(it, { wide: opts.wide, ...(opts.cardOpts || {}) })));
@@ -122,11 +127,14 @@ export function row(opts) {
             clear(track).appendChild(sourceFailed({ label: "Error", text: "This row couldn't load." }));
         });
     }
-    load();
+    // the first load waits a moment, so a shelf can say it's hidden first (then nothing is fetched)
+    let pending = false;
+    queueMicrotask(() => { if (el.dataset.userHidden === "1") pending = true; else load(); });
+    el.wake = () => { if (pending) { pending = false; load(); } };
 
     // Function-backed rows repaint when their source refreshes in the background
     if (typeof opts.items === "function") {
-        const off = D.onChange(() => { if (el.isConnected) load(); else off(); /* view was left */ });
+        const off = D.onChange(() => { if (!el.isConnected) return off(); /* view was left */ if (el.dataset.userHidden === "1") pending = true; else load(); });
     }
     return el;
 }

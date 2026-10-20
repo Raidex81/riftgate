@@ -230,6 +230,80 @@ export function fromUpcomingGame(g) {
     };
 }
 
+// When a new episode airs, in your time: the season's list gives the day and
+// hour in Japan; this finds the next one and says it the way your PC does
+export function airsLocally(b, now = Date.now()) {
+    if (!b || typeof b.day !== "number" || !/^\d{2}:\d{2}$/.test(b.time || "")) return null;
+    const [hh, mm] = b.time.split(":").map(Number);
+    const jst = new Date(now + 9 * 3600e3); // Japan is UTC+9, all year
+    const days = (b.day - jst.getUTCDay() + 7) % 7;
+    let at = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + days, hh, mm) - 9 * 3600e3;
+    if (at <= now) at += 7 * 24 * 3600e3;
+    const d = new Date(at);
+    return { at, day: d.toLocaleDateString(undefined, { weekday: "long" }), time: d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) };
+}
+
+// This season's anime (Jikan / MyAnimeList)
+export function fromSeasonAnime(a) {
+    const airs = a.airing ? airsLocally(a.broadcast) : null;
+    return {
+        key: journalKey("anime", a.title),
+        kind: "anime", type: "anime",
+        title: a.title,
+        sub: airs ? `New episodes ${airs.day}s, ${airs.time}` : (a.episodes ? `${a.episodes} episodes` : "This season"),
+        desc: a.synopsis || "",
+        image: a.image || null,
+        rating: typeof a.score === "number" ? a.score : null,
+        votes: count(a.members),
+        genres: Array.isArray(a.genres) ? a.genres : [],
+        airs,
+        url: a.url || null,
+        source: "MyAnimeList",
+        raw: a
+    };
+}
+
+// A free audiobook (LibriVox): public domain, read by volunteers
+function runtime(seconds) {
+    const h = Math.floor(seconds / 3600), m = Math.round((seconds % 3600) / 60);
+    return h ? `${h} h${m ? ` ${m} min` : ""}` : `${m} min`;
+}
+export function fromAudiobook(b) {
+    return {
+        key: journalKey("book", b.title, b.author),
+        kind: "book", type: "book",
+        title: b.title,
+        sub: [b.author, b.seconds ? runtime(b.seconds) : null].filter(Boolean).join(" · "),
+        desc: b.description || "",
+        image: b.cover || null,
+        date: b.year || null,
+        url: b.url || null,
+        access: "public", listen: true,
+        subjects: Array.isArray(b.genres) ? b.genres : [],
+        source: "LibriVox",
+        raw: b
+    };
+}
+
+// A post from a game's developers on Steam (news, an update, patch notes)
+export function fromGameNews(n, game) {
+    if (!n || !game) return null;
+    return {
+        key: `news:${n.id}`,
+        kind: "news", type: "game",
+        title: game.title,
+        sub: `${n.patch ? "Patch notes: " : ""}${n.title}`,
+        desc: n.text || "",
+        image: game.image || null,
+        fallback: game.fallback || null,
+        date: n.at ? new Date(n.at).toISOString().slice(0, 10) : null,
+        url: n.url,
+        source: "Steam",
+        game,
+        raw: n
+    };
+}
+
 // A search hit from web-search-all (sections: game, movie, show, book).
 export function fromSearchHit(r) {
     const map = { game: "game", movie: "film", show: "series", tv: "series", book: "book" };
