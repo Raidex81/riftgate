@@ -1,10 +1,13 @@
-// Riftgate — the opening's sound. Everything is synthesised live with Web
-// Audio (no sound files): a rising rush as the stars pour in, two heartbeats
-// of the seed, the tear ripping open with sparks crackling off it, chimes as
-// the rune rings draw themselves, a breath in, then the gem bursting through
-// with a deep boom and a crystal chord. Every bolt of lightning cracks and
-// sizzles at the very frame it strikes, rolling into thunder; the name
-// decodes in blips; the rift opens with a wide whoosh and a bloom of light.
+// Riftgate — the opening's sound. Synthesised live with Web Audio: a rising
+// rush as the stars pour in, two heartbeats of the seed, the tear ripping open
+// with sparks crackling off it, chimes as the rune rings draw themselves, a
+// breath in, then the gem bursting through with a deep boom and a crystal
+// chord; the name decodes in blips; the rift opens with a wide whoosh and a
+// bloom of light. The lightning is a real thunderclap (assets/sounds/
+// thunder.mp3, ten seconds of a recorded storm): it breaks on the frame the
+// first bolt strikes and rolls away under the rest. Clicking the gem in
+// Nexus plays it too. If the recording can't be loaded, the old synthesised
+// electric crack and arc stand in.
 //
 // intro.js calls the cues as the picture reaches them, so sound and image
 // can't drift apart. render() schedules the whole thing ahead instead (used
@@ -17,7 +20,14 @@ export const STRIKES = [3.02, 3.16, 3.38, 3.9, 4.45];
 
 const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI note -> Hz
 
-// prebuild: build the heavy sounds (the hall's echo, the arc, every strike)
+// The thunderclap: the recording is silent for its first 0.85 s, so it's
+// played from there and breaks the moment the bolt appears
+const THUNDER_URL = new URL("../../assets/sounds/thunder.mp3", import.meta.url).href;
+const THUNDER_FROM = 0.85;
+let thunderFile = null; // the file's bytes, fetched once and shared by every audio context
+const thunderBytes = () => (thunderFile = thunderFile || fetch(THUNDER_URL).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }));
+
+// prebuild: build the heavy sounds (the hall's echo, and the electric stand-ins if the thunder can't load)
 // ahead of time, a few milliseconds at a time while the page is idle, so
 // nothing is computed on the frame a bolt strikes (that froze the opening
 // for a tenth of a second right as the lightning began).
@@ -69,6 +79,22 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
         return b;
     })();
+
+    // the thunderclap, decoded for this audio context: "loading", "ready" or "failed"
+    let thunder = null, thunderState = "loading", thunderNow = null, thunderUntil = 0;
+    const thunderReady = thunderBytes().then((b) => ac.decodeAudioData(b.slice(0)))
+        .then((buf) => { thunder = buf; thunderState = "ready"; return true; })
+        .catch(() => { thunderState = "failed"; return false; });
+    // one clap at a time: a new one (a quick second click on the gem) takes over from the last
+    function playThunder(at, level = 1) {
+        if (thunderNow) { const { src, g } = thunderNow; g.gain.cancelScheduledValues(at); g.gain.setTargetAtTime(0, at, .04); try { src.stop(at + .3); } catch (e) { /* */ } }
+        const src = ac.createBufferSource(); src.buffer = thunder;
+        const g = gain(level, pre); src.connect(g);
+        src.start(at, THUNDER_FROM);
+        const mine = { src, g }; thunderNow = mine;
+        src.onended = () => { if (thunderNow === mine) thunderNow = null; };
+        thunderUntil = Math.max(thunderUntil, at + thunder.duration - THUNDER_FROM);
+    }
 
     // ---- small builders ----
     const gain = (v, dest) => { const g = ac.createGain(); g.gain.value = v; if (dest) g.connect(dest); return g; };
@@ -188,6 +214,9 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
         // crack, then mains-rate (60 Hz) bursts of crackling noise, bright and
         // stuttering, like a cable shorting out, with sparks spitting over it
         strike(at, i = 0) {
+            // the recorded thunder: one clap on the first bolt, rolling under the others
+            if (thunderState === "ready") { if (i === 0) playThunder(at); return; }
+            if (thunderState === "loading") { if (i === 0) thunderReady.then((ok) => ok && playThunder(ac.currentTime)); return; }
             const big = i === 0 ? 1 : i === 3 ? .9 : .72;
             const side = [0, .55, -.5, .3, -.25][i % 5];
             const src = ac.createBufferSource();
@@ -201,9 +230,16 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
             tg.gain.setValueAtTime(0.0001, at + .03); tg.gain.linearRampToValueAtTime(.16 * big, at + .12); tg.gain.exponentialRampToValueAtTime(.0001, at + .45 + .8 * big);
             th.connect(tlp); tlp.connect(tg); tg.connect(verbIn);
         },
+        // clicking the gem in Nexus: the same thunderclap
+        thunder(at) {
+            if (thunderState === "ready") return playThunder(at, .9);
+            if (thunderState === "loading") return thunderReady.then((ok) => ok ? playThunder(ac.currentTime, .9) : cues.strike(ac.currentTime, 0));
+            return cues.strike(at, 0);
+        },
         // between the strikes the air stays charged: an arc that hums at mains
         // rate, swelling and cutting out, with a high neon-like fizz flickering over it
         arc(at) {
+            if (thunderState !== "failed") return; // the thunder carries it
             const len = OPEN_AT - 2.9; // until the rift opens
             const src = ac.createBufferSource();
             src.buffer = take("arc") || electric(...arcSpec());
@@ -375,10 +411,13 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
     const ready = new Map();
     // a sound built ahead: finished now if it isn't quite done; null if it was never started
     function take(key) { const j = ready.get(key); if (!j) return null; ready.delete(key); return finish(j); }
-    if (prebuild) {
+    // the electric stand-ins are only built if the thunder recording can't be used
+    if (prebuild) thunderReady.then((ok) => {
+        if (ok) return;
         ready.set("arc", job(electricGen(...arcSpec())));
         STRIKES.forEach((_, i) => ready.set(`strike${i}`, job(electricGen(...strikeSpec(i)))));
-    }
+        schedule();
+    });
     schedule();
 
     // The timeline, matching intro.js (seconds from the start)
@@ -403,6 +442,7 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
         hush() { const t = ac.currentTime; pre.gain.cancelScheduledValues(t); pre.gain.setValueAtTime(pre.gain.value, t); pre.gain.linearRampToValueAtTime(0, t + .08); },
         // schedule the whole soundtrack ahead (for an offline preview)
         render(start = 0) { finish(hall); TIMELINE.forEach(([t, name, arg]) => cues[name](start + t, arg)); },
-        close() { setTimeout(() => { try { ac.close(); } catch (e) { /* */ } }, 2500); }
+        // let the thunder finish rolling before the audio is closed
+        close() { setTimeout(() => { try { ac.close(); } catch (e) { /* */ } }, Math.max(2500, (thunderUntil - ac.currentTime) * 1000 + 300)); }
     };
 }

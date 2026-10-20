@@ -1127,7 +1127,8 @@ const MIME_TYPES = {
     ".gif": "image/gif",
     ".ico": "image/x-icon",
     ".mp4": "video/mp4",
-    ".webm": "video/webm"
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg"
 };
 
 // Electron's default file:// loading breaks YouTube embeds (their player

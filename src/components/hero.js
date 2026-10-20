@@ -86,13 +86,13 @@ function relics() {
         .map((e) => ({ type: e.item.type || "game", at: e.completedAt || e.updatedAt || 0 }));
 }
 
-// The opening's lightning sound, on one shared audio context (made on the
+// The opening's thunder, on one shared audio context (made on the
 // first click; silent when the opening is set to play without sound)
 let sound = null;
 function zap() {
     settings().then((s) => {
         if (s.startupSound === false) return;
         if (!sound) { const AC = window.AudioContext || window.webkitAudioContext; sound = createIntroSound(new AC({ latencyHint: "interactive" }), { volume: .6 }); }
-        sound.cue("strike", Math.random() < .5 ? 0 : 3);
+        sound.cue("thunder");
     }).catch(() => { /* no sound */ });
 }
