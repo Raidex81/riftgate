@@ -543,6 +543,50 @@
 @keyframes bat-flap { from { transform: scaleY(1); } to { transform: scaleY(.35); } }
 :root[data-tone="light"] .bat { color: #2a1420; }
 
+/* The Hallowed Rift: jack-o'-lanterns by the Nexus rift (components/hallowed.js) */
+.jols { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.jols[hidden] { display: none; }
+.jol { position: absolute; left: var(--x); bottom: 10px; width: var(--size); transform: translateX(-50%); }
+.jol svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .55)); }
+.jol::before { /* the candlelight on the ground and the air around it */
+    content: ""; position: absolute; left: 50%; bottom: -14%; width: 190%; height: 70%; transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgba(255, 150, 40, .32), rgba(255, 110, 20, .1) 60%, transparent);
+    animation: jol-glow var(--flick) ease-in-out var(--delay) infinite; z-index: -1;
+}
+.jol-stem { fill: #3d5a1e; }
+.jol-ribs { fill: none; stroke: rgba(40, 10, 0, .5); stroke-width: 1.4; stroke-linecap: round; }
+.jol-face { filter: drop-shadow(0 0 2px #ffe08a) drop-shadow(0 0 8px rgba(255, 160, 30, .95)) drop-shadow(0 0 18px rgba(255, 120, 20, .6)); animation: jol-flicker var(--flick) steps(1) var(--delay) infinite; }
+@keyframes jol-flicker {
+    0% { opacity: 1; } 9% { opacity: .78; } 13% { opacity: .96; } 31% { opacity: .84; } 37% { opacity: 1; }
+    52% { opacity: .7; } 55% { opacity: .93; } 71% { opacity: .82; } 79% { opacity: 1; } 91% { opacity: .76; }
+}
+@keyframes jol-glow { 0%, 100% { opacity: .85; } 30% { opacity: .6; } 55% { opacity: 1; } 80% { opacity: .7; } }
+
+/* cobwebs in the page's top corners, and a spider dangling on its thread */
+.hallowed { position: fixed; inset: var(--titlebar-h) 0 0 var(--rail-w); pointer-events: none; z-index: 45; }
+.web { position: absolute; top: 0; width: var(--size); height: var(--size); opacity: .26; }
+.web svg { width: 100%; height: 100%; overflow: visible; }
+.web path { fill: none; stroke: var(--starlight-2, #e9e0ff); stroke-width: .7; vector-effect: non-scaling-stroke; }
+.web.tl { left: 0; }
+.web.tr { right: 0; transform: scaleX(-1); }
+.spider { position: absolute; top: 0; right: 92px; width: 22px; animation: spider-dangle 9s ease-in-out infinite; transform-origin: 50% 0; }
+.spider-thread { position: absolute; left: 50%; bottom: 100%; width: 1px; height: 400px; background: linear-gradient(to top, rgba(233, 224, 255, .45), rgba(233, 224, 255, .1)); }
+.spider svg { display: block; width: 100%; fill: #140a12; filter: drop-shadow(0 0 4px rgba(155, 77, 255, .45)); }
+.spider-legs path { fill: none; stroke: #140a12; stroke-width: 1.6; stroke-linecap: round; }
+.spider-eye { fill: #ff7a1a; }
+@keyframes spider-dangle {
+    0%, 100% { transform: translateY(40px) rotate(0deg); }
+    20% { transform: translateY(46px) rotate(4deg); }
+    45% { transform: translateY(120px) rotate(-3deg); }
+    60% { transform: translateY(116px) rotate(2deg); }
+    80% { transform: translateY(52px) rotate(-2deg); }
+}
+:root[data-tone="light"] .web path { stroke: #4a2a3a; }
+@media (prefers-reduced-motion: reduce) {
+    .jol-face, .jol::before { animation: none; }
+    .spider { animation: none; transform: translateY(60px); }
+}
+
 /* Seals (app/seals.js, components/seals.js) */
 .seals { margin: var(--s8) 0 var(--s10); }
 .seals > h2 { display: flex; align-items: center; gap: var(--s3); font-size: var(--t-xl); }

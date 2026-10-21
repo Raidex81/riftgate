@@ -7,6 +7,7 @@ import { playIntro, done as introDone, quiet as introQuiet } from "../components
 import { markVisits, maybeWelcome } from "../components/welcome.js";
 import * as season from "./season.js";
 import { mountBats } from "../components/bats.js";
+import { mountHallowed } from "../components/hallowed.js";
 import * as seals from "./seals.js";
 import { announce } from "../components/seals.js";
 import { watchSecrets } from "./secrets.js";
@@ -389,7 +390,7 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
     await Promise.race([introQuiet, new Promise((r) => setTimeout(r, 9000))]);
     await route();
     if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
-    introDone.then(() => { mountBats(); if (season.current() && !season.greeted()) setTimeout(() => toast(season.current().hello, "ok", 9000), 2500); });
+    introDone.then(() => { mountBats(); mountHallowed(); if (season.current() && !season.greeted()) setTimeout(() => toast(season.current().hello, "ok", 9000), 2500); });
     // Seals: what earns them, then a look now and whenever something changes
     watchSecrets({ toast });
     { const hr = new Date().getHours(); if (hr >= 2 && hr < 5) seals.flag("night-owl"); }
