@@ -562,6 +562,27 @@
 }
 @keyframes jol-glow { 0%, 100% { opacity: .85; } 30% { opacity: .6; } 55% { opacity: 1; } 80% { opacity: .7; } }
 
+/* candles among the pumpkins: wax, a wick, a swaying flame and its glow */
+.candle { position: absolute; left: var(--x); bottom: 12px; width: calc(var(--h) * .38 + 6px); height: var(--h); transform: translateX(-50%); }
+.candle::before { /* the light it throws */
+    content: ""; position: absolute; left: 50%; bottom: 40%; width: 420%; height: 220%; transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgba(255, 190, 90, .28), rgba(255, 140, 40, .08) 60%, transparent);
+    animation: jol-glow var(--flick) ease-in-out var(--delay) infinite; z-index: -1; pointer-events: none;
+}
+.candle-wax { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .5)); }
+.candle-wax path { fill: #d9c29a; }
+.candle-wax .candle-drip { fill: #ecdcb8; }
+.candle-wax .candle-shade { fill: rgba(70, 35, 15, .3); }
+.candle-wick { position: absolute; left: 50%; top: -5px; width: 2px; height: 6px; margin-left: -1px; background: #2a1a12; border-radius: 1px; }
+.candle-flame { position: absolute; left: 50%; bottom: calc(100% + 2px); width: 12px; height: 22px; margin-left: -6px; transform-origin: 50% 100%;
+    animation: candle-sway var(--flick) ease-in-out var(--delay) infinite alternate; }
+.candle-flame i { position: absolute; inset: 0; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+    background: radial-gradient(ellipse at 50% 72%, #ffffff 0 18%, #fff2a8 32%, #ffbe3c 58%, rgba(255, 110, 20, .85) 78%, transparent 82%);
+    box-shadow: 0 0 10px 3px rgba(255, 170, 50, .65), 0 0 26px 8px rgba(255, 120, 20, .3);
+    animation: candle-flicker calc(var(--flick) * .37) steps(2) var(--delay) infinite; }
+@keyframes candle-sway { 0% { transform: rotate(-4deg) scaleY(1); } 35% { transform: rotate(3deg) scaleY(1.08); } 70% { transform: rotate(-2deg) scaleY(.94); } 100% { transform: rotate(4deg) scaleY(1.04); } }
+@keyframes candle-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .82; } }
+
 /* cobwebs in the page's top corners, and a spider dangling on its thread */
 .hallowed { position: fixed; inset: var(--titlebar-h) 0 0 var(--rail-w); pointer-events: none; z-index: 45; }
 .web { position: absolute; top: 0; width: var(--size); height: var(--size); opacity: .26; }
@@ -583,7 +604,7 @@
 }
 :root[data-tone="light"] .web path { stroke: #4a2a3a; }
 @media (prefers-reduced-motion: reduce) {
-    .jol-face, .jol::before { animation: none; }
+    .jol-face, .jol::before, .candle::before, .candle-flame, .candle-flame i { animation: none; }
     .spider { animation: none; transform: translateY(60px); }
 }
 

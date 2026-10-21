@@ -1,6 +1,6 @@
 // Riftgate — the Hallowed Rift's decorations (season.js): jack-o'-lanterns
 // glowing by the Nexus rift, each with its own carved face and its own candle
-// flicker, and cobwebs in the corners of the page with a small spider
+// flicker, candles burning among them, and cobwebs in the corners of the page with a small spider
 // dangling from one of them. They come and go with the season by themselves.
 // Nothing here can be clicked (it never gets in the way), and with reduced
 // motion the candles burn steadily and the spider stays still.
@@ -41,6 +41,18 @@ function pumpkin(face) {
     el.innerHTML = svg;
     return el;
 }
+// A candle: dripping wax, a wick, and a flame that sways and flickers
+function candle(height) {
+    const el = h("div.candle");
+    el.style.setProperty("--h", `${height}px`);
+    el.innerHTML = `<div class="candle-flame"><i></i></div><svg class="candle-wax" viewBox="0 0 24 60" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M2 6 Q2 3 6 3 L18 3 Q22 3 22 6 L22 60 L2 60 Z"/>
+      <path class="candle-drip" d="M5 4 L5 15 Q5 18 7 18 Q9 18 9 15 L9 4 Z M14 4 L14 24 Q14 27 16 27 Q18 27 18 24 L18 4 Z M19 4 L19 10 Q20 13 21.5 10 L21.5 5 Z"/>
+      <path class="candle-shade" d="M15 3 L22 3 L22 60 L17 60 Z"/>
+    </svg><span class="candle-wick"></span>`;
+    return el;
+}
+
 // three of them on the ground by the rift: a big one, a small one, a middling one
 export function lanterns() {
     const box = h("div.jols", { "aria-hidden": "true" });
@@ -48,6 +60,12 @@ export function lanterns() {
         const j = pumpkin(p.face);
         j.style.cssText = `--x:${p.x}%;--size:${p.size}px;--flick:${p.flick}s;--delay:${-i * .7}s`;
         box.appendChild(j);
+    });
+    // and candles among them, each burning at its own pace
+    [{ x: 49.8, h: 46, flick: 1.3 }, { x: 59.4, h: 30, flick: 1.7 }, { x: 78.6, h: 56, flick: 1.1 }].forEach((c, i) => {
+        const el = candle(c.h);
+        el.style.cssText += `;--x:${c.x}%;--flick:${c.flick}s;--delay:${-i * .45}s`;
+        box.appendChild(el);
     });
     const sync = () => { box.hidden = !season.is("halloween"); };
     sync();
