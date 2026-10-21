@@ -18,6 +18,16 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # The release page has to exist before electron-builder uploads: it
+      # uploads several files at once, and each would try to create it,
+      # so all but one failed. Create it here (notes come at the end).
+      - name: Make sure the release page exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V="v$(node -p "require('./package.json').version")"
+          gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$V" --repo "$GITHUB_REPOSITORY" --title "${V#v}" --notes "Riftgate ${V#v}. Notes are on their way." --target "$GITHUB_SHA" || gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null
       - name: Build and publish Windows installer
         run: npx electron-builder --win --publish always
         env:

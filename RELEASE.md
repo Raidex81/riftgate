@@ -82,17 +82,17 @@ Before publishing:
   entry for it at the top of `CURRENT_NOTES` in `src/app/changelog.js`.
   That's what What's new (the bell) shows. Push that commit.
 - Make sure the Supabase side for this version is live. For 2.0 that's
-  database migrations up to `20261002000900` (shared themes) and the Edge
-  Functions `media-proxy`, `account-email`, `verify-email` and `vault`.
+  database migrations up to `20261011001000` (the anonymous weekly count)
+  and the Edge Functions `media-proxy`, `account-email`, `verify-email` and `vault`.
   See `supabase/README.md`.
 
-Then, all on GitHub — no token or local build needed:
+Then, all on GitHub — no token or local build needed (Windows and Mac can run at the same time):
 
-1. **Create the release first** (so the builds can't create it twice):
-   go to https://github.com/Raidex81/Riftgate/releases/new, type the tag
-   `v` + the version (e.g. `v2.0.0`) and choose **Create new tag**, set
-   the title to the version number, paste that version's notes from
-   What's new, keep **Latest** selected, and click **Publish release**.
+1. **The release page makes itself.** Each Publish workflow first creates
+   the release for the version in `package.json` (tag `v` + the version)
+   if it doesn't exist yet, then uploads into it, and the Release notes
+   workflow writes its description from What's new at the end. Nothing to
+   create by hand.
 2. **Windows:** https://github.com/Raidex81/Riftgate/actions/workflows/release-windows.yml
    → **Run workflow** → **Run workflow**. It builds the installer on
    GitHub's own Windows machine and uploads it (plus `latest.yml`) into
