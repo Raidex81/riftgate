@@ -3,6 +3,16 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.4": [
+        "New: the Hallowed Rift has spooky decorations. From 22 October to 3 November, glowing jack-o'-lanterns (each with its own carved face) and flickering candles sit by the Nexus rift, cobwebs hang in the corners of the page and a little spider dangles on its thread. They leave by themselves on 4 November (Settings → Seasonal events)",
+        "New: the lightning sounds like a real storm. The opening's bolts, and a click on the gem in Nexus, now break into a recorded thunderclap",
+        "New: News from your games. Nexus shows the latest update or announcement of each Steam game you play, and a Steam game's details show its developers' last three posts, with patch notes marked",
+        "New: Airing this season in the Theatre (if you're into anime): this season's anime from MyAnimeList, with when new episodes air in your own time",
+        "New: Free audiobooks in the Reading room: public-domain books read by volunteers (LibriVox), with how long each one is and a Listen free button",
+        "New: hide any row you don't want. The × in a row's header hides it, and a hidden row loads nothing at all. The rows you've hidden are listed at the bottom of the page, to bring back with a click",
+        "New: Manage My shows. Theatre → My shows → Manage lists every show you follow, each with Remove (and Undo). A followed show's details now say Remove from My shows",
+        "Fixed: a trailer that YouTube won't play inside apps is no longer picked, and Watch on YouTube (in YouTube's own error screen, or the new button on every YouTube trailer) opens it in your browser"
+    ],
     "2.0.3": [
         "New: your Steam achievements. A Steam game's details show every achievement: what you can get next (the ones most players earn first), what you unlocked by day, your rarest, and the full list. Each one wears a gem in its rarity (Legendary, Epic, Rare, Uncommon, Common), and hidden ones stay veiled until you choose to see them. It needs your SteamID64 in Settings and your Steam profile's Game details set to Public",
         "New: the Trophy room in the Journal. Your achievements across every game: totals, what you unlocked lately, the games closest to 100% and your perfect games. If Steam keeps them private, it says what to change, opens the setting and checks again",

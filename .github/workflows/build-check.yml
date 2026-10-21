@@ -39,6 +39,8 @@ jobs:
         run: node tests/providers.test.js
       - name: Steam achievements
         run: node tests/achievements.test.js
+      - name: Steam news, this season's anime, free audiobooks
+        run: node tests/content.test.js
       - name: Engine loads and every handler is callable
         run: node scripts/engine-surface.js --call --check
 

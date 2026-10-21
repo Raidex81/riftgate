@@ -4,6 +4,22 @@ Every Riftgate version, newest first. This file is made from the same notes as *
 
 Downloads for every version are on the [releases page](https://github.com/Raidex81/riftgate/releases).
 
+## 2.0.4
+
+**New**
+
+- The Hallowed Rift has spooky decorations. From 22 October to 3 November, glowing jack-o'-lanterns (each with its own carved face) and flickering candles sit by the Nexus rift, cobwebs hang in the corners of the page and a little spider dangles on its thread. They leave by themselves on 4 November (Settings → Seasonal events).
+- The lightning sounds like a real storm. The opening's bolts, and a click on the gem in Nexus, now break into a recorded thunderclap.
+- News from your games. Nexus shows the latest update or announcement of each Steam game you play, and a Steam game's details show its developers' last three posts, with patch notes marked.
+- Airing this season in the Theatre (if you're into anime): this season's anime from MyAnimeList, with when new episodes air in your own time.
+- Free audiobooks in the Reading room: public-domain books read by volunteers (LibriVox), with how long each one is and a Listen free button.
+- Hide any row you don't want. The × in a row's header hides it, and a hidden row loads nothing at all. The rows you've hidden are listed at the bottom of the page, to bring back with a click.
+- Manage My shows. Theatre → My shows → Manage lists every show you follow, each with Remove (and Undo). A followed show's details now say Remove from My shows.
+
+**Fixed**
+
+- A trailer that YouTube won't play inside apps is no longer picked, and Watch on YouTube (in YouTube's own error screen, or the new button on every YouTube trailer) opens it in your browser.
+
 ## 2.0.3
 
 **New**

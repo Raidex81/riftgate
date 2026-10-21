@@ -73,8 +73,8 @@ as **What's new** inside Riftgate).
 
 **💠 Nexus** is the home page and shows what matters right now: what's
 free to keep this week, what's in cinemas near you and new episodes of
-your shows. It also has the best deals, new series and anime, and what
-you were in the middle of. Tell Riftgate what you're into (games, free
+your shows. It also has the best deals, new series and anime, news from the Steam
+games you play, and what you were in the middle of. Tell Riftgate what you're into (games, free
 games, deals, films and series, anime, books) and it leads with that.
 Anything you mark "Not for me" leaves the menu.
 
@@ -99,7 +99,8 @@ install or uninstall later and asks before changing anything. Steam games
 show your real Steam hours and **your Steam achievements**, organised for
 playing: what's within reach next, your newest, your rarest, each with
 its rarity as a gem, and hidden ones kept secret until you choose to
-look. Games you've finished 100% wear a trophy. You can sort the shelf any
+look. Games you've finished 100% wear a trophy, and each Steam game's
+details show its latest news and patch notes. You can sort the shelf any
 way you like, or drag it into your own order.
 
 ![Library](screenshots/library.jpg)
@@ -124,12 +125,15 @@ Riftgate tells you when its price drops.
 **🎬 Theatre** covers what's in cinemas near you (pick your cinema for
 sessions and tickets) and what's coming soon. It shows what's popular on
 each streaming service in your country, plus new series and anime with
-where they stream. Your own shows get a countdown to the next episode.
+where they stream, and this season's anime with when new episodes air in
+your own time. Your own shows get a countdown to the next episode; add any
+series with Add a show, and Manage removes the ones you've stopped
+watching.
 
 ![Theatre](screenshots/theatre.jpg)
 
-**📚 Reading room** has best sellers, new releases, free classics, manga
-and comics, plus your own EPUB/PDF library. Drop a book anywhere on
+**📚 Reading room** has best sellers, new releases, free classics, free
+audiobooks, manga and comics, plus your own EPUB/PDF library. Drop a book anywhere on
 Riftgate to add it. Books you've read get an "Already read" seal
 everywhere.
 
@@ -168,8 +172,9 @@ for its creator. Made one yourself? Put it forward from inside the app.
   list is in [CONTROLS.md](CONTROLS.md), and View / Share / F1 shows it
   inside the app.
 - **Make it fit**: you can choose the card size, colour cards by kind
-  (games, films, series, anime, books, apps) and drag sections and rows
-  into your own order.
+  (games, films, series, anime, books, apps), drag sections and rows
+  into your own order, and hide any row you don't want (it then loads
+  nothing).
 - **Did you know?** shows a fact from the world you're in along the
   bottom, and a short tour introduces Riftgate on your first start.
 - **While you were away**: come back after a while and the rift shows
@@ -177,7 +182,8 @@ for its creator. Made one yourself? Put it forward from inside the app.
   your shows, price drops on your wishlist.
 - **Seasonal events**: Riftgate changes with the year for a few days at a
   time, then goes back to your theme by itself. First up: the Hallowed
-  Rift, 22 October to 3 November.
+  Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
+  cobwebs, bats and a haunted opening.
 - **Private by design**: your library, Journal and everything you do stay
   on your PC, and Ask the Rift runs there too. The only thing Riftgate can
   send is an anonymous weekly "this PC used Riftgate", and only if you say

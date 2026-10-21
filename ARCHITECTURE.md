@@ -401,6 +401,26 @@ with rarity tiers from Common to Legendary. They show in a Steam game's
 details, the Journal's Trophy room, Nexus (Almost 100%), as a trophy on
 perfect games' cards, and in two Seals.
 
+## Seasonal events
+
+`src/app/season.js` lists each event with its dates and turns it on and off
+by itself (checked hourly; Settings → Seasonal events turns them off). The
+Hallowed Rift (22 October to 3 November) lays its colours over your theme,
+tints the lightning, adds a haunted layer to the opening's sound
+(`intro-sound.js`), bats (`components/bats.js`), jack-o'-lanterns and
+candles by the Nexus rift and cobwebs with a spider in the page's corners
+(`components/hallowed.js`), a Scary picks row, a Trick or treat mood and
+Halloween facts. The decorations never take clicks, and respect reduced
+motion.
+
+## The opening's sound
+
+Synthesised live with Web Audio (`components/intro-sound.js`), except the
+lightning: a recorded thunderclap (`assets/sounds/thunder.mp3`, ten seconds)
+breaks on the first bolt and rolls under the rest, and plays again when the
+gem in Nexus is clicked. If it can't be loaded, a synthesised electric
+crack stands in.
+
 ## When a source fails
 
 Any of the sources above can be offline, slow, rate-limited or down.
