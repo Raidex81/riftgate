@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy — Riftgate</title>
+<meta name="description" content="What Riftgate keeps on your computer, what it asks the internet for, and the little it can send about you, only when you say so.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site-style.css">
+</head>
+<body>
+<div class="grain"></div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./" style="text-decoration:none">💠 <span>RIFTGATE</span></a>
+    <nav><a href="./#features">Features</a><a href="./#download">Download</a><a href="code-signing.html">Code signing policy</a></nav>
+    <a class="btn btn-primary btn-small" href="./#download">Download</a>
+  </div>
+</header>
+
+<main class="faq" style="margin-top:120px">
+  <h2>Privacy</h2>
+  <p style="color:var(--text-muted)">Riftgate is private by design: what you do in it stays on your computer. This page says exactly what leaves it, and when.</p>
+
+  <div class="faq-item"><h3>What stays on your computer</h3>
+    <p>Your library, Journal, shows, eBooks, wishlist, themes, settings and backups live in Riftgate's data folder on your computer (<code>%APPDATA%\riftgate</code> on Windows). Ask the Rift, the recommendations and Rift Rewind are worked out there too. None of it is uploaded anywhere.</p></div>
+
+  <div class="faq-item"><h3>What Riftgate asks the internet for</h3>
+    <p>To show films, games, books, deals and free games, Riftgate asks public services for them: TMDB, RAWG, SteamGridDB and YouTube (through Riftgate's own server, so no keys sit in the app), and Steam, CheapShark, Epic Games, GOG, itch.io, GamerPower, Open Library, Project Gutenberg, LibriVox, Jikan, TVMaze, OpenStreetMap and GitHub directly. These requests carry what's needed to answer them: a search you typed, your country for prices and streaming, your city if you look for cinemas, and your SteamID if you add it for playtime and achievements. Like any website, these services see your IP address. The <a href="https://github.com/Raidex81/riftgate/blob/main/ARCHITECTURE.md#data-sources">full list</a> says which one is used for what. Settings → Sources shows each one and how it's doing.</p></div>
+
+  <div class="faq-item"><h3>Only if you say yes: the weekly count</h3>
+    <p>Riftgate asks once whether it may count your computer. Only with a yes, once a week it sends a random number made on your computer, the version and whether it's Windows or Mac. Never your name, account, library or what you do. Settings → Help Riftgate grow turns it off at any time.</p></div>
+
+  <div class="faq-item"><h3>Only if you make one: your Riftgate account</h3>
+    <p>An account is optional. If you make one, Riftgate's server (Supabase) keeps your username, a bcrypt hash of your password, your email and date of birth if you give them (the date only decides whether mature titles may be shown) and your choice about those titles. It also keeps what you choose to share: suggestions, themes you publish and apps you put forward. Your password is never stored on your computer; a sign-in token is, encrypted with your system's key store. Account emails (confirmation, password reset) are sent through Resend.</p></div>
+
+  <div class="faq-item"><h3>Updates</h3>
+    <p>On Windows, Riftgate checks GitHub for a new version and always asks before downloading it.</p></div>
+
+  <div class="faq-item"><h3>No ads, no trackers, nothing sold</h3>
+    <p>Riftgate has no advertising, no analytics trackers and sells nothing about anyone. It's open source under the GNU GPL v3.0, so all of the above can be checked in <a href="https://github.com/Raidex81/riftgate">its code</a>.</p></div>
+
+  <div class="faq-item"><h3>Questions, or deleting your account</h3>
+    <p>Email <a href="mailto:riftgateappdev@zohomail.eu">riftgateappdev@zohomail.eu</a>. Uninstalling Riftgate keeps your data folder unless you delete it; Settings → Open data folder shows where it is.</p></div>
+</main>
+
+<footer>
+  Riftgate — open source under the GNU GPL v3.0, built with Electron.
+  &nbsp;·&nbsp; <a href="https://github.com/Raidex81/Riftgate">GitHub</a>
+  &nbsp;·&nbsp; <a href="code-signing.html">Code signing policy</a>
+  &nbsp;·&nbsp; <a href="mailto:riftgateappdev@zohomail.eu">riftgateappdev@zohomail.eu</a>
+</footer>
+</body>
+</html>

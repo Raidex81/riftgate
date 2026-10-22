@@ -12,6 +12,10 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      # Signing is on once the SIGNPATH_API_TOKEN secret exists (SIGNING.md);
+      # until then releases are built and uploaded unsigned, as before.
+      SIGNPATH_ON: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +33,7 @@ jobs:
           V="v$(node -p "require('./package.json').version")"
           gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$V" --repo "$GITHUB_REPOSITORY" --title "${V#v}" --notes "Riftgate ${V#v}. Notes are on their way." --target "$GITHUB_SHA" || gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null
       - name: Build and publish Windows installer
+        if: env.SIGNPATH_ON != 'true'
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,6 +41,61 @@ jobs:
           # Upload into the existing release even if it was created more
           # than 2 hours ago.
           EP_GH_IGNORE_TIME: "true"
+
+      # ---- Signed releases: free code signing by SignPath.io, certificate by
+      # SignPath Foundation. Build, hand the installer to SignPath (someone
+      # approves the request on signpath.io), put the signed one in place,
+      # bring the update files in line with it, check it, upload.
+      - name: Build the Windows installer (to be signed)
+        if: env.SIGNPATH_ON == 'true'
+        run: npx electron-builder --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Hand the installer to SignPath
+        if: env.SIGNPATH_ON == 'true'
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: riftgate-installer-unsigned
+          path: dist/Riftgate-Setup-*.exe
+          if-no-files-found: error
+      - name: Sign it (approve the request on signpath.io)
+        if: env.SIGNPATH_ON == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'riftgate' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: signed
+      - name: Put the signed installer in place and update latest.yml
+        if: env.SIGNPATH_ON == 'true'
+        shell: bash
+        run: |
+          V="$(node -p "require('./package.json').version")"
+          SIGNED="$(find signed -name "Riftgate-Setup-$V.exe" | head -n 1)"
+          [ -n "$SIGNED" ] || { echo "SignPath sent nothing back"; exit 1; }
+          cp "$SIGNED" "dist/Riftgate-Setup-$V.exe"
+          node scripts/refresh-update-files.js dist
+      - name: Check the signature
+        if: env.SIGNPATH_ON == 'true'
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          $s = Get-AuthenticodeSignature "dist/Riftgate-Setup-$v.exe"
+          if ($s.Status -ne 'Valid') { throw "The installer isn't signed properly: $($s.Status)" }
+          Write-Host "Signed by: $($s.SignerCertificate.Subject)"
+      - name: Upload the signed installer to the release
+        if: env.SIGNPATH_ON == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V="$(node -p "require('./package.json').version")"
+          gh release upload "v$V" "dist/Riftgate-Setup-$V.exe" "dist/Riftgate-Setup-$V.exe.blockmap" dist/latest.yml --repo "$GITHUB_REPOSITORY" --clobber
 
   # Every release page gets its notes from the in-app changelog.
   notes:

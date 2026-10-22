@@ -71,7 +71,7 @@ function releaseNotes(version, lines, assets) {
         if (!g[k].length) continue;
         parts.push(`### ${k}`, "", ...g[k].map((l) => `- ${end(l)}`), "");
     }
-    parts.push(`Every version's changes: [CHANGELOG.md](${REPO}/blob/main/CHANGELOG.md)`);
+    parts.push(`Every version's changes: [CHANGELOG.md](${REPO}/blob/main/CHANGELOG.md) · [Code signing policy](https://raidex81.github.io/riftgate/code-signing.html) · [Privacy](https://raidex81.github.io/riftgate/privacy.html)`);
     return parts.join("\n") + "\n";
 }
 

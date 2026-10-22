@@ -67,6 +67,14 @@ in is only for extras like sharing themes and sending suggestions.
 What changed in each version: [CHANGELOG.md](CHANGELOG.md) (the same notes
 as **What's new** inside Riftgate).
 
+**Code signing policy:** how Windows releases are built and signed, who
+approves a signature, and how to check one:
+[Code signing policy](https://raidex81.github.io/riftgate/code-signing.html).
+Free code signing provided by [SignPath.io](https://signpath.io),
+certificate by [SignPath Foundation](https://signpath.org) (applied for;
+until it's accepted, the installer isn't signed yet). What Riftgate keeps
+and sends: [Privacy](https://raidex81.github.io/riftgate/privacy.html).
+
 ---
 
 ## What's inside

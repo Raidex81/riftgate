@@ -97,6 +97,9 @@ Then, all on GitHub — no token or local build needed (Windows and Mac can run 
    → **Run workflow** → **Run workflow**. It builds the installer on
    GitHub's own Windows machine and uploads it (plus `latest.yml`) into
    that release.
+   Once signing is set up (SIGNING.md), the run stops at "Sign it" until
+   you approve the signing request on signpath.io, then uploads the signed
+   installer.
 3. **Mac:** do the same with "Publish macOS Release" (5b below).
 
 **Fallback — building Windows on your own PC** (if the Windows workflow
@@ -104,7 +107,8 @@ is ever unavailable): create a fine-grained token (only
 Raidex81/Riftgate, **Contents: Read and write**, 7-day expiry), then in a
 new PowerShell window: `$env:GH_TOKEN = Read-Host "Paste GitHub token"`,
 paste it, and run `npm.cmd run release`. Never save the token
-permanently (no `setx`), and delete it afterwards.
+permanently (no `setx`), and delete it afterwards. An installer built
+this way is never signed.
 
 ## 5b. Build and publish the macOS release
 

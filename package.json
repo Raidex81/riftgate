@@ -61,6 +61,7 @@
       "!.env*",
       "!games.json",
       "!RELEASE.md",
+      "!SIGNING.md",
       "!nul",
       "!git",
       "!**/*.bak",

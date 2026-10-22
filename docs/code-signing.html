@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code signing policy — Riftgate</title>
+<meta name="description" content="How Riftgate's Windows releases are built and signed, who may approve a signature, and how to check one.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site-style.css">
+</head>
+<body>
+<div class="grain"></div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./" style="text-decoration:none">💠 <span>RIFTGATE</span></a>
+    <nav><a href="./#features">Features</a><a href="./#download">Download</a><a href="privacy.html">Privacy</a></nav>
+    <a class="btn btn-primary btn-small" href="./#download">Download</a>
+  </div>
+</header>
+
+<main class="faq" style="margin-top:120px">
+  <h2>Code signing policy</h2>
+  <p style="color:var(--text-muted)"><strong>Free code signing provided by <a href="https://signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>.</strong></p>
+  <p style="color:var(--text-muted)">Riftgate has applied to the SignPath Foundation's free signing program for open-source projects. Until it's accepted, Windows installers are not signed yet; from then on, every Windows installer is signed as described here.</p>
+
+  <div class="faq-item"><h3>What is signed</h3>
+    <p>The Windows installer (<code>Riftgate-Setup-&lt;version&gt;.exe</code>) of every release on <a href="https://github.com/Raidex81/riftgate/releases">GitHub Releases</a>. Its product name is Riftgate and its version is the release's version. Riftgate signs only what its own team builds from its own source code.</p></div>
+
+  <div class="faq-item"><h3>How it's built</h3>
+    <p>Every release is built from the public source code on GitHub's own Windows machines, by the <a href="https://github.com/Raidex81/riftgate/blob/main/.github/workflows/release-windows.yml">Publish Windows Release</a> workflow. Nothing is built or signed on a personal computer. SignPath checks that the installer came from that workflow and that repository before signing it, and each signing request has to be approved by hand.</p></div>
+
+  <div class="faq-item"><h3>Team roles</h3>
+    <p><strong>Authors</strong> (may change the source code without a further review), <strong>reviewers</strong> (review every change from anyone else, such as pull requests) and <strong>approvers</strong> (approve each signing request): <a href="https://github.com/Raidex81">Raidex81</a>, the project's owner and maintainer. Everyone in these roles uses multi-factor authentication on GitHub and SignPath. Contributions from others come in as pull requests and are reviewed before they're merged.</p></div>
+
+  <div class="faq-item"><h3>Privacy</h3>
+    <p>Riftgate doesn't send anything about you without you asking for it: the only thing it can send on its own is an anonymous weekly count, and only after you say yes in the app. Everything it does ask the internet for, and why, is on the <a href="privacy.html">privacy page</a>.</p></div>
+
+  <div class="faq-item"><h3>Checking a signature</h3>
+    <p>Right-click the installer → Properties → Digital Signatures: the signer is SignPath Foundation. Or in PowerShell: <code>Get-AuthenticodeSignature .\Riftgate-Setup-&lt;version&gt;.exe</code> should say <code>Valid</code>.</p></div>
+
+  <div class="faq-item"><h3>Something looks wrong?</h3>
+    <p>If a file claims to be Riftgate but isn't signed by SignPath Foundation, or came from anywhere other than GitHub Releases, don't run it. Tell us at <a href="mailto:riftgateappdev@zohomail.eu">riftgateappdev@zohomail.eu</a> with where it came from and its SHA-256, or see <a href="https://github.com/Raidex81/riftgate/blob/main/SECURITY.md">SECURITY.md</a>.</p></div>
+</main>
+
+<footer>
+  Riftgate — open source under the GNU GPL v3.0, built with Electron.
+  &nbsp;·&nbsp; <a href="https://github.com/Raidex81/Riftgate">GitHub</a>
+  &nbsp;·&nbsp; <a href="privacy.html">Privacy</a>
+  &nbsp;·&nbsp; <a href="mailto:riftgateappdev@zohomail.eu">riftgateappdev@zohomail.eu</a>
+</footer>
+</body>
+</html>
