@@ -50,8 +50,11 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
 
     const out = ac.createDynamicsCompressor();
     out.threshold.value = -14; out.knee.value = 12; out.ratio.value = 4; out.attack.value = .003; out.release.value = .25;
-    const master = ac.createGain(); master.gain.value = volume;
-    master.connect(out); out.connect(ac.destination);
+    // the mix drives the compressor at a fixed level (that's the sound's
+    // character); `volume` is how loud it then comes out (.7 = as designed)
+    const master = ac.createGain(); master.gain.value = .7;
+    const loud = ac.createGain(); loud.gain.value = Math.max(0, volume) / .7;
+    master.connect(out); out.connect(loud); loud.connect(ac.destination);
 
     // everything up to the opening of the rift goes through `pre`, so a skip can silence it at once
     const pre = ac.createGain(); pre.connect(master);

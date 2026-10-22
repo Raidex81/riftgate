@@ -6,6 +6,7 @@ import { h, icon, clear, debounce } from "../app/dom.js";
 import { call, forget } from "../app/api.js";
 import * as account from "../app/account.js";
 import * as admin from "../app/admin.js";
+import * as suggestWatch from "../app/suggest-watch.js";
 import { openAccount } from "../components/account.js";
 import { toast } from "../components/toast.js";
 import { ago } from "../app/format.js";
@@ -32,6 +33,7 @@ export default {
         await account.ready();
         const me = account.current();
         const role = await admin.myRole();
+        if (role) suggestWatch.seen(); // an admin is looking: the new ones are seen
 
         // ---- Compose ----
         const catChips = h("div.chips", { role: "radiogroup", "aria-label": "Kind of suggestion" });

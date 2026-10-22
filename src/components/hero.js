@@ -94,7 +94,7 @@ let sound = null;
 function zap() {
     settings().then((s) => {
         if (s.startupSound === false) return;
-        if (!sound) { const AC = window.AudioContext || window.webkitAudioContext; sound = createIntroSound(new AC({ latencyHint: "interactive" }), { volume: .6 }); }
+        if (!sound) { const AC = window.AudioContext || window.webkitAudioContext; sound = createIntroSound(new AC({ latencyHint: "interactive" }), { volume: .25 }); }
         sound.cue("thunder");
     }).catch(() => { /* no sound */ });
 }

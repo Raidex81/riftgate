@@ -423,6 +423,17 @@ breaks on the first bolt and rolls under the rest, and plays again when the
 gem in Nexus is clicked. If it can't be loaded, a synthesised electric
 crack stands in.
 
+## New suggestions, for admins
+
+While an admin is signed in, `engine/suggestions.js` asks for the newest
+20 suggestions every 10 minutes (one small request; nothing is asked when
+no admin is signed in). Suggestions made by someone else since the admin
+last opened Suggestions make the Suggestions button blink with a count,
+and each new batch shows a Windows notification (clicking it opens
+Suggestions) and a note in the window. What was seen and announced is
+kept per PC in `r2-suggestions-seen.json`; the first time on a PC starts
+from then, so old suggestions aren't announced.
+
 ## Languages
 
 The interface is written in English. `src/app/i18n.js` translates the

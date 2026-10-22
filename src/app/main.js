@@ -21,6 +21,7 @@ import { toast } from "../components/toast.js";
 import * as interests from "./interests.js";
 import * as theme from "./theme.js";
 import * as i18n from "./i18n.js";
+import * as suggestWatch from "./suggest-watch.js";
 import * as account from "./account.js";
 import { accountChip, openAccount } from "../components/account.js";
 
@@ -177,6 +178,18 @@ function buildRail() {
             h("button.btn.primary.today-btn", { type: "button", onclick: () => openToday(), title: "What do you want to do today? (R)" }, icon("dice"), h("span", null, "Surprise me")),
             settingsBtn, accountChip(), version));
     navButtons.get(current)?.setAttribute("aria-current", "page");
+    paintSuggestions();
+}
+
+// Admins: Suggestions blinks while there are new ones (suggest-watch.js)
+function paintSuggestions() {
+    const b = navButtons.get("suggestions");
+    if (!b) return;
+    const n = suggestWatch.unseen();
+    b.classList.toggle("is-calling", n > 0);
+    b.querySelector(".nav-badge")?.remove();
+    if (n > 0) b.appendChild(h("b.nav-badge", { "aria-label": `${n} new` }, String(n > 9 ? "9+" : n)));
+    b.title = n > 0 ? `Suggestions: ${n} new` : "Suggestions (drag to reorder)";
 }
 
 // Drag a section up or down within its group; the others slide aside
@@ -375,6 +388,9 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
         if (r && r.success) { await appSettings({ fresh: true }); forget("load-games"); window.dispatchEvent(new CustomEvent("r2-library-changed")); }
     }, 40 * 1000);
     buildRail();
+    // admins: new suggestions make Suggestions blink, with a note when they arrive
+    suggestWatch.onCount(paintSuggestions);
+    suggestWatch.start({ note: (d) => toast(d.told === 1 && d.latest ? `New suggestion from ${d.latest.username || "someone"}: ${d.latest.text}` : `${d.told} new suggestions`, "ok", 8000) });
     mountFacts(document.getElementById("app"));
     // when an outside source fails: the notice under the title bar, and Try
     // again drawing the section again from scratch (sources.js)

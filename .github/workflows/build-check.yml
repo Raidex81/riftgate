@@ -45,6 +45,8 @@ jobs:
         run: node tests/backup.test.js
       - name: Import from Letterboxd, Goodreads, IMDb, MyAnimeList and Steam
         run: node tests/imports.test.js
+      - name: New suggestions for admins
+        run: node tests/suggestions.test.js
       - name: Languages (the translator and the Portuguese file)
         run: node --no-warnings tests/i18n.test.js
       - name: Engine loads and every handler is callable

@@ -4751,6 +4751,8 @@ require("./engine/achievements").register(ipcMain, { steamApi: (p, query) => med
 require("./engine/content").register(ipcMain);
 // Back up and restore everything that is yours, and keep a copy in a folder you choose
 require("./engine/backup").register(ipcMain);
+// Admins: new suggestions (the Suggestions button blinks, and a notification)
+require("./engine/suggestions").register(ipcMain, { iconPath: () => resolveIconPath("icon.ico") });
 // Your history from Letterboxd, Goodreads, IMDb and MyAnimeList exports, and your Steam wishlist
 require("./engine/imports").register(ipcMain, { tmdb: (p, query) => mediaProxyGetJsonPlain("tmdb", p, query) });
 

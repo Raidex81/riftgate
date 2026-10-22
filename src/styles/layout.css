@@ -133,6 +133,16 @@ kbd {
     background: linear-gradient(90deg, color-mix(in srgb, var(--amethyst) 26%, transparent), transparent 85%);
 }
 .nav-item[aria-current="page"] svg { color: var(--amethyst-soft); filter: drop-shadow(0 0 6px var(--amethyst)); }
+/* Suggestions, for admins, while there are new ones: a slow glowing pulse and a count */
+.nav-item.is-calling { color: var(--starlight); animation: nav-calling 1.6s var(--ease) infinite; }
+.nav-item.is-calling svg { color: var(--energy-1, var(--amethyst-soft)); }
+.nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; display: grid; place-items: center; border-radius: 10px;
+    font-size: var(--t-xs); font-weight: 700; color: var(--on-accent); background: var(--energy); }
+@keyframes nav-calling {
+    0%, 100% { background: transparent; box-shadow: none; }
+    50% { background: color-mix(in srgb, var(--amethyst) 26%, transparent); box-shadow: inset 3px 0 0 var(--amethyst), 0 0 18px color-mix(in srgb, var(--amethyst) 45%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .nav-item.is-calling { animation: none; background: color-mix(in srgb, var(--amethyst) 20%, transparent); } }
 .nav-item .count { margin-left: auto; font-size: var(--t-xs); color: var(--dust-2); }
 
 /* The rift line: a thin energy seam down the rail's edge. Its bright node
@@ -227,3 +237,8 @@ kbd {
 .source-banner button svg { width: 14px; height: 14px; }
 .source-banner-retry { border: 1px solid var(--line-strong); }
 .source-banner-retry:hover, .source-banner-close:hover { background: var(--nebula-3); }
+/* the narrow rail: the count sits on the icon */
+@media (max-width: 1100px) {
+    .nav-item { position: relative; }
+    .nav-badge { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; }
+}

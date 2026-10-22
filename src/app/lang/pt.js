@@ -1695,5 +1695,10 @@ export default {
     "Something scary": "Algo assustador",
     "A great story, any kind": "Uma grande história, de qualquer tipo",
     "Something to share with friends": "Algo para partilhar com amigos",
-    "{0}/10 from {1} votes": "{0}/10 de {1} votos"
+    "{0}/10 from {1} votes": "{0}/10 de {1} votos",
+    "New suggestion from {0}: {1}": "Nova sugestão de {0}: {1}",
+    "{0} new suggestions": "{0} sugestões novas",
+    "Suggestions: {0} new": "Sugestões: {0} novas",
+    "{0} new": "{0} novas",
+    "someone": "alguém"
 };

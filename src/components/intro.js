@@ -14,6 +14,9 @@ import { Rift } from "./rift.js";
 import { createIntroSound, OPEN_AT, STRIKES } from "./intro-sound.js";
 import { t as tr } from "../app/i18n.js";
 
+// how loud the opening is (the sound's own default is .7, which was too loud)
+const OPENING_VOLUME = .25;
+
 const LENGTH = OPEN_AT + .55, FADE = 0.55;
 const TAU = Math.PI * 2;
 const ease = {
@@ -101,7 +104,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     if (withSound) {
         try {
             const AC = window.AudioContext || window.webkitAudioContext;
-            sound = createIntroSound(new AC({ latencyHint: "interactive" }), { prebuild: true, season: document.documentElement.dataset.season || null });
+            sound = createIntroSound(new AC({ latencyHint: "interactive" }), { volume: OPENING_VOLUME, prebuild: true, season: document.documentElement.dataset.season || null });
             cueList = sound.TIMELINE.filter(([, name]) => name !== "strike");
         } catch (e) { sound = null; }
     }
