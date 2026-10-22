@@ -55,6 +55,24 @@ function register(ipcMain, app) {
         try { write(data); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
     });
 
+    // merge: { section: "journal", entries: { key: value } } — many at once
+    // (imports), in one write. An entry's own updatedAt is kept when given.
+    ipcMain.handle("r2-store-merge", (event, args) => {
+        const { section, entries } = args || {};
+        if (section !== "journal" || !entries || typeof entries !== "object" || Array.isArray(entries)) return { ok: false, error: "Invalid entries" };
+        const keys = Object.keys(entries);
+        if (keys.length > 6000) return { ok: false, error: "Too many entries at once" };
+        const data = read();
+        let n = 0;
+        for (const key of keys) {
+            const value = entries[key];
+            if (!KEY_RE.test(key) || !value || typeof value !== "object" || Array.isArray(value) || JSON.stringify(value).length > 20000) continue;
+            data.journal[key] = { ...value, updatedAt: Number.isFinite(value.updatedAt) && value.updatedAt > 0 ? value.updatedAt : Date.now() };
+            n++;
+        }
+        try { write(data); return { ok: true, saved: n }; } catch (err) { return { ok: false, error: err.message }; }
+    });
+
     const originalDataDirs = () => {
         const appData = app.getPath("appData");
         return ["Riftgate", "riftgate"].map((n) => path.join(appData, n))

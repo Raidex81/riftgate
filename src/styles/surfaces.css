@@ -846,3 +846,19 @@
 .backup-setting .backup-auto { display: grid; gap: var(--s2); padding-top: var(--s4); border-top: 1px solid var(--line); }
 .backup-setting .backup-auto h4 { font-size: var(--t-md); }
 .backup-box .backup-actions { justify-content: flex-end; margin-top: var(--s2); }
+
+/* Journal: import your history */
+.import-box { width: min(760px, 92vw); }
+.import-body { display: grid; gap: var(--s4); }
+.import-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s3); }
+.import-source { display: grid; gap: 2px; padding: var(--s3) var(--s4); background: var(--nebula-2); border: 1px solid var(--line); }
+.import-source b { font-size: var(--t-md); }
+.import-source span { color: var(--starlight-2); font-size: var(--t-sm); }
+.import-source small { font-size: var(--t-xs, 12px); line-height: 1.45; }
+.import-source .linkish { display: inline-flex; align-items: center; gap: 3px; }
+.import-source .linkish svg { width: 12px; height: 12px; }
+.import-actions { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; }
+.import-status { min-height: 1.4em; color: var(--starlight-2); }
+.import-bar { height: 6px; }
+.import-done { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-lg); }
+.import-done svg { color: var(--energy); }

@@ -100,7 +100,7 @@ const TMDB_GENRES = { 28: "Action", 12: "Adventure", 16: "Animation", 35: "Comed
     14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Science Fiction", 10770: "TV Movie",
     53: "Thriller", 10752: "War", 37: "Western", 10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality",
     10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics" };
-const tmdbGenres = (ids) => (Array.isArray(ids) ? ids.map((id) => TMDB_GENRES[id]).filter(Boolean) : []);
+export const tmdbGenres = (ids) => (Array.isArray(ids) ? ids.map((id) => TMDB_GENRES[id]).filter(Boolean) : []);
 const count = (n) => (typeof n === "number" && n >= 0 ? n : null);
 
 export function fromFilm(m) {

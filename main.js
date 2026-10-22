@@ -4751,6 +4751,8 @@ require("./engine/achievements").register(ipcMain, { steamApi: (p, query) => med
 require("./engine/content").register(ipcMain);
 // Back up and restore everything that is yours, and keep a copy in a folder you choose
 require("./engine/backup").register(ipcMain);
+// Your history from Letterboxd, Goodreads, IMDb and MyAnimeList exports, and your Steam wishlist
+require("./engine/imports").register(ipcMain, { tmdb: (p, query) => mediaProxyGetJsonPlain("tmdb", p, query) });
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];

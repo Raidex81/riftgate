@@ -366,6 +366,8 @@ it gets the most layers:
 | Steam news (`ISteamNews`) | Your Steam games' announcements and patch notes (Nexus, a game's details) | Direct, no key, kept 6 hours per game |
 | Jikan (MyAnimeList) | This season's anime, with when new episodes air (Theatre) | Direct, no key, kept 12 hours |
 | LibriVox | Free public-domain audiobooks (Reading room) | Direct, no key, kept a day |
+| Steam wishlist (`IWishlistService`, `IStoreBrowseService`) | Bringing your public Steam wishlist into Riftgate's (Journal → Import) | Direct, no key, only when you ask |
+| Open Library covers | Covers of books imported from Goodreads, by ISBN | Direct (picture links) |
 | Resend | Account emails | `account-email` Edge Function (key server-side) |
 
 The four proxied sources are the ones that need a paid or rate-limited
@@ -529,6 +531,18 @@ folder) get their newer data brought over once on the first start of
 2.0. Any 1.x file it replaces is first copied to a
 `backup-before-2.0-<date>` folder, and the preview's folder is left as
 it was.
+
+**Imports** (`engine/imports.js`, Journal → Import) read the export
+files Letterboxd (zip or CSVs), Goodreads (CSV), IMDb (ratings, watchlist
+or list CSV) and MyAnimeList (anime list XML, gzipped or not) give for
+free, into plain items. Films, series and anime are matched to TMDB
+through the media proxy, four at a time, once: every match is kept in
+`cache-import-matches.json`. The interface turns the items into Journal
+entries and saves them in one write (`r2-store-merge`): a new entry
+keeps the date it had on the other site, and an entry you already have
+only gets what it's missing. The Steam wishlist comes from Steam's
+public `IWishlistService` and `IStoreBrowseService` (no key), and each
+game goes through the normal wishlist add, so it gets price-drop alerts.
 
 **Cloud** (Supabase) holds anything shared or cross-device: accounts and
 sessions, the date of birth and mature-title choice, suggestions,

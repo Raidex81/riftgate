@@ -11,6 +11,7 @@ import { hours, plural } from "../app/format.js";
 import { sealsSection } from "../components/seals.js";
 import { trophyRoom } from "../components/trophy-room.js";
 import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
+import { openImport } from "../components/import.js";
 
 const STATUS_ORDER = ["progress", "planned", "completed", "hold", "dropped"];
 
@@ -30,7 +31,8 @@ export default {
         root.append(
             h("div.view-head", null, h("div", null, h("h1", null, "Journal"),
                 h("p", null, "Your games, films, series, anime and books in one place. Open anything in Riftgate and set its status, rating and progress.")),
-                h("div.actions", null, h("button.btn.primary", { type: "button", onclick: () => openRewind(rewindSeason() ? rewindYear() : new Date().getFullYear()) },
+                h("div.actions", null, h("button.btn", { type: "button", title: "Bring in your history from Letterboxd, Goodreads, IMDb, MyAnimeList or your Steam wishlist", onclick: () => openImport() }, icon("import"), "Import"),
+                    h("button.btn.primary", { type: "button", onclick: () => openRewind(rewindSeason() ? rewindYear() : new Date().getFullYear()) },
                     icon("rift"), rewindSeason() ? `Rift Rewind ${rewindYear()}` : "Your year so far"))),
             stats, sealsSection(), trophyRoom(), favs, h("h2", null, "Everything you track"), filters, list);
 

@@ -184,6 +184,10 @@ for its creator. Made one yourself? Put it forward from inside the app.
   time, then goes back to your theme by itself. First up: the Hallowed
   Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
   cobwebs, bats and a haunted opening.
+- **Bring your history**: import what you watched, read and rated on
+  Letterboxd, Goodreads, IMDb and MyAnimeList (from the export file each
+  gives you) into your Journal, and your public Steam wishlist into
+  Riftgate's, with price-drop alerts.
 - **Back up and restore**: everything that is yours in one file, put
   back on this PC or a new one, and if you like a fresh copy kept every
   day in OneDrive, Dropbox or any folder you choose.
