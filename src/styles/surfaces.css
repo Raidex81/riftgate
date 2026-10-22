@@ -387,12 +387,17 @@
     clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
 .mood-gem svg { width: 22px; height: 22px; }
-.mood-label { font-family: var(--font-display); font-size: var(--t-xl); font-weight: 700; color: var(--hi); }
+.mood-label { font-family: var(--font-display); font-size: var(--t-xl); font-weight: 700; color: var(--hi); line-height: 1.15; text-wrap: balance; }
+/* room for the gem above the words, however many lines they take (longer in other languages) */
+.mood { padding-top: calc(var(--s4) + 40px + var(--s3)); }
 .mood-hint { color: var(--dust); font-size: var(--t-sm); }
-.moods.big .mood { min-height: 190px; padding: var(--s6); }
+.moods.big .mood { min-height: 190px; padding: calc(var(--s6) + 52px + var(--s3)) var(--s6) var(--s6); }
 .moods.big .mood-gem { width: 52px; height: 52px; top: var(--s6); left: var(--s6); }
 .moods.big .mood-gem svg { width: 28px; height: 28px; }
 .moods.big .mood-label { font-size: var(--t-2xl); }
+/* longer words in other languages: the big tiles' titles shrink to fit their tile */
+:root:not([lang="en"]) .moods.big .mood { container-type: inline-size; }
+:root:not([lang="en"]) .moods.big .mood-label { font-size: min(var(--t-2xl), 14.5cqi); }
 
 /* The question, inline on Nexus */
 .today-band {

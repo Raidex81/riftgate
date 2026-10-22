@@ -18,6 +18,7 @@ import * as admin from "../app/admin.js";
 import * as alerts from "../app/alerts.js";
 import { achievementsBox } from "./achievements.js";
 import { newsBox } from "./game-news.js";
+import { t, locale } from "../app/i18n.js";
 
 let current = null;
 
@@ -56,8 +57,8 @@ export function openDetail(item) {
             : null);
 
     const actions = h("div.detail-actions");
-    const desc = h("p.detail-desc", null, item.desc || "");
-    const head = h("div", null, h("h1", null, item.title), item.sub ? h("p.muted", { style: { marginTop: "6px" } }, item.sub) : null, meta, actions);
+    const desc = h("p.detail-desc", { translate: "no" }, item.desc || "");
+    const head = h("div", null, h("h1", { translate: "no" }, item.title), item.sub ? h("p.muted", { style: { marginTop: "6px" } }, item.sub) : null, meta, actions);
 
     const scrim = h("div.scrim", { onclick: closeDetail });
     const panel = h("aside.detail", { role: "dialog", "aria-modal": "true", "aria-label": item.title },
@@ -239,7 +240,7 @@ function nextEpisodeBox(item) {
         h("div.next-ep-row", null,
             h("b.next-ep-code", null, n.code),
             h("div.grow", null, h("div", null, n.name || "Title not announced yet"),
-                h("div.muted", null, new Date(at).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))),
+                h("div.muted", null, new Date(at).toLocaleString(locale(), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))),
             h("b.next-ep-count", { dataset: { countdown: String(at) } }, countdown(at))));
 }
 
@@ -318,7 +319,7 @@ async function fillDescription(item, el) {
     else if (item.workKey) text = await call("get-openlibrary-description", item.workKey);
     else if (item.type === "game") text = await call("fetch-description", item.title);
     if (!el.isConnected) return;
-    el.textContent = text || "No description available yet.";
+    el.textContent = text || t("No description available yet.");
     if (!text) el.classList.add("muted");
 }
 

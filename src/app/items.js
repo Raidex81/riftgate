@@ -14,6 +14,8 @@
 //   raw        the original object, for actions that need engine fields
 // }
 
+import { locale } from "./i18n.js";
+
 export function slug(s) {
     return (s || "").toLowerCase().normalize("NFKD").replace(/[®™©]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -240,7 +242,7 @@ export function airsLocally(b, now = Date.now()) {
     let at = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + days, hh, mm) - 9 * 3600e3;
     if (at <= now) at += 7 * 24 * 3600e3;
     const d = new Date(at);
-    return { at, day: d.toLocaleDateString(undefined, { weekday: "long" }), time: d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) };
+    return { at, day: d.toLocaleDateString(locale(), { weekday: "long" }), time: d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" }) };
 }
 
 // This season's anime (Jikan / MyAnimeList)

@@ -192,6 +192,8 @@ for its creator. Made one yourself? Put it forward from inside the app.
   time, then goes back to your theme by itself. First up: the Hallowed
   Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
   cobwebs, bats and a haunted opening.
+- **In Portuguese too**: Settings → Language. Riftgate follows Windows'
+  language by itself (English and Portuguese for now).
 - **Bring your history**: import what you watched, read and rated on
   Letterboxd, Goodreads, IMDb and MyAnimeList (from the export file each
   gives you) into your Journal, and your public Steam wishlist into

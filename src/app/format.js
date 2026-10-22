@@ -1,5 +1,7 @@
 // Riftgate — formatting helpers (plain words, the user's locale).
 
+import { locale, t } from "./i18n.js";
+
 export function hours(seconds) {
     if (!seconds) return null;
     const h = seconds / 3600;
@@ -34,13 +36,13 @@ export function until(dateStr) {
 export function dateLong(dateStr) {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr || "";
-    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function money(value, currency) {
     if (typeof value !== "number") return "";
     if (value === 0) return "Free";
-    try { return value.toLocaleString(undefined, { style: "currency", currency: currency || "USD" }); }
+    try { return value.toLocaleString(locale(), { style: "currency", currency: currency || "USD" }); }
     catch (e) { return `${value.toFixed(2)} ${currency || ""}`.trim(); }
 }
 
@@ -48,7 +50,7 @@ export function score(rating) {
     return typeof rating === "number" ? rating.toFixed(1).replace(/\.0$/, "") : null;
 }
 
-export function plural(n, one, many) { return `${n.toLocaleString()} ${n === 1 ? one : (many || one + "s")}`; }
+export function plural(n, one, many) { return `${n.toLocaleString()} ${t(n === 1 ? one : (many || one + "s"))}`; }
 
 // "in 2d 5h", "in 3h 12m", "in 8m": a countdown that reads at a glance
 export function countdown(ts) {

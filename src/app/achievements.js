@@ -14,6 +14,7 @@
 
 import { call, on } from "./api.js";
 import { flag } from "./seals.js";
+import { locale } from "./i18n.js";
 
 export const TIERS = [
     { id: "legendary", label: "Legendary", max: 1, hint: "fewer than 1% of players" },
@@ -51,8 +52,8 @@ export function dayLabel(ts) {
     const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400e3);
     if (days <= 0) return "Today";
     if (days === 1) return "Yesterday";
-    if (days < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
-    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
+    if (days < 7) return d.toLocaleDateString(locale(), { weekday: "long" });
+    return d.toLocaleDateString(locale(), { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
 }
 // How your unlocks split across tiers: [{ tier, n }]
 export function tierCounts(items) {

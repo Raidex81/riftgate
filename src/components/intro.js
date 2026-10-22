@@ -12,6 +12,7 @@
 
 import { Rift } from "./rift.js";
 import { createIntroSound, OPEN_AT, STRIKES } from "./intro-sound.js";
+import { t as tr } from "../app/i18n.js";
 
 const LENGTH = OPEN_AT + .55, FADE = 0.55;
 const TAU = Math.PI * 2;
@@ -386,7 +387,7 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
                 const ts = Math.max(12, size * .3);
                 ctx.font = `600 ${ts}px ${getComputedStyle(document.body).fontFamily || "sans-serif"}`;
                 ctx.fillStyle = rgba("#ffffff", .8 * tag);
-                ctx.fillText("ALL YOUR WORLDS. ONE GATEWAY.".split("").join(String.fromCharCode(8202)), cx, nameY + size * .85);
+                ctx.fillText(tr("ALL YOUR WORLDS. ONE GATEWAY.").split("").join(String.fromCharCode(8202)), cx, nameY + size * .85);
                 const uw = total * .6 * tag;
                 g = ctx.createLinearGradient(cx - uw / 2, 0, cx + uw / 2, 0);
                 g.addColorStop(0, rgba(a, 0)); g.addColorStop(.5, rgba(b, 1)); g.addColorStop(1, rgba(a, 0));

@@ -20,6 +20,7 @@ import { openToday, openAsk, MOODS } from "../components/today.js";
 import { toast } from "../components/toast.js";
 import * as interests from "./interests.js";
 import * as theme from "./theme.js";
+import * as i18n from "./i18n.js";
 import * as account from "./account.js";
 import { accountChip, openAccount } from "../components/account.js";
 
@@ -341,6 +342,7 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
     buildTitlebar();
     listenForFarewell(); // the closing sound when Riftgate quits for good
     await theme.start(); // journal + your themes, applied before anything paints
+    await i18n.start(); // your language, before anything is drawn
     applyLook(); // card size and type colours
     const firstStart = !interests.chosen();
     const lastVisit = markVisits(); // for "While you were away"

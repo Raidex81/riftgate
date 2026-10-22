@@ -13,6 +13,7 @@ import { call } from "../app/api.js";
 import { hours } from "../app/format.js";
 import { Rift } from "./rift.js";
 import { toast } from "./toast.js";
+import { t } from "../app/i18n.js";
 
 const KINDS = [["game", "games", "--type-game"], ["film", "films", "--type-film"], ["series", "series", "--type-series"], ["anime", "anime", "--type-anime"], ["book", "books", "--type-book"]];
 
@@ -107,15 +108,15 @@ export async function openRewind(year = rewindYear()) {
         await new Promise((res) => setTimeout(res, 300)); r.draw(0);
         x.drawImage(rc, W - H - 20, 0, H, H);
         r.destroy(); rc.remove();
-        x.fillStyle = css("--amethyst-soft", "#b98cff"); x.font = `600 22px ${css("--font", "sans-serif")}`; x.fillText(soFar ? "MY YEAR SO FAR IN THE RIFT" : "MY YEAR IN THE RIFT", 64, 110);
+        x.fillStyle = css("--amethyst-soft", "#b98cff"); x.font = `600 22px ${css("--font", "sans-serif")}`; x.fillText(t(soFar ? "MY YEAR SO FAR IN THE RIFT" : "MY YEAR IN THE RIFT"), 64, 110);
         x.fillStyle = "#ffffff"; x.font = `700 120px ${css("--font-display", "sans-serif")}`; x.fillText(String(year), 58, 230);
         x.font = `500 30px ${css("--font", "sans-serif")}`;
-        const lines = [total ? `${total} finished: ${KINDS.filter(([k]) => y.byKind[k]).map(([k, l]) => `${y.byKind[k]} ${y.byKind[k] === 1 ? l.replace(/s$/, "") : l}`).join(", ")}` : null,
+        const lines = [total ? `${total} finished: ${KINDS.filter(([k]) => y.byKind[k]).map(([k, l]) => `${y.byKind[k]} ${t(y.byKind[k] === 1 && l !== "series" ? l.replace(/s$/, "") : l)}`).join(", ")}` : null,
             y.top ? `Most played: ${y.top.title}` : null, y.claims ? `${y.claims} free games claimed` : null, y.seals.length ? `${y.seals.length} seals earned` : null,
-            `${y.relics.length} relics in my rift`].filter(Boolean).slice(0, 4);
+            `${y.relics.length} relics in my rift`].filter(Boolean).slice(0, 4).map(t);
         x.fillStyle = css("--starlight", "#ede6ff");
-        lines.forEach((l, k) => { let t = l; while (x.measureText(t).width > 560 && t.length > 4) t = t.slice(0, -2); if (t !== l) t += "…"; x.fillText(t, 64, 310 + k * 52); });
-        x.fillStyle = css("--dust", "#9a8fb8"); x.font = `600 20px ${css("--font", "sans-serif")}`; x.fillText("RIFTGATE · ALL YOUR WORLDS. ONE GATEWAY.", 64, H - 50);
+        lines.forEach((l, k) => { let s = l; while (x.measureText(s).width > 560 && s.length > 4) s = s.slice(0, -2); if (s !== l) s += "…"; x.fillText(s, 64, 310 + k * 52); });
+        x.fillStyle = css("--dust", "#9a8fb8"); x.font = `600 20px ${css("--font", "sans-serif")}`; x.fillText(t("RIFTGATE · ALL YOUR WORLDS. ONE GATEWAY."), 64, H - 50);
         const res = await call("r2-save-image", { name: `Riftgate Rewind ${year}`, dataUrl: c.toDataURL("image/png") });
         if (res && res.ok) toast("Your card is saved, ready to share.");
         else if (!(res && res.canceled)) toast("The card couldn't be saved.", "err");

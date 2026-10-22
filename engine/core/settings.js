@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS = {
     movieCountry: "US",
     upcomingMoviesCountry: "US",
     startupSection: "new",
+    // "auto" follows Windows' language when Riftgate has it (src/app/i18n.js)
+    language: "auto",
     lastReadingRoomTab: "buyfree",
     movieCity: "",
     // "Your cinema" per city, keyed "PT|Lisbon" -> { id, name, label, url }.

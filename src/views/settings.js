@@ -17,6 +17,7 @@ import * as gate from "../app/mature.js";
 import * as facts from "../components/facts.js";
 import { startTour } from "../components/tour.js";
 import { backupSetting } from "../components/backup.js";
+import * as i18n from "../app/i18n.js";
 import { shortAgo, retry as retrySources, clearFailing } from "../app/sources.js";
 
 function setting(title, desc, control) {
@@ -72,6 +73,18 @@ export default {
                 h("button.btn", { type: "button", onclick: () => openWhatsNew() }, icon("bell"), "What's new"),
                 h("button.btn", { type: "button", onclick: () => checkForUpdates() }, icon("refresh"), "Check for updates"),
                 h("button.btn", { type: "button", onclick: () => { location.hash = "suggestions"; } }, icon("chat"), "Suggestions"))));
+
+        // Language
+        {
+            const langSel = h("select.input", { "aria-label": "Language" }, i18n.LANGUAGES.map((l) => h("option", { value: l.id, translate: l.id === "auto" ? null : "no" }, l.label)));
+            langSel.value = s.language || "auto";
+            langSel.addEventListener("change", async () => {
+                const before = i18n.language();
+                await saveSettings({ language: langSel.value });
+                if (i18n.resolve(langSel.value) !== before) location.reload();
+            });
+            box.appendChild(setting("Language", "Riftgate's own words: menus, buttons and messages. Titles and descriptions stay as each source writes them.", langSel));
+        }
 
         // TV mode and controllers
         const tvSel = h("select.input", { "aria-label": "TV mode" },

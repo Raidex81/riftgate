@@ -10,6 +10,7 @@ import { hidden as gateHidden } from "../app/mature.js";
 import * as seen from "../app/seen.js";
 import { ambient } from "./ambient.js";
 import * as ach from "../app/achievements.js";
+import { locale, t as tr } from "../app/i18n.js";
 
 let openDetail = () => {};
 export function setDetailOpener(fn) { openDetail = fn; }
@@ -111,7 +112,7 @@ export function card(item, opts) {
     else if (item.rating) a.appendChild(h("span.tag.right.score", null, `★ ${score(item.rating)}`));
 
     const info = h("div.card-info", null,
-        h("div.card-title", null, item.title),
+        h("div.card-title", { translate: "no" }, item.title),
         item.sub ? h("div.card-sub", null, item.sub) : null
     );
 
@@ -149,7 +150,7 @@ function footFor(item, opts) {
         const at = Date.parse(item.next.airstamp);
         if (at > Date.now()) {
             tickCountdowns();
-            return h("div.card-foot.next-ep", { title: `Next: ${item.next.code}${item.next.name ? " · " + item.next.name : ""}\n${new Date(at).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}` },
+            return h("div.card-foot.next-ep", { title: `Next: ${item.next.code}${item.next.name ? " · " + item.next.name : ""}\n${new Date(at).toLocaleString(locale(), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}` },
                 icon("clock"), h("span", null, `${item.next.code} `), h("b", { dataset: { countdown: String(at) } }, countdown(at)));
         }
     }
@@ -166,7 +167,7 @@ function paintSeen(el, item) {
     if (!t) return;
     t.querySelector(".seal-face").replaceChildren(icon(on ? "seen" : seen.isBook(item) ? "book" : "eye"));
     const book = seen.isBook(item);
-    el.querySelector(".card-art").dataset.seenLabel = book ? "Read" : "Watched";
+    el.querySelector(".card-art").dataset.seenLabel = tr(book ? "Read" : "Watched");
     t.querySelector(".seal-label").textContent = on ? (book ? "Read" : "Watched") : (book ? "Read it?" : item.kind === "episode" ? "Seen it?" : "Watched it?");
     t.title = book ? (on ? "Already read. Click to mark as not read (W)" : "Mark as already read (W)") : (on ? "Watched. Click to mark as not watched (W)" : "Mark as watched (W)");
     t.setAttribute("aria-label", t.title);

@@ -45,6 +45,7 @@ export function hero(slidesPromise) {
         back.classList.add("on"); front.classList.remove("on"); front = back;
         clear(kicker).append(icon(s.kickerIcon || "sparkles"), s.kicker);
         title.textContent = s.item.title;
+        title.setAttribute("translate", "no"); desc.setAttribute("translate", "no"); // a title and its description, as their source writes them
         desc.textContent = s.item.desc || s.item.sub || "";
         clear(actions).append(
             s.action ? h("button.btn.primary.lg", { type: "button", onclick: s.action.run }, icon(s.action.icon || "play"), s.action.label) : null,

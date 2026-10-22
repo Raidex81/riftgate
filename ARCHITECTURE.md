@@ -423,6 +423,29 @@ breaks on the first bolt and rolls under the rest, and plays again when the
 gem in Nexus is clicked. If it can't be loaded, a synthesised electric
 crack stands in.
 
+## Languages
+
+The interface is written in English. `src/app/i18n.js` translates the
+window as it's drawn: a `MutationObserver` looks up every text node and
+every `placeholder`, `title` and `aria-label` in the language file
+(`src/app/lang/<id>.js`, English sentence → translation), so views and
+components don't change to be translated. Sentences with something filled
+in are patterns (`"{0} days left": "Faltam {0} dias"`), tried only when the
+exact sentence isn't there; a pattern that is mostly blanks is never used,
+and a short one that starts with a blank only takes a number, so a title
+that happens to end in "days" is left alone. Anything inside
+`translate="no"` (card titles, a details panel's title and description,
+the Nexus banner) is never touched, and anything the file doesn't have
+stays in English. Text drawn on a canvas, and `plural()`'s nouns, go
+through `t()`. Dates use the language's locale. Settings → Language:
+Same as Windows (the default), English, Português; changing it reloads
+the window. To add a language: copy `lang/pt.js`, translate the right-hand
+side, and list it in `LANGUAGES` and `FILES` in `i18n.js`.
+
+Not translated yet: What's new (the changelog), the engine's own windows
+(file dialogs, notifications, the tray menu) and what other sites write
+(titles, descriptions, reviews).
+
 ## When a source fails
 
 Any of the sources above can be offline, slow, rate-limited or down.
