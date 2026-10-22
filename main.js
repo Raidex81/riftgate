@@ -4749,6 +4749,8 @@ require("./engine/usage").register(ipcMain);
 require("./engine/achievements").register(ipcMain, { steamApi: (p, query) => mediaProxyGetJsonPlain("steam", p, query) });
 // News of your Steam games, this season's anime, free audiobooks (public sources, no key)
 require("./engine/content").register(ipcMain);
+// Back up and restore everything that is yours, and keep a copy in a folder you choose
+require("./engine/backup").register(ipcMain);
 
 // Launcher links the importers actually produce. Anything else with "://" is refused.
 const ALLOWED_LAUNCH_URI_SCHEMES = ["steam:"];
@@ -8200,105 +8202,8 @@ ipcMain.handle("open-data-folder", async () => {
     return true;
 });
 
-// --- Backup / restore --------------------------------------------------
-// Bundles the user's actual library/notes/settings data into one portable
-// JSON file. Deliberately excludes: session.dat (a login token - exporting
-// it would let anyone with the file impersonate the user), and the
-// freegames-*/trailer-cache files (disposable caches that rebuild
-// themselves, not user data).
-const BACKUP_FORMAT_VERSION = 1;
-
-function readJsonFileSafe(filePath, fallback) {
-    try {
-        if (!fs.existsSync(filePath)) return fallback;
-        return JSON.parse(fs.readFileSync(filePath, "utf8"));
-    } catch (err) {
-        console.error(`[backup] failed to read ${filePath}:`, err.message || err);
-        return fallback;
-    }
-}
-
-ipcMain.handle("export-backup-data", async () => {
-    try {
-        const backup = {
-            riftgateBackup: true,
-            formatVersion: BACKUP_FORMAT_VERSION,
-            exportedAt: new Date().toISOString(),
-            appVersion: app.getVersion(),
-            data: {
-                games: readJsonFileSafe(GAMES_FILE, []),
-                settings: readJsonFileSafe(SETTINGS_FILE, {}),
-                overrides: readJsonFileSafe(OVERRIDES_FILE, {}),
-                watchlist: readJsonFileSafe(WATCHLIST_FILE, []),
-                ebooks: readJsonFileSafe(EBOOKS_FILE, [])
-            }
-        };
-
-        const saveResult = await dialog.showSaveDialog(win, {
-            title: "Export Riftgate Backup",
-            defaultPath: `riftgate-backup-${Date.now()}.json`,
-            filters: [{ name: "Riftgate Backup", extensions: ["json"] }]
-        });
-
-        if (saveResult.canceled || !saveResult.filePath) {
-            return { success: false, canceled: true };
-        }
-
-        fs.writeFileSync(saveResult.filePath, JSON.stringify(backup, null, 2), "utf8");
-        return { success: true, path: saveResult.filePath };
-    } catch (err) {
-        console.error("[backup] export-backup-data failed:", err.message || err);
-        return { success: false, error: "Something went wrong creating the backup." };
-    }
-});
-
-ipcMain.handle("import-backup-data", async () => {
-    try {
-        const openResult = await dialog.showOpenDialog(win, {
-            title: "Import Riftgate Backup",
-            filters: [{ name: "Riftgate Backup", extensions: ["json"] }],
-            properties: ["openFile"]
-        });
-
-        if (openResult.canceled || !openResult.filePaths || !openResult.filePaths.length) {
-            return { success: false, canceled: true };
-        }
-
-        let parsed;
-        try {
-            parsed = JSON.parse(fs.readFileSync(openResult.filePaths[0], "utf8"));
-        } catch (err) {
-            return { success: false, error: "That file isn't valid JSON." };
-        }
-
-        if (!parsed || !parsed.riftgateBackup || !parsed.data || typeof parsed.data !== "object") {
-            return { success: false, error: "That doesn't look like a Riftgate backup file." };
-        }
-
-        const { data } = parsed;
-
-        if (data.games !== undefined) {
-            fs.writeFileSync(GAMES_FILE, JSON.stringify(data.games, null, 2));
-        }
-        if (data.settings !== undefined) {
-            fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data.settings, null, 2));
-        }
-        if (data.overrides !== undefined) {
-            fs.writeFileSync(OVERRIDES_FILE, JSON.stringify(data.overrides, null, 2));
-        }
-        if (data.watchlist !== undefined) {
-            fs.writeFileSync(WATCHLIST_FILE, JSON.stringify(data.watchlist, null, 2));
-        }
-        if (data.ebooks !== undefined) {
-            fs.writeFileSync(EBOOKS_FILE, JSON.stringify(data.ebooks, null, 2));
-        }
-
-        return { success: true, importedAt: parsed.exportedAt || null };
-    } catch (err) {
-        console.error("[backup] import-backup-data failed:", err.message || err);
-        return { success: false, error: "Something went wrong importing that backup." };
-    }
-});
+// --- Backup / restore: engine/backup.js (it also reads the .json backups
+// Riftgate 1.x made) ---------------------------------------------------------
 
 // Clears cached description + trailer for every saved game, so the next
 // time each card is viewed/hovered it looks everything up fresh.

@@ -62,7 +62,11 @@ const DEFAULT_SETTINGS = {
     // "showId|season|number", so a newly aired episode gets a fresh key
     // and naturally shows as unwatched) and movies (keyed by TMDB id).
     seenEpisodes: {},
-    seenMovies: {}
+    seenMovies: {},
+    // Backups (engine/backup.js): a folder to keep a copy in automatically, once a day
+    autoBackupFolder: "",
+    autoBackupEbooks: false,
+    lastAutoBackupAt: null
 };
 
 // Everything, with the defaults filled in for anything not saved yet.

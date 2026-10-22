@@ -61,5 +61,5 @@ module.exports = {
     // IPC channels handled by the engine that the 2.x interface doesn't call
     // (kept from 1.x; preload.js still allows most of them). Listed so a new
     // unused handler stands out.
-    unusedHandlersAllowed: 67,
+    unusedHandlersAllowed: 65,
 };

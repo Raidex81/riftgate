@@ -19,7 +19,7 @@ const { contextBridge, ipcRenderer, clipboard, webUtils } = require("electron");
 // renderer.js calls.
 const INVOKABLE_CHANNELS = new Set([
     "r2-store-get", "r2-store-set", "r2-riftgate-available", "r2-import-riftgate", "r2-tv-providers", "r2-app-preview", "r2-submit-app", "r2-account-restore", "r2-account-sign-in", "r2-account-sign-up", "r2-account-set-password", "r2-account-sign-out", "r2-theme-pick-picture", "r2-theme-export", "r2-theme-import", "r2-themes-gallery", "r2-theme-download", "r2-theme-publish", "r2-theme-unpublish", "r2-themes-local-get", "r2-themes-local-set", "r2-show-in-folder", "r2-find-cover", "r2-detect-category", "r2-landscape-art", "r2-steam-appids", "r2-capture-window",
-    "r2-alerts-giveaways", "r2-alerts-claim", "r2-alerts-check", "r2-wishlist-get", "r2-wishlist-add", "r2-wishlist-remove", "r2-save-image", "r2-usage-ping-now", "r2-usage-weekly", "r2-provider-status", "r2-provider-retry", "r2-achievements-game", "r2-achievements-summary", "r2-achievements-sweep", "r2-steam-news", "r2-steam-news-recent", "r2-anime-season", "r2-audiobooks",
+    "r2-alerts-giveaways", "r2-alerts-claim", "r2-alerts-check", "r2-wishlist-get", "r2-wishlist-add", "r2-wishlist-remove", "r2-save-image", "r2-usage-ping-now", "r2-usage-weekly", "r2-provider-status", "r2-provider-retry", "r2-achievements-game", "r2-achievements-summary", "r2-achievements-sweep", "r2-steam-news", "r2-steam-news-recent", "r2-anime-season", "r2-audiobooks", "r2-backup-status", "r2-backup-create", "r2-backup-pick", "r2-backup-restore", "r2-backup-auto-folder",
     "add-admin-reply",
     "add-community-app",
     "add-ebook-to-library",
@@ -48,7 +48,6 @@ const INVOKABLE_CHANNELS = new Set([
     "dismiss-import",
     "download-free-ebook",
     "download-shared-file",
-    "export-backup-data",
     "export-suggestions-txt",
     "fetch-description",
     "fetch-online-cover",
@@ -137,7 +136,6 @@ const INVOKABLE_CHANNELS = new Set([
     "set-tv-mode",
     "get-watch-providers",
     "get-watchlist",
-    "import-backup-data",
     "increment-community-app-visit",
     "increment-shared-file-download",
     "increment-shared-link-open",

@@ -16,6 +16,7 @@ import * as look from "../app/look.js";
 import * as gate from "../app/mature.js";
 import * as facts from "../components/facts.js";
 import { startTour } from "../components/tour.js";
+import { backupSetting } from "../components/backup.js";
 import { shortAgo, retry as retrySources, clearFailing } from "../app/sources.js";
 
 function setting(title, desc, control) {
@@ -273,5 +274,6 @@ export default {
         // Data
         box.appendChild(setting("Your data", "Library, Journal, covers and settings live in Riftgate's data folder on this PC.",
             h("button.btn", { type: "button", onclick: () => call("open-data-folder") }, icon("folder"), "Open data folder")));
+        box.appendChild(backupSetting());
     }
 };

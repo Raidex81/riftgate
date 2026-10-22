@@ -184,6 +184,9 @@ for its creator. Made one yourself? Put it forward from inside the app.
   time, then goes back to your theme by itself. First up: the Hallowed
   Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
   cobwebs, bats and a haunted opening.
+- **Back up and restore**: everything that is yours in one file, put
+  back on this PC or a new one, and if you like a fresh copy kept every
+  day in OneDrive, Dropbox or any folder you choose.
 - **Private by design**: your library, Journal and everything you do stay
   on your PC, and Ask the Rift runs there too. The only thing Riftgate can
   send is an anonymous weekly "this PC used Riftgate", and only if you say

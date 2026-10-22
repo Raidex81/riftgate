@@ -840,3 +840,9 @@
 .news-text { font-size: var(--t-xs); color: var(--dust); line-height: 1.5; }
 .news-read { justify-self: start; display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-xs); }
 .news-read svg { width: 12px; height: 12px; }
+
+/* Settings: back up and restore */
+.backup-setting .backup-actions, .backup-box .backup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.backup-setting .backup-auto { display: grid; gap: var(--s2); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.backup-setting .backup-auto h4 { font-size: var(--t-md); }
+.backup-box .backup-actions { justify-content: flex-end; margin-top: var(--s2); }

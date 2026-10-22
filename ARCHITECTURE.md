@@ -507,6 +507,23 @@ arguments; `--check` is what CI runs).
 Riftgate doesn't sync any of this. **Settings → Open data folder** shows
 where it is.
 
+**Back up and restore** (`engine/backup.js`, Settings → Back up and
+restore) puts everything that is yours in one `.riftgate-backup` file: a
+zip with `manifest.json` and `files/<path in the data folder>`. That is
+the library, Journal, shows, eBooks list, wishlist, alerts, themes,
+settings and the covers those files point at; the eBook files only when
+asked. Saved lists, covers Riftgate can download again, the session
+token and this PC's own ids (`usageId`, `deviceId`) never go in.
+Restoring only writes paths it knows (the user files above, `covers/`
+pictures, the two eBook folders), keeps what was there in a
+`before-restore-<date>` folder (the last three are kept), points eBook
+paths at the new PC's data folder, keeps this PC's own settings
+(usage count, start with Windows, backup folder) and restarts Riftgate.
+It also reads the `.json` backups Riftgate 1.x made. With a folder
+chosen (OneDrive, Dropbox, a USB drive), a fresh backup goes there at
+most once a day, and only the last five `Riftgate backup …` files are
+kept; nothing else in that folder is touched.
+
 People who used the 2.0 preview (installed as "Riftgate 2", with its own
 folder) get their newer data brought over once on the first start of
 2.0. Any 1.x file it replaces is first copied to a
