@@ -263,7 +263,7 @@ function trackButton(item) {
             const found = item.tvmazeId ? [{ id: item.tvmazeId, name: item.title, image: item.image, premiered: item.date }] : await call("search-tv-shows", item.title);
             const show = (found || [])[0];
             if (!show) { toast(`Couldn't find ${item.title} on TVMaze. Try Add a show in the Theatre.`, "err"); b.disabled = false; return; }
-            await call("add-to-watchlist", { id: show.id, name: show.name, image: show.image, premiered: show.premiered });
+            await call("add-to-watchlist", { id: show.id, name: show.name, image: show.image, premiered: show.premiered, rating: typeof show.rating === "number" ? show.rating : null });
             toast(`${show.name} is in My shows: new episodes will show up in Nexus`);
             showId = show.id;
         }

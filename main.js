@@ -1813,6 +1813,7 @@ ipcMain.handle("search-tv-shows", async (event, query) => {
             premiered: r.show.premiered,
             network: (r.show.network && r.show.network.name) || (r.show.webChannel && r.show.webChannel.name) || null,
             status: r.show.status || null,
+            rating: r.show.rating && typeof r.show.rating.average === "number" ? r.show.rating.average : null,
             genres: Array.isArray(r.show.genres) ? r.show.genres.slice(0, 3) : [],
             isMature: textContainsMatureKeyword(r.show.name)
                 || textContainsMatureKeyword(r.show.summary)
@@ -1836,15 +1837,49 @@ function writeWatchlist(list) {
     fs.writeFileSync(WATCHLIST_FILE, JSON.stringify(list, null, 2));
 }
 
+// My shows' ratings (TVmaze's community score, out of 10), shown on their
+// cards like every other film and series. A show added from the search
+// already has it; one without it is looked up once (four at a time) before
+// the list is handed over, and a rating older than two weeks is refreshed
+// afterwards in the background, so opening the Theatre never waits for that.
+const WATCHLIST_RATING_TTL_MS = 14 * 24 * 3600 * 1000;
+async function rateWatchlist(list, shows) {
+    const queue = shows.slice();
+    let changed = false;
+    const worker = async () => {
+        while (queue.length) {
+            const show = queue.shift();
+            try {
+                const d = await tvmaze.getShowWithNextEpisode(show.id);
+                const r = d && d.rating && typeof d.rating.average === "number" ? d.rating.average : null;
+                const entry = list.find((x) => x.id === show.id);
+                if (entry) { entry.rating = r; entry.ratingAt = Date.now(); changed = true; }
+            } catch (err) { /* TVmaze didn't answer: tried again next time */ }
+        }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (!changed) return list;
+    // write onto what's on disk now, so a show added or removed meanwhile stays that way
+    const now = readWatchlist();
+    for (const e of now) { const r = list.find((x) => x.id === e.id); if (r && r.ratingAt) { e.rating = r.rating; e.ratingAt = r.ratingAt; } }
+    writeWatchlist(now);
+    return now;
+}
+let watchlistRating = null;
 ipcMain.handle("get-watchlist", async () => {
-    return readWatchlist();
+    let list = readWatchlist();
+    const never = list.filter((s) => s && s.id && !("ratingAt" in s) && typeof s.rating !== "number");
+    if (never.length) list = await rateWatchlist(list, never);
+    const stale = list.filter((s) => s && s.id && Date.now() - (s.ratingAt || 0) > WATCHLIST_RATING_TTL_MS);
+    if (stale.length && !watchlistRating) watchlistRating = rateWatchlist(list, stale).finally(() => { watchlistRating = null; });
+    return list;
 });
 
 ipcMain.handle("add-to-watchlist", async (event, show) => {
     const list = readWatchlist();
 
     if (!list.some((s) => s.id === show.id)) {
-        list.push({ ...show, addedAt: Date.now(), lastSeenAirstamp: null });
+        list.push({ ...show, addedAt: Date.now(), lastSeenAirstamp: null, ...(typeof show.rating === "number" ? { ratingAt: Date.now() } : {}) });
         writeWatchlist(list);
     }
 

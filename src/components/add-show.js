@@ -49,7 +49,7 @@ export function openAddShow(startQuery = "") {
                     await call("remove-from-watchlist", s.id);
                     mine.delete(s.id); toast(`${s.name} is no longer in My shows`);
                 } else {
-                    const r = await call("add-to-watchlist", { id: s.id, name: s.name, image: s.image, premiered: s.premiered });
+                    const r = await call("add-to-watchlist", { id: s.id, name: s.name, image: s.image, premiered: s.premiered, rating: typeof s.rating === "number" ? s.rating : null });
                     if (r === null) { btn.disabled = false; toast("It couldn't be added. Try again.", "err"); return; }
                     mine.set(s.id, s.name); toast(`${s.name} is in My shows: new episodes will show up in Nexus`);
                 }
@@ -119,7 +119,7 @@ export function openManageShows() {
                 btn.disabled = true;
                 if (!removed) { await call("remove-from-watchlist", s.id); toast(`${s.name} is no longer in My shows`); }
                 else {
-                    const r = await call("add-to-watchlist", { id: s.id, name: s.name, image: s.image, premiered: s.premiered });
+                    const r = await call("add-to-watchlist", { id: s.id, name: s.name, image: s.image, premiered: s.premiered, rating: typeof s.rating === "number" ? s.rating : null });
                     if (r === null) { btn.disabled = false; toast("It couldn't be added back. Try again.", "err"); return; }
                     toast(`${s.name} is back in My shows`);
                 }
