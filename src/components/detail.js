@@ -18,6 +18,7 @@ import * as admin from "../app/admin.js";
 import * as alerts from "../app/alerts.js";
 import { achievementsBox } from "./achievements.js";
 import { newsBox } from "./game-news.js";
+import { priceBox, pcBox } from "./game-check.js";
 import { t, locale } from "../app/i18n.js";
 
 let current = null;
@@ -65,6 +66,8 @@ export function openDetail(item) {
         cover, closeBtn,
         h("div.detail-main", null, poster, head),
         journalBox(item),
+        priceBox(item),
+        pcBox(item),
         achievementsBox(item),
         newsBox(item),
         nextEpisodeBox(item),

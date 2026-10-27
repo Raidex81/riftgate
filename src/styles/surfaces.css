@@ -867,3 +867,37 @@
 .import-bar { height: 6px; }
 .import-done { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-lg); }
 .import-done svg { color: var(--energy); }
+
+/* A game's details: buy now or wait, and will it run on this PC (game-check.js) */
+.check-head { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s3); flex-wrap: wrap; }
+.check-head h3 { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; }
+.check-head h3 svg { width: 16px; height: 16px; }
+.check-head .muted { font-size: var(--t-xs); color: var(--dust-2); }
+.check-body { display: grid; gap: var(--s3); }
+.check-verdict { display: flex; align-items: center; gap: var(--s2); padding: var(--s3) var(--s4); font-weight: 600; color: var(--starlight);
+    background: var(--nebula-2); border-left: 3px solid var(--c, var(--amethyst)); }
+.check-verdict svg { width: 18px; height: 18px; flex: none; color: var(--c, var(--amethyst)); }
+.check-verdict.good { --c: var(--st-progress, #3ecf8e); }
+.check-verdict.wait { --c: var(--st-planned, #f5a524); }
+.check-verdict.bad { --c: var(--st-dropped, #e5484d); }
+.check-verdict.even { --c: var(--st-completed, #4aa8ff); }
+.check-line { display: flex; align-items: center; gap: var(--s2); }
+.check-line svg { width: 16px; height: 16px; color: var(--st-progress, #3ecf8e); }
+.check-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); }
+.check-facts > div { display: grid; gap: 2px; padding: var(--s3); background: var(--nebula-2); }
+.check-facts .muted { font-size: var(--t-xs); }
+.check-facts b { font-size: var(--t-lg); color: var(--starlight); }
+.check-link { justify-self: start; display: inline-flex; align-items: center; gap: 4px; }
+.check-link svg { width: 12px; height: 12px; }
+.check-parts { display: grid; gap: var(--s2); }
+.check-part { display: grid; grid-template-columns: 22px minmax(140px, 1fr) minmax(0, 1.4fr); gap: var(--s3); align-items: start; padding: var(--s3); background: var(--nebula-2); }
+.check-part > div { display: grid; gap: 2px; min-width: 0; }
+.check-part b { font-size: var(--t-sm); }
+.check-part span, .check-part small { font-size: var(--t-sm); color: var(--starlight-2); overflow-wrap: anywhere; }
+.check-need small { color: var(--dust); }
+.check-mark svg { width: 18px; height: 18px; }
+.check-part.great .check-mark, .check-part.ok .check-mark { color: var(--st-progress, #3ecf8e); }
+.check-part.below .check-mark { color: var(--st-dropped, #e5484d); }
+.check-part.unknown .check-mark { color: var(--dust); }
+.check-note { font-size: var(--t-sm); }
+@media (max-width: 900px) { .check-part { grid-template-columns: 22px 1fr; } .check-need { grid-column: 2; } }

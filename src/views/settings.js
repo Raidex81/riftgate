@@ -281,6 +281,16 @@ export default {
         };
         box.appendChild(setting("Steam playtime", "Your public Steam profile's hours, shown on your games. Paste your SteamID64 (find it on steamid.io) or your Steam profile link.", h("div", { style: { display: "flex", gap: "8px" } }, steamIn, steamBtn)));
 
+        // This PC, as "Will it run on this PC?" sees it
+        {
+            const line = h("p", null, "Looking at this PC…");
+            box.appendChild(setting("This PC", "What a game's details compare with its Steam requirements to say whether it will run.", line));
+            call("r2-pc-info").then((pc) => {
+                if (!pc) { line.textContent = "Riftgate couldn't read this PC's parts."; return; }
+                line.replaceChildren(...[pc.gpu && pc.gpu.name, pc.cpu && pc.cpu.name, pc.ramGb ? `${Math.round(pc.ramGb)} GB of memory` : null].filter(Boolean).flatMap((t, i) => (i ? [h("br"), t] : [t])));
+            }).catch(() => { line.textContent = "Riftgate couldn't read this PC's parts."; });
+        }
+
         // Sources: every outside service Riftgate reads from, and how it's doing
         box.appendChild(sourcesSetting());
 

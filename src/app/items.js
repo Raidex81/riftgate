@@ -345,3 +345,16 @@ export function fromCommunityApp(a) {
 }
 
 export const TYPE_LABEL = { game: "Game", app: "App", film: "Film", series: "Series", anime: "Anime", book: "Book" };
+
+// A game's Steam app id, wherever Riftgate learned it: the item, what the
+// store said, a steam:// launch path, or a Steam picture's address
+export function steamIdOf(item) {
+    if (!item) return null;
+    const raw = item.raw || {};
+    const direct = item.steamAppId || raw.steamAppId || raw.steamAppID || raw.steam_appid;
+    if (/^\d{1,10}$/.test(String(direct || ""))) return String(direct);
+    const m = /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(raw.path || "");
+    if (m) return m[1];
+    const pic = /steam(?:static|cdn)[\w.-]*\.(?:com|net)\/(?:store_item_assets\/)?steam\/apps\/(\d{1,10})\//i.exec(item.image || raw.image || "");
+    return pic ? pic[1] : null;
+}

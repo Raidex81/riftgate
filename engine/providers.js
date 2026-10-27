@@ -48,6 +48,8 @@ const PROVIDERS = [
     { id: "wikipedia", label: "Wikipedia", what: "descriptions", hosts: [/\.wikipedia\.org$/] },
     { id: "location", label: "Location lookup", what: "your country", hosts: [/^ipapi\.co$/] },
     { id: "rates", label: "Exchange rates", what: "prices in your currency", hosts: [/^open\.er-api\.com$/] },
+    { id: "gamepass", label: "Xbox Game Pass", what: "what PC Game Pass includes", hosts: [/^catalog\.gamepass\.com$/, /^displaycatalog\.mp\.microsoft\.com$/] },
+    { id: "ludusavi", label: "Ludusavi manifest", what: "where games keep their saves", hosts: [/^raw\.githubusercontent\.com$/] },
 ];
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 // media-proxy vendors that aren't a provider id of their own
