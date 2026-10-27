@@ -367,6 +367,8 @@ it gets the most layers:
 | Jikan (MyAnimeList) | This season's anime, with when new episodes air (Theatre) | Direct, no key, kept 12 hours |
 | LibriVox | Free public-domain audiobooks (Reading room) | Direct, no key, kept a day |
 | Steam wishlist (`IWishlistService`, `IStoreBrowseService`) | Bringing your public Steam wishlist into Riftgate's (Journal → Import) | Direct, no key, only when you ask |
+| Xbox Game Pass catalogue (`catalog.gamepass.com`, `displaycatalog.mp.microsoft.com`) | Whether PC Game Pass includes a game | Direct, no key, kept a week |
+| Ludusavi manifest (GitHub) | Where games keep their save files, for backups | Direct, no key, at most weekly, only when backing up saves |
 | Open Library covers | Covers of books imported from Goodreads, by ISBN | Direct (picture links) |
 | Resend | Account emails | `account-email` Edge Function (key server-side) |
 
@@ -422,6 +424,45 @@ lightning: a recorded thunderclap (`assets/sounds/thunder.mp3`, ten seconds)
 breaks on the first bolt and rolls under the rest, and plays again when the
 gem in Nexus is clicked. If it can't be loaded, a synthesised electric
 crack stands in.
+
+## A game's details: buy now or wait, will it run
+
+`engine/prices.js` finds the game on CheapShark (by Steam id, else by
+exact title) and reads every store's price and its cheapest price ever,
+kept 12 hours per game. The verdict: within a few cents of the lowest
+ever ("lowest"), within 30% of it ("good"), a price that never really
+moves ("steady"), otherwise "wait" (on sale) or "full" (not on sale).
+Prices are in US dollars and shown in your currency at the Deals rate.
+PC Game Pass comes from Microsoft's public catalogue (the "All PC games"
+list, then the titles 100 at a time), kept for a week per country and
+matched by title without trademarks, "(Game Preview)" or edition names.
+
+`engine/pc-check.js` reads this PC once per run: the graphics card from
+Chromium's GPU report and Windows' list of video cards (the fastest one
+counts, since a laptop's game card may not be the one the window runs
+on), the processor and memory from Node. A game's Steam requirements
+(appdetails, kept 30 days; a title without a Steam id is looked up on
+Steam's store search once) are compared by `services/hardware.js`, which
+scores graphics cards and processors on rough relative tiers (GTX 1060 =
+100, Core i5-8400 = 100). Any one of the cards or processors a game names
+will do, and a part has to be clearly slower (under 90%) to count as
+below. It's labelled as an estimate.
+
+## Game saves in backups
+
+`engine/game-saves.js` downloads the Ludusavi manifest (MIT, compiled
+from PCGamingWiki; about 18 MB) when it's first needed, then at most once
+a week and only if it changed (ETag), and keeps it gzipped in the data
+folder. `services/save-manifest.js` indexes it (names, Steam ids, install
+folders, aliases) and reads only the entries of the games in your
+Library, with a small reader for the manifest's YAML. Windows patterns
+are expanded from the user folders, the game's install folder (from its
+Steam appmanifest or its path) and Steam's own folder, with `*`, `?` and
+`**`; a whole install folder is never taken, and there are caps (300 MB a
+game, 2 GB in all). In a backup a file lives at
+`saves/<game>/<kind of folder>/<path>`, so restoring puts it in the same
+kind of folder on the new PC; a save already there is kept in the
+before-restore folder first. Registry saves aren't copied.
 
 ## New suggestions, for admins
 

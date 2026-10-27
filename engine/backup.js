@@ -113,8 +113,11 @@ function gather({ ebooks = false } = {}) {
     return { files: [...files].sort(), counts, bytes };
 }
 
+// Game saves come from engine/game-saves.js (given by main.js)
+let saves = null;
+
 // Writes a backup to target. Resolves to { ok, path, counts, bytes }.
-async function create(target, { ebooks = false } = {}) {
+async function create(target, { ebooks = false, gameSaves = false } = {}) {
     const dir = data.dir();
     const { files, counts } = gather({ ebooks });
     if (!files.includes("settings.json") && !files.includes("games.json") && !files.includes("r2-data.json")) return { ok: false, error: "There's nothing to back up yet." };
@@ -129,7 +132,20 @@ async function create(target, { ebooks = false } = {}) {
         zip.addFile(`files/${rel}`, buf);
         if (ALREADY_SMALL.test(rel)) { const e = zip.getEntry(`files/${rel}`); if (e) e.header.method = 0; }
     }
-    const manifest = { riftgateBackup: FORMAT, appVersion: app.getVersion(), createdAt: new Date().toISOString(), platform: process.platform, dataDir: dir, ebooks: !!ebooks, counts, files };
+    // your games' save files, each under saves/<game>/<kind of folder>/<path>
+    let savedGames = [];
+    if (gameSaves && saves) {
+        const found = await saves.collect().catch((err) => { console.error("[backup] game saves:", err.message || err); return []; });
+        for (const g of found) {
+            const ok = [];
+            for (const f of g.files) {
+                try { zip.addFile(f.zip, fs.readFileSync(f.abs)); ok.push(f); } catch (err) { /* in use or gone: skipped */ }
+            }
+            if (ok.length) savedGames.push({ name: g.name, slug: g.slug, files: ok.length, bytes: ok.reduce((n, f) => n + (f.size || 0), 0) });
+        }
+        if (savedGames.length) counts.saves = savedGames.length;
+    }
+    const manifest = { riftgateBackup: FORMAT, appVersion: app.getVersion(), createdAt: new Date().toISOString(), platform: process.platform, dataDir: dir, ebooks: !!ebooks, counts, files, saves: savedGames.length ? { games: savedGames } : undefined };
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2)));
     const tmp = `${target}.part`;
     await zip.writeZipPromise(tmp);
@@ -159,7 +175,9 @@ function open(file) {
     if (!manifest || typeof manifest.riftgateBackup !== "number") return null;
     const entries = zip.getEntries().filter((e) => !e.isDirectory && e.entryName.startsWith("files/") && allowed(e.entryName.slice(6)))
         .map((e) => ({ rel: e.entryName.slice(6), read: () => e.getData() }));
-    return { manifest, entries };
+    const saveEntries = zip.getEntries().filter((e) => !e.isDirectory && /^saves\/[a-z0-9-]+\/\w+\/./.test(e.entryName) && !e.entryName.split("/").some((p) => p === ".." || p === "."))
+        .map((e) => ({ zip: e.entryName, read: () => e.getData() }));
+    return { manifest, entries, saveEntries };
 }
 
 // Reads a backup's manifest without changing anything.
@@ -172,7 +190,8 @@ function inspect(file) {
     const m = b.manifest;
     if (m.riftgateBackup > FORMAT) return { ok: false, error: "That backup was made by a newer Riftgate. Update Riftgate first." };
     if (!b.entries.length) return { ok: false, error: "That backup is empty." };
-    return { ok: true, path: file, name: path.basename(file), createdAt: m.createdAt || null, appVersion: m.appVersion || null, ebooks: !!m.ebooks, legacy: !!m.legacy, counts: m.counts || {}, files: b.entries.length };
+    const savedGames = m.saves && Array.isArray(m.saves.games) ? m.saves.games.map((g) => String(g.name || "")).filter(Boolean).slice(0, 200) : [];
+    return { ok: true, path: file, name: path.basename(file), createdAt: m.createdAt || null, appVersion: m.appVersion || null, ebooks: !!m.ebooks, legacy: !!m.legacy, counts: m.counts || {}, files: b.entries.length, saves: (b.saveEntries || []).length ? savedGames : [] };
 }
 
 // a path into the backup's data folder (or, for old backups, into any
@@ -186,12 +205,14 @@ function repoint(s, oldDir, dir) {
 }
 
 // Puts a backup back. The current files are kept in before-restore-<date>
-// first. Resolves to { ok, kept } (the caller restarts Riftgate).
-function restore(file) {
+// first. With gameSaves, the games' save files go back too (a save already
+// there is kept aside first, in before-restore-<date>/saves). Resolves to
+// { ok, kept, saves: { put, skipped } } (the caller restarts Riftgate).
+function restore(file, { gameSaves = false } = {}) {
     const seen = inspect(file);
     if (!seen.ok) return seen;
     const dir = data.dir();
-    const { manifest, entries } = open(file);
+    const { manifest, entries, saveEntries } = open(file);
     const oldDir = typeof manifest.dataDir === "string" ? manifest.dataDir.replace(/[\\/]+$/, "") : "";
 
     // 1. what's here now, kept aside
@@ -219,7 +240,27 @@ function restore(file) {
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.writeFileSync(dest, buf);
     }
-    return { ok: true, kept };
+
+    // 3. the games' save files, into this PC's own folders
+    const put = { put: 0, skipped: 0 };
+    if (gameSaves && saves && saveEntries && saveEntries.length) {
+        const games = manifest.saves && Array.isArray(manifest.saves.games) ? manifest.saves.games : [];
+        for (const e of saveEntries) {
+            const dest = saves.placeOnThisPc(e.zip, games);
+            if (!dest) { put.skipped++; continue; }
+            try {
+                if (fs.existsSync(dest)) {
+                    const aside = path.join(kept, ...e.zip.split("/"));
+                    fs.mkdirSync(path.dirname(aside), { recursive: true });
+                    fs.copyFileSync(dest, aside);
+                }
+                fs.mkdirSync(path.dirname(dest), { recursive: true });
+                fs.writeFileSync(dest, e.read());
+                put.put++;
+            } catch (err) { put.skipped++; }
+        }
+    }
+    return { ok: true, kept, saves: put };
 }
 
 // keep the three newest before-restore copies
@@ -238,7 +279,7 @@ async function autoBackup({ force = false } = {}) {
     if (!folder) return { ok: false, skipped: "off" };
     if (!force && s.lastAutoBackupAt && Date.now() - s.lastAutoBackupAt < AUTO_EVERY) return { ok: false, skipped: "recent" };
     if (!fs.existsSync(folder)) return { ok: false, error: "The folder for automatic backups can't be found. Is the drive connected?" };
-    const r = await create(path.join(folder, `Riftgate backup ${stamp()}.${EXT}`), { ebooks: !!s.autoBackupEbooks });
+    const r = await create(path.join(folder, `Riftgate backup ${stamp()}.${EXT}`), { ebooks: !!s.autoBackupEbooks, gameSaves: s.backupGameSaves !== false });
     if (!r.ok) return r;
     settings.update({ lastAutoBackupAt: Date.now() });
     try {
@@ -250,10 +291,11 @@ async function autoBackup({ force = false } = {}) {
 
 function status() {
     const s = settings.read();
-    return { folder: s.autoBackupFolder || "", ebooks: !!s.autoBackupEbooks, lastAt: s.lastAutoBackupAt || null, now: gather({ ebooks: false }), ebookBytes: gather({ ebooks: true }).bytes };
+    return { folder: s.autoBackupFolder || "", ebooks: !!s.autoBackupEbooks, gameSaves: s.backupGameSaves !== false, lastAt: s.lastAutoBackupAt || null, now: gather({ ebooks: false }), ebookBytes: gather({ ebooks: true }).bytes };
 }
 
-function register(ipcMain) {
+function register(ipcMain, deps = {}) {
+    saves = deps.saves || null;
     ipcMain.handle("r2-backup-status", async () => status());
     ipcMain.handle("r2-backup-create", async (event, opts = {}) => {
         const r = await dialog.showSaveDialog(windowRef.get(), {
@@ -262,22 +304,23 @@ function register(ipcMain) {
             filters: [{ name: "Riftgate backup", extensions: [EXT] }]
         });
         if (r.canceled || !r.filePath) return { ok: false, canceled: true };
-        try { return await create(r.filePath, { ebooks: !!(opts && opts.ebooks) }); } catch (err) { return { ok: false, error: `The backup couldn't be saved: ${err.message || err}` }; }
+        try { return await create(r.filePath, { ebooks: !!(opts && opts.ebooks), gameSaves: !!(opts && opts.gameSaves) }); } catch (err) { return { ok: false, error: `The backup couldn't be saved: ${err.message || err}` }; }
     });
     ipcMain.handle("r2-backup-pick", async () => {
         const r = await dialog.showOpenDialog(windowRef.get(), { title: "Restore from a backup", properties: ["openFile"], filters: [{ name: "Riftgate backup", extensions: [EXT, "json"] }] });
         if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
         return inspect(r.filePaths[0]);
     });
-    ipcMain.handle("r2-backup-restore", async (event, file) => {
+    ipcMain.handle("r2-backup-restore", async (event, file, opts = {}) => {
         let r;
-        try { r = restore(String(file || "")); } catch (err) { r = { ok: false, error: `Restoring stopped: ${err.message || err}. What you had is in the before-restore folder.` }; }
+        try { r = restore(String(file || ""), { gameSaves: !!(opts && opts.gameSaves) }); } catch (err) { r = { ok: false, error: `Restoring stopped: ${err.message || err}. What you had is in the before-restore folder.` }; }
         if (r.ok) setTimeout(() => { app.relaunch(); app.exit(0); }, 700);
         return r;
     });
     ipcMain.handle("r2-backup-auto-folder", async (event, opts = {}) => {
         if (opts && opts.off) { settings.update({ autoBackupFolder: "" }); return status(); }
         if (opts && typeof opts.ebooks === "boolean") { settings.update({ autoBackupEbooks: opts.ebooks }); return status(); }
+        if (opts && typeof opts.gameSaves === "boolean") { settings.update({ backupGameSaves: opts.gameSaves }); return status(); }
         const r = await dialog.showOpenDialog(windowRef.get(), { title: "Keep Riftgate backups in…", properties: ["openDirectory", "createDirectory"] });
         if (r.canceled || !r.filePaths[0]) return status();
         settings.update({ autoBackupFolder: r.filePaths[0], lastAutoBackupAt: null });
@@ -290,4 +333,4 @@ function register(ipcMain) {
     setInterval(tick, 6 * 3600e3);
 }
 
-module.exports = { register, gather, create, inspect, restore, autoBackup, allowed, repoint };
+module.exports = { register, gather, create, inspect, restore, autoBackup, allowed, repoint, useSaves: (x) => { saves = x; } };

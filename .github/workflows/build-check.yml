@@ -45,6 +45,10 @@ jobs:
         run: node tests/backup.test.js
       - name: Import from Letterboxd, Goodreads, IMDb, MyAnimeList and Steam
         run: node tests/imports.test.js
+      - name: Buy now or wait, will it run on this PC
+        run: node tests/game-check.test.js
+      - name: Game saves in backups
+        run: node tests/game-saves.test.js
       - name: New suggestions for admins
         run: node tests/suggestions.test.js
       - name: Languages (the translator and the Portuguese file)

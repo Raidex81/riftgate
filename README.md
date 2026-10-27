@@ -192,6 +192,15 @@ for its creator. Made one yourself? Put it forward from inside the app.
   time, then goes back to your theme by itself. First up: the Hallowed
   Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
   cobwebs, bats and a haunted opening.
+- **Buy now or wait?** A game's details show its best price across stores,
+  the lowest it has ever been and a plain verdict, and say when PC Game
+  Pass already includes it.
+- **Will it run on this PC?** A game's Steam requirements against your
+  graphics card, processor and memory: runs well, runs on lower
+  settings, or below the minimum.
+- **Your game saves, backed up**: backups carry the save files of the
+  games in your Library (found with the Ludusavi manifest) and put them
+  back on a new PC.
 - **In Portuguese too**: Settings → Language. Riftgate follows Windows'
   language by itself (English and Portuguese for now).
 - **Bring your history**: import what you watched, read and rated on

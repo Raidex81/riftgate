@@ -68,6 +68,7 @@ const DEFAULT_SETTINGS = {
     // Backups (engine/backup.js): a folder to keep a copy in automatically, once a day
     autoBackupFolder: "",
     autoBackupEbooks: false,
+    backupGameSaves: true,
     lastAutoBackupAt: null
 };
 

@@ -4785,7 +4785,10 @@ require("./engine/achievements").register(ipcMain, { steamApi: (p, query) => med
 // News of your Steam games, this season's anime, free audiobooks (public sources, no key)
 require("./engine/content").register(ipcMain);
 // Back up and restore everything that is yours, and keep a copy in a folder you choose
-require("./engine/backup").register(ipcMain);
+// Your games' save files (the Ludusavi manifest), carried by backups
+const gameSaves = require("./engine/game-saves");
+gameSaves.register(ipcMain);
+require("./engine/backup").register(ipcMain, { saves: { collect: () => gameSaves.collect(), placeOnThisPc: (zipPath, games) => gameSaves.placeOnThisPc(zipPath, games) } });
 // A game's details: buy now or wait (and PC Game Pass), and will it run on this PC
 require("./engine/prices").register(ipcMain, { usdRate: (currency) => fetchUsdToTargetRate(currency), currencyFor: (country) => CURRENCY_BY_COUNTRY[country] });
 require("./engine/pc-check").register(ipcMain);
