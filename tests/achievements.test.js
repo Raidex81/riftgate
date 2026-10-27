@@ -62,7 +62,7 @@ async function steamApi(p, q) {
     if (p.includes("GetSchemaForGame")) return q.appid === "999" ? { game: {} } : SCHEMA;
     if (PROFILE === "private") throw Object.assign(new Error("HTTP 403"), { statusCode: 403, body: { playerstats: { error: "Profile is not public", success: false } } });
     if (PROFILE === "proxy-old") throw Object.assign(new Error("This endpoint isn't on the allowlist for this vendor."), { statusCode: 403, body: { error: "This endpoint isn't on the allowlist for this vendor." } });
-    return { playerstats: { success: true, achievements: Object.keys(SCHEMA.game.availableGameStats.achievements.reduce((m, a) => (m[a.name] = 1, m), {})).map((k) => ({ apiname: k, achieved: unlocked[k] ? 1 : 0, unlocktime: unlocked[k] || 0 })) } };
+    return { playerstats: { success: true, achievements: Object.keys(SCHEMA.game.availableGameStats.achievements.reduce((m, a) => (m[a.name] = 1, m), {})).map((k) => ({ apiname: k, achieved: unlocked[k] ? 1 : 0, unlocktime: unlocked[k] || 0, ...(q.l ? { description: k === "ACH_C" ? "Ring the bell at the end of the world" : "" } : {}) })) } };
 }
 
 const handlers = {};
@@ -84,10 +84,14 @@ const call = (c, ...a) => handlers[c]({}, ...a);
     const c = r.items.find((a) => a.id === "ACH_C");
     assert.strictEqual(c.hidden, true); assert.strictEqual(c.achieved, true); assert.strictEqual(c.percent, 0.6);
     assert.strictEqual(c.unlockedAt, 1761000000 * 1000);
+    assert.strictEqual(c.desc, "Ring the bell at the end of the world", "a secret one you've earned says what it was for");
+    assert.strictEqual(r.items.find((a) => a.id === "ACH_A").desc, "Start the journey");
     assert.strictEqual(r.items.find((a) => a.id === "ACH_B").achieved, false);
 
     // the summary: rarest and most recent unlocks
     let s = await call("r2-achievements-summary");
+    assert.ok(s.recent.every((a) => typeof a.desc === "string"));
+    assert.strictEqual(s.recent.find((a) => a.id === "ACH_C").desc, "Ring the bell at the end of the world");
     assert.strictEqual(s.games["1000"].rarest.id, "ACH_C");
     assert.strictEqual(s.recent[0].id, "ACH_C"); assert.strictEqual(s.recent[0].game, "Hollow Tide");
 

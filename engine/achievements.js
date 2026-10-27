@@ -19,6 +19,7 @@
 // Needs from other sections (given by main.js): steamApi(path, query), a
 // request to Steam through the media proxy.
 "use strict";
+const { app } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { httpsGetJsonPlain } = require("../services/http");
@@ -62,6 +63,15 @@ function classify(err) {
     return null;
 }
 
+// Steam's language for names and descriptions: Riftgate's own (Settings → Language)
+function steamLang() {
+    const choice = settings.read().language;
+    let sys = "en";
+    try { sys = String(app.getLocale() || "en"); } catch (e) { /* no app (tests) */ }
+    const id = !choice || choice === "auto" ? sys.slice(0, 2).toLowerCase() : choice;
+    return id === "pt" ? (/^pt-br/i.test(sys) ? "brazilian" : "portuguese") : "english";
+}
+
 function register(ipcMain, { steamApi }) {
     const readGame = (appid) => data.readJson(gameFile(appid), {}) || {};
     const saveGame = (appid, g) => {
@@ -71,15 +81,16 @@ function register(ipcMain, { steamApi }) {
 
     // The game's achievements: names, descriptions, icons, hidden or not
     async function schemaOf(appid, g) {
-        if (g.schema && Date.now() - g.schema.at < SCHEMA_TTL) return g.schema;
+        const lang = steamLang();
+        if (g.schema && Date.now() - g.schema.at < SCHEMA_TTL && (g.schema.lang || "english") === lang) return g.schema;
         try {
-            const r = await steamApi("/ISteamUserStats/GetSchemaForGame/v2/", { appid, l: "english" });
+            const r = await steamApi("/ISteamUserStats/GetSchemaForGame/v2/", { appid, l: lang });
             const game = (r && r.game) || {};
             const list = ((game.availableGameStats || {}).achievements || []).map((a) => ({
                 id: String(a.name), name: String(a.displayName || a.name), desc: String(a.description || ""),
                 icon: steamIcon(a.icon), iconGray: steamIcon(a.icongray), hidden: Number(a.hidden) === 1
             }));
-            g.schema = { at: Date.now(), name: game.gameName || null, list };
+            g.schema = { at: Date.now(), lang, name: game.gameName || null, list };
             return g.schema;
         } catch (err) {
             const state = classify(err);
@@ -114,12 +125,16 @@ function register(ipcMain, { steamApi }) {
         if (!id) throw new Unavailable("no-steamid");
         if (!fresh && g.unlocks && g.unlocks.steamId === id && Date.now() - g.unlocks.at < UNLOCKS_TTL) return g.unlocks;
         try {
-            const r = await steamApi("/ISteamUserStats/GetPlayerAchievements/v0001/", { steamid: id, appid });
+            // with a language, Steam also says what each one is for, the secret ones you've earned included
+            const r = await steamApi("/ISteamUserStats/GetPlayerAchievements/v0001/", { steamid: id, appid, l: steamLang() });
             const ps = (r && r.playerstats) || {};
             if (ps.success === false) throw Object.assign(new Error(ps.error || "Steam said no"), { body: r });
-            const map = {};
-            for (const a of ps.achievements || []) if (Number(a.achieved) === 1) map[a.apiname] = Number(a.unlocktime) || 1;
-            g.unlocks = { at: Date.now(), steamId: id, map };
+            const map = {}, desc = {};
+            for (const a of ps.achievements || []) {
+                if (Number(a.achieved) === 1) map[a.apiname] = Number(a.unlocktime) || 1;
+                if (a.description && Number(a.achieved) === 1) desc[a.apiname] = String(a.description).slice(0, 400);
+            }
+            g.unlocks = { at: Date.now(), steamId: id, map, desc };
             return g.unlocks;
         } catch (err) {
             const state = classify(err);
@@ -138,7 +153,8 @@ function register(ipcMain, { steamApi }) {
         saveGame(appid, g);
         const items = schema.list.map((a) => {
             const t = unlocks.map[a.id];
-            return { ...a, icon: steamIcon(a.icon), iconGray: steamIcon(a.iconGray), achieved: !!t, unlockedAt: t > 1 ? t * 1000 : null, percent: typeof rarity.map[a.id] === "number" ? rarity.map[a.id] : null };
+            const desc = a.desc || (unlocks.desc && unlocks.desc[a.id]) || "";
+            return { ...a, desc, icon: steamIcon(a.icon), iconGray: steamIcon(a.iconGray), achieved: !!t, unlockedAt: t > 1 ? t * 1000 : null, percent: typeof rarity.map[a.id] === "number" ? rarity.map[a.id] : null };
         });
         const out = { state: "ok", appid, name: schema.name, total: items.length, unlocked: items.filter((a) => a.achieved).length, items, updatedAt: unlocks.at };
         noteSummary(appid, out);
@@ -155,11 +171,11 @@ function register(ipcMain, { steamApi }) {
         const got = r.items.filter((a) => a.achieved);
         const rarest = got.filter((a) => a.percent !== null).sort((a, b) => a.percent - b.percent)[0] || null;
         const recent = got.filter((a) => a.unlockedAt).sort((a, b) => b.unlockedAt - a.unlockedAt).slice(0, 6)
-            .map((a) => ({ id: a.id, name: a.name, icon: a.icon, at: a.unlockedAt, percent: a.percent }));
+            .map((a) => ({ id: a.id, name: a.name, desc: a.desc || "", icon: a.icon, at: a.unlockedAt, percent: a.percent }));
         s.games[appid] = {
             name: r.name || before.name || null, total: r.total, unlocked: got.length,
             lastUnlockAt: recent[0] ? recent[0].at : before.lastUnlockAt || null,
-            rarest: rarest ? { id: rarest.id, name: rarest.name, icon: rarest.icon, percent: rarest.percent } : null,
+            rarest: rarest ? { id: rarest.id, name: rarest.name, desc: rarest.desc || "", icon: rarest.icon, percent: rarest.percent } : null,
             recent, at: Date.now(), playtimeAt: minutes ?? null
         };
         delete s.state;
@@ -172,6 +188,13 @@ function register(ipcMain, { steamApi }) {
         const recent = [];
         for (const [appid, g] of Object.entries(s.games)) {
             if (g.rarest) g.rarest.icon = steamIcon(g.rarest.icon); // saved before icons moved host
+            // what each one is for: summaries saved before descriptions were kept read them from the game's own file
+            if ((g.recent || []).some((a) => a.desc === undefined) || (g.rarest && g.rarest.desc === undefined)) {
+                const saved = readGame(appid);
+                const descOf = (id) => ((saved.schema && saved.schema.list) || []).find((x) => x.id === id)?.desc || (saved.unlocks && saved.unlocks.desc && saved.unlocks.desc[id]) || "";
+                for (const a of g.recent || []) if (a.desc === undefined) a.desc = descOf(a.id);
+                if (g.rarest && g.rarest.desc === undefined) g.rarest.desc = descOf(g.rarest.id);
+            }
             for (const a of g.recent || []) recent.push({ ...a, icon: steamIcon(a.icon), appid, game: g.name });
         }
         recent.sort((a, b) => b.at - a.at);

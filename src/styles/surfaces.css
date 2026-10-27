@@ -901,3 +901,5 @@
 .check-part.unknown .check-mark { color: var(--dust); }
 .check-note { font-size: var(--t-sm); }
 @media (max-width: 900px) { .check-part { grid-template-columns: 22px 1fr; } .check-need { grid-column: 2; } }
+/* what an achievement was for, under its name in the Trophy room */
+.trophy-unlock .trophy-desc { font-size: var(--t-xs); color: var(--starlight-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
