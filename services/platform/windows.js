@@ -211,7 +211,24 @@ function scanGenericApps() {
 // Resolves a Windows .lnk shortcut to its real target executable, so a
 // shortcut dragged in from the desktop/Start Menu works the same as
 // dragging the actual .exe. Non-shortcut paths pass through unchanged.
+// A Steam desktop shortcut is an internet shortcut (.url) whose URL is
+// steam://rungameid/<appid>: which game it opens, or null
+function steamIdFromUrlFile(filePath) {
+    try {
+        if (!/\.url$/i.test(filePath) || fs.statSync(filePath).size > 64 * 1024) return null;
+        const m = /^\s*URL\s*=\s*steam:\/\/(?:rungameid|run)\/(\d{1,10})\b/im.exec(fs.readFileSync(filePath, "utf8"));
+        return m ? m[1] : null;
+    } catch (err) {
+        return null;
+    }
+}
+
 function resolveShortcut(filePath) {
+    // a Steam game's desktop shortcut becomes the game itself
+    if (/\.url$/i.test(filePath)) {
+        const id = steamIdFromUrlFile(filePath);
+        return id ? `steam://rungameid/${id}` : filePath;
+    }
     if (!filePath.toLowerCase().endsWith(".lnk")) {
         return filePath;
     }
@@ -629,6 +646,7 @@ module.exports = {
     scanGenericApps,
     isSteamAppStillInstalled,
     resolveShortcut,
+    steamIdFromUrlFile,
     getExeDescription,
     isProcessRunning,
     getAllProcesses,

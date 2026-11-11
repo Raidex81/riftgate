@@ -109,11 +109,11 @@ export async function library(opts) {
     const items = await libraryBase(opts);
     const s = await settings({ fresh: !!(opts && opts.fresh) });
     const mins = s.steamPlaytimes || {};
-    if (!Object.keys(mins).length) return items;
     steamIds = steamIds || {};
     // steam:// links say which game they are right away
     items.forEach((it) => { const m = it.raw && /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(it.raw.path || ""); if (m) steamIds[it.raw.path] = m[1]; });
-    // games inside a Steam library folder: the engine reads Steam's manifests (asked once)
+    // games inside a Steam library folder, and Steam's desktop shortcuts (.url):
+    // the engine reads Steam's manifests and the shortcut (asked once)
     const unknown = items.map((it) => it.raw && it.raw.path).filter((p) => p && !(p in steamIds));
     if (unknown.length) {
         let found = null;
@@ -122,9 +122,11 @@ export async function library(opts) {
         // (no answer: an engine from before this, still running; ask again next time)
     }
     return items.map((it) => {
-        // Steam games show Steam's own time; everything else, Riftgate's count
+        // a Steam game knows its Steam id (achievements, news), whether or not
+        // Steam's playtime has been read; it shows Steam's own time when it has
         const id = it.raw && steamIds[it.raw.path];
-        if (!id || typeof mins[id] !== "number") return it;
+        if (!id) return it;
+        if (typeof mins[id] !== "number") return { ...it, steamAppId: id };
         return { ...it, playtime: mins[id] * 60, steamAppId: id, playtimeFrom: "Steam" };
     });
 }

@@ -22,10 +22,11 @@ export async function addFromPath(filePath, category = "game") {
     const resolved = (await call("resolve-shortcut", filePath)) || filePath;
     const games = (await call("load-games")) || [];
     if (games.some((g) => String(g.path).toLowerCase() === String(resolved).toLowerCase())) {
-        toast(`${nameFromPath(resolved)} is already in your library`);
+        toast(`${nameFromPath(filePath)} is already in your library`);
         return false;
     }
-    let name = nameFromPath(resolved);
+    // a Steam shortcut opens steam://rungameid/<id>: the game's name is the shortcut's
+    let name = nameFromPath(/^[a-z]+:\/\//i.test(resolved) ? filePath : resolved);
     if (/\.exe$/i.test(resolved)) {
         const described = await call("get-exe-description", resolved);
         if (typeof described === "string" && described.trim().length > 1 && described.trim().toLowerCase() !== name.toLowerCase()) name = described.trim();

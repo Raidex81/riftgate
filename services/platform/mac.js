@@ -180,6 +180,18 @@ function scanGenericApps() {
 
 // No shortcut/.lnk concept on macOS — a dragged-in path is already the
 // real thing.
+// An internet shortcut (.url) to steam://rungameid/<appid>: which game it opens, or null
+// (the same as windows.js; on a Mac, Steam makes .app shortcuts instead)
+function steamIdFromUrlFile(filePath) {
+    try {
+        if (!/\.url$/i.test(filePath) || fs.statSync(filePath).size > 64 * 1024) return null;
+        const m = /^\s*URL\s*=\s*steam:\/\/(?:rungameid|run)\/(\d{1,10})\b/im.exec(fs.readFileSync(filePath, "utf8"));
+        return m ? m[1] : null;
+    } catch (err) {
+        return null;
+    }
+}
+
 function resolveShortcut(filePath) {
     return filePath;
 }
@@ -393,6 +405,7 @@ module.exports = {
     scanGenericApps,
     isSteamAppStillInstalled,
     resolveShortcut,
+    steamIdFromUrlFile,
     getExeDescription,
     isProcessRunning,
     getAllProcesses,

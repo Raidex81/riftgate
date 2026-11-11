@@ -49,6 +49,8 @@ jobs:
         run: node tests/game-check.test.js
       - name: Game saves in backups
         run: node tests/game-saves.test.js
+      - name: Steam shortcuts dropped on Riftgate
+        run: node tests/steam-ids.test.js
       - name: New suggestions for admins
         run: node tests/suggestions.test.js
       - name: Languages (the translator and the Portuguese file)

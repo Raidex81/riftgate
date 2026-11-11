@@ -101,7 +101,13 @@ const userDirs = () => ({
     winPublic: [process.env.PUBLIC || "C:\\Users\\Public"]
 });
 
-const steamIdOf = (g) => { const m = /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(g.path || ""); return m ? m[1] : null; };
+const steamIdOf = (g) => {
+    const m = /^steam:\/\/(?:rungameid|run)\/(\d+)/i.exec(g.path || "");
+    if (m) return m[1];
+    // a Steam desktop shortcut (.url) dropped on Riftgate
+    if (/\.url$/i.test(g.path || "")) { try { const u = /^\s*URL\s*=\s*steam:\/\/(?:rungameid|run)\/(\d+)/im.exec(fs.readFileSync(g.path, "utf8")); return u ? u[1] : null; } catch (e) { return null; } }
+    return null;
+};
 
 // The folders a game's patterns can start from on this PC
 function placesFor(g, e, steam) {
