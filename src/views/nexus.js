@@ -12,7 +12,8 @@ import * as journal from "../app/store.js";
 import { hero } from "../components/hero.js";
 import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
-import { todayBand, scaryPicks } from "../components/today.js";
+import { todayBand, scaryPicks, christmasPicks } from "../components/today.js";
+import { adventBand } from "../components/advent.js";
 import * as season from "../app/season.js";
 import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
 import * as interests from "../app/interests.js";
@@ -196,6 +197,13 @@ export default {
         // The Hallowed Rift: the scariest of everything, first
         if (season.is("halloween")) body.append(row({ title: "Scary picks for Halloween", icon: "flame", id: "season-scary", items: () => scaryPicks({ limit: 30 }), hideEmpty: true,
             cardOpts: { showType: true }, note: "Games, films, series and books to play, watch and read with the lights off" }));
+        // The Christmas Rift: the advent calendar, then the most Christmassy of everything
+        if (season.is("christmas")) {
+            const band = adventBand();
+            if (band) body.append(band);
+            body.append(row({ title: "Christmas picks", icon: "gift", id: "season-christmas", items: () => christmasPicks({ limit: 30 }), hideEmpty: true,
+                cardOpts: { showType: true }, note: "Games, films, series and books for the holidays, by the fire" }));
+        }
         body.append(shelf("nexus", interests.byInterest(rows.filter((r) => interests.wants(...ids(r))), ids)));
         return () => hr.destroy();
     },

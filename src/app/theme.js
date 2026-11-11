@@ -132,6 +132,9 @@ export function apply(t) {
         if (!resizeHooked) { resizeHooked = true; let tm = null; window.addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(fit, 150); }); }
     } else { delete root.dataset.wallpaper; delete root.dataset.wpMode; delete root.dataset.wpFit; }
     delete root.dataset.accent;
+    // a theme can carry a season's decorations all year (season.js)
+    if (t.season === "halloween" || t.season === "christmas") root.dataset.themeSeason = t.season; else delete root.dataset.themeSeason;
+    window.dispatchEvent(new Event("r2-theme-applied"));
     document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", t.tone === "light" ? "light" : "dark");
 }
 function clamp(v, lo, hi, fb) { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb; }
@@ -181,7 +184,8 @@ export function draft(from) {
     return JSON.parse(JSON.stringify({
         id: null, name: from ? `${base.name} (mine)` : "My theme", tone: base.tone || "dark", surface: base.surface || "gem",
         pattern: base.pattern || "none", font: base.font || "rift", glow: base.glow ?? 1, onAccent: base.onAccent || "#ffffff",
-        colors: { ...D, ...(base.colors || {}) }, wallpaper: base.wallpaper ? { ...base.wallpaper } : null, basedOn: base.id || null
+        colors: { ...D, ...(base.colors || {}) }, wallpaper: base.wallpaper ? { ...base.wallpaper } : null, basedOn: base.id || null,
+        ...(base.season ? { season: base.season } : {})
     }));
 }
 

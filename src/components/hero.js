@@ -10,6 +10,7 @@ import * as journal from "../app/store.js";
 import { flag } from "../app/seals.js";
 import { toast } from "./toast.js";
 import { lanterns } from "./hallowed.js";
+import { yuleScene } from "./yuletide.js";
 
 // slides: [{ item, kicker, kickerIcon, action: { label, icon, run } }]
 export function hero(slidesPromise) {
@@ -20,7 +21,7 @@ export function hero(slidesPromise) {
     const desc = h("p.hero-desc", null, "One gateway to your games, films, series, anime and books: what's free, what's on sale, what's showing and what's next.");
     const actions = h("div.hero-actions");
     const dots = h("div.hero-dots", { role: "tablist", "aria-label": "Highlights" });
-    const el = h("section.hero", { "aria-label": "Highlights" }, artA, artB, canvas, lanterns(),
+    const el = h("section.hero", { "aria-label": "Highlights" }, artA, artB, canvas, lanterns(), yuleScene(),
         h("div.hero-copy", null, kicker, title, desc, actions), dots);
 
     let rift = null, slides = [], i = 0, timer = null, front = artA;

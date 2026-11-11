@@ -35,6 +35,13 @@ export const BUILTIN_THEMES = [
     T("mono-noir", "Mono Noir", "dark", "brutal", "none", "clean",
         { bg: "#0a0a0a", panel: "#121212", card: "#171717", hover: "#202020", line: "#2c2c2c", accent: "#f2f2f2", accent2: "#9e9e9e", text: "#f2f2f2", muted: "#9a9a9a" },
         { blurb: "Black and white, nothing else.", onAccent: "#0a0a0a" }),
+    // the seasons, all year: their decorations come with them (season.js)
+    T("hallowed-rift", "Hallowed Rift", "dark", "gem", "stars", "rift",
+        { bg: "#0b0609", panel: "#150a12", card: "#1c0e18", hover: "#28121f", line: "#3d1b2e", accent: "#ff7a1a", accent2: "#9b4dff", text: "#fff1e4", muted: "#b49b90" },
+        { blurb: "Halloween all year: pumpkins, candles, cobwebs, bats and ghost-green lightning.", season: "halloween" }),
+    T("christmas-rift", "Christmas Rift", "dark", "gem", "stars", "rift",
+        { bg: "#050d0a", panel: "#0a1812", card: "#0f2119", hover: "#152d22", line: "#1f3f2f", accent: "#e3263b", accent2: "#f4c04e", text: "#f3fbf4", muted: "#9cb8a6" },
+        { blurb: "Christmas all year: snow, a tree by the rift, a fireplace, elves and Santa's sleigh.", season: "christmas" }),
     T("ember", "Ember Forge", "dark", "gem", "diagonal", "rift",
         { bg: "#0d0605", panel: "#1a0d0a", card: "#22110d", hover: "#2e1712", line: "#3d2019", accent: "#ff5a36", accent2: "#ffb02e", text: "#fff0e8", muted: "#c09a8a" },
         { blurb: "Glowing coals and hammered steel." }),

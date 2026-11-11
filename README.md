@@ -188,10 +188,17 @@ for its creator. Made one yourself? Put it forward from inside the app.
 - **While you were away**: come back after a while and the rift shows
   what changed: new free games, the ones about to end, new episodes of
   your shows, price drops on your wishlist.
-- **Seasonal events**: Riftgate changes with the year for a few days at a
-  time, then goes back to your theme by itself. First up: the Hallowed
-  Rift, 22 October to 3 November, with jack-o'-lanterns, candles,
-  cobwebs, bats and a haunted opening.
+- **Seasonal events**: Riftgate changes with the year for a while, then
+  goes back to your theme by itself. The Hallowed Rift, 22 October to
+  3 November, with jack-o'-lanterns, candles, cobwebs, bats and a haunted
+  opening. The Christmas Rift, 11 November to 6 January: snow over
+  everything, a garland of lights, holly, a Santa hat on the gem, a tree,
+  presents, an elf, a snowman and a fireplace with stockings by the Nexus
+  rift, Santa's sleigh crossing the opening in front of the gem (with sleigh
+  bells) and the app now and then, an advent calendar, presents hidden
+  around the app to find, Christmas picks and a Ho ho ho mood. Both are
+  also themes in Themes, to keep all year, and any theme can carry their
+  decorations.
 - **Buy now or wait?** A game's details show its best price across stores,
   the lowest it has ever been and a plain verdict, and say when PC Game
   Pass already includes it.

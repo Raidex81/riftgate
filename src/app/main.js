@@ -8,6 +8,8 @@ import { markVisits, maybeWelcome } from "../components/welcome.js";
 import * as season from "./season.js";
 import { mountBats } from "../components/bats.js";
 import { mountHallowed } from "../components/hallowed.js";
+import { mountYuletide } from "../components/yuletide.js";
+import { mountPresentHunt } from "../components/present-hunt.js";
 import * as seals from "./seals.js";
 import { announce } from "../components/seals.js";
 import { watchSecrets } from "./secrets.js";
@@ -408,11 +410,14 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
     await Promise.race([introQuiet, new Promise((r) => setTimeout(r, 9000))]);
     await route();
     if (!interests.chosen()) introDone.then(() => setTimeout(() => interests.openInterests({ first: true }), 500));
-    introDone.then(() => { mountBats(); mountHallowed(); if (season.current() && !season.greeted()) setTimeout(() => toast(season.current().hello, "ok", 9000), 2500); });
+    introDone.then(() => { mountBats(); mountHallowed(); mountYuletide(); mountPresentHunt({ toast }); if (season.current() && !season.greeted()) setTimeout(() => toast(season.current().hello, "ok", 9000), 2500); });
     // Seals: what earns them, then a look now and whenever something changes
     watchSecrets({ toast });
     { const hr = new Date().getHours(); if (hr >= 2 && hr < 5) seals.flag("night-owl"); }
-    if (season.is("halloween")) seals.flag("hallowed");
+    // being there while a season is open (on its dates, not through a theme that carries it)
+    const onDates = () => season.current() && !season.current().fromTheme;
+    if (onDates() && season.is("halloween")) seals.flag("hallowed");
+    if (onDates() && season.is("christmas")) seals.flag("jolly");
     seals.onEarned(announce);
     let sealTimer = null;
     const lookAgain = () => { clearTimeout(sealTimer); sealTimer = setTimeout(() => seals.check(), 1500); };

@@ -174,8 +174,12 @@ export default {
             const season = await import("../app/season.js");
             const c = h("input", { type: "checkbox", checked: s.seasonalEvents !== false || null });
             c.addEventListener("change", async () => { await saveSettings({ seasonalEvents: c.checked }); season.setEnabled(c.checked); toast(c.checked ? "Seasonal events on" : "Seasonal events off: Riftgate keeps your theme all year"); });
-            box.appendChild(setting("Seasonal events", "Riftgate changes with the year for a few days at a time, then goes back to your theme by itself: the Hallowed Rift from 22 October to 3 November, with more to come.",
-                h("label.check", null, c, h("span", null, "Join in"))));
+            const snow = h("input", { type: "checkbox", checked: journal.pref("snow", true) !== false || null });
+            snow.addEventListener("change", async () => { await journal.setPref("snow", snow.checked); window.dispatchEvent(new Event("r2-snow-changed")); });
+            box.appendChild(setting("Seasonal events", "Riftgate changes with the year for a while, then goes back to your theme by itself: the Hallowed Rift from 22 October to 3 November, and the Christmas Rift from 11 November to 6 January, with its advent calendar and presents hidden around the app. To keep one all year, pick the Hallowed Rift or Christmas Rift theme in Themes.",
+                h("div", { style: { display: "grid", gap: "6px" } },
+                    h("label.check", null, c, h("span", null, "Join in")),
+                    h("label.check", null, snow, h("span", null, "Let it snow")))));
         }
 
         // Cards: size, and colour by kind

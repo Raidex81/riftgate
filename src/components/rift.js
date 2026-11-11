@@ -417,6 +417,35 @@ export class Rift {
         ctx.restore();
     }
 
+    drawFestive(dt, R, t) {
+        const ctx = this.ctx;
+        if (!this.flakes) this.flakes = Array.from({ length: 46 }, () => ({ x: (Math.random() * 2 - 1) * 2.6, y: (Math.random() * 2 - 1) * 1.6, r: .6 + Math.random() ** 2 * 2, vy: .08 + Math.random() * .14, ph: Math.random() * TAU }));
+        ctx.save();
+        // the lights: red, gold, green and blue, chasing one another round the ring
+        const COLS = ["#ff4a5a", "#ffd25a", "#7dff9a", "#5ad1ff"];
+        const n = 28, rr = R * 1.62;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < n; i++) {
+            const a = (i / n) * TAU + t * .05;
+            const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+            const on = .35 + .65 * Math.max(0, Math.sin(t * 2.2 - i * .9));
+            const col = COLS[i % COLS.length], s = R * .035;
+            const g = ctx.createRadialGradient(x, y, 0, x, y, s * 4.5);
+            g.addColorStop(0, rgba("#ffffff", .95 * on)); g.addColorStop(.25, rgba(col, .85 * on)); g.addColorStop(1, rgba(col, 0));
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, s * 4.5, 0, TAU); ctx.fill();
+        }
+        // snow drifting down through it
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "#ffffff";
+        for (const f of this.flakes) {
+            f.y += f.vy * (dt || 0) / 1000; // (dt is in milliseconds here)
+            if (f.y > 1.7) { f.y = -1.7; f.x = (Math.random() * 2 - 1) * 2.6; }
+            ctx.globalAlpha = (.3 + f.r / 3.2) * Math.min(1, (1.7 - Math.abs(f.y)) * 2);
+            ctx.beginPath(); ctx.arc((f.x + Math.sin(t * .8 + f.ph) * .05) * R, f.y * R, f.r, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+    }
+
     // How bright a strike is at its age (0..1+): leader, flashes, afterglow
     static brightness(bo) {
         const t = bo.age;
@@ -603,6 +632,8 @@ export class Rift {
         if (!this.o.still) this.drawRelics(R, t);
         // The Hallowed Rift (season.js): will-o'-wisps drift around the rings
         if (document.documentElement.dataset.season === "halloween") this.drawWisps(dt, R, t);
+        // The Christmas Rift: fairy lights strung around the outer ring, and snow falling through the portal
+        else if (document.documentElement.dataset.season === "christmas") this.drawFestive(dt, R, t);
 
         // The gem: Riftgate's own logo (assets/riftgate-gem-mark.png), tinted to
         // the theme's accent; a drawn crystal stands in until it has loaded.

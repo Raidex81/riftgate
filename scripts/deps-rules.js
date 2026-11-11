@@ -53,6 +53,9 @@ module.exports = {
         "r2-retry": "sources.js → main.js: Try again draws the section again",
         "r2-sources-reset": "sources.js → data.js: Try again forgets this session's lists",
         "r2-sources-changed": "sources.js → the sources notice: which sources are failing",
+        "r2-theme-applied": "theme.js → season.js: a theme (maybe one carrying a season's decorations) was applied",
+        "r2-elf-present": "yuletide.js → present-hunt.js: the elf's present was clicked",
+        "r2-snow-changed": "Settings → yuletide.js: Let it snow was turned on or off",
     },
     // Storage keys used by more than one file
     sharedStorageKeys: {

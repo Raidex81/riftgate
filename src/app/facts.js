@@ -116,5 +116,36 @@ export const SEASON_FACTS = {
             "Jack-o'-lanterns were first carved from turnips in Ireland and Scotland; pumpkins came later, in America.",
             "Washington Irving's The Legend of Sleepy Hollow, with its Headless Horseman, came out in 1820."
         ]
+    },
+    christmas: {
+        games: [
+            "Animal Crossing: New Horizons celebrates Toy Day on 24 December, when Jingle the reindeer comes to the island.",
+            "Christmas NiGHTS, a free winter edition of NiGHTS into Dreams, was given away with magazines in 1996.",
+            "Stardew Valley's Feast of the Winter Star falls on the 25th of Winter, with a secret gift exchange.",
+            "Fortnite's winter event is called Winterfest, with a present to open each day.",
+            "Overwatch's Winter Wonderland event has come back every December since 2016.",
+            "In 1965, the Gemini 6 astronauts played Jingle Bells on a harmonica and bells: the first song played in space."
+        ],
+        screen: [
+            "Die Hard (1988) takes place on Christmas Eve, at the Nakatomi Plaza office party.",
+            "It's a Wonderful Life (1946) disappointed at the box office and became a classic through television.",
+            "Home Alone (1990) was the highest-grossing live-action comedy for more than twenty years.",
+            "Elf (2003) was directed by Jon Favreau.",
+            "The Nightmare Before Christmas (1993) was directed by Henry Selick, from a story by Tim Burton.",
+            "Gremlins (1984) is set at Christmas, in the small town of Kingston Falls.",
+            "The Polar Express (2004) was made entirely with performance capture.",
+            "Tokyo Godfathers (2003), by Satoshi Kon, follows three homeless friends who find a baby on Christmas Eve."
+        ],
+        books: [
+            "Charles Dickens's A Christmas Carol came out on 19 December 1843 and sold out by Christmas Eve.",
+            "Santa's reindeer were first named in the 1823 poem A Visit from St. Nicholas ('Twas the Night Before Christmas).",
+            "Rudolph the Red-Nosed Reindeer was created in 1939 by Robert L. May, for a booklet given away in Montgomery Ward stores.",
+            "Dr. Seuss's How the Grinch Stole Christmas! came out in 1957.",
+            "The first Christmas card for sale was commissioned by Henry Cole in London in 1843.",
+            "Jingle Bells was first published in 1857, as One Horse Open Sleigh.",
+            "O. Henry's The Gift of the Magi was first published in 1905."
+        ]
     }
 };
+// Every Christmas fact, in one list (the advent calendar and the hidden presents)
+export const christmasFacts = () => [...SEASON_FACTS.christmas.screen, ...SEASON_FACTS.christmas.games, ...SEASON_FACTS.christmas.books];

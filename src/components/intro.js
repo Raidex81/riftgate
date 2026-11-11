@@ -13,6 +13,7 @@
 import { Rift } from "./rift.js";
 import { createIntroSound, OPEN_AT, STRIKES } from "./intro-sound.js";
 import { t as tr } from "../app/i18n.js";
+import { sleighSVG, svgImage } from "./yule-art.js";
 
 // how loud the opening is (the sound's own default is .7, which was too loud)
 const OPENING_VOLUME = .25;
@@ -96,6 +97,13 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
     const bolts = [];
     const strikesAt = STRIKES;
     let nextStrike = 0, flash = 0;
+    // The Christmas Rift (season.js): snow over everything, and Santa's sleigh
+    // crossing in front of the gem while the name is on screen
+    const xmas = document.documentElement.dataset.season === "christmas";
+    const flakes = xmas ? Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() ** 2 * 2.6, vy: .03 + Math.random() * .05, sw: .3 + Math.random(), ph: Math.random() * TAU })) : null;
+    const sleighImgs = xmas ? [svgImage(sleighSVG(0)), svgImage(sleighSVG(1))] : null;
+    const trail = [];
+    const SLEIGH = [4.85, 6.65]; // across the screen; over the gem halfway (5.75 s), with the sleigh bells
     const letters = "RIFTGATE".split("").map((ch, i) => ({ ch, settle: 3.75 + i * .085 }));
 
     // The sound (intro-sound.js): each cue fires on the frame that reaches it,
@@ -158,7 +166,9 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
         // ---- nebula wash, swelling as the rift opens
         const wash = seg(t, .8, 2.6);
         let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * .75);
-        g.addColorStop(0, rgba(a, .35 * wash)); g.addColorStop(.35, rgba(b, .12 * wash)); g.addColorStop(1, rgba(a, 0));
+        // (a winter night's green and blue in the Christmas Rift, instead of a red-gold haze)
+        const wa = xmas ? "#1f8a5a" : a, wb = xmas ? "#2f5fb0" : b;
+        g.addColorStop(0, rgba(wa, .35 * wash)); g.addColorStop(.35, rgba(wb, .12 * wash)); g.addColorStop(1, rgba(wa, 0));
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
         // ---- stars: a rush toward the centre (0 - 1.6 s), then a slow drift
@@ -399,6 +409,8 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
             ctx.restore();
         }
 
+        if (flakes) christmas(t, dt, openK);
+
         // ---- the first strike lights the whole sky
         if (flash > 0) {
             ctx.globalCompositeOperation = "lighter";
@@ -420,6 +432,46 @@ export function playIntro({ enabled = true, sound: withSound = true } = {}) {
             ctx.lineWidth = R * .12;
             ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
         }
+    }
+
+    function christmas(t, dt, openK) {
+        // ---- Santa's sleigh, climbing from the bottom left to the top right
+        const sp = clamp01((t - SLEIGH[0]) / (SLEIGH[1] - SLEIGH[0]));
+        const ready = sleighImgs.every((im) => im.complete && im.naturalWidth);
+        if (sp > 0 && sp < 1 && ready) {
+            const sw = Math.min(W * .46, R * 4.4), sh = sw * 200 / 650;
+            const slope = -.2, ang = Math.atan(slope);
+            const bx = -.84 * sw + (W + sw) * sp, by = cy + (bx - cx) * slope; // the sleigh itself (the reindeer pull ahead of it)
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1 - openK;
+            ctx.translate(bx, by); ctx.rotate(ang);
+            ctx.drawImage(sleighImgs[Math.floor(t / .13) % 2], -.16 * sw, -.575 * sh, sw, sh);
+            ctx.restore();
+            // stardust from the back of the runners
+            const rx = -.145 * sw, ry = .275 * sh, c = Math.cos(ang), s = Math.sin(ang);
+            for (let k = 0; k < 4; k++) trail.push({ x: bx + rx * c - ry * s + (Math.random() - .5) * 10, y: by + rx * s + ry * c + (Math.random() - .5) * 8,
+                vx: -30 - Math.random() * 70, vy: 10 + Math.random() * 40, life: .6 + Math.random() * .7, age: 0, gold: Math.random() < .72, r: .8 + Math.random() * 1.8 });
+        }
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = trail.length - 1; i >= 0; i--) {
+            const p = trail[i]; p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.age > p.life) { trail.splice(i, 1); continue; }
+            const al = (1 - p.age / p.life) * (1 - openK);
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+            g.addColorStop(0, rgba("#ffffff", al)); g.addColorStop(.3, rgba(p.gold ? "#ffd25a" : "#bfe6ff", .8 * al)); g.addColorStop(1, rgba(p.gold ? "#ffb02e" : "#bfe6ff", 0));
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 4, 0, TAU); ctx.fill();
+        }
+        // ---- snow, falling over everything
+        const k = seg(t, .3, 1.6) * (1 - openK);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "#ffffff";
+        for (const f of flakes) {
+            f.y += f.vy * dt;
+            if (f.y > 1.02) { f.y = -.02; f.x = Math.random(); }
+            ctx.globalAlpha = k * Math.min(1, .3 + f.r / 3.4);
+            ctx.beginPath(); ctx.arc((f.x + Math.sin(t * f.sw + f.ph) * .012) * W, f.y * H, f.r, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
     }
 
     requestAnimationFrame(frame);

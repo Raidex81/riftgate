@@ -322,6 +322,28 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
             ho.connect(hb); hb.connect(hg); hg.connect(verbIn); hg.connect(gain(.25, pre));
             ho.start(hw); hv.start(hw); ho.stop(hw + 2.8); hv.stop(hw + 2.8);
         },
+        // The Christmas Rift (season.js): sleigh bells coming in from the left as
+        // Santa's sleigh crosses in front of the gem, loudest as it passes, gone
+        // to the right, and a little celesta run right over the gem
+        sleigh(at) {
+            const dur = 2.2, cross = 1.05;
+            const bus = gain(0, null), sp = ac.createStereoPanner ? ac.createStereoPanner() : null;
+            if (sp) { sp.pan.setValueAtTime(-.85, at); sp.pan.linearRampToValueAtTime(.85, at + dur); bus.connect(sp); sp.connect(pre); } else bus.connect(pre);
+            bus.connect(gain(.18, verbIn));
+            bus.gain.setValueAtTime(0.0001, at); bus.gain.exponentialRampToValueAtTime(.6, at + cross); bus.gain.exponentialRampToValueAtTime(.12, at + dur); bus.gain.exponentialRampToValueAtTime(0.0001, at + dur + .5);
+            // a shake every eighth, the harness swinging: a few small bells, each with its own inharmonic ring
+            for (let k = 0, t = at; t < at + dur; k++, t += (k % 2 ? .15 : .12)) {
+                const accent = k % 4 === 0 ? 1 : .6;
+                for (let b = 0; b < 3; b++) {
+                    const f = 2300 + Math.random() * 1300, hit = t + b * .011 + Math.random() * .008;
+                    [[1, 1], [1.48, .55], [2.31, .3]].forEach(([m, kk]) => tone("sine", f * m, hit, .05 * accent * kk, .002, .08 + Math.random() * .14, bus));
+                }
+                const n = noiseSrc(t, .07), hp = filter("highpass", 6500, .7), ng = gain(0, bus);
+                env(ng.gain, t, .05 * accent, .002, .06); n.connect(hp); hp.connect(ng);
+            }
+            // the celesta: C, E, G, C, twinkling as the sleigh crosses the gem
+            [84, 88, 91, 96, 100].forEach((m, i) => bell(NOTE(m), at + cross - .15 + i * .085, .028, 1.1, pan(-.2 + i * .1, pre)));
+        },
         // the rift opens wide: a great whoosh, a falling boom and a bloom of light
         open(at) {
             const n = noiseSrc(at, 1.6), bp = filter("bandpass", 220, .8), g = gain(0, post);
@@ -426,6 +448,7 @@ export function createIntroSound(ac, { volume = 0.7, prebuild = false, season = 
     // The timeline, matching intro.js (seconds from the start)
     const TIMELINE = [
         ...(season === "halloween" ? [[.15, "haunt"]] : []),
+        ...(season === "christmas" ? [[4.7, "sleigh"]] : []),
         [0, "rush"], [.55, "beat", 1], [.86, "beat", .7], [.9, "tear"], [1.4, "rings"], [2.05, "inhale"], [2.55, "gem"], [3.0, "glint"], [3.02, "arc"],
         ...STRIKES.map((t, i) => [t, "strike", i]),
         [3.55, "scramble"], ...Array.from({ length: 8 }, (_, i) => [3.75 + i * .085, "letter", i]), [4.35, "tagline"], [OPEN_AT, "open"]

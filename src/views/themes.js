@@ -38,6 +38,7 @@ export default {
         function themeCard(t, { community: c } = {}) {
             const isActive = !c && T.activeId() === t.id;
             const tileEl = T.tile(t, { thumb: c ? c.thumb : null });
+            if (t.season) tileEl.appendChild(h("span.tt-season", { title: t.season === "christmas" ? "With the Christmas Rift's decorations" : "With the Hallowed Rift's decorations" }, icon(t.season === "christmas" ? "gift" : "flame")));
             const actions = h("div.tc-actions");
             const el = h("div.theme-card", { class: isActive ? "is-active" : undefined },
                 tileEl,
@@ -112,6 +113,9 @@ export default {
             const surface = seg(T.SURFACES.map((s) => ({ ...s, small: s.hint.split(",")[0] })), () => d.surface, (v) => { d.surface = v; });
             const font = seg(Object.entries(T.FONTS).map(([id, f]) => ({ id, label: f.label })), () => d.font, (v) => { d.font = v; });
             const glow = seg([{ id: 0, label: "No glow" }, { id: 1, label: "Glow" }, { id: 2, label: "Intense" }], () => d.glow, (v) => { d.glow = v; });
+            // a season's decorations, carried by the theme all year (season.js)
+            const decor = seg([{ id: "", label: "None" }, { id: "halloween", label: "Hallowed Rift", small: "Pumpkins, cobwebs, bats" }, { id: "christmas", label: "Christmas Rift", small: "Snow, a tree, Santa's sleigh" }],
+                () => d.season || "", (v) => { if (v) d.season = v; else delete d.season; });
 
             const patterns = h("div.pattern-pick");
             const paintPatterns = () => { clear(patterns); T.PATTERNS.forEach((p) => patterns.appendChild(h("button", { type: "button", dataset: { pattern: p }, "aria-pressed": String(d.pattern === p), title: p,
@@ -226,6 +230,7 @@ export default {
                     group("Your picture", wpThumb, h("div.studio-actions", null, pick), linkIn, wpControls),
                     group("Font", font),
                     group("Glow", glow),
+                    group("Decorations", decor, h("p.hint", null, "A season's decorations with this theme, all year round.")),
                     h("div.studio-actions", null, save, cancel)),
                 preview));
             paintPreview();
@@ -328,6 +333,7 @@ function sanitize(t) {
         glow: [0, 1, 2].includes(x.glow) ? x.glow : 1,
         onAccent: hex(x.onAccent) || "#ffffff",
         blurb: typeof x.blurb === "string" ? x.blurb.slice(0, 120) : undefined,
+        season: x.season === "halloween" || x.season === "christmas" ? x.season : undefined,
         colors, wallpaper: wp
     };
 }

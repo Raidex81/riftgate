@@ -42,7 +42,7 @@ function pumpkin(face) {
     return el;
 }
 // A candle: dripping wax, a wick, and a flame that sways and flickers
-function candle(height) {
+export function candle(height) {
     const el = h("div.candle");
     el.style.setProperty("--h", `${height}px`);
     el.innerHTML = `<div class="candle-flame"><i></i></div><svg class="candle-wax" viewBox="0 0 24 60" preserveAspectRatio="none" aria-hidden="true">

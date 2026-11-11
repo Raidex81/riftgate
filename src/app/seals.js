@@ -38,6 +38,9 @@ export const SEALS = [
     { id: "perfectionist", name: "Perfectionist", hint: "Unlock every Steam achievement in a game", icon: "trophy", rarity: 3, test: (s) => s.achPerfect },
     { id: "one-in-100", name: "One in a hundred", hint: "Unlock a Steam achievement fewer than 1% of players have", icon: "gem", rarity: 3, test: (s) => s.achLegendary },
     { id: "hallowed", name: "Hallowed", hint: "Be there while the Hallowed Rift is open (late October)", icon: "flame", rarity: 2, test: (s) => s.halloween },
+    { id: "jolly", name: "Jolly", hint: "Be there while the Christmas Rift is open (November to early January)", icon: "gift", rarity: 2, test: (s) => s.christmas },
+    { id: "present-hunter", name: "Present hunter", hint: "Find 12 presents hidden around Riftgate in one Christmas", icon: "gift", rarity: 3, test: (s) => s.presents },
+    { id: "advent", name: "Twenty-four doors", hint: "Open every door of the advent calendar", icon: "calendar", rarity: 3, test: (s) => s.advent },
     // secrets
     { id: "old-code", name: "The old code", hint: "Some codes are older than Riftgate itself", icon: "gem", rarity: 4, secret: true, test: (s) => s.oldCode },
     { id: "golden", name: "Golden strike", hint: "Lightning, but not as you know it", icon: "star", rarity: 4, secret: true, test: (s) => s.golden },
@@ -59,7 +62,7 @@ export async function stats() {
         games: g.length, films: fin.filter((e) => kindOf(e) === "film").length, series: fin.filter((e) => kindOf(e) === "series" || kindOf(e) === "anime").length, books: b.length,
         library: lib.length, triad,
         claims: count("claims"), asks: count("asks"), rolls: count("rolls"),
-        dropSeen: flagged("drop-seen"), nightOwl: flagged("night-owl"), halloween: flagged("hallowed"),
+        dropSeen: flagged("drop-seen"), nightOwl: flagged("night-owl"), halloween: flagged("hallowed"), christmas: flagged("jolly"), presents: flagged("present-hunter"), advent: flagged("advent"),
         achPerfect: flagged("ach-perfect"), achLegendary: flagged("ach-legendary"),
         oldCode: flagged("old-code"), golden: flagged("golden"), knock: flagged("knock")
     };

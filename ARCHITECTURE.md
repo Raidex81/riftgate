@@ -414,8 +414,26 @@ tints the lightning, adds a haunted layer to the opening's sound
 (`intro-sound.js`), bats (`components/bats.js`), jack-o'-lanterns and
 candles by the Nexus rift and cobwebs with a spider in the page's corners
 (`components/hallowed.js`), a Scary picks row, a Trick or treat mood and
-Halloween facts. The decorations never take clicks, and respect reduced
-motion.
+Halloween facts. The Christmas Rift (11 November to 6 January) does the
+same in pine, berry red and gold: snow over the whole window, a garland of
+lights, holly, a hat on the gem, Santa's sleigh and an elf now and then
+(`components/yuletide.js`), a tree, presents, an elf, a snowman and a
+fireplace by the Nexus rift, fairy lights round the rift's ring and snow
+through it (`rift.js`), the sleigh crossing the opening in front of the gem
+(`intro.js`) to sleigh bells (`intro-sound.js`), an advent calendar
+(`components/advent.js`), presents hidden on the pages
+(`components/present-hunt.js`), Christmas picks, a Ho ho ho mood and
+Christmas facts. Its pictures are drawn once as SVG
+(`components/yule-art.js`) and used by the app and the opening's canvas
+alike. The decorations never take clicks (the elf's present aside), and
+respect reduced motion.
+
+A theme can carry a season (`season: "halloween" | "christmas"`, the
+built-in Hallowed Rift and Christmas Rift themes, or Studio → Decorations):
+`theme.js` marks it on the page, and `season.js` puts that season's
+decorations on all year, in the theme's own colours. The events that belong
+to the dates (the advent calendar, the hidden presents, the seals) stay on
+their dates (`season.onDates`).
 
 ## The opening's sound
 

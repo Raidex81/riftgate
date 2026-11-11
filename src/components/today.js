@@ -98,7 +98,7 @@ const EVERYTHING = { id: "everything", pool: async () => {
 } };
 const KIND_MOODS = { play: ["game"], free: ["game"], watch: ["film", "series", "anime"], read: ["book", "manga", "comic"] };
 
-const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…", spooky: "If you dare…" };
+const ROLL_TITLES = { play: "Tonight you play…", free: "Free, and it's yours…", watch: "Tonight you watch…", read: "Your next read…", any: "The rift has chosen…", spooky: "If you dare…", festive: "Unwrap this…" };
 
 // ---- The Hallowed Rift (season.js) -------------------------------------------------
 // The scariest things Riftgate has, by what reviewers and players think of them
@@ -116,7 +116,28 @@ const SPOOKY = { id: "spooky", label: "Trick or treat", hint: "Something scary, 
         { id: "read", label: "A scary book", icon: "book", pool: () => scaryPicks({ limit: 30, kinds: ["book"] }) }
     ] };
 const SPOOKY_EXAMPLES = ["Something scary for Halloween night", "A horror game to play with friends", "A creepy film with great reviews", "A ghost story to read"];
-const examplesFor = (id) => (season.is("halloween") ? [...SPOOKY_EXAMPLES.slice(0, 2), ...(ask.EXAMPLES[id] || ask.EXAMPLES.any).slice(0, 3)] : (ask.EXAMPLES[id] || ask.EXAMPLES.any));
+
+// ---- The Christmas Rift (season.js) ----------------------------------------------------
+// The most Christmassy things Riftgate has, by what reviewers and players think of them
+export async function christmasPicks({ limit = 30, kinds = null } = {}) {
+    const pool = await poolFor(null, EVERYTHING, { skipDone: true });
+    const req = ask.understand("something for christmas");
+    if (kinds) kinds.forEach((k) => req.kinds.add(k));
+    return ask.rank(req, pool, { limit }).picks.map((p) => p.item);
+}
+const FESTIVE = { id: "festive", label: "Ho ho ho", hint: "Something for Christmas, any kind", icon: "gift", energy: true,
+    options: [
+        { id: "any", label: "Anything festive", icon: "gift", pool: () => christmasPicks({ limit: 60 }) },
+        { id: "play", label: "A game for a snowy night", icon: "library", pool: () => christmasPicks({ limit: 40, kinds: ["game"] }) },
+        { id: "watch", label: "A Christmas film or series", icon: "film", pool: () => christmasPicks({ limit: 40, kinds: ["film", "series"] }) },
+        { id: "read", label: "A Christmas story", icon: "book", pool: () => christmasPicks({ limit: 30, kinds: ["book"] }) }
+    ] };
+const FESTIVE_EXAMPLES = ["A Christmas film for the whole family", "Something festive and funny", "A cosy game for a snowy night", "A Christmas story to read by the fire"];
+const SEASON_EXAMPLES = { halloween: SPOOKY_EXAMPLES, christmas: FESTIVE_EXAMPLES };
+const examplesFor = (id) => {
+    const sx = season.current() && SEASON_EXAMPLES[season.current().id];
+    return sx ? [...sx.slice(0, 2), ...(ask.EXAMPLES[id] || ask.EXAMPLES.any).slice(0, 3)] : (ask.EXAMPLES[id] || ask.EXAMPLES.any);
+};
 
 async function poolFor(mood, option, { skipDone }) {
     let items = ((await option.pool()) || []).filter((i) => i && i.title && !gate.hidden(i));
@@ -324,6 +345,7 @@ export function askButton(moodId) {
 export function moodTiles(onPick, big) {
     const moods = interests.byInterest(MOODS.filter((m) => !m.interests || interests.wants(...m.interests)), (m) => m.interests || ["__"]);
     if (season.is("halloween")) moods.splice(Math.max(0, moods.length - 1), 0, SPOOKY); // just before the wild card
+    if (season.is("christmas")) moods.splice(Math.max(0, moods.length - 1), 0, FESTIVE);
     const any = moods.findIndex((m) => m.id === "any");
     if (any >= 0) moods.push(moods.splice(any, 1)[0]); // the wild card always last
     return h(`div.moods${big ? ".big" : ""}`, { style: { "--n": String(moods.length) } }, moods.map((m) =>

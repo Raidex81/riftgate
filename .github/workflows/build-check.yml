@@ -55,6 +55,8 @@ jobs:
         run: node tests/suggestions.test.js
       - name: Languages (the translator and the Portuguese file)
         run: node --no-warnings tests/i18n.test.js
+      - name: The Christmas Rift (dates, themes that carry a season, Ask the Rift, pictures)
+        run: node --no-warnings tests/christmas.test.js
       - name: Engine loads and every handler is callable
         run: node scripts/engine-surface.js --call --check
 
