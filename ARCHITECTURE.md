@@ -423,7 +423,10 @@ through it (`rift.js`), the sleigh crossing the opening in front of the gem
 (`intro.js`) to sleigh bells (`intro-sound.js`), an advent calendar
 (`components/advent.js`), presents hidden on the pages
 (`components/present-hunt.js`), Christmas picks, a Ho ho ho mood and
-Christmas facts. Its pictures are drawn once as SVG
+Christmas facts, and the Humbug (`components/humbug.js`), an original snow
+imp whose mischief (a stolen light, present or hat, candles blown out, a
+snowball on the glass, snow blown upwards) always undoes itself, at once if
+he's clicked. Its pictures are drawn once as SVG
 (`components/yule-art.js`) and used by the app and the opening's canvas
 alike. The decorations never take clicks (the elf's present aside), and
 respect reduced motion.

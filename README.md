@@ -196,7 +196,9 @@ for its creator. Made one yourself? Put it forward from inside the app.
   presents, an elf, a snowman and a fireplace with stockings by the Nexus
   rift, Santa's sleigh crossing the opening in front of the gem (with sleigh
   bells) and the app now and then, an advent calendar, presents hidden
-  around the app to find, Christmas picks and a Ho ho ho mood. Both are
+  around the app to find, Christmas picks, a Ho ho ho mood, and the
+  Humbug, a little snow imp who sneaks in to steal lights, presents and the
+  gem's hat, blow out candles and throw snowballs (catch him in the act). Both are
   also themes in Themes, to keep all year, and any theme can carry their
   decorations.
 - **Buy now or wait?** A game's details show its best price across stores,

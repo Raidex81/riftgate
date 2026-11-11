@@ -257,6 +257,45 @@ export function hollySVG() {
     </svg>`;
 }
 
+// ---- The Humbug: Riftgate's own Christmas troublemaker ------------------------------------
+// A small, scruffy snow imp: indigo fur, frost-tipped ears, orange eyes half
+// shut with mischief, one crooked tooth, a mustard-and-plum scarf. Facing
+// right; frame "both" carries both steps of his walk (.f0 / .f1, CSS).
+export function humbugSVG(frame = "both") {
+    const g = id("hb");
+    const fur = [];
+    for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 2, r = i % 2 ? 23 : 27; fur.push(`${(40 + Math.cos(a) * r).toFixed(1)} ${(52 + Math.sin(a) * r * .92).toFixed(1)}`); }
+    const legs = (f, cls) => {
+        const L = f === 0 ? [["M34 72 L27 88", 25, 91], ["M46 72 L55 86", 57, 89]] : [["M34 72 L36 89", 35, 92], ["M46 72 L45 89", 46, 92]];
+        return `<g class="${cls}">${L.map(([d, x, y]) => `<path class="hb-leg" d="${d}"/><ellipse class="hb-foot" cx="${x}" cy="${y}" rx="7" ry="4"/>`).join("")}</g>`;
+    };
+    const both = frame === "both" ? legs(0, "f0") + legs(1, "f1") : legs(frame, "");
+    return `<svg class="humbug-art" viewBox="0 0 84 100" overflow="visible" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <radialGradient id="${g}f" cx="42%" cy="38%" r="70%"><stop offset="0" stop-color="#6b70d6"/><stop offset=".6" stop-color="#363a92"/><stop offset="1" stop-color="#1b1e55"/></radialGradient>
+        <radialGradient id="${g}e" cx="50%" cy="55%" r="60%"><stop offset="0" stop-color="#fff2a0"/><stop offset=".55" stop-color="#ffb02e"/><stop offset="1" stop-color="#e2620c"/></radialGradient>
+      </defs>
+      <style>.hb-leg{fill:none;stroke:#1b1e55;stroke-width:4.5;stroke-linecap:round} .hb-foot{fill:#2a2d78} .hb-fur{fill:url(#${g}f)} .hb-dark{fill:#120c2a} .hb-frost{fill:#d8f1ff}
+        .hb-arm{fill:none;stroke:#2a2d78;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}</style>
+      ${both}
+      <path class="hb-arm" d="M18 66 C6 66 4 54 12 52 M12 52 C16 50 18 54 15 56"/>
+      <path class="hb-fur" d="M24 40 C14 35 6 27 0 17 C11 22 20 27 29 33 Z"/><path class="hb-frost" d="M0 17 L8 20 L5 24 Z"/>
+      <path class="hb-arm" d="M22 58 C14 60 10 68 12 74 M12 74 l-3 3 M12 74 l1 4 M12 74 l3 3"/>
+      <path class="hb-fur" d="M${fur.join(" L")} Z"/>
+      <ellipse cx="45" cy="60" rx="12" ry="12" fill="#9a9ae8" opacity=".35"/>
+      <path class="hb-fur" d="M57 37 C67 30 75 22 82 12 C75 24 67 33 60 43 Z"/><path class="hb-frost" d="M82 12 L77 20 L74 16 Z"/>
+      <ellipse cx="35" cy="46" rx="6.5" ry="7.5" fill="url(#${g}e)"/><ellipse cx="50" cy="46" rx="6.5" ry="7.5" fill="url(#${g}e)"/>
+      <ellipse class="hb-dark" cx="36.5" cy="47.5" rx="1.5" ry="4.6"/><ellipse class="hb-dark" cx="51.5" cy="47.5" rx="1.5" ry="4.6"/>
+      <path class="hb-fur" d="M27 44 Q35 36 43 43 L43 39 Q35 32 27 39 Z"/><path class="hb-fur" d="M42 43 Q50 36 58 44 L58 39 Q50 32 42 39 Z"/>
+      <path class="hb-dark" d="M27 39 L42 41 L42 43.5 L27 41.5 Z M43 41 L58 37 L58 39.5 L43 43.5 Z"/>
+      <path class="hb-dark" d="M41 52 L46 52 L43.5 55 Z"/>
+      <path class="hb-dark" d="M31 57 Q43 67 56 55 Q44 62 31 57 Z"/><path d="M46 59.2 L48 63.5 L50 58.4 Z" fill="#f6f2e6"/>
+      <path d="M21 64 Q40 73 60 63 L60 70 Q40 79 21 71 Z" fill="#e0a72a"/><path d="M27 66.5 L27 73.5 M35 68.3 L35 75.5 M43 68.5 L43 75.8 M51 67 L51 74" stroke="#7a2a6a" stroke-width="3.2"/>
+      <path d="M24 68 L12 84 L19 86 L29 72 Z" fill="#e0a72a"/><path d="M15 80 L22 82 M18 76 L25 78" stroke="#7a2a6a" stroke-width="2.6"/>
+      <g class="hb-reach"><path class="hb-arm" d="M59 58 C66 56 70 50 72 44"/><path class="hb-arm" d="M72 44 l-2 -5 M72 44 l2 -5 M72 44 l4 -2"/></g>
+    </svg>`;
+}
+
 // For a canvas: an SVG as a picture, ready when loaded
 export function svgImage(svg) {
     const img = new Image();

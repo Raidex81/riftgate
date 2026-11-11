@@ -14,6 +14,7 @@ import { h } from "../app/dom.js";
 import * as season from "../app/season.js";
 import * as journal from "../app/store.js";
 import { candle } from "./hallowed.js";
+import { humbugVisit, setHumbug } from "./humbug.js";
 import { sleighSVG, treeSVG, presentSVG, fireplaceSVG, elfSVG, snowmanSVG, hatSVG, hollySVG } from "./yule-art.js";
 
 const XMAS = () => season.is("christmas");
@@ -52,7 +53,7 @@ export function yuleScene() {
 function snowfall() {
     const c = h("canvas.snowfall", { "aria-hidden": "true" });
     const ctx = c.getContext("2d");
-    let W = 0, H = 0, dpr = 1, raf = 0, last = 0, flakes = [];
+    let W = 0, H = 0, dpr = 1, raf = 0, last = 0, flakes = [], gustUntil = 0;
     const make = (y) => {
         const big = Math.random() < .06;
         return { x: Math.random() * W, y: y ?? Math.random() * H, r: big ? 3 + Math.random() * 2.5 : .7 + Math.random() ** 2 * 2.2, big,
@@ -76,8 +77,11 @@ function snowfall() {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
         for (const f of flakes) {
-            f.y += f.vy * dt; f.x += wind * dt * (f.big ? 1.6 : 1);
+            // (the Humbug can blow it all back up into the sky for a few seconds)
+            const up = now < gustUntil;
+            f.y += (up ? -f.vy * 2.4 : f.vy) * dt; f.x += (up ? wind * 4 + 40 : wind) * dt * (f.big ? 1.6 : 1);
             if (f.y > H + 8) Object.assign(f, make(-8));
+            else if (f.y < -10) f.y = H + 6;
             if (f.x < -10) f.x += W + 20; else if (f.x > W + 10) f.x -= W + 20;
             const x = f.x + Math.sin(t * f.sw + f.ph) * f.amp;
             if (f.big) {
@@ -93,6 +97,7 @@ function snowfall() {
     size();
     window.addEventListener("resize", size);
     raf = requestAnimationFrame(draw);
+    c.gust = (ms) => { gustUntil = performance.now() + ms; };
     c.stop = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", size); c.remove(); };
     return c;
 }
@@ -209,6 +214,7 @@ export function mountYuletide() {
                 };
                 every(sleighFlight, 30, 110, 120);
                 every(elfPeek, 75, 150, 150);
+                every(() => humbugVisit(), 120, 200, 220); // the Humbug, up to no good
             }
             syncSnow();
         } else if (layer) {
@@ -218,6 +224,7 @@ export function mountYuletide() {
             syncSnow();
         }
     };
+    setHumbug({ snow: () => snow });
     sync();
     season.onChange(sync);
     window.addEventListener("r2-snow-changed", syncSnow);
@@ -230,4 +237,4 @@ export function mountYuletide() {
 }
 
 // For checking: send the sleigh or the elf right now
-export function yuleNow(what) { if (layer) (what === "elf" ? elfPeek : sleighFlight)(layer); }
+export function yuleNow(what, only) { if (what === "humbug") return humbugVisit({ only }); if (layer) (what === "elf" ? elfPeek : sleighFlight)(layer); }

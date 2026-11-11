@@ -1,7 +1,7 @@
 // Riftgate — Seals: small achievements across every world, the kind no other
 // launcher can give because none has your games, films, series and books in
 // one place. Earned once, kept forever (with the date), shown in the Journal.
-// Three are secrets: they show as "???" until found.
+// Four are secrets: they show as "???" until found.
 
 import * as journal from "./store.js";
 import * as D from "./data.js";
@@ -44,6 +44,7 @@ export const SEALS = [
     // secrets
     { id: "old-code", name: "The old code", hint: "Some codes are older than Riftgate itself", icon: "gem", rarity: 4, secret: true, test: (s) => s.oldCode },
     { id: "golden", name: "Golden strike", hint: "Lightning, but not as you know it", icon: "star", rarity: 4, secret: true, test: (s) => s.golden },
+    { id: "humbug", name: "Bah, humbug!", hint: "Someone gets up to mischief at Christmas. Catch him at it, three times", icon: "eye", rarity: 3, secret: true, test: (s) => s.humbug },
     { id: "knock", name: "Seven knocks", hint: "Knock on the door, and keep knocking", icon: "rift", rarity: 3, secret: true, test: (s) => s.knock }
 ];
 
@@ -62,7 +63,7 @@ export async function stats() {
         games: g.length, films: fin.filter((e) => kindOf(e) === "film").length, series: fin.filter((e) => kindOf(e) === "series" || kindOf(e) === "anime").length, books: b.length,
         library: lib.length, triad,
         claims: count("claims"), asks: count("asks"), rolls: count("rolls"),
-        dropSeen: flagged("drop-seen"), nightOwl: flagged("night-owl"), halloween: flagged("hallowed"), christmas: flagged("jolly"), presents: flagged("present-hunter"), advent: flagged("advent"),
+        dropSeen: flagged("drop-seen"), nightOwl: flagged("night-owl"), halloween: flagged("hallowed"), christmas: flagged("jolly"), presents: flagged("present-hunter"), advent: flagged("advent"), humbug: flagged("humbug"),
         achPerfect: flagged("ach-perfect"), achLegendary: flagged("ach-legendary"),
         oldCode: flagged("old-code"), golden: flagged("golden"), knock: flagged("knock")
     };

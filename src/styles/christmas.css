@@ -169,3 +169,57 @@
 .tt-season { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
     background: color-mix(in srgb, var(--void) 70%, transparent); color: var(--rift-pink); box-shadow: 0 0 10px color-mix(in srgb, var(--rift-pink) 50%, transparent); }
 .tt-season svg { width: 15px; height: 15px; }
+
+/* ---- The Humbug, up to no good (components/humbug.js) ---- */
+.humbug { position: fixed; left: 0; top: 0; z-index: 58; cursor: pointer; filter: drop-shadow(0 5px 8px rgba(0, 0, 0, .5)); will-change: transform; }
+.humbug svg { display: block; width: 100%; height: auto; transition: transform .25s; }
+.humbug.left svg { transform: scaleX(-1); }
+.humbug .f1 { opacity: 0; }
+.humbug.walking .f0 { animation: sleigh-legs .3s steps(1) -.15s infinite; }
+.humbug.walking .f1 { opacity: 1; animation: sleigh-legs .3s steps(1) infinite; }
+.humbug.walking svg { animation: humbug-bob .3s ease-in-out infinite alternate; }
+.humbug.left.walking svg { animation-name: humbug-bob-l; }
+@keyframes humbug-bob { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-3px) rotate(3deg); } }
+@keyframes humbug-bob-l { from { transform: scaleX(-1) translateY(0) rotate(-3deg); } to { transform: scaleX(-1) translateY(-3px) rotate(3deg); } }
+.humbug .hb-reach { transform-origin: 59px 58px; transition: transform .3s; }
+.humbug.reach .hb-reach { transform: rotate(-35deg); }
+.humbug.pop svg { animation: humbug-pop .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+.humbug.left.pop svg { animation-name: humbug-pop-l; }
+@keyframes humbug-pop { from { transform: scale(.2); opacity: 0; } }
+@keyframes humbug-pop-l { from { transform: scaleX(-1) scale(.2); opacity: 0; } to { transform: scaleX(-1); } }
+.humbug.blow svg { animation: humbug-blow .5s ease-in-out infinite alternate; }
+@keyframes humbug-blow { from { transform: scale(1, 1); } to { transform: scale(1.08, .94); } }
+.humbug.throw svg { animation: humbug-throw .4s ease-in both; transform-origin: 50% 100%; }
+@keyframes humbug-throw { 40% { transform: rotate(-14deg); } 100% { transform: rotate(10deg); } }
+.humbug.caught svg { animation: humbug-shock .35s ease-in-out 2; }
+@keyframes humbug-shock { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px) rotate(-6deg); } 75% { transform: translateX(4px) rotate(6deg); } }
+.humbug.peek { clip-path: inset(-60px -60px 0 -60px); }
+.humbug-say { position: absolute; left: 50%; bottom: 100%; translate: -50% -4px; padding: 3px 9px; border-radius: 10px; white-space: nowrap; pointer-events: none;
+    background: #fff; color: #1b1e55; font-weight: 700; font-size: 12px; box-shadow: 0 3px 10px rgba(0, 0, 0, .4); animation: humbug-say .25s cubic-bezier(.2, 1.6, .4, 1) both; }
+.humbug-say::after { content: ""; position: absolute; left: 50%; top: 100%; margin-left: -5px; border: 5px solid transparent; border-top-color: #fff; }
+@keyframes humbug-say { from { transform: scale(.3); opacity: 0; } }
+.humbug-loot { position: absolute; right: -6%; top: 22%; width: 42%; pointer-events: none; }
+.humbug.left .humbug-loot { right: auto; left: -6%; }
+.humbug-loot svg { width: 100%; height: auto; display: block; }
+.humbug-loot .yule-bulb.loot { position: relative; display: block; left: 40%; top: 0; }
+.humbug-hat { position: absolute; left: 26%; top: 12%; width: 50%; rotate: 12deg; pointer-events: none; }
+.humbug-hat svg { width: 100%; height: auto; display: block; }
+.humbug.left .humbug-hat { scale: -1 1; rotate: -12deg; }
+.humbug-puff { position: fixed; z-index: 58; width: 14px; height: 14px; margin: -7px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, #fff, rgba(220, 235, 255, .6) 60%, transparent 72%); animation: humbug-puff .7s ease-out forwards; }
+@keyframes humbug-puff { to { transform: translate(var(--dx), var(--dy)) scale(2.2); opacity: 0; } }
+.snowball { position: fixed; z-index: 58; width: 16px; height: 16px; margin: -8px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 35% 30%, #fff, #dfeaf6 60%, #b9cde0); box-shadow: 0 3px 6px rgba(0, 0, 0, .35); }
+.splat { position: fixed; z-index: 57; width: 170px; margin: -85px 0 0 -85px; pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .35)); opacity: .94;
+    animation: splat-hit .18s ease-out both, splat-slide 6s ease-in .4s forwards, splat-melt 1.2s ease-in 6s forwards; }
+.splat svg { width: 100%; height: auto; display: block; }
+@keyframes splat-hit { from { transform: scale(.3); } }
+@keyframes splat-slide { to { translate: 0 60px; } }
+@keyframes splat-melt { to { opacity: 0; transform: scaleY(.6) translateY(30px); } }
+/* what he took, gone for now */
+.yule-bulb.stolen { opacity: 0 !important; animation: none; }
+.yule-present.stolen, .santa-hat.stolen { visibility: hidden; }
+.yule-fp .candle.out .candle-flame { opacity: 0; transition: opacity .3s; }
+.yule-fp .candle.out::before { opacity: 0; animation: none; }
+.yule-fp .candle.out .candle-wick::after { content: ""; position: absolute; left: -3px; bottom: 100%; width: 8px; height: 26px; border-radius: 50%;
+    background: linear-gradient(transparent, rgba(220, 220, 230, .5)); filter: blur(2px); animation: smoke 1.8s ease-out infinite; }
+@keyframes smoke { from { transform: translateY(0) scaleX(.6); opacity: .8; } to { transform: translateY(-18px) scaleX(1.4); opacity: 0; } }

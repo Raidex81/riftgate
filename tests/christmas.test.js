@@ -59,7 +59,7 @@ global.DocumentFragment = class { append() {} prepend() {} };
     // the pictures: well-formed enough to draw (tags balanced, no stray template bits)
     const art = await load("src/components/yule-art.js");
     const svgs = { sleigh0: art.sleighSVG(0), sleigh1: art.sleighSVG(1), sleighBoth: art.sleighSVG("both"), tree: art.treeSVG(), fireplace: art.fireplaceSVG(),
-        elf: art.elfSVG(), snowman: art.snowmanSVG(), hat: art.hatSVG(), holly: art.hollySVG(), ...Object.fromEntries(art.WRAPS.map((_, k) => [`present${k}`, art.presentSVG(k)])) };
+        elf: art.elfSVG(), humbug: art.humbugSVG(), humbug0: art.humbugSVG(0), snowman: art.snowmanSVG(), hat: art.hatSVG(), holly: art.hollySVG(), ...Object.fromEntries(art.WRAPS.map((_, k) => [`present${k}`, art.presentSVG(k)])) };
     for (const [name, svg] of Object.entries(svgs)) {
         assert.ok(/^<svg[\s>]/.test(svg.trim()) && svg.trim().endsWith("</svg>"), `${name} is an svg`);
         assert.ok(!/undefined|NaN|\$\{/.test(svg), `${name} has nothing left unfilled`);
@@ -73,7 +73,7 @@ global.DocumentFragment = class { append() {} prepend() {} };
     // the Portuguese for everything the season says
     const pt = (await load("src/app/lang/pt.js")).default;
     const must = ["The Christmas Rift is open until 6 January. Snow is falling, and there are presents hidden all over Riftgate.", "Advent calendar", "Ho ho ho", "Christmas picks",
-        "Present hunter", "Twenty-four doors", "Jolly", "Christmas Rift", "Hallowed Rift", "Let it snow", "Decorations", "You found a present! {0} of {1}. Inside: {2}", ...all];
+        "Present hunter", "Twenty-four doors", "Jolly", "Christmas Rift", "Hallowed Rift", "Let it snow", "Decorations", "You found a present! {0} of {1}. Inside: {2}", "Bah, humbug!", "You caught the Humbug! Bah, he says.", ...all];
     for (const s of must) assert.ok(pt[s], `Portuguese for ${JSON.stringify(s)}`);
 
     console.log("christmas: all checks passed");

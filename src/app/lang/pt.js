@@ -1841,5 +1841,25 @@ export default {
     "Dr. Seuss's How the Grinch Stole Christmas! came out in 1957.": "How the Grinch Stole Christmas!, de Dr. Seuss, saiu em 1957.",
     "The first Christmas card for sale was commissioned by Henry Cole in London in 1843.": "O primeiro postal de Natal à venda foi encomendado por Henry Cole, em Londres, em 1843.",
     "Jingle Bells was first published in 1857, as One Horse Open Sleigh.": "Jingle Bells foi publicada pela primeira vez em 1857, com o título One Horse Open Sleigh.",
-    "O. Henry's The Gift of the Magi was first published in 1905.": "O Presente dos Magos, de O. Henry, foi publicado pela primeira vez em 1905."
+    "O. Henry's The Gift of the Magi was first published in 1905.": "O Presente dos Magos, de O. Henry, foi publicado pela primeira vez em 1905.",
+    // the Humbug
+    "Catch him!": "Apanha-o!",
+    "The Humbug: catch him!": "O Resmungão: apanha-o!",
+    "Hee hee!": "Hi hi!",
+    "Mine now!": "Agora é meu!",
+    "Fwoooo!": "Fuuuu!",
+    "Ho ho… no!": "Ho ho… não!",
+    "Heh!": "Eh eh!",
+    "Whoooo!": "Fuuuuu!",
+    "Bah!": "Bah!",
+    "You caught the Humbug! He dropped the light he stole.": "Apanhaste o Resmungão! Largou a luz que tinha roubado.",
+    "You caught the Humbug! The candles are lit again.": "Apanhaste o Resmungão! As velas voltaram a acender-se.",
+    "You caught the Humbug! The gem has its hat back.": "Apanhaste o Resmungão! A gema tem o gorro de volta.",
+    "You caught the Humbug! Bah, he says.": "Apanhaste o Resmungão! Bah, diz ele.",
+    "You caught the Humbug! The snow falls the right way again.": "Apanhaste o Resmungão! A neve volta a cair como deve ser.",
+    "You got the present back from the Humbug, and it's yours! {0} of {1}. Inside: {2}": "Recuperaste o presente que o Resmungão roubou, e é teu! {0} de {1}. Lá dentro: {2}",
+    "You got the present back from the Humbug, and it's yours! That's all {0}! Inside: {1}": "Recuperaste o presente que o Resmungão roubou, e é teu! Já são todos os {0}! Lá dentro: {1}",
+    "You got the present back from the Humbug, and it's yours! That's {0} this Christmas. Inside: {1}": "Recuperaste o presente que o Resmungão roubou, e é teu! Já são {0} este Natal. Lá dentro: {1}",
+    "Bah, humbug!": "Bah, que resmungão!",
+    "Someone gets up to mischief at Christmas. Catch him at it, three times": "Alguém anda a fazer travessuras no Natal. Apanha-o em flagrante três vezes"
 };

@@ -17,7 +17,7 @@ export const LANGUAGES = [
 ];
 const FILES = { pt: () => import("./lang/pt.js") };
 const ATTRS = ["placeholder", "title", "aria-label"];
-const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "CODE", "PRE", "CANVAS", "SVG", "svg"]);
+const SKIP = new Set(["SCRIPT", "STYLE", "style", "TEXTAREA", "INPUT", "CODE", "PRE", "CANVAS", "SVG", "svg"]);
 
 let words = null;           // Map: English -> translation
 let patterns = [];          // [{ re, to, anchor }]

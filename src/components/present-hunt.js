@@ -42,6 +42,14 @@ export function burst(x, y, n = 28) {
 }
 
 let say = () => {};
+// a present that isn't hidden on a page (the elf's, the one the Humbug drops):
+// on the season's dates it counts, otherwise it's just a fact
+export function givePresent(x, y, from) {
+    if (on()) return reward(x, y, from);
+    burst(x, y);
+    const facts = christmasFacts();
+    say(facts[Math.floor(Math.random() * facts.length)], "ok", 8000);
+}
 function reward(x, y, from) {
     burst(x, y);
     const n = found() + 1;
@@ -49,7 +57,7 @@ function reward(x, y, from) {
     if (n >= GOAL) flag("present-hunter");
     const facts = christmasFacts();
     const fact = facts[(n * 5 + Math.floor(Math.random() * facts.length)) % facts.length];
-    const head = from === "elf" ? "The elf gave you a present!" : "You found a present!";
+    const head = from === "elf" ? "The elf gave you a present!" : from === "humbug" ? "You got the present back from the Humbug, and it's yours!" : "You found a present!";
     const count = n < GOAL ? ` ${n} of ${GOAL}.` : n === GOAL ? ` That's all ${GOAL}!` : ` That's ${n} this Christmas.`;
     say(`${head}${count} Inside: ${fact}`, "ok", 10000);
 }
