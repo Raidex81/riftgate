@@ -4,6 +4,33 @@ Every Riftgate version, newest first. This file is made from the same notes as *
 
 Downloads for every version are on the [releases page](https://github.com/Raidex81/riftgate/releases).
 
+## 2.0.5
+
+**New**
+
+- The Christmas Rift. From 11 November to 6 January Riftgate turns pine green, berry red and gold. Snow falls over the whole app, a garland of lights hangs along the top with holly in the corners, the gem wears a Santa hat, and a tree, presents, an elf, a snowman and a fireplace with stockings and candles stand by the Nexus rift, with fairy lights round its ring.
+- Santa's sleigh in the opening. Snow falls while the rift opens, and Santa and his reindeer fly right in front of the gem to the sound of sleigh bells. Now and then the sleigh crosses the app too, and an elf peeks up from the bottom of the window.
+- An advent calendar in Nexus. One door a day from 1 to 24 December, each with something for Christmas from your worlds or a Christmas fact; a missed door waits for you until 6 January.
+- Presents hidden around Riftgate. Look for them on the pages (the elf sometimes has one too); each one opens with a Christmas fact. And watch out for the Humbug, a little snow imp who steals lights, presents and the gem's hat, blows out the candles and throws snowballs at the glass. Click him in the act and he drops what he took.
+- Christmas picks in Nexus, a Ho ho ho mood in Surprise me, Christmas facts and new Seals to earn (one of them secret). Settings → Seasonal events has Let it snow, to turn the snow off on its own.
+- The Hallowed Rift and Christmas Rift themes, to keep their decorations all year. Any theme can carry them too: Themes → Studio → Decorations.
+- Riftgate in Portuguese. Settings → Language: Same as Windows, English or Português, with dates in the language's own format.
+- Back up and restore. One file with everything that is yours (Library, Journal, shows, eBooks, wishlist, themes, settings and your games' save files), to restore on this PC or a new one, and a copy every day in a folder you choose, such as OneDrive (the last 5 are kept).
+- Import your history. Letterboxd, Goodreads, IMDb and MyAnimeList exports go into your Journal, and your public Steam wishlist into Riftgate's.
+- Buy now or wait? A game's details show its best price across stores, the lowest it has ever been and a plain verdict, and say when PC Game Pass already includes it.
+- Will it run on this PC? A game's details compare its Steam requirements with your graphics card, processor and memory. Settings shows This PC.
+- Achievements say what you did to earn them, the secret ones you've unlocked included, in the Trophy room too.
+- My shows show their rating, like every other series.
+- For admins, a new suggestion makes Suggestions blink with a count, with a Windows notification.
+
+**Changed**
+
+- The opening is quieter.
+
+**Fixed**
+
+- A Steam game added by dropping its desktop shortcut is the Steam game itself, with its achievements and news, and every Steam game shows them even before Steam's playtime has been read.
+
 ## 2.0.4
 
 **New**
