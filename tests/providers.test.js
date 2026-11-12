@@ -54,6 +54,9 @@ const get = (url) => new Promise((resolve) => { const r = https.get(url); r.on("
     assert.strictEqual(r[providers.META].failed[0].reason, "down");
     STATUS = 404; r = await providers.runCall(async () => { await get("https://gutendex.com/x"); return 1; });
     assert.strictEqual(r, 1);
+    // a backup source (Google Books, eBook covers only) failing is never reported: nothing is missing
+    STATUS = 429; r = await providers.runCall(async () => { await get("https://www.googleapis.com/books/v1/volumes?q=x"); return null; });
+    assert.strictEqual(r, null, "Google Books running out of quota says nothing");
     STATUS = 200;
 
     // three network failures in a row: the host rests, and requests fail at once

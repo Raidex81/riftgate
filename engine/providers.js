@@ -29,7 +29,9 @@ const PROVIDERS = [
     { id: "rawg", label: "RAWG", what: "upcoming games", hosts: [/(^|\.)rawg\.io$/] },
     { id: "steamgriddb", label: "SteamGridDB", what: "covers", hosts: [/(^|\.)steamgriddb\.com$/] },
     { id: "youtube", label: "YouTube", what: "trailers", hosts: [] }, // only through the media proxy
-    { id: "googlebooks", label: "Google Books", what: "book covers", hosts: [/^www\.googleapis\.com$/] },
+    // a backup only (an eBook's cover when Open Library has none), and its free
+    // quota runs out often: when it fails nothing is missing, so it never says so
+    { id: "googlebooks", label: "Google Books", what: "book covers", hosts: [/^www\.googleapis\.com$/], quiet: true },
     { id: "steam", label: "Steam", what: "games, deals, playtime and news", hosts: [/^store\.steampowered\.com$/, /^api\.steampowered\.com$/, /^steamcommunity\.com$/] },
     { id: "steamspy", label: "SteamSpy", what: "free Steam games", hosts: [/(^|\.)steamspy\.com$/] },
     { id: "cheapshark", label: "CheapShark", what: "deals and prices", hosts: [/(^|\.)cheapshark\.com$/] },
@@ -222,7 +224,7 @@ function runCall(fn) {
 const META = "__riftgateMeta";
 function wrapResult(value, call) {
     const failed = [];
-    for (const [id, c] of call.providers) if (!c.ok && c.reason) failed.push({ id, label: BY_ID.get(id).label, what: BY_ID.get(id).what, reason: c.reason });
+    for (const [id, c] of call.providers) if (!c.ok && c.reason && !BY_ID.get(id).quiet) failed.push({ id, label: BY_ID.get(id).label, what: BY_ID.get(id).what, reason: c.reason });
     if (!failed.length && !call.savedAt) return value;
     const meta = { failed, savedAt: call.savedAt || null, offline: failed.length > 0 && failed.every((f) => f.reason === "offline") };
     return { [META]: meta, value };

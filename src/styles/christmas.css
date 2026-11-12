@@ -70,6 +70,9 @@
 .santa-hat svg { width: 100%; display: block; }
 @media (max-width: 900px) { .santa-hat { left: 50%; translate: -60% 0; } }
 
+/* a notice (a source not answering) sits in front of the garland, not under its bulbs */
+:root[data-season="christmas"] .app > .source-banner { z-index: 48; top: calc(var(--titlebar-h) + 34px); }
+
 /* Santa's sleigh, crossing now and then */
 .sleigh-fly { position: absolute; left: 0; top: var(--top); width: var(--w); animation: sleigh-ltr var(--dur) linear both; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); }
 .sleigh-fly.rtl { animation-name: sleigh-rtl; }
