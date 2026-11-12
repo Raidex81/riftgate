@@ -30,7 +30,7 @@ export const locale = () => LOCALES[active];
 
 // what "Same as Windows" means: the system's language when Riftgate has it
 export function resolve(choice) {
-    const sys = String(navigator.language || "en").slice(0, 2).toLowerCase();
+    const sys = String((globalThis.navigator && navigator.language) || "en").slice(0, 2).toLowerCase();
     const id = !choice || choice === "auto" ? sys : choice;
     return FILES[id] ? id : "en";
 }
