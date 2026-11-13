@@ -903,3 +903,26 @@
 @media (max-width: 900px) { .check-part { grid-template-columns: 22px 1fr; } .check-need { grid-column: 2; } }
 /* what an achievement was for, under its name in the Trophy room */
 .trophy-unlock .trophy-desc { font-size: var(--t-xs); color: var(--starlight-2); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Hovering an achievement: how it's earned, and for yours, how and when you got it (components/achievements.js) */
+.ach-tile { cursor: default; }
+.ach-tile:focus-visible { outline: 2px solid var(--amethyst); outline-offset: 2px; }
+.ach-hoverable { cursor: help; text-decoration: underline dotted color-mix(in srgb, var(--dust) 60%, transparent); text-underline-offset: 3px; }
+.ach-tip { --tc: var(--amethyst); position: fixed; z-index: 99; width: min(320px, calc(100vw - 16px)); display: grid; gap: 6px; padding: 12px 14px; pointer-events: none;
+    background: linear-gradient(160deg, var(--nebula-3), var(--nebula)); border: 1px solid color-mix(in srgb, var(--tc) 45%, var(--line-strong)); border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .55), 0 0 22px color-mix(in srgb, var(--tc) 22%, transparent); animation: fade .15s var(--ease); }
+.ach-tip:not([data-tier="none"]) { --tc: var(--tier); }
+.ach-tip-head { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; }
+.ach-tip-icon { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+.ach-tip-icon.blank { display: grid; place-items: center; background: var(--nebula-2); color: var(--dust); }
+.ach-tip-icon.blank svg { width: 18px; height: 18px; }
+.ach-tip.is-locked .ach-tip-icon { filter: grayscale(1) brightness(.75); }
+.ach-tip-head b { display: block; color: var(--hi); font-size: var(--t-sm); line-height: 1.25; }
+.ach-tip-head small { color: var(--dust); font-size: var(--t-xs); }
+.ach-tip-label { color: var(--tc); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ach-tip-how { color: var(--starlight); font-size: var(--t-sm); line-height: 1.4; }
+.ach-tip-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--dust); font-size: var(--t-xs); }
+.ach-tip-foot span { display: inline-flex; align-items: center; gap: 5px; }
+.ach-tip-foot svg { width: 13px; height: 13px; color: var(--tc); }
+.ach-tip-foot .ach-gem { width: 10px; height: 12px; }
+@media (prefers-reduced-motion: reduce) { .ach-tip { animation: none; } }

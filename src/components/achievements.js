@@ -5,6 +5,7 @@ import { h, icon, clear, coverSrc } from "../app/dom.js";
 import { openExternal } from "../app/api.js";
 import * as A from "../app/achievements.js";
 import { shortAgo } from "../app/sources.js";
+import { locale } from "../app/i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 function ringOf(pct, perfect) {
@@ -41,6 +42,48 @@ function rarityOf(a) {
         gem(t), h("b", null, `${a.percent < 0.1 ? "<0.1" : a.percent}%`), h("small", null, t.label));
 }
 
+// ---- Hovering an achievement --------------------------------------------------------
+// A card that says how it's earned: for one you have, how you got it and
+// when; for one you don't, how to get it. A secret you haven't revealed
+// stays a secret. On mouse hover and on keyboard focus.
+let tip = null, tipTimer = null;
+const closeTip = () => { clearTimeout(tipTimer); if (tip) { tip.remove(); tip = null; } };
+export function achHover(el, a, { game, got } = {}) {
+    el.removeAttribute("title");
+    const show = () => { clearTimeout(tipTimer); tipTimer = setTimeout(() => openTip(el, a, { game, got }), 200); };
+    el.addEventListener("mouseenter", show);
+    el.addEventListener("focusin", show);
+    el.addEventListener("mouseleave", closeTip);
+    el.addEventListener("focusout", closeTip);
+    el.addEventListener("click", closeTip);
+    return el;
+}
+function openTip(el, a, { game, got }) {
+    closeTip();
+    if (!el.isConnected) return;
+    const have = got ?? !!a.achieved;
+    const secret = !have && a.hidden && el.classList.contains("is-hidden");
+    const when = a.unlockedAt || a.at || null;
+    const t = A.tierOf(a.percent);
+    const how = secret ? "Reveal it to see how it's earned."
+        : a.desc || (!have && a.hidden ? "Steam keeps this one secret until you unlock it." : "Steam doesn't say how this one is earned.");
+    tip = h("div.ach-tip", { role: "tooltip", dataset: { tier: t ? t.id : "none" }, class: have ? "is-unlocked" : "is-locked" },
+        h("div.ach-tip-head", null, iconImg(have ? a.icon : (a.iconGray || a.icon), "ach-tip-icon"),
+            h("div", null, h("b", null, secret ? "Hidden achievement" : a.name), game ? h("small", { translate: "no" }, game) : null)),
+        h("small.ach-tip-label", null, have ? "How you got it" : secret ? "A secret" : "How to get it"),
+        h("p.ach-tip-how", null, how),
+        h("div.ach-tip-foot", null,
+            have ? h("span", null, icon("check"), when ? `Unlocked ${new Date(when).toLocaleString(locale() || undefined, { dateStyle: "long", timeStyle: "short" })}` : "Unlocked") : null,
+            typeof a.percent === "number" && t ? h("span", null, gem(t), `${t.label} · ${a.percent < 0.1 ? "<0.1" : a.percent}% of players have it`) : null));
+    document.body.appendChild(tip);
+    // below the achievement if there's room, else above; always inside the window
+    const r = el.getBoundingClientRect(), w = tip.offsetWidth, hgt = tip.offsetHeight, m = 8;
+    const x = Math.max(m, Math.min(innerWidth - w - m, r.left + r.width / 2 - w / 2));
+    const y = r.bottom + m + hgt < innerHeight ? r.bottom + m : Math.max(m, r.top - m - hgt);
+    tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+}
+window.addEventListener("scroll", closeTip, true);
+
 function tile(a) {
     const t = A.tierOf(a.percent);
     const el = h("div.ach-tile", { dataset: { tier: t ? t.id : "none" }, class: a.achieved ? "is-unlocked" : "is-locked" });
@@ -60,7 +103,8 @@ function tile(a) {
     const side = h("div.ach-side", null, rarityOf(a));
     if (a.achieved) side.append(h("small.ach-when", { title: a.unlockedAt ? new Date(a.unlockedAt).toLocaleString() : "" }, a.unlockedAt ? A.dayLabel(a.unlockedAt) : "Unlocked"));
     el.append(side);
-    return el;
+    el.tabIndex = 0;
+    return achHover(el, a);
 }
 
 const LIMIT = 8;
@@ -155,7 +199,7 @@ export function achievementsBox(item) {
                     : h("p", null, h("b", null, `${r.unlocked} of ${r.total}`), ` unlocked · ${r.total - r.unlocked} to go`),
                 counts.length ? tiers : null, counts.length ? legend : null,
                 h("p.muted.ach-facts", null,
-                    best && typeof best.percent === "number" ? h("span", null, "Rarest: ", h("b", null, best.name), ` (${best.percent}%)`) : null,
+                    best && typeof best.percent === "number" ? achHover(h("span.ach-hoverable", null, "Rarest: ", h("b", null, best.name), ` (${best.percent}%)`), best) : null,
                     last && last.unlockedAt ? h("span", null, `Last unlocked ${A.dayLabel(last.unlockedAt).toLowerCase()}`) : null,
                     h("span", null, `Checked ${shortAgo(r.updatedAt)}`)))));
         // the four ways to look

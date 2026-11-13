@@ -5,7 +5,7 @@ import { h, icon, clear } from "../app/dom.js";
 import * as A from "../app/achievements.js";
 import * as D from "../app/data.js";
 import { openDetail } from "./detail.js";
-import { privateNote, iconImg } from "./achievements.js";
+import { privateNote, iconImg, achHover } from "./achievements.js";
 
 // once per run: when nothing has been looked at yet, look now instead of
 // waiting for the engine's first background look
@@ -55,7 +55,7 @@ export function trophyRoom() {
         sec.append(h("div.trophy-stats", null,
             stat(t.unlocked.toLocaleString(), `achievements, of ${t.total.toLocaleString()} in ${t.games} game${t.games === 1 ? "" : "s"}`),
             stat(String(t.perfect), t.perfect === 1 ? "perfect game" : "perfect games"),
-            t.rarest ? stat(`${t.rarest.percent}%`, `rarest: ${t.rarest.name}`, h("small.muted", { title: t.rarest.desc || "" }, t.rarest.desc ? `${t.rarest.desc} · ${t.rarest.game || ""}` : t.rarest.game || "")) : null,
+            t.rarest ? achHover(stat(`${t.rarest.percent}%`, `rarest: ${t.rarest.name}`, h("small.muted", null, t.rarest.desc ? `${t.rarest.desc} · ${t.rarest.game || ""}` : t.rarest.game || "")), t.rarest, { game: t.rarest.game, got: true }) : null,
             stat(`${t.avg}%`, "done on average, in games you've started")));
 
         if (s.state === "private") sec.append(privateNote(check, { tries }));
@@ -65,9 +65,9 @@ export function trophyRoom() {
             const strip = h("div.trophy-recent");
             for (const a of s.recent.slice(0, 12)) {
                 const tier = A.tierOf(a.percent);
-                strip.append(h("button.trophy-unlock", { type: "button", dataset: { tier: tier ? tier.id : "none" }, title: `${a.name}${a.desc ? `: ${a.desc}` : ""} (${a.game || ""}${typeof a.percent === "number" ? ` · ${a.percent}% of players` : ""})`, onclick: () => openGame(a.appid) },
+                strip.append(achHover(h("button.trophy-unlock", { type: "button", dataset: { tier: tier ? tier.id : "none" }, title: `${a.name}${a.desc ? `: ${a.desc}` : ""} (${a.game || ""}${typeof a.percent === "number" ? ` · ${a.percent}% of players` : ""})`, onclick: () => openGame(a.appid) },
                     iconImg(a.icon, "trophy-icon"),
-                    h("b", null, a.name), a.desc ? h("span.trophy-desc", null, a.desc) : null, h("small", null, a.game || ""), h("small.muted", null, A.dayLabel(a.at))));
+                    h("b", null, a.name), a.desc ? h("span.trophy-desc", null, a.desc) : null, h("small", null, a.game || ""), h("small.muted", null, A.dayLabel(a.at))), a, { game: a.game, got: true }));
             }
             sec.append(h("h3", null, "Recently unlocked"), strip);
         }

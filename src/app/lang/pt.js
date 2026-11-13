@@ -1861,5 +1861,13 @@ export default {
     "You got the present back from the Humbug, and it's yours! That's all {0}! Inside: {1}": "Recuperaste o presente que o Resmungão roubou, e é teu! Já são todos os {0}! Lá dentro: {1}",
     "You got the present back from the Humbug, and it's yours! That's {0} this Christmas. Inside: {1}": "Recuperaste o presente que o Resmungão roubou, e é teu! Já são {0} este Natal. Lá dentro: {1}",
     "Bah, humbug!": "Bah, que resmungão!",
-    "Someone gets up to mischief at Christmas. Catch him at it, three times": "Alguém anda a fazer travessuras no Natal. Apanha-o em flagrante três vezes"
+    "Someone gets up to mischief at Christmas. Catch him at it, three times": "Alguém anda a fazer travessuras no Natal. Apanha-o em flagrante três vezes",
+    // hovering an achievement
+    "How you got it": "Como a conseguiste",
+    "How to get it": "Como a conseguir",
+    "A secret": "Um segredo",
+    "Reveal it to see how it's earned.": "Revela-a para veres como se conquista.",
+    "Steam doesn't say how this one is earned.": "A Steam não diz como se conquista esta.",
+    "Unlocked {0}": "Desbloqueado a {0}",
+    "{0} · {1}% of players have it": "{0} · {1}% dos jogadores têm-na"
 };
