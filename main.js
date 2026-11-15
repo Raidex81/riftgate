@@ -1066,12 +1066,29 @@ ipcMain.handle("save-override", async (event, { name, image, trailerId }) => {
 
 // Resolves short names/abbreviations (e.g. "bf6") to a game's full official
 // title (e.g. "Battlefield 6") using SteamGridDB's fuzzy game search.
+// The fuller name SteamGridDB knows a title by. Its search is fuzzy, and the
+// shorter variants it's asked (the first word, the initials) can land on a
+// different game altogether: "GrooVR Air Drumming (Oculus Quest)" came back
+// as "iCarly: Groovy Foodie!", whose trailer then played instead. A name is
+// only taken when it's plainly the same title: it shares the title's first
+// real word and at least half of its words, or its first word is the other's
+// initials ("GTA V" is "Grand Theft Auto V").
+function isSameTitle(searchName, matchName) {
+    const all = (s) => (s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    const a = all(searchName).filter((w) => w.length > 2), m = all(matchName), b = new Set(m.filter((w) => w.length > 2));
+    if (!a.length || !b.size) return false;
+    const shared = a.filter((w) => b.has(w)).length;
+    if (b.has(a[0]) && shared >= Math.ceil(a.length / 2)) return true;
+    const initials = m.map((w) => w[0]).join("");
+    return a[0].length >= 2 && /^[a-z]+$/.test(a[0]) && initials.startsWith(a[0]) && a[0] !== m[0];
+}
+
 async function resolveCanonicalName(gameName) {
 
     try {
         for (const variant of generateNameVariants(gameName)) {
             const match = await searchSteamGridDb(variant);
-            if (match) return match.name || null;
+            if (match && match.name && isSameTitle(gameName, match.name)) return match.name;
         }
         return null;
 
@@ -5433,7 +5450,9 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
     // is far less confusing than playing something unrelated.
     const STOPWORDS = new Set([
         "the", "and", "for", "with", "from", "official", "trailer", "game",
-        "edition", "ultimate", "deluxe", "remastered", "remake", "reboot", "series"
+        "edition", "ultimate", "deluxe", "remastered", "remake", "reboot", "series",
+        // platforms in a title ("… (Oculus Quest)") say nothing about which game it is
+        "oculus", "quest", "steamvr", "vive", "xbox", "playstation", "windows"
     ]);
 
     function significantWords(name) {
@@ -5462,7 +5481,10 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
             // already strips each word down to plain [a-z0-9] before this
             // runs, so no regex-escaping is needed to build the pattern
             // from it.
-            return words.some((w) => new RegExp(`\\b${w}\\b`).test(titleLower));
+            // and not just any one word: its first word, or at least half
+            // of them ("GrooVR Air Drumming" isn't any video that says "air")
+            const has = (w) => new RegExp(`\\b${w}\\b`).test(titleLower);
+            return has(words[0]) || words.filter(has).length >= Math.ceil(words.length / 2);
         });
     }
 
