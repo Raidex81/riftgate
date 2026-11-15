@@ -289,12 +289,23 @@ async function trailerButton(item, box, cover) {
     if (!raw || !box.isConnected) return;
     const isUrl = /^https:\/\/[\w.-]+\.steamstatic\.com\//i.test(raw);
     if (!isUrl && !/^[\w-]{6,20}$/.test(raw)) return;
-    box.appendChild(h("button.btn.lg", { type: "button", onclick: () => playTrailer(raw, isUrl, item.title) }, icon("play"), "Watch trailer"));
+    // a game's trailer is found by searching, so it can be the wrong one: say so and Riftgate looks again
+    const wrong = item.type === "game" && item.key ? async () => {
+        await call("r2-trailer-wrong", item.key, raw);
+        forget("fetch-trailer");
+        btn.remove();
+        toast(`Thanks. Riftgate is looking for ${item.title}'s real trailer…`);
+        const before = box.childElementCount;
+        await trailerButton(item, box, cover);
+        if (box.childElementCount === before && box.isConnected) toast(`No other trailer found for ${item.title}, so none is shown.`);
+    } : null;
+    const btn = h("button.btn.lg", { type: "button", onclick: () => playTrailer(raw, isUrl, item.title, wrong) }, icon("play"), "Watch trailer");
+    box.appendChild(btn);
 }
 
 // Trailers play in a large theatre overlay, never squeezed into the panel:
 // the bigger player lets YouTube pick HD, and nothing sits on top of it.
-function playTrailer(raw, isUrl, title) {
+function playTrailer(raw, isUrl, title, wrong) {
     const player = isUrl
         ? h("video", { src: raw, autoplay: true, controls: true })
         : h("iframe", {
@@ -308,6 +319,8 @@ function playTrailer(raw, isUrl, title) {
     const stage = h("div.trailer-stage", { role: "dialog", "aria-modal": "true", "aria-label": `${title} trailer`, onclick: (e) => { if (e.target === stage) close(); } },
         h("div.trailer-frame", null, player),
         onYouTube,
+        wrong ? h("button.btn.sm.trailer-wrong", { type: "button", title: "This trailer is for something else: Riftgate forgets it and looks again",
+            onclick: () => { close(); wrong(); } }, icon("x"), "Not this game's trailer") : null,
         h("button.icon-btn.trailer-close", { type: "button", "aria-label": "Close trailer", onclick: () => close() }, icon("x")));
     // Esc closes the trailer only (the panel underneath stays open)
     const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(); } };

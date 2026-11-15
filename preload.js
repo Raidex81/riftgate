@@ -52,6 +52,7 @@ const INVOKABLE_CHANNELS = new Set([
     "fetch-description",
     "fetch-online-cover",
     "fetch-trailer",
+    "r2-trailer-wrong",
     "find-cover",
     "find-game-cover",
     "get-file-icon",

@@ -1869,5 +1869,10 @@ export default {
     "Reveal it to see how it's earned.": "Revela-a para veres como se conquista.",
     "Steam doesn't say how this one is earned.": "A Steam não diz como se conquista esta.",
     "Unlocked {0}": "Desbloqueado a {0}",
-    "{0} · {1}% of players have it": "{0} · {1}% dos jogadores têm-na"
+    "{0} · {1}% of players have it": "{0} · {1}% dos jogadores têm-na",
+    // a wrong trailer
+    "Not this game's trailer": "Não é o trailer deste jogo",
+    "This trailer is for something else: Riftgate forgets it and looks again": "Este trailer é de outra coisa: o Riftgate esquece-o e procura outra vez",
+    "Thanks. Riftgate is looking for {0}'s real trailer…": "Obrigado. O Riftgate está a procurar o verdadeiro trailer de {0}…",
+    "No other trailer found for {0}, so none is shown.": "Não foi encontrado outro trailer para {0}, por isso não é mostrado nenhum."
 };

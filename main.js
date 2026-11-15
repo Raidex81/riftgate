@@ -5354,9 +5354,12 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
 
     console.log(`[trailer] Looking up trailer for "${gameName}" (type: ${type || "game"})...`);
 
+    // trailers someone said were wrong for this title ("Not this game's trailer"), never picked again
+    const wrong = new Set(cacheKey && Array.isArray(cache[`__wrong:${cacheKey}`]) ? cache[`__wrong:${cacheKey}`] : []);
+
     if (steamAppId && /^\d+$/.test(String(steamAppId))) {
         const steamTrailerUrl = await fetchSteamOfficialTrailerUrl(steamAppId);
-        if (steamTrailerUrl) {
+        if (steamTrailerUrl && !wrong.has(steamTrailerUrl)) {
             console.log(`[trailer] Using Steam's own official trailer for "${gameName}" (appid ${steamAppId}) -- no YouTube search needed.`);
             if (cacheKey) {
                 cache[cacheKey] = steamTrailerUrl;
@@ -5371,7 +5374,7 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
         const resolvedAppId = await resolveSteamAppIdByExactName(gameName);
         if (resolvedAppId) {
             const steamTrailerUrl = await fetchSteamOfficialTrailerUrl(resolvedAppId);
-            if (steamTrailerUrl) {
+            if (steamTrailerUrl && !wrong.has(steamTrailerUrl)) {
                 console.log(`[trailer] Resolved "${gameName}" to Steam appid ${resolvedAppId} by exact name match -- using its official trailer instead of a YouTube guess.`);
                 if (cacheKey) {
                     cache[cacheKey] = steamTrailerUrl;
@@ -5414,7 +5417,8 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
     async function youtubeSearch(query, orderByViews, categoryId) {
         // videoEmbeddable: only videos their owner lets play inside other
         // apps; any other one shows YouTube's "Video unavailable" in the player
-        const params = { part: "snippet", maxResults: "1", type: "video", videoEmbeddable: "true", q: query };
+        // (five results cost the same as one: the first that fits is taken, not just the first)
+        const params = { part: "snippet", maxResults: "5", type: "video", videoEmbeddable: "true", q: query };
         if (orderByViews) params.order = "viewCount";
         if (categoryId) params.videoCategoryId = categoryId;
 
@@ -5431,10 +5435,8 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
         }
 
         if (!result.items || result.items.length === 0) return null;
-        const item = result.items[0];
-        const videoId = (item.id && item.id.videoId) || null;
-        if (!videoId) return null;
-        return { videoId, title: (item.snippet && item.snippet.title) || "" };
+        return result.items.map((item) => ({ videoId: (item.id && item.id.videoId) || null, title: (item.snippet && item.snippet.title) || "" }))
+            .filter((r) => r.videoId && !wrong.has(r.videoId));
     }
 
     // YouTube's search endpoint has no real relevance guarantee for a
@@ -5484,7 +5486,9 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
             // and not just any one word: its first word, or at least half
             // of them ("GrooVR Air Drumming" isn't any video that says "air")
             const has = (w) => new RegExp(`\\b${w}\\b`).test(titleLower);
-            return has(words[0]) || words.filter(has).length >= Math.ceil(words.length / 2);
+            // (two words at least: "TADC Connection" isn't any video that says "connection")
+            const n = words.filter(has).length;
+            return has(words[0]) || (n >= 2 && n >= Math.ceil(words.length / 2));
         });
     }
 
@@ -5533,11 +5537,11 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
 
         for (const attempt of attempts) {
             if (quotaExceeded) break;
-            const result = await youtubeSearch(attempt.query, attempt.views, categoryId);
-            if (!result) continue;
-
-            if (!resultLooksRelevant(relevanceNames, result.title)) {
-                console.log(`[trailer] Rejected unrelated result for "${gameName}" via ${attempt.label}: "${result.title}"`);
+            const results = await youtubeSearch(attempt.query, attempt.views, categoryId);
+            if (!results || !results.length) continue;
+            const result = results.find((r) => resultLooksRelevant(relevanceNames, r.title));
+            if (!result) {
+                console.log(`[trailer] Rejected unrelated results for "${gameName}" via ${attempt.label}: "${results[0].title}"`);
                 continue;
             }
 
@@ -5565,6 +5569,21 @@ ipcMain.handle("fetch-trailer", async (event, gameName, type, description, cache
         console.error("[trailer] fetch-trailer failed:", err.message || err);
         return null;
     }
+});
+
+// "Not this game's trailer": forget it for this title, and never pick it for
+// it again (the next look skips it and takes the next one that fits)
+ipcMain.handle("r2-trailer-wrong", async (event, cacheKey, value) => {
+    if (typeof cacheKey !== "string" || !cacheKey || typeof value !== "string" || !value || value.length > 600) return false;
+    let cache = {};
+    try { cache = JSON.parse(fs.readFileSync(TRAILER_CACHE_FILE, "utf8")); } catch (err) { cache = {}; }
+    const list = Array.isArray(cache[`__wrong:${cacheKey}`]) ? cache[`__wrong:${cacheKey}`] : [];
+    if (!list.includes(value)) list.push(value);
+    cache[`__wrong:${cacheKey}`] = list.slice(-10);
+    if (cache[cacheKey] === value) delete cache[cacheKey];
+    fs.writeFileSync(TRAILER_CACHE_FILE, JSON.stringify(cache, null, 2));
+    console.log(`[trailer] "${cacheKey}": ${value} marked as the wrong trailer.`);
+    return true;
 });
 
 // Lets the UI manually clear a stuck "Running" state (some launchers hand
