@@ -15,6 +15,8 @@ const providers = require("./providers");
 const API = "https://api.awakening.wiki", WIKI_API = "https://awakening.wiki/api.php";
 const UA = { "User-Agent": "Riftgate/2 (https://github.com/Raidex81/riftgate; Dune: Awakening companion)", Accept: "application/json" };
 const LISTS_FILE = "cache-dune-lists.json", LISTS_TTL = 24 * 3600e3;
+// what the saved lists hold; a copy saved by an older Riftgate (without skills, augments…) is read again at once
+const LISTS_V = 4;
 const PAGES_FILE = "cache-dune-pages.json", CHECK_EVERY = 6 * 3600e3;
 const VIDEO_FILE = "cache-dune-videos.json", VIDEO_V = 3; // 3: boss-fight guides, not first tries or walkthroughs (videos picked before are picked again)
 
@@ -56,13 +58,13 @@ async function dungeonList() {
 let listsP = null;
 function lists({ fresh = false } = {}) {
     const saved = data.loadCache(LISTS_FILE);
-    if (!fresh && saved && Date.now() - (saved.at || 0) < LISTS_TTL) return Promise.resolve(saved);
+    if (!fresh && saved && saved.v === LISTS_V && Date.now() - (saved.at || 0) < LISTS_TTL) return Promise.resolve(saved);
     if (!listsP) listsP = (async () => {
         const [w, g, t, items, d] = await Promise.all([listAll("/weapons/"), listAll("/garments/"), listAll("/tools"),
             listAll("/items", "item_id,name,image,item_tags,power_pack_regen,power_pack_maximum_power,unique_schematic"), dungeonList()]);
         const gadgets = [...t, ...items.filter((x) => /UtilityTools\.Power/.test(x.item_tags || ""))].map(dune.gadget).filter(Boolean)
             .sort((a, b) => (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name));
-        const value = { at: Date.now(), weapons: dune.rankWeapons(w.map(dune.weapon)), garments: g.map(dune.garment).filter(Boolean), gadgets, dungeons: d };
+        const value = { v: LISTS_V, at: Date.now(), weapons: dune.rankWeapons(w.map(dune.weapon)), garments: g.map(dune.garment).filter(Boolean), gadgets, dungeons: d };
         if (!value.weapons.length) throw new Error("The wiki sent no weapons");
         // where to get each piece: a Unique's schematic drops in the world (its page says where, and how often);
         // the rest are researched with Intel (the Research page says in which tier, for how much)
