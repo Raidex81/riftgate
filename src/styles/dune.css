@@ -343,3 +343,10 @@
 .dn-gamename .dn-where-note { grid-column: 1 / -1; margin: 0; }
 .dn-langcol { display: grid; justify-items: end; gap: 6px; max-width: 340px; }
 .dn-langnote { font-size: 11.5px; line-height: 1.4; text-align: right; padding: 6px 10px; border-radius: 10px; background: rgba(12, 9, 8, .55); }
+
+/* over a bright picture theme: the tabs, build bar and filters on dark glass, the title with a shadow */
+.dn-tabs .chip, .dn-buildbar .btn, .dn-buildbar .input, .dn-filters .chip, .dn-filters .input, .dn-findmode .chip, .dn-findq {
+    background-color: rgba(12, 9, 8, .66); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #f1e6d3; }
+.dn-tabs .chip[aria-pressed="true"], .dn-filters .chip[aria-pressed="true"], .dn-findmode .chip[aria-pressed="true"] { background-color: color-mix(in srgb, var(--sand) 34%, rgba(12, 9, 8, .8)); border-color: var(--sand); }
+.dn .view-head h1, .dn .view-head p { text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
+.dn .view-head p.muted { color: #e9dcc6; }
