@@ -201,6 +201,11 @@ for its creator. Made one yourself? Put it forward from inside the app.
   gem's hat, blow out candles and throw snowballs (catch him in the act). Both are
   also themes in Themes, to keep all year, and any theme can carry their
   decorations.
+- **Guides & mods**: every game in your Library has a Guides button (and a
+  compass on its cover) that opens the best site for it, such as Method.gg's
+  database for Dune: Awakening or the game's own wiki, with a list of all the
+  others: wikis and databases, its mods on Nexus Mods, Steam Workshop, mod.io
+  or Thunderstore, and Steam's community guides.
 - **Buy now or wait?** A game's details show its best price across stores,
   the lowest it has ever been and a plain verdict, and say when PC Game
   Pass already includes it.

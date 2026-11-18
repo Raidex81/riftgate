@@ -469,6 +469,20 @@ scores graphics cards and processors on rough relative tiers (GTX 1060 =
 will do, and a part has to be clearly slower (under 90%) to count as
 below. It's labelled as an estimate.
 
+## Guides & mods
+
+A Library game's Guides button (and the compass on its cover) opens the best
+site for it and lists the others (`components/game-guides.js`).
+`services/game-guides.js` picks and orders them: a hand-picked database for
+popular games (Method.gg for Dune: Awakening, Maxroll, Fextralife, PoEDB…),
+then the game's own wiki, its wiki.gg and Fandom wikis (English first, then
+the reader's language, never a third), PCGamingWiki; its mods (Nexus Mods,
+Steam Workshop, mod.io, Thunderstore, CurseForge); Steam's guides and
+discussions; and always a web search. `engine/game-guides.js` finds what a
+game has with one Wikidata query by its Steam id (wiki ids, PCGamingWiki,
+mod.io, Thunderstore), Nexus Mods' public list of games (kept a week) and
+Steam's Workshop flag, all free and keyless, kept 30 days per game.
+
 ## Game saves in backups
 
 `engine/game-saves.js` downloads the Ludusavi manifest (MIT, compiled

@@ -10,6 +10,7 @@ import { missingNotice } from "../app/library-tools.js";
 import { openAddDialog } from "../components/add-dialog.js";
 import * as journal from "../app/store.js";
 import { askButton } from "../components/today.js";
+import { hasGuides, guidesChip } from "../components/game-guides.js";
 
 const FILTERS = [
     { id: "all", label: "Everything", test: () => true },
@@ -82,7 +83,12 @@ export default {
                 return;
             }
             const frag = document.createDocumentFragment();
-            list.forEach((g) => { const c = card(g, { foot: footFor(g) }); makeDraggable(c, g); frag.appendChild(c); });
+            list.forEach((g) => {
+                const c = card(g, { foot: footFor(g) }); makeDraggable(c, g);
+                // Guides & mods, on a game's cover
+                if (hasGuides(g)) (c.querySelector(".card-art") || c).appendChild(guidesChip(g));
+                frag.appendChild(c);
+            });
             grid.appendChild(frag);
             if (!list.length) grid.appendChild(h("p.row-empty", null, `Nothing in your library matches “${query}”.`));
         }

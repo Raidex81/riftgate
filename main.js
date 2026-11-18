@@ -4809,6 +4809,7 @@ require("./engine/backup").register(ipcMain, { saves: { collect: () => gameSaves
 // A game's details: buy now or wait (and PC Game Pass), and will it run on this PC
 require("./engine/prices").register(ipcMain, { usdRate: (currency) => fetchUsdToTargetRate(currency), currencyFor: (country) => CURRENCY_BY_COUNTRY[country] });
 require("./engine/pc-check").register(ipcMain);
+require("./engine/game-guides").register(ipcMain);
 // Admins: new suggestions (the Suggestions button blinks, and a notification)
 require("./engine/suggestions").register(ipcMain, { iconPath: () => resolveIconPath("icon.ico") });
 // Your history from Letterboxd, Goodreads, IMDb and MyAnimeList exports, and your Steam wishlist

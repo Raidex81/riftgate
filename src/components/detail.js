@@ -13,6 +13,7 @@ import { hours, ago, dateLong, money, score, countdown, tickCountdowns } from ".
 import { toast } from "./toast.js";
 import { coverQuery } from "./card.js";
 import { recordView } from "../app/foryou.js";
+import { hasGuides, guidesButton } from "./game-guides.js";
 import * as gate from "../app/mature.js";
 import * as admin from "../app/admin.js";
 import * as alerts from "../app/alerts.js";
@@ -128,6 +129,7 @@ function buildActions(item, box, cover) {
                 if (!r || r.started === false) toast(`Couldn't start ${item.title}. Check it's still installed.`, "err");
                 else toast(r.alreadyRunning ? `${item.title} is already running` : `Starting ${item.title}`);
             }, true));
+            if (hasGuides(item)) add(guidesButton(item));
             break;
         case "free":
             // claiming it here means no last-day reminder for it
