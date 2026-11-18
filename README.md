@@ -213,9 +213,14 @@ for its creator. Made one yourself? Put it forward from inside the app.
   whole build takes to farm, down to raw materials, and where each piece comes
   from (the dungeons and wrecks a Unique's schematic drops in, with the chance,
   or the tier and Intel to research it). Weapons ranked best to weakest, armour
-  by protection, and every dungeon with its hazard, the gear for it, its boss's
-  strategy and a video of the fight. All from the Dune: Awakening Community
-  Wiki, kept up to date with it.
+  by protection, with a search that jumps to an item; click one for every stat
+  at every Mk level side by side and the augments it takes (their icons, grades
+  and where their schematics drop), with the best one suggested. Every dungeon
+  with its hazard, the gear for it, its boss's strategy and a guide to the
+  fight on video (never a stream or a walkthrough). Skills: the best ones for
+  fighting, farming, exploring or crafting, the Landsraad specialization for
+  it, and every archetype's skill tree with its trainers. All from the Dune:
+  Awakening Community Wiki, kept up to date with it.
 - **Buy now or wait?** A game's details show its best price across stores,
   the lowest it has ever been and a plain verdict, and say when PC Game
   Pass already includes it.

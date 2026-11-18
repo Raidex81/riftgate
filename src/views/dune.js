@@ -44,7 +44,7 @@ const currentId = () => journal.pref("dune:build", null);
 // ---- Where to get a piece -------------------------------------------------------------------------------
 // A Unique's schematic drops in the world (the wiki says where, and how often) or is traded on the Exchange;
 // the rest are researched with Intel, in a tier, and then crafted.
-const SRC = { research: {}, where: {}, dungeons: new Set(), goDungeon: null };
+const SRC = { research: {}, where: {}, dungeons: new Set(), goDungeon: null, augments: [], weapons: [], garments: [], equip: null };
 function howToGet(it) {
     const w = SRC.where[it.name];
     if (w && (w.places.length || w.exchange || w.text)) return { kind: "drop", ...w };
@@ -55,7 +55,7 @@ function howToGet(it) {
 function placeChip(p) {
     const inDungeons = SRC.dungeons.has(p.name);
     return h(`button.dn-place${inDungeons ? ".dungeon" : ""}`, { type: "button", title: inDungeons ? "See this dungeon: its hazard, boss and what to bring" : "Open this place on the wiki",
-        onclick: (e) => { e.stopPropagation(); closeTip(); if (inDungeons && SRC.goDungeon) SRC.goDungeon(p.name); else openExternal(`https://awakening.wiki/${encodeURIComponent(p.name.replace(/ /g, "_"))}`); } },
+        onclick: (e) => { e.stopPropagation(); closeTip(); if (inDungeons && SRC.goDungeon) { closeItem(); SRC.goDungeon(p.name); } else openExternal(`https://awakening.wiki/${encodeURIComponent(p.name.replace(/ /g, "_"))}`); } },
     icon(inDungeons ? "flame" : "compass"), h("span", { translate: "no" }, p.label), p.chance != null ? h("small", null, `${fmt(p.chance, 1)}%`) : null);
 }
 function whereEls(it) {
@@ -71,6 +71,107 @@ function whereEls(it) {
     if (g.exchange) out.push(h("p", null, icon("tag"), h("span", null, "Or buy the schematic from other players on the Exchange.")));
     out.push(h("p.dn-where-note", null, "A schematic lets you craft it once."));
     return out;
+}
+
+// ---- An item opened: every stat at every level, where to get it, its recipe and its augments -------------------
+const TIER_WORDS = /^(Standard|Artisan|House|Adept|Regis)\s+/;
+const familyKey = (it) => (it.group ? `w|${it.group}|${it.family}` : `g|${it.slot}|${String(it.name).replace(TIER_WORDS, "").replace(/\s+Mk\s?\d$/i, "").trim()}`);
+function variantsOf(it) {
+    const pool = it.group ? SRC.weapons : SRC.garments;
+    const key = familyKey(it);
+    return pool.filter((x) => familyKey(x) === key).sort((a, b) => (a.unique - b.unique) || (a.tier || 0) - (b.tier || 0) || a.name.localeCompare(b.name));
+}
+// the rows of the levels table: [label, value, digits, unit, lower is better]
+function statLines(it, all) {
+    if (it.group) return [["Sustained damage / s", (x) => x.score, 1], ["Burst damage / s", (x) => x.dps, 1],
+        [it.group === "melee" ? "Damage per hit" : "Damage per shot", (x) => x.damage, 1], [it.group === "melee" ? "Attacks / min" : "Rounds / min", (x) => x.rate, 0],
+        ["Magazine", (x) => x.clip, 0], ["Reload", (x) => x.reload, 2, " s", true], ["Effective range", (x) => x.range, 0, " m"],
+        ["Accuracy", (x) => x.accuracy, 2], ["Stability", (x) => x.stability, 2, "", null]].filter(([, f]) => all.some((x) => f(x) != null));
+    const mits = [...new Set(all.flatMap((x) => Object.keys(x.mit || {})))];
+    return [["Armour", (x) => x.armor, 0], ...mits.map((k) => [`${MIT_LABEL[k] || k} mitigation`, (x) => (x.mit || {})[k], 1, "%"]),
+        ["Heat protection", (x) => x.heat, 1], ["Dash stamina", (x) => x.stamina, 1, "", true]].filter(([, f]) => all.some((x) => f(x) != null));
+}
+// an augment as the game draws it: its icon in a frame; hover it for a large view with what its best grade does
+function augIcon(a, { big = false } = {}) {
+    const el = h(`span.dn-augicon${big ? ".big" : ""}`, { tabindex: "0", "aria-label": a.name }, img(a.image, a.name));
+    const top = (a.grades || []).slice().sort((x, y) => y.grade - x.grade)[0];
+    return hover(el, () => [h("div.dn-augbig", null, img(a.image, a.name)), h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, a.name),
+        top ? h("small", null, `Grade ${top.grade}`) : a.grade ? h("small", null, `Grade ${a.grade}`) : null)),
+        top ? h("p.dn-tip-meta", null, top.effects.map((e) => e.text).join(" · ")) : null].filter(Boolean));
+}
+let drawerEl = null, drawerBack = null, drawerFrom = null;
+function closeItem() {
+    if (!drawerEl) return;
+    drawerEl.remove(); drawerBack.remove(); drawerEl = drawerBack = null;
+    document.removeEventListener("keydown", drawerKeys, true);
+    if (drawerFrom && drawerFrom.isConnected) drawerFrom.focus();
+}
+function drawerKeys(e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeItem(); } }
+function openItem(it, from) {
+    closeTip();
+    if (!drawerEl) {
+        drawerFrom = from || document.activeElement;
+        drawerBack = h("div.dn-drawer-back", { onclick: closeItem });
+        drawerEl = h("aside.dn-drawer", { role: "dialog", "aria-modal": "true", "aria-label": it.name, tabindex: "-1" });
+        document.body.append(drawerBack, drawerEl);
+        document.addEventListener("keydown", drawerKeys, true);
+    }
+    drawerEl.setAttribute("aria-label", it.name);
+    const vars = variantsOf(it);
+    const lines = statLines(it, vars.length ? vars : [it]);
+    // every level of the same item side by side, the one you opened outlined; click a level to open it
+    const levels = vars.length > 1 ? h("div.dn-levels", null, h("table", null,
+        h("thead", null, h("tr", null, h("th", null, "Level"), ...vars.map((v) => h(`th${v.id === it.id ? ".on" : ""}`, null,
+            h("button", { type: "button", "aria-pressed": String(v.id === it.id), title: v.name, onclick: () => openItem(v) }, mk(v) || "–"))))),
+        h("tbody", null, ...lines.map(([label, f, dg, unit = "", lower]) => {
+            const vals = vars.map(f).filter((v) => v != null);
+            const best = lower === null || new Set(vals).size < 2 ? null : lower ? Math.min(...vals) : Math.max(...vals);
+            return h("tr", null, h("th", null, label), ...vars.map((v) => { const val = f(v); return h(`td${v.id === it.id ? ".on" : ""}${val != null && val === best && vals.length > 1 ? ".best" : ""}`, null, val == null ? "–" : `${fmt(val, dg)}${unit}`); }));
+        })))) : null;
+
+    const kinds = (it.augs || []).map((i) => SRC.augments[i]).filter(Boolean);
+    const mk6 = vars.find((v) => (v.tier || 0) >= 6 && !v.unique);
+    const can = (it.tier || 0) >= 6;
+    const augSection = (it.group || it.mit) ? h("section.dn-dsec", null, h("h3", null, icon("sparkles"), "Augmentations"),
+        h("p.dn-where-note", null, "Augments go on Plastanium (Mk6) items. They're crafted from schematics found in the overland dungeons, with Regis Components from Landsraad missions, and fitted at an Augmentation Station: once fitted they can't come off, and they take 2% of the item's maximum durability."),
+        !can ? h("p.dn-augwarn", null, icon("info"), h("span", null, `This one is ${mk(it) || "below Mk6"}: it can't take augments.`), mk6 ? h("button.linkish", { type: "button", onclick: () => openItem(mk6) }, `See ${mk6.name}`) : null) : null,
+        it.bestAug ? h("div.dn-augpick", null, augIcon(it.bestAug, { big: true }), h("div", null, h("small", null, icon("star"), "Suggested"), h("b", { translate: "no" }, `${it.bestAug.name} · Grade ${it.bestAug.grade}`),
+            h("p", null, "The biggest overall boost of the augments listed for it, on the wiki's numbers (damage and armour weigh the most, then fire rate, magazine and reload).")))
+            : can ? h("div.dn-augpick.none", null, icon("info"), h("div", null, h("b", null, "No suggestion yet"),
+                h("p", null, "The wiki doesn't list the numbers of the augments for this item yet; Riftgate suggests one as soon as it does."),
+                it.group ? h("button.linkish", { type: "button", onclick: () => openExternal("https://www.method.gg/dune-awakening/database/augmentations") }, icon("external"), "Players' augment lists on Method.gg") : null)) : null,
+        ...kinds.map((k) => h("div.dn-augkind", null,
+            h("h4", null, k.applies === "all" ? "For any item" : k.applies === "garment" ? "For armour" : k.applies === "melee" ? "For melee weapons" : k.applies === "ranged" ? "For any gun" : `For the ${k.title}`),
+            k.places.length ? h("div.dn-where", null, h("p", null, icon("search"), h("span", null, "Their schematics drop in:")), h("div.dn-places", null, ...k.places.map(placeChip)))
+                : k.found ? h("p.dn-where-note", { translate: "no" }, k.found) : null,
+            k.augments.length ? h("div.dn-auglist", null, ...k.augments.map((a) => h(`div.dn-aug${it.bestAug && it.bestAug.name === a.name ? ".best" : ""}`, null,
+                h("div.dn-aughead", null, augIcon(a), h("b", { translate: "no" }, a.name), it.bestAug && it.bestAug.name === a.name ? h("span.dn-augbadge", null, "Best pick") : null),
+                h("table.dn-grades", null, h("tbody", null, ...a.grades.map((g) => h("tr", null, h("th", null, `Grade ${g.grade}`), h("td", null, g.effects.map((e) => e.text).join(" · ")))))))))
+                : h("p.dn-where-none", null, "The wiki hasn't listed these augments yet."))),
+        !kinds.length ? h("p.dn-where-none", null, "The wiki lists no augments for this kind of item yet.") : null) : null;
+
+    const craft = h("div.dn-dcraft", null, h("p.muted", null, "Reading the recipe on the wiki…"));
+    craftTip(it).then((nodes) => { if (craft.isConnected) clear(craft).append(...[].concat(nodes).slice(1)); }).catch(() => {});
+
+    clear(drawerEl).append(
+        h("div.dn-dhead2", null, h(`div.dn-dimg.${tierClass(it)}`, null, img(it.image, it.name)),
+            h("div", null, h("h2", { translate: "no" }, it.name),
+                h("p", null, [mk(it), it.group ? it.cls : it.kind ? null : `${it.type} · ${it.slot}`, it.dart].filter(Boolean).join(" · ")),
+                it.rank ? h("p.dn-rank", null, `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}`) : null),
+            h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: closeItem }, icon("x"))),
+        h("div.dn-dscroll", null,
+            it.desc ? h("p.dn-tip-desc", { translate: "no" }, it.desc) : null,
+            h("section.dn-dsec", null, h("h3", null, icon("list"), vars.length > 1 ? "Stats at every level" : "Stats"),
+                levels || h("div.dn-stats", null, ...statRows(it)),
+                vars.length > 1 ? h("p.dn-where-note", null, "The same item at each level; the best value of each row is marked. Click a level to open it.") : null),
+            augSection,
+            h("section.dn-dsec", null, h("h3", null, icon("compass"), "Where to get it"), h("div.dn-where", null, ...whereEls(it))),
+            h("section.dn-dsec", null, h("h3", null, icon("settings"), "Crafting"), craft)),
+        h("div.dn-dfoot", null,
+            SRC.equip ? h("button.btn", { type: "button", onclick: () => { SRC.equip(it); } }, icon("plus"), "Equip") : null,
+            h("button.btn.ghost", { type: "button", onclick: () => openExternal(it.url || `https://awakening.wiki/${encodeURIComponent(it.name.replace(/ /g, "_"))}`) }, icon("external"), "On the wiki")));
+    drawerEl.querySelector(".dn-dscroll").scrollTop = 0;
+    drawerEl.focus();
 }
 
 // ---- Tooltips: the item's stats, like in the game; and, over its hammer, the recipe ---------------------------
@@ -165,15 +266,15 @@ export default {
         let W, G, GD, byName;
         const index = () => {
             W = d.weapons; G = d.garments; GD = d.gadgets || []; byName = new Map([...W, ...G, ...GD].map((x) => [x.id, x]));
-            Object.assign(SRC, { research: d.research || {}, where: d.where || {}, dungeons: new Set((d.dungeons || []).map((x) => x.title)) });
+            Object.assign(SRC, { research: d.research || {}, where: d.where || {}, dungeons: new Set((d.dungeons || []).map((x) => x.title)), augments: d.augments || [], weapons: W, garments: G });
         };
         index(); credit();
 
         let tab = journal.pref("dune:tab", "loadout"), focusDungeon = null;
         SRC.goDungeon = (title) => { focusDungeon = title; tab = "dungeons"; journal.setPref("dune:tab", tab); paint(); };
-        const TABS = [["loadout", "Loadout", "library"], ["weapons", "Weapons", "rift"], ["armour", "Armour", "shield"], ["dungeons", "Dungeons", "flame"]];
+        const TABS = [["loadout", "Loadout", "library"], ["weapons", "Weapons", "rift"], ["armour", "Armour", "shield"], ["dungeons", "Dungeons", "flame"], ["skills", "Skills", "sparkles"]];
         const paintTabs = () => { clear(tabsEl); TABS.forEach(([id, label, ic]) => tabsEl.append(h("button.chip", { type: "button", role: "tab", "aria-selected": String(tab === id), "aria-pressed": String(tab === id), onclick: () => { tab = id; journal.setPref("dune:tab", id); paint(); } }, icon(ic), label))); };
-        const paint = () => { closeTip(); paintTabs(); clear(body); ({ loadout, weapons, armour, dungeons })[tab](); };
+        const paint = () => { closeTip(); paintTabs(); clear(body); ({ loadout, weapons, armour, dungeons, skills })[tab](); };
 
         // ---- Loadout -------------------------------------------------------------------------------------
         let picking = null;
@@ -358,7 +459,7 @@ export default {
                     h("select.input", { "aria-label": "Kind", onchange: (e) => { cls = e.target.value; draw(); } }, h("option", { value: "all" }, "Every kind"), classes.map((c) => h("option", { value: c, selected: cls === c || null }, c))),
                     h("select.input", { "aria-label": "Tier", onchange: (e) => { tier = e.target.value; draw(); } }, h("option", { value: "all" }, "Every tier"), h("option", { value: "unique", selected: tier === "unique" || null }, "Uniques"), [6, 5, 4, 3, 2, 1].map((t) => h("option", { value: String(t), selected: tier === String(t) || null }, `Mk${t}`))));
                 const shown = pool.filter((w) => (cls === "all" || w.cls === cls) && (tier === "all" || (tier === "unique" ? w.unique : String(w.tier) === tier)));
-                clear(list).append(...shown.map((w) => h("div.dn-rankrow", { dataset: { id: w.id } },
+                clear(list).append(...shown.map((w) => h("div.dn-rankrow", { dataset: { id: w.id }, ...opens(w) },
                     h("span.dn-pos", null, `#${w.rank}`), tile(w, { size: "sm" }),
                     h("div.dn-rankname", null, h("b", { translate: "no" }, w.name), h("small", null, [mk(w), w.cls, w.dart].filter(Boolean).join(" · "))),
                     h("div.dn-bar", { title: `${Math.round(w.of * 100)}% of the strongest` }, h("i", { style: { width: `${Math.max(3, w.of * 100)}%` } })),
@@ -376,6 +477,17 @@ export default {
             draw();
             body.append(h("p.muted.dn-note", null, icon("info"), "Ranked by sustained damage: what a weapon deals per second over a whole magazine and its reload (for melee, damage per hit times swings per second). Hover any weapon for its full stats."), find.el, filters, list);
         }
+        SRC.equip = (it) => {
+            if (it.group) return equip(it);
+            const list2 = builds(); const b = list2.find((x) => x.id === currentId()) || list2[0];
+            const slot = it.slot === "Top and Legs" ? "Torso" : it.slot;
+            saveBuilds(list2.map((x) => (x.id === b.id ? { ...x, slots: { ...migrate(x.slots), [slot]: it.id } } : x)).concat(list2.some((x) => x.id === b.id) ? [] : [{ ...b, slots: { ...migrate(b.slots), [slot]: it.id } }]));
+            toast(`${it.name} is in ${b.name}`);
+        };
+        // a row opens the item, unless you clicked its Equip button or its hammer
+        const opens = (it) => ({ tabindex: "0", role: "button", "aria-label": `${it.name}: open`, title: "Open: every stat, levels, augments",
+            onclick: (e) => { if (!e.target.closest(".btn, .dn-hammer")) openItem(it, e.currentTarget); },
+            onkeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); openItem(it, e.currentTarget); } } });
         function equip(w) {
             const list = builds();
             const b = list.find((x) => x.id === currentId()) || list[0];
@@ -397,7 +509,7 @@ export default {
                     h("select.input", { "aria-label": "Best for", onchange: (e) => { by = e.target.value; draw(); } }, h("option", { value: "armor" }, "Most armour"), Object.entries(MIT_LABEL).map(([k, l]) => h("option", { value: k, selected: by === k || null }, `Best against ${l.toLowerCase()}`))));
                 const pool = G.filter((g) => g.slot === slot || (slot === "Torso" && g.slot === "Top and Legs")).sort((a, b) => val(b) - val(a) || b.armor - a.armor);
                 const top = pool.length ? Math.max(1, val(pool[0])) : 1;
-                clear(list).append(...pool.slice(0, upTo).map((g, i) => h("div.dn-rankrow", { dataset: { id: g.id } },
+                clear(list).append(...pool.slice(0, upTo).map((g, i) => h("div.dn-rankrow", { dataset: { id: g.id }, ...opens(g) },
                     h("span.dn-pos", null, `#${i + 1}`), tile(g, { size: "sm" }),
                     h("div.dn-rankname", null, h("b", { translate: "no" }, g.name), h("small", null, [mk(g), g.type].filter(Boolean).join(" · "))),
                     h("div.dn-bar", null, h("i", { style: { width: `${Math.max(3, (val(g) / top) * 100)}%` } })),
@@ -415,6 +527,63 @@ export default {
             } });
             draw();
             body.append(find.el, filters, list);
+        }
+
+        // ---- Skills: the best ones for what you want to do, the specialization for it, and every skill tree ---------
+        function skills() {
+            const arch = d.archetypes || [], specs = d.specializations || [], picks = d.skillPicks || {};
+            if (!arch.length) { body.append(h("div.empty", null, icon("sparkles"), h("h3", null, "No skill trees yet"), h("p", null, "The wiki's skill trees couldn't be read. Check the wiki now, below."))); return; }
+            const GOALS = [["guns", "Fighting with guns", "rift"], ["melee", "Fighting up close", "shield"], ["farm", "Farming & gathering", "gem"], ["explore", "Exploring & surviving", "compass"], ["craft", "Crafting & repairs", "settings"]];
+            let goal = journal.pref("dune:goal", "guns"), who = journal.pref("dune:arch", arch[0].name);
+            const typeTag = (t) => h(`span.dn-sktype.t-${String(t).toLowerCase()}`, null, t);
+            const costText = (sk) => (sk.cost.length > 1 ? `${sk.cost.join(" / ")} points (${sk.points})` : `${sk.points || "–"} points`);
+            const skillTip = (sk, a, t) => [h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, sk.name), h("small", null, [sk.type, a && a.name, t && t.name].filter(Boolean).join(" · ")))),
+                h("p.dn-tip-desc", { translate: "no" }, sk.desc), sk.notes ? h("p.dn-tip-meta", { translate: "no" }, sk.notes) : null,
+                h("div.dn-stats", null, h("div.dn-stat.key", null, h("span", null, "Cost"), h("b", null, costText(sk))),
+                    sk.cooldown ? h("div.dn-stat", null, h("span", null, "Cooldown"), h("b", null, `${sk.cooldown} s`)) : null,
+                    sk.duration ? h("div.dn-stat", null, h("span", null, "Duration"), h("b", null, `${sk.duration} s`)) : null,
+                    sk.stamina ? h("div.dn-stat", null, h("span", null, "Stamina"), h("b", null, String(sk.stamina))) : null)].filter(Boolean);
+            const goalBar = h("div.dn-filters.dn-goals", { role: "group", "aria-label": "What for" });
+            const best = h("section.dn-skbest");
+            const spec = h("section.dn-skspec");
+            const trees = h("section.dn-sktrees");
+            const drawGoal = () => {
+                clear(goalBar).append(...GOALS.map(([id, l, ic]) => h("button.chip", { type: "button", "aria-pressed": String(goal === id), onclick: () => { goal = id; journal.setPref("dune:goal", id); drawGoal(); } }, icon(ic), l)));
+                const list = picks[goal] || [];
+                const label = (GOALS.find((x) => x[0] === goal) || [])[1] || "";
+                clear(best).append(h("h3", null, icon("star"), `Best skills for ${label.toLowerCase()}`),
+                    h("p.dn-where-note", null, "Picked from what each skill does, by the wiki's descriptions and effects; the first ones do the most for it."),
+                    list.length ? h("div.dn-skgrid", null, ...list.map((sk, i) => h("article.dn-skcard", null,
+                        h("div.dn-skhead", null, h("span.dn-pos", null, `#${i + 1}`), h("div", null, h("b", { translate: "no" }, sk.name), h("small", { translate: "no" }, `${sk.archetype} · ${sk.tree}`)), typeTag(sk.type)),
+                        h("p", { translate: "no" }, sk.desc),
+                        sk.notes ? h("p.dn-skfx", { translate: "no" }, sk.notes) : null,
+                        h("p.dn-skcost", null, costText(sk), sk.cooldown ? ` · ${sk.cooldown} s cooldown` : "")))) : h("p.muted", null, "No skill matches this yet."));
+                const sp = specs.find((x) => x.name === (d.goalSpec || {})[goal]);
+                clear(spec);
+                if (sp) spec.append(h("h3", null, icon("trophy"), `From the Landsraad: the ${sp.name} specialization`),
+                    sp.desc ? h("p.dn-where-note", null, sp.desc) : null,
+                    h("p.dn-where-note", null, "Earn its XP with the Landsraad missions of that kind; its main bonuses are bought with spice melange."),
+                    h("div.dn-sptable", null, h("table", null, h("thead", null, h("tr", null, h("th", null, "Level"), h("th", null, "Bonus"), h("th", null, "Effect"), h("th", null, "Spice"))),
+                        h("tbody", null, ...sp.primary.map((b) => h("tr", { title: b.desc || "" }, h("td", null, String(b.level ?? "")), h("td", { translate: "no" }, h("b", null, b.name), b.desc ? h("small", null, b.desc) : null), h("td", { translate: "no" }, b.effect || ""), h("td", null, b.spice ? String(b.spice) : "–")))))),
+                    ...sp.secondary.map((x) => h("p.dn-skfx", { translate: "no" }, `${x.stat}: ${x.each || ""} per level, ${x.total || ""} in all (${x.levels} levels)`)));
+            };
+            const drawTrees = () => {
+                const a = arch.find((x) => x.name === who) || arch[0];
+                clear(trees).append(h("h3", null, icon("list"), "Every skill tree"),
+                    h("div.dn-filters", null, ...arch.map((x) => h("button.chip", { type: "button", "aria-pressed": String(x.name === a.name), onclick: () => { who = x.name; journal.setPref("dune:arch", who); drawTrees(); } }, x.name))),
+                    h("div.dn-archhead", null, a.image ? h("img.dn-archimg", { src: coverSrc(a.image), alt: "", loading: "lazy", onerror: (e) => e.target.remove() }) : null,
+                        h("div", null, h("h4", { translate: "no" }, a.name), a.focus ? h("p", null, a.focus) : null,
+                            h("p.dn-where-note", null, `${a.points} skill points to learn it all.`),
+                            a.basic ? h("p.dn-where-note", { translate: "no" }, `Basic trainer: ${a.basic.name}${a.basic.where ? `, ${a.basic.where}` : ""}`) : null,
+                            a.advanced ? h("p.dn-where-note", { translate: "no" }, `Advanced trainer: ${a.advanced.name}${a.advanced.where ? `, ${a.advanced.where}` : ""}`) : null,
+                            h("button.linkish", { type: "button", onclick: () => openExternal(a.url) }, icon("external"), "On the wiki"))),
+                    h("div.dn-treecols", null, ...a.trees.map((t) => h("div.dn-tree", null, h("h4", { translate: "no" }, t.name), t.desc ? h("p.dn-where-note", null, t.desc) : null,
+                        ...t.skills.map((sk) => hover(h("div.dn-skrow", { tabindex: "0" }, typeTag(sk.type), h("span", { translate: "no" }, sk.name), h("small", null, sk.points ? `${sk.points} pt` : "")), () => skillTip(sk, a, t)))))));
+            };
+            drawGoal(); drawTrees();
+            body.append(goalBar, h("div.dn-skwrap", null, best, spec), trees,
+                h("p.dn-where-note.dn-skbuilder", null, "To plan a whole build point by point, the wiki recommends ",
+                    h("button.linkish", { type: "button", onclick: () => openExternal("https://dune.gaming.tools/skill-builder") }, "gaming.tools' Skill Builder"), "."));
         }
 
         // ---- Dungeons ------------------------------------------------------------------------------------------
@@ -481,18 +650,18 @@ export default {
             return out.slice(0, 5);
         }
         async function loadVideo(box, dg) {
-            clear(box).append(h("p.muted", null, "Looking for a video of the fight…"));
+            clear(box).append(h("p.muted", null, "Looking for a guide to the fight…"));
             const v = await call("r2-dune-video", { boss: dg.boss.name, place: dg.title });
             if (!box.isConnected) return;
             clear(box);
-            if (!v || !v.id) { box.append(h("p.muted", null, "No video of this fight found yet.")); return; }
+            if (!v || !v.id) { box.append(h("p.muted", null, "No guide to this fight on YouTube yet.")); return; }
             box.append(h("div.dn-frame", null, h("iframe", { src: `https://www.youtube.com/embed/${v.id}?rel=0&modestbranding=1`, title: v.title || `${dg.boss.name} boss fight`, loading: "lazy", allow: "encrypted-media; picture-in-picture; fullscreen", allowfullscreen: true })),
-                h("div.dn-vidbar", null, h("small.muted", { translate: "no" }, v.title || ""),
+                h("div.dn-vidbar", null, h("small.muted", { translate: "no" }, [v.title, v.channel].filter(Boolean).join(" · ")),
                     h("button.linkish", { type: "button", onclick: () => openExternal(`https://www.youtube.com/watch?v=${v.id}`) }, icon("external"), "YouTube"),
-                    h("button.linkish", { type: "button", title: "It's not this fight: Riftgate looks for another", onclick: async () => { await call("r2-dune-video-wrong", { boss: dg.boss.name, place: dg.title, id: v.id }); loadVideo(box, dg); } }, icon("x"), "Not this fight")));
+                    h("button.linkish", { type: "button", title: "Not the fight, or not a guide: Riftgate looks for another", onclick: async () => { await call("r2-dune-video-wrong", { boss: dg.boss.name, place: dg.title, id: v.id }); loadVideo(box, dg); } }, icon("x"), "Not this fight")));
         }
 
         paint();
-        return () => { window.removeEventListener("scroll", stopTip, true); closeTip(); };
+        return () => { window.removeEventListener("scroll", stopTip, true); closeTip(); closeItem(); SRC.equip = null; SRC.goDungeon = null; };
     }
 };

@@ -292,4 +292,218 @@ function farmList(wants, pages) {
     return { raw: [...raw.values()].sort(byQty), made: [...made.values()].sort(byQty), water, time, uncraftable: schem };
 }
 
-module.exports = { gadget, recipesOf, whereOf, obtainOf, researchOf, pickRecipe, farmList, fileUrl, pageUrl, plain, sections, lines, weapon, rankWeapons, garment, dungeon, familyOf, HAZARDS, MITIGATIONS };
+// ---- Augmentations (the wiki's Augmentations page) -------------------------------------------------------
+// Each kind of augment the wiki lists, where its schematics are found, and every augment with its grades:
+// [{ title, applies: "melee" | "ranged" | "garment" | "all" | "<weapon family>", found, places, augments: [{ name, image, grades: [{ grade, effects: [{ stat, lo, hi, unit, text }] }] }] }]
+function effectOf(text) {
+    const t = plain(text).replace(/\s+/g, " ").trim();
+    const m = /^(.*?)\s*([+-−]?\d+(?:\.\d+)?)\s*(%?)(?:\s*to\s*([+-−]?\d+(?:\.\d+)?)\s*%?)?$/.exec(t);
+    if (!m || !m[1]) return t ? { stat: t, lo: null, hi: null, unit: "", text: t } : null;
+    const n = (v) => Number(String(v).replace("−", "-"));
+    return { stat: m[1].replace(/[:\s]+$/, ""), lo: n(m[2]), hi: m[4] != null ? n(m[4]) : n(m[2]), unit: m[3] || "", text: t };
+}
+function augmentRows(body) {
+    const out = [];
+    const table = /\{\|[\s\S]*?\n\|\}/g;
+    let t;
+    while ((t = table.exec(body))) {
+        t[0].replace(/\n\|\}\s*$/, "").split(/\n\|-/).forEach((row) => {
+            const cells = row.split(/\n\|(?!\})/).slice(1).map((c) => c.trim());
+            const fileCell = cells.find((c) => /\[\[File:/i.test(c)) || "";
+            const nameCell = cells.find((c) => /^\[\[(?!File:)[^\]]+\]\]$/i.test(c)) || cells.find((c) => !/\[\[File:/i.test(c) && !/Grade/i.test(c) && plain(c));
+            const gradeCell = cells.find((c) => /Grade\s*\d/i.test(c));
+            if (!nameCell || !gradeCell) return;
+            const file = /\[\[File:([^\]|]+)/i.exec(fileCell);
+            const grades = [];
+            const re = /'*\s*Grade\s*(\d)\s*:?\s*'*\s*:?\s*([\s\S]*?)(?=('*\s*Grade\s*\d)|$)/gi;
+            let g;
+            while ((g = re.exec(gradeCell))) {
+                const effects = g[2].split(/<\/?br\s*\/?>|,(?![^(]*\))|;/i).map(effectOf).filter(Boolean);
+                if (effects.length) grades.push({ grade: Number(g[1]), effects });
+            }
+            if (grades.length) out.push({ name: plain(nameCell), image: file ? fileUrl(file[1].trim()) : null, grades });
+        });
+    }
+    return out;
+}
+const AUG_KEYS = { "generic ranged": "ranged", melee: "melee", "garment augment": "garment", "garment augments": "garment", "universal augments": "all", "universal augment": "all" };
+function augmentsOf(text) {
+    const src = String(text || "").replace(/\{\{JumpTo\|([^|}]+)\|[^}]*\}\}/gi, "$1").replace(/\{\{TierTag\|([^|}]+)\}\}/gi, "$1");
+    const secs = sections(src);
+    const out = [];
+    let inWeapons = false;
+    for (const sec of secs) {
+        const head = sec.heading.trim(), low = head.toLowerCase();
+        if (sec.depth === 2) inWeapons = /weapon/i.test(head);
+        if (sec.depth === 2 && inWeapons) continue;
+        if (!(sec.depth === 3 && inWeapons) && !(sec.depth === 2 && AUG_KEYS[low])) continue;
+        const firstFound = lines(sec.body).map((l) => l.text).find((l) => /^Found/i.test(l)) || null;
+        const places = [...sec.body.matchAll(/Found[^\n]*/gi)].flatMap((m) => [...m[0].matchAll(/\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]/g)].map((x) => ({ name: x[1].trim(), label: (x[2] || x[1]).trim(), chance: null })));
+        out.push({ title: head, applies: AUG_KEYS[low] || low, found: firstFound, places, augments: augmentRows(sec.body) });
+    }
+    return out;
+}
+// which of those kinds go on an item: its weapon family's, the generic ranged or melee ones, or the garment ones; and the universal ones
+function augmentsFor(item, kinds) {
+    if (!item || !Array.isArray(kinds)) return [];
+    const hay = `${item.name} ${item.id || ""} ${item.image || ""} ${item.cls || ""}`.toLowerCase().replace(/[_-]/g, " ");
+    const weaponKind = (k) => {
+        const words = k.applies.replace(/\bmissile launcher\b/, "rocketlauncher|missile launcher|rocket launcher").split("|");
+        return words.some((w) => hay.includes(w) || hay.replace(/\s+/g, "").includes(w.replace(/\s+/g, "")));
+    };
+    return kinds.filter((k) => {
+        if (k.applies === "all") return true;
+        if (item.group === "melee") return k.applies === "melee";
+        if (item.group === "ranged") return k.applies === "ranged" || (!["melee", "garment"].includes(k.applies) && weaponKind(k));
+        if (item.armor != null && item.mit) return k.applies === "garment";
+        return false;
+    });
+}
+// the strongest augment for an item on the wiki's numbers: its best grade, what it adds weighed by what matters most
+// (damage and armour most, then fire rate, magazine and reload), what it takes away subtracted
+const AUG_WEIGHT = [[/damage|dmg/i, 3], [/armou?r/i, 3], [/fire rate|rate of fire|attack speed|rpm/i, 2], [/magazine|clip|ammo capacity/i, 1.5], [/reload speed|reload rate/i, 1.5], [/reload|recoil|spread|heat|stamina|power (drain|usage|consumption)|cooldown/i, -1], [/accuracy|stability|range|mitigation/i, 1], [/durability/i, 0.3]];
+function augmentScore(a) {
+    const top = (a.grades || []).slice().sort((x, y) => y.grade - x.grade)[0];
+    if (!top) return { score: 0, grade: null };
+    let score = 0;
+    top.effects.forEach((e) => {
+        if (e.lo == null) return;
+        const w = (AUG_WEIGHT.find(([re]) => re.test(e.stat)) || [null, 0.5])[1];
+        score += w * (e.lo + e.hi) / 2;
+    });
+    return { score: Math.round(score * 10) / 10, grade: top.grade };
+}
+function bestAugment(list) {
+    const scored = (list || []).map((a) => ({ a, ...augmentScore(a) })).filter((x) => x.grade != null);
+    scored.sort((x, y) => y.score - x.score);
+    return scored.length && scored[0].score > 0 ? scored[0] : null;
+}
+
+// ---- Boss videos: a guide that shows how to beat it, not someone's first try --------------------------------------
+// YouTube's titles say which is which: "guide", "how to beat", "strategy", "easy", "solo" for the first;
+// "blind", "first time", "live", "stream", "episode 4", "part 2", "let's play" for the second.
+const GUIDE_WORDS = [[/\bguides?\b/, 4], [/how to (beat|kill|defeat|solo|cheese|do)\b/, 5], [/\bstrat(egy|egies|s)?\b/, 4], [/\b(tips|tricks)\b/, 3], [/\bmechanics?\b/, 3],
+    [/\b(easy|easiest|fast|quick|simple)\b/, 2], [/\b(cheese|cheesed|exploit)\b/, 2], [/\bsolo\b/, 2], [/\bexplained\b/, 2], [/\b(build|loadout)\b/, 1], [/\bboss fight\b/, 3], [/\bboss\b/, 2], [/\b(kill|killed|defeat|defeated|beat|beating)\b/, 1]];
+const PLAY_WORDS = [[/\bblind\b/, 6], [/first (time|try|attempt|look|impressions?)\b/, 6], [/\b(live|livestream|stream|streaming|vod)\b/, 6], [/\breact(ion|s|ing)?\b/, 5],
+    [/let'?s play/, 6], [/\b(ep|episode|part|pt|day)\.? ?#?\d+/, 5], [/#\d+\b/, 3], [/\bplaythrough\b/, 4], [/\b(funny|fails?|rage|died|dying|wipe)\b/, 3], [/\b(gameplay|no commentary)\b/, 2], [/\b(shorts?)\b/, 3],
+    // a walkthrough of the whole dungeon, not the fight
+    [/\bwalk ?through\b/, 7], [/\b(full|complete|entire|whole)\b.{0,20}\b(dungeon|run|clear|station|guide)\b/, 6], [/\b(all|every) (bosses|dungeons|stations)\b/, 6], [/\b(lore|story|location|loot route|farm route|map|keycards?|puzzles?)\b/, 3], [/\b100%/, 4]];
+function bossVideoScore(v, { boss = "", place = "" } = {}) {
+    const title = String(v.title || "").toLowerCase().replace(/&#39;|&#x27;/g, "'"), desc = String(v.description || "").toLowerCase();
+    if (!/dune/.test(title + " " + desc)) return -Infinity;
+    if (v.live && v.live !== "none") return -Infinity;
+    const words = String(boss).toLowerCase().replace(/^(dr\.?|doctor|lieutenant|planetologist)\s+/, "").split(/\s+/).filter((w) => w.length > 2);
+    // the fight itself: the boss named, or the place named together with "boss" (a title naming only the place is a run through the whole dungeon)
+    const placeLow = String(place).toLowerCase(), placeHit = placeLow && (title.includes(placeLow) || title.replace(/\bno\.?\s*/g, "").includes(placeLow));
+    const named = words.some((w) => title.includes(w)) || (placeHit && /\bboss\b/.test(title));
+    if (!named) return -Infinity;
+    let score = 0;
+    GUIDE_WORDS.forEach(([re, w]) => { if (re.test(title)) score += w; else if (re.test(desc)) score += w / 3; });
+    PLAY_WORDS.forEach(([re, w]) => { if (re.test(title)) score -= w; else if (re.test(desc)) score -= w / 3; });
+    return Math.round(score * 10) / 10;
+}
+// the best of several searches' results: guide-like first; a plain one only if no guide was found
+function pickBossVideo(results, q, wrong = new Set()) {
+    const seen = new Set();
+    const scored = results.filter((v) => v && v.id && !wrong.has(v.id) && !seen.has(v.id) && seen.add(v.id))
+        .map((v, i) => ({ v, i, score: bossVideoScore(v, q) })).filter((x) => x.score > -Infinity);
+    scored.sort((a, b) => b.score - a.score || a.i - b.i);
+    return scored.length && scored[0].score >= 0 ? { ...scored[0].v, score: scored[0].score } : null;
+}
+
+// ---- Skills: the archetypes' skill trees and the Landsraad specializations --------------------------------------
+const ARCHETYPES = ["Trooper", "Mentat", "Planetologist", "Bene Gesserit", "Swordmaster"];
+// "{{Name|a=1|b=[[X|Y]]}}" -> { a: "1", b: "Y" }: a template's fields, links already turned to their words
+function fieldsOf(body) {
+    const f = {};
+    const src = String(body || "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\|desc(?!\s*=)/g, "|desc=");
+    src.split(/\|(?=\s*[a-z_0-9]+\s*=)/i).slice(1).forEach((part) => { const i = part.indexOf("="); f[part.slice(0, i).trim().toLowerCase()] = part.slice(i + 1).trim(); });
+    return f;
+}
+const costOf = (c) => String(c || "").split("/").map((x) => Number(x)).filter((x) => isFinite(x) && x > 0);
+function skillsOf(title, text) {
+    const src = String(text || "");
+    const box = /\{\{ArchetypeInfobox([\s\S]*?)\n\}\}/.exec(src);
+    const info = box ? fieldsOf(box[1].replace(/\[\[File:([^\]|]+)[^\]]*\]\]/g, "$1")) : {};
+    const trees = [];
+    const re = /\{\{SkillTable\s*([\s\S]*?)\n\}\}/g;
+    let m;
+    while ((m = re.exec(src))) {
+        const body = m[1];
+        const rowsAt = body.search(/\|\s*rows\s*=/);
+        const head = fieldsOf(rowsAt >= 0 ? body.slice(0, rowsAt) : body);
+        const skills = [...body.slice(Math.max(0, rowsAt)).matchAll(/\{\{SkillRow([\s\S]*?)\}\}(?=\s*(\{\{SkillRow|$))/g)].map((r) => {
+            const f = fieldsOf(r[1]);
+            if (!f.name) return null;
+            const cost = costOf(f.cost);
+            return { name: plain(f.name), type: plain(f.type) || "Passive", desc: plain(f.desc || ""), cost, points: cost.reduce((a, b) => a + b, 0), ranks: cost.length || 1,
+                cooldown: Number(f.cooldown) || null, duration: Number(f.duration) || null, stamina: Number(f.stamina) || null, notes: plain(f.notes || "") || null };
+        }).filter(Boolean);
+        if (skills.length) trees.push({ name: plain(head.name || ""), desc: plain(head.tabledesc || ""), skills });
+    }
+    if (!trees.length) return null;
+    return { name: plain(info.name || title), image: info.image ? fileUrl(info.image.trim()) : null, focus: plain(info.focus || "") || null, quote: plain(info.quote || "") || null,
+        points: Number(info.skillpoints) || trees.reduce((n, t) => n + t.skills.reduce((a, s) => a + s.points, 0), 0),
+        basic: info.basictrainer ? { name: plain(info.basictrainer), where: plain(info.basiclocation || "") || null } : null,
+        advanced: info.advtrainer ? { name: plain(info.advtrainer), where: plain(info.advlocation || "") || null } : null,
+        url: pageUrl(title), trees };
+}
+// the Specializations page: five of them, each with its primary bonuses (bought with spice) and its secondary ones
+function specializationsOf(text) {
+    const src = String(text || "").replace(/<\/?translate>|<!--T:\d+-->/g, "").replace(/<\/?div[^>]*>/g, "");
+    const out = [];
+    let cur = null, part = null;
+    for (const sec of sections(src)) {
+        if (sec.depth === 2) { cur = { name: sec.heading, desc: lines(sec.body).map((l) => l.text).find((t) => t.length > 20) || null, primary: [], secondary: [] }; out.push(cur); continue; }
+        if (!cur || sec.depth !== 3) continue;
+        part = /secondary/i.test(sec.heading) ? "secondary" : "primary";
+        const table = /\{\|[\s\S]*?\n\|\}/.exec(sec.body);
+        if (!table) continue;
+        // header and cells come one per line or several per line ("!a!!b", "| 1 || x"): both read the same
+        const heads = (table[0].match(/^!.*$/gm) || []).flatMap((l) => l.slice(1).split("!!")).map((x) => plain(x).toLowerCase());
+        const col = (re) => heads.findIndex((x) => re.test(x));
+        const rows = table[0].replace(/\n\|\}\s*$/, "").split(/\n\|-/).slice(1).map((r) => ("\n" + r.trim()).split(/\n\||\|\|/).slice(1).map((c) => plain(c)));
+        if (part === "primary") {
+            const at = { level: col(/^level$/), name: col(/^name$/), desc: col(/^description$/), effect: col(/^effect$/), inc: col(/^increase$/), spice: col(/^spice( cost)?$/) };
+            rows.forEach((c) => {
+                const name = c[at.name >= 0 ? at.name : 1];
+                if (!name) return;
+                const effect = c[at.effect >= 0 ? at.effect : 3] || null, inc = at.inc >= 0 ? c[at.inc] : null;
+                cur.primary.push({ level: Number(c[at.level >= 0 ? at.level : 0]) || null, name, desc: c[at.desc >= 0 ? at.desc : 2] || null,
+                    effect: effect && inc && !effect.includes(inc) ? `${effect}: ${inc}` : effect, spice: Number(c[at.spice >= 0 ? at.spice : 6]) || 0 });
+            });
+        } else if (rows.length) {
+            const last = rows[rows.length - 1];
+            cur.secondary.push({ stat: plain(heads[1] || "Bonus").replace(/^./, (x) => x.toUpperCase()), each: rows[0][1] || null, total: last[2] || last[1] || null, levels: rows.length });
+        }
+    }
+    return out.filter((s) => s.primary.length || s.secondary.length);
+}
+// The best skills for what you want to do, read from what each one does: the words of its name, description
+// and effect weighed for that goal (and against it: a melee skill isn't one for a gunfight)
+const GOALS = {
+    guns: { spec: "Combat", words: [[/\b(ranged|guns?|disruptor|scattergun|rifle|pistol|heavy weapons?|headshots?|darts?|reload|ammo|marksman|sniper|lasgun|flamethrower|missile)\b/, 3], [/\bdamage\b/, 2], [/\b(shields?|health|heal|healing|armou?r|resist|mitigation)\b/, 1.5], [/\b(stun|slow|grenade|drone|turret|explo\w*|blast|suppress\w*)\b/, 1.5]], against: /\b(melee|blades?|swords?|knife|knives|dirk|rapier|kindjal|parry)\b/ },
+    melee: { spec: "Combat", words: [[/\b(melee|blades?|swords?|knife|knives|dirk|rapier|kindjal|weirding|parry|block|lunge|bleed\w*|strikes?|slash\w*)\b/, 3], [/\bdamage\b/, 2], [/\b(dodge|dash|evade|stamina)\b/, 1.5], [/\b(shields?|health|heal|healing|armou?r|resist)\b/, 1.5], [/\b(stun|knock\w*|slow|push\w*)\b/, 1.5]], against: /\b(ranged|guns?|disruptor|scattergun|rifle|pistol|heavy weapons?)\b/ },
+    farm: { spec: "Gathering", words: [[/\b(gather\w*|harvest\w*|mining|mine|cutteray|ores?|yields?|resources?|salvag\w*|scaveng\w*|loot\w*|spice|dew|blood|compactor|refin\w*|fiber|plants?)\b/, 3], [/\b(inventory|carry|volume|capacity|weight|vehicles?|buggy|sandbike)\b/, 2], [/\b(water|hydrat\w*|heat|sun\w*)\b/, 1], [/\b(durability|repairs?)\b/, 1]] },
+    explore: { spec: "Exploration", words: [[/\b(sprint\w*|speed|move\w*|movement|climb\w*|fall\w*|jump\w*|suspensors?|glid\w*|dash)\b/, 3], [/\b(stamina|water|heat|sunstroke|worms?|sand|surviv\w*)\b/, 2], [/\b(scan\w*|survey\w*|maps?|detect\w*|reveal\w*|ornithopters?|vehicles?)\b/, 2]] },
+    craft: { spec: "Crafting", words: [[/\b(craft\w*|repairs?|durability|refin\w*|fabricat\w*|schematics?|batch|build\w*|bases?)\b/, 3], [/\b(water|power)\b/, 1]] }
+};
+function skillPicks(archetypes, goal, max = 10) {
+    const g = GOALS[goal];
+    if (!g) return [];
+    const out = [];
+    (archetypes || []).forEach((a) => a.trees.forEach((t) => t.skills.forEach((s) => {
+        // its name and effect say the most, its description less, its tree's a little
+        const parts = [[s.name, 2], [s.notes || "", 1.5], [s.desc, 1], [t.desc, 0.3]].map(([x, w]) => [x.toLowerCase(), w]);
+        // a skill for the other kind of fight isn't one for this; and "damage" alone doesn't make a skill fit
+        if (g.against && (g.against.test(s.name.toLowerCase()) || g.against.test(s.desc.toLowerCase()))) return;
+        let score = 0, fits = false;
+        g.words.forEach(([re, w]) => parts.forEach(([x, k]) => { if (re.test(x)) { score += w * k; if (!/damage/.test(re.source) && k >= 1) fits = true; } }));
+        if (!fits) return;
+        if (score > 0) out.push({ ...s, archetype: a.name, tree: t.name, score: Math.round(score * 10) / 10 });
+    })));
+    out.sort((a, b) => b.score - a.score || a.points - b.points || a.name.localeCompare(b.name));
+    return out.slice(0, max);
+}
+
+module.exports = { ARCHETYPES, GOALS, skillsOf, specializationsOf, skillPicks, bossVideoScore, pickBossVideo, augmentsOf, augmentsFor, bestAugment, augmentScore, effectOf, gadget, recipesOf, whereOf, obtainOf, researchOf, pickRecipe, farmList, fileUrl, pageUrl, plain, sections, lines, weapon, rankWeapons, garment, dungeon, familyOf, HAZARDS, MITIGATIONS };

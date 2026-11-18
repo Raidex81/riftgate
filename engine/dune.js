@@ -16,7 +16,7 @@ const API = "https://api.awakening.wiki", WIKI_API = "https://awakening.wiki/api
 const UA = { "User-Agent": "Riftgate/2 (https://github.com/Raidex81/riftgate; Dune: Awakening companion)", Accept: "application/json" };
 const LISTS_FILE = "cache-dune-lists.json", LISTS_TTL = 24 * 3600e3;
 const PAGES_FILE = "cache-dune-pages.json", CHECK_EVERY = 6 * 3600e3;
-const VIDEO_FILE = "cache-dune-videos.json";
+const VIDEO_FILE = "cache-dune-videos.json", VIDEO_V = 3; // 3: boss-fight guides, not first tries or walkthroughs (videos picked before are picked again)
 
 const get = (url) => httpsGetJson(url, UA, 20000).then((r) => { if (r && r.error && !r.query) throw new Error(r.error.info || r.message || "the wiki didn't answer"); return r; });
 const wiki = (params) => get(`${WIKI_API}?format=json&formatversion=2&${new URLSearchParams(params).toString()}`);
@@ -67,8 +67,23 @@ function lists({ fresh = false } = {}) {
         // where to get each piece: a Unique's schematic drops in the world (its page says where, and how often);
         // the rest are researched with Intel (the Research page says in which tier, for how much)
         const uniques = [...value.weapons, ...value.garments, ...gadgets].filter((x) => x.unique).map((x) => x.name);
-        const got = await pagesText(["Research", ...new Set(uniques)]).catch(() => ({}));
+        const got = await pagesText(["Research", "Augmentations", "Specializations", ...dune.ARCHETYPES, ...new Set(uniques)]).catch(() => ({}));
+        // the five archetypes' skill trees and the Landsraad specializations
+        const arch = dune.ARCHETYPES.map((t) => got[t] && dune.skillsOf(t, got[t].text)).filter(Boolean);
+        value.archetypes = arch.length ? arch : (saved && saved.archetypes) || [];
+        value.specializations = got.Specializations ? dune.specializationsOf(got.Specializations.text) : (saved && saved.specializations) || [];
+        value.skillPicks = Object.fromEntries(Object.keys(dune.GOALS).map((g) => [g, dune.skillPicks(value.archetypes, g, 10)]));
+        value.goalSpec = Object.fromEntries(Object.entries(dune.GOALS).map(([g, x]) => [g, x.spec]));
         value.research = got.Research ? dune.researchOf(got.Research.text) : (saved && saved.research) || {};
+        // the augments the wiki lists, by the weapon family (or armour) they go on
+        value.augments = got.Augmentations ? dune.augmentsOf(got.Augmentations.text) : (saved && saved.augments) || [];
+        // each weapon and piece of armour: which of those kinds go on it, and the strongest augment among them
+        [...value.weapons, ...value.garments].forEach((x) => {
+            const kinds = dune.augmentsFor(x, value.augments);
+            x.augs = kinds.map((k) => value.augments.indexOf(k));
+            const best = dune.bestAugment(kinds.flatMap((k) => k.augments));
+            x.bestAug = best ? { name: best.a.name, image: best.a.image, grade: best.grade, score: best.score } : null;
+        });
         value.where = {};
         uniques.forEach((n) => { const o = got[n] ? dune.obtainOf(got[n].text) : saved && saved.where && saved.where[n]; if (o) value.where[n] = o; });
         data.saveCache(LISTS_FILE, value);
@@ -128,7 +143,7 @@ async function pages(names) {
 
 // ---- A boss fight on YouTube ------------------------------------------------------------------------
 function register(ipcMain, { youtubeSearch } = {}) {
-    // { at, weapons, garments, gadgets, dungeons, research: { name: { tier, cost, prereq } }, where: { name: { places, exchange, text } } }
+    // { at, weapons, garments, gadgets, dungeons, research: { name: { tier, cost, prereq } }, augments: [{ title, applies, found, places, augments }], where: { name: { places, exchange, text } } }
     ipcMain.handle("r2-dune-data", async (event, q = {}) => lists({ fresh: !!(q && q.fresh) }).catch((err) => ({ error: err.message || "The wiki couldn't be reached" })));
 
     // { pages: { name: { recipes, where, image } }, farm: { raw, made, water, time, uncraftable } }
@@ -142,20 +157,25 @@ function register(ipcMain, { youtubeSearch } = {}) {
         } catch (err) { return { error: err.message || "The wiki couldn't be reached" }; }
     });
 
-    // a boss fight's video: the most watched guide that names the boss (kept; "Not this video" picks another)
+    // a boss fight's video: the fight itself, from a guide that shows how to beat it (its title says guide, strategy,
+    // how to beat…), never a stream, a blind first try or a walkthrough of the whole dungeon; short and 4-20 minute videos first. Kept; "Not this fight" picks another.
     ipcMain.handle("r2-dune-video", async (event, q = {}) => {
         const boss = typeof q.boss === "string" ? q.boss.slice(0, 80) : "", place = typeof q.place === "string" ? q.place.slice(0, 80) : "";
         if (!boss || !youtubeSearch) return null;
         const all = data.loadCache(VIDEO_FILE) || {};
         const key = `${place}|${boss}`.toLowerCase();
-        if (all[key] && all[key].id) return all[key];
+        if (all[key] && all[key].id && all[key].v === VIDEO_V) return all[key];
         const wrong = new Set((all[key] && all[key].wrong) || []);
-        const words = boss.toLowerCase().replace(/^(dr\.?|doctor|lieutenant|planetologist)\s+/, "").split(/\s+/).filter((w) => w.length > 2);
-        for (const query of [`Dune Awakening ${boss} boss guide`, `Dune Awakening ${place} boss`]) {
-            const items = await youtubeSearch(query).catch(() => []);
-            const hit = (items || []).find((v) => v && v.id && !wrong.has(v.id) && /dune/i.test(v.title) && (words.some((w) => v.title.toLowerCase().includes(w)) || v.title.toLowerCase().includes(place.toLowerCase())));
-            if (hit) { all[key] = { id: hit.id, title: hit.title, wrong: [...wrong] }; data.saveCache(VIDEO_FILE, all); return all[key]; }
+        const results = [];
+        const searches = [[`Dune Awakening ${boss} boss fight guide how to beat`, { duration: "medium" }], [`Dune Awakening ${boss} boss fight strategy`, { duration: "short" }],
+            [`Dune Awakening ${place} boss fight guide`, { duration: "medium" }], [`Dune Awakening ${boss} boss fight`, { order: "viewCount" }]];
+        let hit = null;
+        for (const [query, opts] of searches) {
+            results.push(...(await youtubeSearch(query, opts).catch(() => []) || []));
+            hit = dune.pickBossVideo(results, { boss, place }, wrong);
+            if (hit && hit.score >= 4) break; // a clear guide: no need to look further
         }
+        if (hit) { all[key] = { id: hit.id, title: hit.title, channel: hit.channel || "", v: VIDEO_V, wrong: [...wrong] }; data.saveCache(VIDEO_FILE, all); return all[key]; }
         return null;
     });
     ipcMain.handle("r2-dune-video-wrong", async (event, q = {}) => {

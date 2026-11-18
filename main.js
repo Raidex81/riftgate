@@ -4812,10 +4812,15 @@ require("./engine/pc-check").register(ipcMain);
 require("./engine/game-guides").register(ipcMain);
 // the Dune: Awakening companion; its boss videos are searched on YouTube through the media proxy
 require("./engine/dune").register(ipcMain, {
-    youtubeSearch: async (q) => {
-        const r = await mediaProxyGetJson("youtube", "/search", { part: "snippet", maxResults: "8", type: "video", videoEmbeddable: "true", q });
+    // { duration: "medium" } keeps to 4-20 minute videos (guides, not hours-long streams); { order: "viewCount" } the most watched first
+    youtubeSearch: async (q, { duration, order } = {}) => {
+        const params = { part: "snippet", maxResults: "10", type: "video", videoEmbeddable: "true", q };
+        if (duration) params.videoDuration = duration;
+        if (order) params.order = order;
+        const r = await mediaProxyGetJson("youtube", "/search", params);
         if (!r || r.error || !Array.isArray(r.items)) return [];
-        return r.items.map((i) => ({ id: i.id && i.id.videoId, title: (i.snippet && i.snippet.title) || "" })).filter((v) => v.id);
+        return r.items.map((i) => ({ id: i.id && i.id.videoId, title: (i.snippet && i.snippet.title) || "", description: (i.snippet && i.snippet.description) || "",
+            channel: (i.snippet && i.snippet.channelTitle) || "", live: (i.snippet && i.snippet.liveBroadcastContent) || "none" })).filter((v) => v.id);
     }
 });
 // Admins: new suggestions (the Suggestions button blinks, and a notification)

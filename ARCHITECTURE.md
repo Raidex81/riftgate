@@ -497,7 +497,14 @@ six hours). `services/dune.js` is pure: it ranks weapons by sustained damage
 (a magazine and its reload), reads armour, dungeons (hazard from the pop-up
 picture, boss, strategy, rewards), the generated "Crafted By" tables, the
 crafting tree down to raw materials, and "found in [[Place]] with a drop
-chance of N%" sentences, ignoring the wiki's unfilled templates. Builds are
+chance of N%" sentences, ignoring the wiki's unfilled templates. It also reads
+the Augmentations page (each weapon family's augments with their grades; the
+engine marks which go on each item and the strongest, weighing damage and
+armour most), the five archetype pages (`{{SkillTable}}`/`{{SkillRow}}`) and
+the Specializations page (both of its table layouts), and picks the best
+skills for a goal from what each one says it does. Boss videos are scored by
+their titles: guides and strategies up, streams, blind first tries and
+walkthroughs of the whole dungeon out. Builds are
 kept in the Journal's settings (`dune:builds`). Boss videos come from the
 YouTube search Riftgate already uses, one per boss, with "Not this fight" to
 pick another. Riftgate can't see a player's real inventory or progress: the
