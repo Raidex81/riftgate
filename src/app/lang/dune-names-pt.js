@@ -414,6 +414,24 @@ export default {
     "Corpse": "Cadáver",
     "Mouse Corpse": "Cadáver de Camundongo",
 
+    // ---- From Alfredo's table (November 2026) ----
+    "Elohim-Class Suspensor Belt": "Cinto Suspensor Classe Elohim",
+    "Radiation Suit Mk1": "Traje Antirradiação Mk1",
+    "Radiation Suit Mk2": "Traje Antirradiação Mk2",
+    "Radiation Suit Mk3": "Traje Antirradiação Mk3",
+    "Radiation Suit Mk4": "Traje Antirradiação Mk4",
+    "Radiation Suit Mk5": "Traje Antirradiação Mk5",
+    "Radiation Suit Mk6": "Traje Antirradiação Mk6",
+    "Old Sparky Mk1": "Conjunto de Energia Old Sparky Mk1",
+    "Old Sparky Mk2": "Conjunto de Energia Old Sparky Mk2",
+    "Old Sparky Mk3": "Conjunto de Energia Old Sparky Mk3",
+    "Old Sparky Mk4": "Conjunto de Energia Old Sparky Mk4",
+    // archetypes (the Skills tab)
+    "Mentat": "Mentat",
+    "Planetologist": "Planetologista",
+    "Bene Gesserit": "Irmandade",
+    "Trooper": "Soldado",
+
     // ---- Ammunition ----
     "Light Darts": "Dardos Leves",
     "Heavy Darts": "Dardos Pesados"
