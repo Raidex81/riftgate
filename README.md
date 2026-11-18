@@ -206,6 +206,16 @@ for its creator. Made one yourself? Put it forward from inside the app.
   database for Dune: Awakening or the game's own wiki, with a list of all the
   others: wikis and databases, its mods on Nexus Mods, Steam Workshop, mod.io
   or Thunderstore, and Steam's community guides.
+- **Dune: Awakening companion**: with Dune: Awakening in your Library, a page
+  of its own. Build loadouts on an equipment screen like the game's (the
+  eight-slot wheel, your gear on the character, worn on the avatar) and save
+  them; hover a piece for its stats and its hammer for the recipe; see what the
+  whole build takes to farm, down to raw materials, and where each piece comes
+  from (the dungeons and wrecks a Unique's schematic drops in, with the chance,
+  or the tier and Intel to research it). Weapons ranked best to weakest, armour
+  by protection, and every dungeon with its hazard, the gear for it, its boss's
+  strategy and a video of the fight. All from the Dune: Awakening Community
+  Wiki, kept up to date with it.
 - **Buy now or wait?** A game's details show its best price across stores,
   the lowest it has ever been and a plain verdict, and say when PC Game
   Pass already includes it.

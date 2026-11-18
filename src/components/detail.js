@@ -130,6 +130,8 @@ function buildActions(item, box, cover) {
                 else toast(r.alreadyRunning ? `${item.title} is already running` : `Starting ${item.title}`);
             }, true));
             if (hasGuides(item)) add(guidesButton(item));
+            // a game with its own companion page in Riftgate
+            if (item.type === "game" && /^dune\s*:?\s*awakening$/i.test(String(item.title).trim())) add(btn("Companion", "compass", () => { closeDetail(); location.hash = "dune"; }));
             break;
         case "free":
             // claiming it here means no last-day reminder for it

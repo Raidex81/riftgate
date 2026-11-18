@@ -4810,6 +4810,14 @@ require("./engine/backup").register(ipcMain, { saves: { collect: () => gameSaves
 require("./engine/prices").register(ipcMain, { usdRate: (currency) => fetchUsdToTargetRate(currency), currencyFor: (country) => CURRENCY_BY_COUNTRY[country] });
 require("./engine/pc-check").register(ipcMain);
 require("./engine/game-guides").register(ipcMain);
+// the Dune: Awakening companion; its boss videos are searched on YouTube through the media proxy
+require("./engine/dune").register(ipcMain, {
+    youtubeSearch: async (q) => {
+        const r = await mediaProxyGetJson("youtube", "/search", { part: "snippet", maxResults: "8", type: "video", videoEmbeddable: "true", q });
+        if (!r || r.error || !Array.isArray(r.items)) return [];
+        return r.items.map((i) => ({ id: i.id && i.id.videoId, title: (i.snippet && i.snippet.title) || "" })).filter((v) => v.id);
+    }
+});
 // Admins: new suggestions (the Suggestions button blinks, and a notification)
 require("./engine/suggestions").register(ipcMain, { iconPath: () => resolveIconPath("icon.ico") });
 // Your history from Letterboxd, Goodreads, IMDb and MyAnimeList exports, and your Steam wishlist

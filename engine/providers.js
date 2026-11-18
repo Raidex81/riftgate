@@ -52,6 +52,7 @@ const PROVIDERS = [
     { id: "rates", label: "Exchange rates", what: "prices in your currency", hosts: [/^open\.er-api\.com$/] },
     { id: "gamepass", label: "Xbox Game Pass", what: "what PC Game Pass includes", hosts: [/^catalog\.gamepass\.com$/, /^displaycatalog\.mp\.microsoft\.com$/] },
     // Guides & mods (engine/game-guides.js): extras, a failure leaves nothing missing
+    { id: "dunewiki", label: "Dune: Awakening wiki", what: "the Dune: Awakening companion", hosts: [/^(api\.)?awakening\.wiki$/] },
     { id: "wikidata", label: "Wikidata", what: "game wikis", hosts: [/^query\.wikidata\.org$/], quiet: true },
     { id: "nexusmods", label: "Nexus Mods", what: "mods", hosts: [/^data\.nexusmods\.com$/], quiet: true },
     { id: "ludusavi", label: "Ludusavi manifest", what: "where games keep their saves", hosts: [/^raw\.githubusercontent\.com$/] },

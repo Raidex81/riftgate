@@ -37,6 +37,8 @@ import reading from "../views/reading.js";
 import apps from "../views/apps.js";
 import journalView from "../views/journal.js";
 import themesView from "../views/themes.js";
+import duneView from "../views/dune.js";
+import * as D from "./data.js";
 import suggestionsView from "../views/suggestions.js";
 import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
 import * as gamepad from "./gamepad.js";
@@ -67,10 +69,15 @@ const VIEWS = [
     { id: "journal", label: "Journal", icon: "journal", view: journalView, group: "Yours" },
     { id: "themes", label: "Themes", icon: "sparkles", view: themesView, group: "Yours" },
     { id: "suggestions", label: "Suggestions", icon: "chat", view: suggestionsView, group: "Yours" },
+    // a game's companion, in the rail while the game is in your Library (always at #dune)
+    { id: "dune", label: "Dune: Awakening", icon: "compass", view: duneView, group: "Yours", when: () => companions.has("dune") },
     // only for admins (the rail shows them once your account is known to be one)
     { id: "vault", admin: true, label: "The Vault", icon: "vault", view: vaultView, group: "Admin" },
     { id: "admin", admin: true, label: "Admin", icon: "shield", view: adminView, group: "Admin" }
 ];
+// the games in your Library that have a companion page (see views/dune.js)
+const companions = new Set();
+const COMPANIONS = { dune: /^dune\s*:?\s*awakening$/i };
 const SETTINGS = { id: "settings", label: "Settings", icon: "settings", view: settings };
 const ALL = [...VIEWS, SETTINGS];
 
@@ -143,7 +150,7 @@ const shownViews = () => {
     const order = railOrder();
     const rank = (v) => { const i = order.indexOf(v.id); return i < 0 ? 1000 + VIEWS.indexOf(v) : i; };
     const groups = [...new Set(VIEWS.map((v) => v.group))];
-    return VIEWS.filter((v) => (!v.admin || gate.isAdmin()) && (!v.interests || interests.wants(...v.interests) || v.id === current))
+    return VIEWS.filter((v) => (!v.admin || gate.isAdmin()) && (!v.interests || interests.wants(...v.interests) || v.id === current) && (!v.when || v.when() || v.id === current))
         .sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group) || rank(a) - rank(b));
 };
 async function saveRailOrder(ids) {
@@ -391,6 +398,15 @@ on("r2-alert-open", (d) => { if (d && typeof d.view === "string" && /^[a-z]+$/.t
         if (r && r.success) { await appSettings({ fresh: true }); forget("load-games"); window.dispatchEvent(new CustomEvent("r2-library-changed")); }
     }, 40 * 1000);
     buildRail();
+    // companions for the games you have (the rail shows them; they're rebuilt when the Library changes)
+    const lookCompanions = () => D.library().then((lib) => {
+        const before = [...companions].join();
+        companions.clear();
+        for (const [id, re] of Object.entries(COMPANIONS)) if ((lib || []).some((g) => g.type === "game" && re.test(String(g.title).trim()))) companions.add(id);
+        if ([...companions].join() !== before) buildRail();
+    }).catch(() => {});
+    lookCompanions();
+    window.addEventListener("r2-library-changed", () => setTimeout(lookCompanions, 500));
     // admins: new suggestions make Suggestions blink, with a note when they arrive
     suggestWatch.onCount(paintSuggestions);
     suggestWatch.start({ note: (d) => toast(d.told === 1 && d.latest ? `New suggestion from ${d.latest.username || "someone"}: ${d.latest.text}` : `${d.told} new suggestions`, "ok", 8000) });

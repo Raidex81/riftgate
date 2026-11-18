@@ -483,6 +483,26 @@ game has with one Wikidata query by its Steam id (wiki ids, PCGamingWiki,
 mod.io, Thunderstore), Nexus Mods' public list of games (kept a week) and
 Steam's Workshop flag, all free and keyless, kept 30 days per game.
 
+## The Dune: Awakening companion
+
+`views/dune.js` appears in the rail when Dune: Awakening is in the Library.
+Everything comes from the Dune: Awakening Community Wiki (awakening.wiki,
+CC BY-NC-SA 4.0, credited on the page). `engine/dune.js` reads its public
+API (api.awakening.wiki: weapons, garments, tools and power packs, built from
+the game's files) once a day, plus its dungeon pages, the Research page (each
+schematic's tier, Intel cost and prerequisite) and the pages of every Unique
+(where its schematic drops and how often); a recipe page is read when needed
+and read again whenever the wiki has a newer edit of it (checked at most every
+six hours). `services/dune.js` is pure: it ranks weapons by sustained damage
+(a magazine and its reload), reads armour, dungeons (hazard from the pop-up
+picture, boss, strategy, rewards), the generated "Crafted By" tables, the
+crafting tree down to raw materials, and "found in [[Place]] with a drop
+chance of N%" sentences, ignoring the wiki's unfilled templates. Builds are
+kept in the Journal's settings (`dune:builds`). Boss videos come from the
+YouTube search Riftgate already uses, one per boss, with "Not this fight" to
+pick another. Riftgate can't see a player's real inventory or progress: the
+game keeps it on Funcom's servers, with no public API.
+
 ## Game saves in backups
 
 `engine/game-saves.js` downloads the Ludusavi manifest (MIT, compiled
