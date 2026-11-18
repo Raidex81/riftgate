@@ -3,6 +3,18 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.6": [
+        "New: a Dune: Awakening companion. With Dune: Awakening in your Library it gets a page of its own, made from the Dune: Awakening Community Wiki and kept up to date with it",
+        "New: build loadouts on an equipment screen like the game's: the eight-slot wheel, your gear in two columns and on the character. Save as many builds as you like. Hover a piece for its stats and its hammer for what it takes to craft",
+        "New: what to farm for a whole build, down to the raw materials and where to find them, and where each piece comes from: the dungeons and wrecks a Unique's schematic drops in (with the chance), the Exchange, or the tier and Intel to research it",
+        "New: weapons ranked best to weakest and armour by protection, with a search that jumps to an item. Click one for every stat at every Mk level side by side, its recipe and the augments it takes, with their icons and grades and the best one suggested",
+        "New: every dungeon with its hazard, the gear that suits it, its boss's strategy and a guide to the fight on video (never a stream or a walkthrough), and the Unique schematics that drop there",
+        "New: Skills. The best skills for fighting, farming, exploring or crafting, the Landsraad specialization for it, and every archetype's skill tree with where its trainers are",
+        "New: Guides & mods for every game in your Library. A Guides button in its details, and a compass on its cover, open the best site for it (a game database or its own wiki), and the arrow lists the rest: wikis and databases, its mods on Nexus Mods, Steam Workshop, mod.io or Thunderstore, and Steam's community guides",
+        "New: hover an achievement to see how it's earned. For one you have: how you got it, when, and how rare it is. Secrets you haven't revealed stay secret",
+        "Fixed: trailers that belonged to another game or show (a fuller name is only used when it's plainly the same title, and a YouTube result has to name the game). The player has Not this game's trailer, which finds another and never picks that one again",
+        "Changed: Google Books, only a backup for eBook covers, no longer puts up a not answering notice, and during the Christmas Rift notices sit below the garland"
+    ],
     "2.0.5": [
         "New: the Christmas Rift. From 11 November to 6 January Riftgate turns pine green, berry red and gold. Snow falls over the whole app, a garland of lights hangs along the top with holly in the corners, the gem wears a Santa hat, and a tree, presents, an elf, a snowman and a fireplace with stockings and candles stand by the Nexus rift, with fairy lights round its ring",
         "New: Santa's sleigh in the opening. Snow falls while the rift opens, and Santa and his reindeer fly right in front of the gem to the sound of sleigh bells. Now and then the sleigh crosses the app too, and an elf peeks up from the bottom of the window",
