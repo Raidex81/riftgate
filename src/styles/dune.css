@@ -203,3 +203,24 @@
 .dn-whererow > div > b { display: block; }
 .dn-whererow > div > small { display: block; margin-bottom: 6px; }
 .dn-dungeon.focus { outline: 2px solid var(--sand); outline-offset: 3px; }
+
+/* find an item: a box that stays in view, "Contains" or "Exact name", and the list jumps to it */
+.dn-find { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; padding: 10px 0;
+    background: var(--void); box-shadow: 0 10px 14px -8px var(--void); }
+.dn-findbox { position: relative; flex: 1 1 280px; max-width: 460px; display: flex; align-items: center; }
+.dn-findbox > svg { position: absolute; z-index: 1; left: 12px; width: 16px; height: 16px; color: var(--sand); pointer-events: none; }
+.dn-findq { width: 100%; padding-left: 36px; }
+.dn-findmode { display: flex; gap: 6px; }
+.dn-findcount { color: var(--text-dim, rgba(255, 255, 255, .6)); font-size: 12.5px; }
+.dn-findmenu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 7; display: grid; padding: 6px; border-radius: 12px;
+    background: #1b1411; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 16px 40px rgba(0, 0, 0, .5); max-height: 380px; overflow: auto; }
+.dn-findmenu[hidden] { display: none; }
+.dn-findopt { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.dn-findopt img, .dn-findopt .dn-noimg { width: 34px; height: 34px; object-fit: contain; }
+.dn-findopt b { display: block; font-size: 13.5px; }
+.dn-findopt small { display: block; font-size: 11.5px; color: var(--text-dim, rgba(255, 255, 255, .6)); }
+.dn-findopt.on, .dn-findopt:hover { background: color-mix(in srgb, var(--sand) 16%, transparent); }
+.dn-rankrow.hit { background: color-mix(in srgb, var(--sand) 7%, transparent); }
+.dn-rankrow.here { outline: 2px solid var(--sand); outline-offset: -2px; background: color-mix(in srgb, var(--sand) 16%, transparent); animation: dn-here 1.2s var(--ease) 1; }
+@keyframes dn-here { 0%, 40% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--sand) 35%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .dn-rankrow.here { animation: none; } }

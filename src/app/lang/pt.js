@@ -2056,5 +2056,15 @@ export default {
     "Heavy Armor": "Armadura pesada",
     "Light Armor": "Armadura leve",
     "Unique": "Única",
-    "Companion": "Companheiro"
+    "Companion": "Companheiro",
+    "Find a piece of armour…": "Procurar uma peça de armadura…",
+    "Find a weapon": "Procurar uma arma",
+    "Find a piece of armour": "Procurar uma peça de armadura",
+    "Contains": "Contém",
+    "Exact name": "Nome exato",
+    "How to match": "Como procurar",
+    "{0} with exactly that name": "{0} com exatamente esse nome",
+    "{0} containing “{1}”": "{0} com “{1}”",
+    "No item has exactly that name": "Nenhum item tem exatamente esse nome",
+    "Nothing contains that": "Nada contém isso"
 };

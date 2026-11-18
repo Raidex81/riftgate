@@ -291,11 +291,65 @@ export default {
         }
         const byNameText = (name) => [...W, ...G, ...GD].find((x) => x.name === name);
 
+        // ---- Find an item: names that contain the text, or the exact name; the list jumps to it ----------------
+        // items(): every item it can find; jump(item): shows it in the list (filters set to include it) and returns its row
+        function finder({ items, jump, what }) {
+            let exact = journal.pref("dune:find-exact", false), timer = null, hits = [], at = -1;
+            const q = h("input.input.dn-findq", { type: "search", placeholder: `Find ${what}…`, "aria-label": `Find ${what}`, autocomplete: "off", spellcheck: "false" });
+            const menu = h("div.dn-findmenu", { role: "listbox", hidden: true });
+            const count = h("small.dn-findcount", { "aria-live": "polite" });
+            const modes = h("div.dn-findmode", { role: "group", "aria-label": "How to match" });
+            const paintModes = () => clear(modes).append(...[[false, "Contains"], [true, "Exact name"]].map(([v, l]) =>
+                h("button.chip", { type: "button", "aria-pressed": String(exact === v), onclick: () => { exact = v; journal.setPref("dune:find-exact", v); paintModes(); search(true); } }, l)));
+            const norm = (t) => t.toLowerCase().replace(/\s+/g, " ").trim();
+            const go = (it, quiet) => {
+                if (!it) return;
+                const row = jump(it);
+                if (!row) return;
+                list().querySelectorAll(".dn-rankrow.here").forEach((r) => r.classList.remove("here"));
+                row.classList.add("here");
+                row.scrollIntoView({ behavior: "smooth", block: "center" });
+                if (!quiet) { menu.hidden = true; q.setAttribute("aria-expanded", "false"); }
+            };
+            const list = () => body.querySelector(".dn-rank") || body;
+            const mark = () => { const t = norm(q.value); list().querySelectorAll(".dn-rankrow").forEach((r) => r.classList.toggle("hit", !!t && hits.some((x) => x.id === r.dataset.id))); };
+            const paintMenu = () => {
+                clear(menu);
+                menu.hidden = !hits.length || !q.value.trim();
+                q.setAttribute("aria-expanded", String(!menu.hidden));
+                hits.slice(0, 8).forEach((it, i) => menu.append(h(`button.dn-findopt${i === at ? ".on" : ""}`, { type: "button", role: "option", "aria-selected": String(i === at), onmousedown: (e) => e.preventDefault(), onclick: () => { at = i; paintMenu(); go(it); } },
+                    img(it.image), h("span", null, h("b", { translate: "no" }, it.name), h("small", null, [mk(it), it.cls || it.type, it.group ? `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}` : null].filter(Boolean).join(" · "))))));
+            };
+            function search(now) {
+                const t = norm(q.value);
+                hits = !t ? [] : items().filter((it) => (exact ? norm(it.name) === t : norm(it.name).includes(t)))
+                    .sort((a, b) => (norm(b.name) === t) - (norm(a.name) === t) || norm(b.name).startsWith(t) - norm(a.name).startsWith(t) || (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+                at = hits.length ? 0 : -1;
+                count.textContent = !t ? "" : hits.length ? (exact ? `${hits.length} with exactly that name` : `${hits.length} containing “${q.value.trim()}”`) : (exact ? "No item has exactly that name" : "Nothing contains that");
+                paintMenu();
+                clearTimeout(timer);
+                // it goes to the best match by itself as you type
+                if (hits.length) timer = setTimeout(() => { go(hits[0], true); mark(); }, now ? 0 : 450); else mark();
+            }
+            q.addEventListener("input", () => search(false));
+            q.addEventListener("focus", () => { if (hits.length && q.value.trim()) paintMenu(); });
+            q.addEventListener("blur", () => setTimeout(() => { menu.hidden = true; q.setAttribute("aria-expanded", "false"); }, 120));
+            q.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!hits.length) return; at = (at + (e.key === "ArrowDown" ? 1 : -1) + Math.min(8, hits.length)) % Math.min(8, hits.length); paintMenu(); go(hits[at], true); mark(); }
+                else if (e.key === "Enter") { e.preventDefault(); clearTimeout(timer); go(hits[Math.max(0, at)]); mark(); }
+                else if (e.key === "Escape") { if (q.value) { q.value = ""; search(true); } menu.hidden = true; }
+            });
+            q.setAttribute("aria-haspopup", "listbox");
+            paintModes();
+            return { el: h("div.dn-find", null, h("div.dn-findbox", null, icon("search"), q, menu), modes, count), mark };
+        }
+
         // ---- Weapons, best to weakest ----------------------------------------------------------------------
         function weapons() {
             let group = "ranged", cls = "all", tier = "all";
             const list = h("div.dn-rank");
             const filters = h("div.dn-filters");
+            let find = null;
             const draw = () => {
                 const pool = W.filter((w) => w.group === group);
                 const classes = [...new Set(pool.map((w) => w.cls))].sort();
@@ -304,16 +358,23 @@ export default {
                     h("select.input", { "aria-label": "Kind", onchange: (e) => { cls = e.target.value; draw(); } }, h("option", { value: "all" }, "Every kind"), classes.map((c) => h("option", { value: c, selected: cls === c || null }, c))),
                     h("select.input", { "aria-label": "Tier", onchange: (e) => { tier = e.target.value; draw(); } }, h("option", { value: "all" }, "Every tier"), h("option", { value: "unique", selected: tier === "unique" || null }, "Uniques"), [6, 5, 4, 3, 2, 1].map((t) => h("option", { value: String(t), selected: tier === String(t) || null }, `Mk${t}`))));
                 const shown = pool.filter((w) => (cls === "all" || w.cls === cls) && (tier === "all" || (tier === "unique" ? w.unique : String(w.tier) === tier)));
-                clear(list).append(...shown.map((w) => h("div.dn-rankrow", null,
+                clear(list).append(...shown.map((w) => h("div.dn-rankrow", { dataset: { id: w.id } },
                     h("span.dn-pos", null, `#${w.rank}`), tile(w, { size: "sm" }),
                     h("div.dn-rankname", null, h("b", { translate: "no" }, w.name), h("small", null, [mk(w), w.cls, w.dart].filter(Boolean).join(" · "))),
                     h("div.dn-bar", { title: `${Math.round(w.of * 100)}% of the strongest` }, h("i", { style: { width: `${Math.max(3, w.of * 100)}%` } })),
                     h("span.dn-num", null, h("b", null, fmt(w.score, 1)), h("small", null, "dmg/s")),
                     h("button.btn.sm", { type: "button", onclick: () => equip(w) }, "Equip"))));
                 if (!shown.length) list.append(h("p.row-empty", null, "No weapon matches."));
+                if (find) find.mark();
             };
+            // found: guns or melee as it is, and a kind or tier that would hide it let go
+            find = finder({ what: "a weapon", items: () => W, jump: (w) => {
+                const hidden = w.group !== group || (cls !== "all" && w.cls !== cls) || (tier !== "all" && (tier === "unique" ? !w.unique : String(w.tier) !== tier));
+                if (hidden) { group = w.group; if (cls !== "all" && w.cls !== cls) cls = "all"; if (tier !== "all" && (tier === "unique" ? !w.unique : String(w.tier) !== tier)) tier = "all"; draw(); }
+                return [...list.children].find((r) => r.dataset.id === w.id);
+            } });
             draw();
-            body.append(h("p.muted.dn-note", null, icon("info"), "Ranked by sustained damage: what a weapon deals per second over a whole magazine and its reload (for melee, damage per hit times swings per second). Hover any weapon for its full stats."), filters, list);
+            body.append(h("p.muted.dn-note", null, icon("info"), "Ranked by sustained damage: what a weapon deals per second over a whole magazine and its reload (for melee, damage per hit times swings per second). Hover any weapon for its full stats."), find.el, filters, list);
         }
         function equip(w) {
             const list = builds();
@@ -327,23 +388,33 @@ export default {
 
         // ---- Armour ------------------------------------------------------------------------------------------
         function armour() {
-            let slot = "Torso", by = "armor";
+            let slot = "Torso", by = "armor", upTo = 80, find = null;
             const filters = h("div.dn-filters"), list = h("div.dn-rank");
+            const slotOf = (g) => (g.slot === "Top and Legs" ? "Torso" : g.slot);
             const val = (g) => (by === "armor" ? g.armor : g.mit[by] || 0);
             const draw = () => {
-                clear(filters).append(...["Head", "Torso", "Hands", "Legs", "Feet", "Suit"].map((s) => h("button.chip", { type: "button", "aria-pressed": String(slot === s), onclick: () => { slot = s; draw(); } }, s === "Suit" ? "Utility suits" : s)),
+                clear(filters).append(...["Head", "Torso", "Hands", "Legs", "Feet", "Suit"].map((s) => h("button.chip", { type: "button", "aria-pressed": String(slot === s), onclick: () => { slot = s; upTo = 80; draw(); } }, s === "Suit" ? "Utility suits" : s)),
                     h("select.input", { "aria-label": "Best for", onchange: (e) => { by = e.target.value; draw(); } }, h("option", { value: "armor" }, "Most armour"), Object.entries(MIT_LABEL).map(([k, l]) => h("option", { value: k, selected: by === k || null }, `Best against ${l.toLowerCase()}`))));
                 const pool = G.filter((g) => g.slot === slot || (slot === "Torso" && g.slot === "Top and Legs")).sort((a, b) => val(b) - val(a) || b.armor - a.armor);
                 const top = pool.length ? Math.max(1, val(pool[0])) : 1;
-                clear(list).append(...pool.slice(0, 80).map((g, i) => h("div.dn-rankrow", null,
+                clear(list).append(...pool.slice(0, upTo).map((g, i) => h("div.dn-rankrow", { dataset: { id: g.id } },
                     h("span.dn-pos", null, `#${i + 1}`), tile(g, { size: "sm" }),
                     h("div.dn-rankname", null, h("b", { translate: "no" }, g.name), h("small", null, [mk(g), g.type].filter(Boolean).join(" · "))),
                     h("div.dn-bar", null, h("i", { style: { width: `${Math.max(3, (val(g) / top) * 100)}%` } })),
                     h("span.dn-num", null, h("b", null, by === "armor" ? fmt(g.armor) : `${fmt(val(g), 1)}%`), h("small", null, by === "armor" ? "armour" : MIT_LABEL[by].toLowerCase())),
-                    h("button.btn.sm", { type: "button", onclick: () => { const list2 = builds(); const b = list2.find((x) => x.id === currentId()) || list2[0]; saveBuilds(list2.map((x) => (x.id === b.id ? { ...x, slots: { ...migrate(x.slots), [g.slot === "Top and Legs" ? "Torso" : g.slot]: g.id } } : x))); toast(`${g.name} is in ${b.name}`); } }, "Equip"))));
+                    h("button.btn.sm", { type: "button", onclick: () => { const list2 = builds(); const b = list2.find((x) => x.id === currentId()) || list2[0]; saveBuilds(list2.map((x) => (x.id === b.id ? { ...x, slots: { ...migrate(x.slots), [slotOf(g)]: g.id } } : x))); toast(`${g.name} is in ${b.name}`); } }, "Equip"))));
+                if (find) find.mark();
             };
+            // found: its slot shown, and the list long enough to reach it
+            find = finder({ what: "a piece of armour", items: () => G, jump: (g) => {
+                if (!["Head", "Torso", "Hands", "Legs", "Feet", "Suit"].includes(slotOf(g))) return null;
+                const pool = G.filter((x) => slotOf(x) === slotOf(g)).sort((a, b) => val(b) - val(a) || b.armor - a.armor);
+                const need = Math.max(80, pool.findIndex((x) => x.id === g.id) + 1);
+                if (slot !== slotOf(g) || need > upTo) { slot = slotOf(g); upTo = need; draw(); }
+                return [...list.children].find((r) => r.dataset.id === g.id);
+            } });
             draw();
-            body.append(filters, list);
+            body.append(find.el, filters, list);
         }
 
         // ---- Dungeons ------------------------------------------------------------------------------------------
