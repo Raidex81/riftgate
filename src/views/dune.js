@@ -122,9 +122,14 @@ function gameName(it) {
         journal.setPref("dune:names-pt", all); loadNames(); openItem(it);
     };
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+    // dune.gaming.tools shows each item in Portuguese (its addresses use the game's own item id); Riftgate only
+    // opens that page for you, it doesn't copy from it (its terms don't allow that)
+    const look = it.id ? h("button.linkish", { type: "button", onclick: () => openExternal(`https://dune.gaming.tools/pt-br/items/${encodeURIComponent(String(it.id).toLowerCase())}`) },
+        icon("external"), "See its Portuguese name on dune.gaming.tools") : null;
     return h("div.dn-gamename", null, h("label", null, h("small", null, "Name in the game (Portuguese)"), inp),
         h("button.btn.sm", { type: "button", onclick: save }, "Save"),
-        h("p.dn-where-note", null, LANG.names[it.name] ? `On the wiki: ${it.name}` : "The wiki only has the English name. Type the name the game shows in Portuguese and Riftgate uses it everywhere."));
+        h("p.dn-where-note", null, LANG.names[it.name] ? `On the wiki: ${it.name}` : "The wiki only has the English name. Type the name the game shows in Portuguese and Riftgate uses it everywhere."),
+        look);
 }
 let drawerEl = null, drawerBack = null, drawerFrom = null;
 function closeItem() {

@@ -350,3 +350,4 @@
 .dn-tabs .chip[aria-pressed="true"], .dn-filters .chip[aria-pressed="true"], .dn-findmode .chip[aria-pressed="true"] { background-color: color-mix(in srgb, var(--sand) 34%, rgba(12, 9, 8, .8)); border-color: var(--sand); }
 .dn .view-head h1, .dn .view-head p { text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
 .dn .view-head p.muted { color: #e9dcc6; }
+.dn-gamename .linkish { grid-column: 1 / -1; justify-self: start; display: inline-flex; gap: 6px; align-items: center; }

@@ -2122,5 +2122,6 @@ export default {
     "The wiki only has the English name. Type the name the game shows in Portuguese and Riftgate uses it everywhere.": "A wiki só tem o nome em inglês. Escreve o nome que o jogo mostra em português e o Riftgate passa a usá-lo em todo o lado.",
     "Names and descriptions come from the wiki, in English, until you set the game's Portuguese name of an item (open it).": "Os nomes e as descrições vêm da wiki, em inglês, até definires o nome em português que o jogo dá a um item (abre-o).",
     "Guns": "Armas de fogo",
-    "Melee": "Armas brancas"
+    "Melee": "Armas brancas",
+    "See its Portuguese name on dune.gaming.tools": "Ver o nome em português no dune.gaming.tools"
 };
