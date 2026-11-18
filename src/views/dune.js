@@ -12,6 +12,19 @@ import { call, openExternal } from "../app/api.js";
 import * as journal from "../app/store.js";
 import { toast } from "../components/toast.js";
 import { shortAgo } from "../app/sources.js";
+import { language as appLanguage, localize } from "../app/i18n.js";
+import NAMES_PT from "../app/lang/dune-names-pt.js";
+
+// ---- Language: the companion's own (English or Portuguese), whatever the rest of Riftgate is in ---------------
+// Names are never translated: in Portuguese a name shows as the game itself shows it, when it's known
+// (from lang/dune-names-pt.js, or set by the player); otherwise it stays as the wiki has it, in English.
+const LANGS = [["en", "English"], ["pt", "Português"]];
+const LANG = { id: "en", names: {} };
+const langNow = () => { const p = journal.pref("dune:lang", null); return LANGS.some(([id]) => id === p) ? p : appLanguage() === "pt" ? "pt" : "en"; };
+const loadNames = () => { LANG.names = LANG.id === "pt" ? { ...NAMES_PT, ...(journal.pref("dune:names-pt", null) || {}) } : {}; };
+const nm = (x) => (x && x.name ? LANG.names[x.name] || x.name : x && x.name);
+// a part drawn outside the page (a tooltip, the item panel) in the companion's language too
+const inLang = (el) => { localize(el, LANG.id).catch(() => {}); return el; };
 
 // Like the game's own screen: the character's gear on the right (two columns),
 // the quick-swap loadout wheel of eight on the left
@@ -95,9 +108,23 @@ function statLines(it, all) {
 function augIcon(a, { big = false } = {}) {
     const el = h(`span.dn-augicon${big ? ".big" : ""}`, { tabindex: "0", "aria-label": a.name }, img(a.image, a.name));
     const top = (a.grades || []).slice().sort((x, y) => y.grade - x.grade)[0];
-    return hover(el, () => [h("div.dn-augbig", null, img(a.image, a.name)), h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, a.name),
+    return hover(el, () => [h("div.dn-augbig", null, img(a.image, a.name)), h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, nm(a)),
         top ? h("small", null, `Grade ${top.grade}`) : a.grade ? h("small", null, `Grade ${a.grade}`) : null)),
         top ? h("p.dn-tip-meta", null, top.effects.map((e) => e.text).join(" · ")) : null].filter(Boolean));
+}
+// in Portuguese: the item's name as the game shows it, set by the player (never made up from the English one)
+function gameName(it) {
+    const mine = journal.pref("dune:names-pt", null) || {};
+    const inp = h("input.input", { type: "text", maxlength: 80, value: mine[it.name] || NAMES_PT[it.name] || "", placeholder: it.name, "aria-label": "Its name in the game, in Portuguese", translate: "no" });
+    const save = () => {
+        const v = inp.value.trim(), all = { ...(journal.pref("dune:names-pt", null) || {}) };
+        if (v && v !== it.name) all[it.name] = v.slice(0, 80); else delete all[it.name];
+        journal.setPref("dune:names-pt", all); loadNames(); openItem(it);
+    };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+    return h("div.dn-gamename", null, h("label", null, h("small", null, "Name in the game (Portuguese)"), inp),
+        h("button.btn.sm", { type: "button", onclick: save }, "Save"),
+        h("p.dn-where-note", null, LANG.names[it.name] ? `On the wiki: ${it.name}` : "The wiki only has the English name. Type the name the game shows in Portuguese and Riftgate uses it everywhere."));
 }
 let drawerEl = null, drawerBack = null, drawerFrom = null;
 function closeItem() {
@@ -112,7 +139,7 @@ function openItem(it, from) {
     if (!drawerEl) {
         drawerFrom = from || document.activeElement;
         drawerBack = h("div.dn-drawer-back", { onclick: closeItem });
-        drawerEl = h("aside.dn-drawer", { role: "dialog", "aria-modal": "true", "aria-label": it.name, tabindex: "-1" });
+        drawerEl = inLang(h("aside.dn-drawer", { role: "dialog", "aria-modal": "true", "aria-label": it.name, tabindex: "-1" }));
         document.body.append(drawerBack, drawerEl);
         document.addEventListener("keydown", drawerKeys, true);
     }
@@ -145,7 +172,7 @@ function openItem(it, from) {
             k.places.length ? h("div.dn-where", null, h("p", null, icon("search"), h("span", null, "Their schematics drop in:")), h("div.dn-places", null, ...k.places.map(placeChip)))
                 : k.found ? h("p.dn-where-note", { translate: "no" }, k.found) : null,
             k.augments.length ? h("div.dn-auglist", null, ...k.augments.map((a) => h(`div.dn-aug${it.bestAug && it.bestAug.name === a.name ? ".best" : ""}`, null,
-                h("div.dn-aughead", null, augIcon(a), h("b", { translate: "no" }, a.name), it.bestAug && it.bestAug.name === a.name ? h("span.dn-augbadge", null, "Best pick") : null),
+                h("div.dn-aughead", null, augIcon(a), h("b", { translate: "no" }, nm(a)), it.bestAug && it.bestAug.name === a.name ? h("span.dn-augbadge", null, "Best pick") : null),
                 h("table.dn-grades", null, h("tbody", null, ...a.grades.map((g) => h("tr", null, h("th", null, `Grade ${g.grade}`), h("td", null, g.effects.map((e) => e.text).join(" · ")))))))))
                 : h("p.dn-where-none", null, "The wiki hasn't listed these augments yet."))),
         !kinds.length ? h("p.dn-where-none", null, "The wiki lists no augments for this kind of item yet.") : null) : null;
@@ -155,11 +182,12 @@ function openItem(it, from) {
 
     clear(drawerEl).append(
         h("div.dn-dhead2", null, h(`div.dn-dimg.${tierClass(it)}`, null, img(it.image, it.name)),
-            h("div", null, h("h2", { translate: "no" }, it.name),
+            h("div", null, h("h2", { translate: "no" }, nm(it)),
                 h("p", null, [mk(it), it.group ? it.cls : it.kind ? null : `${it.type} · ${it.slot}`, it.dart].filter(Boolean).join(" · ")),
                 it.rank ? h("p.dn-rank", null, `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}`) : null),
             h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: closeItem }, icon("x"))),
         h("div.dn-dscroll", null,
+            LANG.id === "pt" ? gameName(it) : null,
             it.desc ? h("p.dn-tip-desc", { translate: "no" }, it.desc) : null,
             h("section.dn-dsec", null, h("h3", null, icon("list"), vars.length > 1 ? "Stats at every level" : "Stats"),
                 levels || h("div.dn-stats", null, ...statRows(it)),
@@ -184,7 +212,7 @@ function placeTip(anchor) {
     tip.style.left = `${x}px`; tip.style.top = `${y}px`;
 }
 function hover(el, make) {
-    const show = () => { clearTimeout(tipTimer); tipTimer = setTimeout(async () => { closeTip(); tip = h("div.dn-tip", { role: "tooltip" }); document.body.appendChild(tip); const c = make(); tip.append(...[].concat(c instanceof Promise ? [h("div.dn-tip-wait", null, "Reading the wiki…")] : c)); placeTip(el); if (c instanceof Promise) { const mine = tip; const got = await c; if (tip !== mine) return; clear(tip).append(...[].concat(got)); placeTip(el); } }, 140); };
+    const show = () => { clearTimeout(tipTimer); tipTimer = setTimeout(async () => { closeTip(); tip = inLang(h("div.dn-tip", { role: "tooltip" })); document.body.appendChild(tip); const c = make(); tip.append(...[].concat(c instanceof Promise ? [h("div.dn-tip-wait", null, "Reading the wiki…")] : c)); placeTip(el); if (c instanceof Promise) { const mine = tip; const got = await c; if (tip !== mine) return; clear(tip).append(...[].concat(got)); placeTip(el); } }, 140); };
     el.addEventListener("mouseenter", show); el.addEventListener("focus", show);
     el.addEventListener("mouseleave", closeTip); el.addEventListener("blur", closeTip);
     return el;
@@ -205,7 +233,7 @@ function statRows(it) {
         it.heat != null ? row("Heat protection", fmt(it.heat, 1)) : null, it.stamina != null ? row("Dash stamina", fmt(it.stamina, 1)) : null];
 }
 function statsTip(it) {
-    return [h(`div.dn-tip-head.${tierClass(it)}`, null, h("div.dn-tip-img", null, img(it.image)), h("div", null, h("b", { translate: "no" }, it.name),
+    return [h(`div.dn-tip-head.${tierClass(it)}`, null, h("div.dn-tip-img", null, img(it.image)), h("div", null, h("b", { translate: "no" }, nm(it)),
         h("small", null, [mk(it), it.group ? it.cls : it.kind ? ({ Belt: "Suspensor belt", Shield: "Holtzman shield", Power: "Power pack" })[it.kind] : `${it.type} · ${it.slot}`].filter(Boolean).join(" · ")),
         it.rank ? h("small.dn-rank", null, `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}`) : null)),
     h("div.dn-stats", null, ...statRows(it)),
@@ -222,12 +250,12 @@ async function craftTip(it) {
     const r = await recipeOf(it.name);
     const p = r.pages && r.pages[it.name];
     const rec = p && p.recipes && (p.recipes.find((x) => x.makes.some((m) => m.name === it.name)) || p.recipes[0]);
-    const head = h("div.dn-tip-head.craft", null, icon("settings"), h("div", null, h("b", { translate: "no" }, it.name), h("small", null, rec ? `Made in: ${rec.stations.join(", ")}` : "Not crafted")));
+    const head = h("div.dn-tip-head.craft", null, icon("settings"), h("div", null, h("b", { translate: "no" }, nm(it)), h("small", null, rec ? `Made in: ${rec.stations.join(", ")}` : "Not crafted")));
     if (r.error) return [head, h("p.dn-tip-desc", null, r.error)];
     if (!rec) return [head, h("p.dn-tip-desc", null, p && p.where ? p.where : "The wiki has no recipe for it: it's found, not made.")];
     const raw = r.farm && r.farm.raw;
     return [head,
-        h("div.dn-mats", null, ...rec.ingredients.map((i) => h("div.dn-mat", null, img(i.image), h("span", { translate: "no" }, i.name), h("b", null, `× ${fmt(i.qty)}`)))),
+        h("div.dn-mats", null, ...rec.ingredients.map((i) => h("div.dn-mat", null, img(i.image), h("span", { translate: "no" }, nm(i)), h("b", null, `× ${fmt(i.qty)}`)))),
         h("p.dn-tip-meta", null, rec.water ? `${fmt(rec.water)} mL water · ` : "", rec.time ? `${fmt(rec.time, 1)} s` : ""),
         raw && raw.length ? h("div.dn-raw", null, h("small", null, "Gathered, all the way down:"), h("p", { translate: "no" }, raw.map((m) => `${m.name} × ${fmt(m.qty)}`).join(", "))) : null].filter(Boolean);
 }
@@ -241,10 +269,20 @@ function tile(it, { onclick, size = "", label } = {}) {
     return hover(el, () => statsTip(it));
 }
 
-export default {
+// the page draws itself again when its language changes (what was translated in place goes back to English)
+let undo = null;
+const view = {
     async render(root) {
+        if (undo) { undo(); undo = null; }
         root.classList.add("dn");
-        const head = h("div.view-head", null, h("div", null, h("h1", null, "Dune: Awakening"), h("p.muted", null, "Your loadout, the strongest weapons and armour, what to farm and every dungeon's boss, from the Dune: Awakening Community Wiki.")));
+        LANG.id = langNow(); loadNames();
+        let stopLang = await localize(root, LANG.id).catch(() => () => {});
+        const langSel = h("select.input.dn-lang", { "aria-label": "Language of the companion", title: "Language of the companion",
+            onchange: () => { journal.setPref("dune:lang", langSel.value); closeItem(); closeTip(); stopLang(); clear(root); root.removeAttribute("translate"); delete root.dataset.localized; view.render(root); } },
+            LANGS.map(([id, label]) => h("option", { value: id, selected: id === LANG.id || null, translate: "no" }, label)));
+        const head = h("div.view-head", null, h("div", null, h("h1", null, "Dune: Awakening"), h("p.muted", null, "Your loadout, the strongest weapons and armour, what to farm and every dungeon's boss, from the Dune: Awakening Community Wiki.")),
+            h("div.dn-langcol", null, h("label.dn-langbox", null, icon("globe"), langSel),
+                LANG.id === "pt" ? h("small.dn-langnote", null, "Names and descriptions come from the wiki, in English, until you set the game's Portuguese name of an item (open it).") : null));
         const tabsEl = h("div.chips.dn-tabs", { role: "tablist" });
         const body = h("div.dn-body", null, h("div.dn-loading", null, h("span.skeleton-line"), h("span.skeleton-line.short")));
         const foot = h("p.dn-credit.muted");
@@ -256,7 +294,8 @@ export default {
         if (!d || d.error || !d.weapons) {
             clear(body).append(h("div.empty", null, icon("wifi-off"), h("h3", null, "The Dune: Awakening wiki didn't answer"), h("p", null, (d && d.error) || "Check your connection and try again."),
                 h("button.btn", { type: "button", onclick: () => location.reload() }, icon("refresh"), "Try again")));
-            return () => window.removeEventListener("scroll", stopTip, true);
+            undo = () => { window.removeEventListener("scroll", stopTip, true); stopLang(); };
+            return () => { if (undo) undo(); undo = null; };
         }
         const credit = () => {
             clear(foot).append("Data from the ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); openExternal("https://awakening.wiki/"); } }, "Dune: Awakening Community Wiki"),
@@ -339,7 +378,7 @@ export default {
             const sum = h("div.dn-sum", null,
                 h("div.dn-sumhead", null, h("b", null, fmt(worn.reduce((n, g) => n + g.armor, 0))), h("span", null, "armour")),
                 h("div.dn-stats", null, ...Object.entries(mit).filter(([, v]) => v).map(([k, v]) => h(`div.dn-stat.${v < 0 ? "neg" : "pos"}`, null, h("span", null, MIT_LABEL[k] || k), h("b", null, `${v > 0 ? "+" : ""}${fmt(v, 1)}%`))),
-                    ...guns.map((w) => h("div.dn-stat.key", null, h("span", { translate: "no" }, w.name), h("b", null, `${fmt(w.score, 1)} dmg/s`)))));
+                    ...guns.map((w) => h("div.dn-stat.key", null, h("span", { translate: "no" }, nm(w)), h("b", null, `${fmt(w.score, 1)} dmg/s`)))));
 
             // the item list for the slot you clicked, best first
             let picker = null;
@@ -353,7 +392,7 @@ export default {
                     const t = q.value.trim().toLowerCase();
                     clear(grid).append(...pool.filter((x) => !t || x.name.toLowerCase().includes(t) || (x.cls || x.type || "").toLowerCase().includes(t)).slice(0, 120).map((x) =>
                         h("div.dn-pick", null, tile(x, { onclick: () => { save({ slots: { ...b.slots, [s.id]: x.id } }); picking = null; paint(); } }),
-                            h("small", { translate: "no" }, x.name), h("span.dn-pickstat", null, s.kind === "weapon" ? `${fmt(x.score, 0)} dmg/s` : s.kind === "gadget" ? mk(x) : `${fmt(x.armor)} armour`))));
+                            h("small", { translate: "no" }, nm(x)), h("span.dn-pickstat", null, s.kind === "weapon" ? `${fmt(x.score, 0)} dmg/s` : s.kind === "gadget" ? mk(x) : `${fmt(x.armor)} armour`))));
                 };
                 q.addEventListener("input", fill);
                 picker = h("section.dn-picker", null, h("div.dn-pickhead", null, h("h3", null, `${s.label}: best first`), q, h("button.icon-btn", { type: "button", "aria-label": "Close", onclick: () => { picking = null; paint(); } }, icon("x"))), grid);
@@ -372,7 +411,7 @@ export default {
                     farm.querySelector(".dn-wait")?.remove();
                     if (!r || r.error || !r.farm) { farm.append(h("p.muted", null, (r && r.error) || "The recipes couldn't be read.")); return; }
                     const f = r.farm;
-                    const matRow = (m, extra) => h("div.dn-farmrow", null, img(m.image), h("div", null, h("b", { translate: "no" }, m.name), extra ? h("small", { translate: "no" }, extra) : null), h("span.dn-qty", null, `× ${fmt(m.qty)}`),
+                    const matRow = (m, extra) => h("div.dn-farmrow", null, img(m.image), h("div", null, h("b", { translate: "no" }, nm(m)), extra ? h("small", { translate: "no" }, extra) : null), h("span.dn-qty", null, `× ${fmt(m.qty)}`),
                         h("button.icon-btn", { type: "button", title: "Open it on the wiki", "aria-label": `${m.name} on the wiki`, onclick: () => openExternal(m.url || `https://awakening.wiki/${encodeURIComponent(m.name.replace(/ /g, "_"))}`) }, icon("external")));
                     farm.append(h("p.dn-farmtot", null, `${f.raw.length} materials to gather`, f.water ? ` · ${fmt(f.water / 1000, 1)} L of water` : "", f.time ? ` · ${mins(f.time)} of crafting` : ""),
                         ...f.raw.map((m) => matRow(m, m.where)));
@@ -385,7 +424,7 @@ export default {
             const worn2 = SLOTS.map((s) => ({ s, it: itemIn(s.id) })).filter((x) => x.it).filter((x, i, a) => a.findIndex((y) => y.it.id === x.it.id) === i);
             const where = h("section.dn-wherelist", null, h("h3", null, icon("compass"), "Where to get each piece"),
                 worn2.length ? h("div", null, ...worn2.map(({ s, it }) => h("div.dn-whererow", null, tile(it, { size: "sm" }),
-                    h("div", null, h("b", { translate: "no" }, it.name), h("small.muted", null, [s.label, mk(it)].filter(Boolean).join(" · ")), h("div.dn-where", null, ...whereEls(it))))))
+                    h("div", null, h("b", { translate: "no" }, nm(it)), h("small.muted", null, [s.label, mk(it)].filter(Boolean).join(" · ")), h("div.dn-where", null, ...whereEls(it))))))
                     : h("p.muted", null, "Put gear and weapons on, and Riftgate shows where each one drops or how to unlock it."));
             body.append(bar, h("div.dn-loadout", null, h("div.dn-left", null, gear, sum, where), picker || farm));
             if (picker) body.append(farm);
@@ -419,12 +458,14 @@ export default {
                 menu.hidden = !hits.length || !q.value.trim();
                 q.setAttribute("aria-expanded", String(!menu.hidden));
                 hits.slice(0, 8).forEach((it, i) => menu.append(h(`button.dn-findopt${i === at ? ".on" : ""}`, { type: "button", role: "option", "aria-selected": String(i === at), onmousedown: (e) => e.preventDefault(), onclick: () => { at = i; paintMenu(); go(it); } },
-                    img(it.image), h("span", null, h("b", { translate: "no" }, it.name), h("small", null, [mk(it), it.cls || it.type, it.group ? `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}` : null].filter(Boolean).join(" · "))))));
+                    img(it.image), h("span", null, h("b", { translate: "no" }, nm(it)), h("small", null, [mk(it), it.cls || it.type, it.group ? `#${it.rank} of the ${it.group === "melee" ? "melee weapons" : "guns"}` : null].filter(Boolean).join(" · "))))));
             };
             function search(now) {
                 const t = norm(q.value);
-                hits = !t ? [] : items().filter((it) => (exact ? norm(it.name) === t : norm(it.name).includes(t)))
-                    .sort((a, b) => (norm(b.name) === t) - (norm(a.name) === t) || norm(b.name).startsWith(t) - norm(a.name).startsWith(t) || (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+                // the game's Portuguese name and the wiki's English one both find it
+                const names = (it) => [norm(nm(it)), norm(it.name)];
+                hits = !t ? [] : items().filter((it) => names(it).some((n) => (exact ? n === t : n.includes(t))))
+                    .sort((a, b) => names(b).includes(t) - names(a).includes(t) || names(b).some((n) => n.startsWith(t)) - names(a).some((n) => n.startsWith(t)) || (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
                 at = hits.length ? 0 : -1;
                 count.textContent = !t ? "" : hits.length ? (exact ? `${hits.length} with exactly that name` : `${hits.length} containing “${q.value.trim()}”`) : (exact ? "No item has exactly that name" : "Nothing contains that");
                 paintMenu();
@@ -461,7 +502,7 @@ export default {
                 const shown = pool.filter((w) => (cls === "all" || w.cls === cls) && (tier === "all" || (tier === "unique" ? w.unique : String(w.tier) === tier)));
                 clear(list).append(...shown.map((w) => h("div.dn-rankrow", { dataset: { id: w.id }, ...opens(w) },
                     h("span.dn-pos", null, `#${w.rank}`), tile(w, { size: "sm" }),
-                    h("div.dn-rankname", null, h("b", { translate: "no" }, w.name), h("small", null, [mk(w), w.cls, w.dart].filter(Boolean).join(" · "))),
+                    h("div.dn-rankname", null, h("b", { translate: "no" }, nm(w)), h("small", null, [mk(w), w.cls, w.dart].filter(Boolean).join(" · "))),
                     h("div.dn-bar", { title: `${Math.round(w.of * 100)}% of the strongest` }, h("i", { style: { width: `${Math.max(3, w.of * 100)}%` } })),
                     h("span.dn-num", null, h("b", null, fmt(w.score, 1)), h("small", null, "dmg/s")),
                     h("button.btn.sm", { type: "button", onclick: () => equip(w) }, "Equip"))));
@@ -511,7 +552,7 @@ export default {
                 const top = pool.length ? Math.max(1, val(pool[0])) : 1;
                 clear(list).append(...pool.slice(0, upTo).map((g, i) => h("div.dn-rankrow", { dataset: { id: g.id }, ...opens(g) },
                     h("span.dn-pos", null, `#${i + 1}`), tile(g, { size: "sm" }),
-                    h("div.dn-rankname", null, h("b", { translate: "no" }, g.name), h("small", null, [mk(g), g.type].filter(Boolean).join(" · "))),
+                    h("div.dn-rankname", null, h("b", { translate: "no" }, nm(g)), h("small", null, [mk(g), g.type].filter(Boolean).join(" · "))),
                     h("div.dn-bar", null, h("i", { style: { width: `${Math.max(3, (val(g) / top) * 100)}%` } })),
                     h("span.dn-num", null, h("b", null, by === "armor" ? fmt(g.armor) : `${fmt(val(g), 1)}%`), h("small", null, by === "armor" ? "armour" : MIT_LABEL[by].toLowerCase())),
                     h("button.btn.sm", { type: "button", onclick: () => { const list2 = builds(); const b = list2.find((x) => x.id === currentId()) || list2[0]; saveBuilds(list2.map((x) => (x.id === b.id ? { ...x, slots: { ...migrate(x.slots), [slotOf(g)]: g.id } } : x))); toast(`${g.name} is in ${b.name}`); } }, "Equip"))));
@@ -537,7 +578,7 @@ export default {
             let goal = journal.pref("dune:goal", "guns"), who = journal.pref("dune:arch", arch[0].name);
             const typeTag = (t) => h(`span.dn-sktype.t-${String(t).toLowerCase()}`, null, t);
             const costText = (sk) => (sk.cost.length > 1 ? `${sk.cost.join(" / ")} points (${sk.points})` : `${sk.points || "–"} points`);
-            const skillTip = (sk, a, t) => [h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, sk.name), h("small", null, [sk.type, a && a.name, t && t.name].filter(Boolean).join(" · ")))),
+            const skillTip = (sk, a, t) => [h("div.dn-tip-head.craft", null, icon("sparkles"), h("div", null, h("b", { translate: "no" }, nm(sk)), h("small", null, [sk.type, a && a.name, t && t.name].filter(Boolean).join(" · ")))),
                 h("p.dn-tip-desc", { translate: "no" }, sk.desc), sk.notes ? h("p.dn-tip-meta", { translate: "no" }, sk.notes) : null,
                 h("div.dn-stats", null, h("div.dn-stat.key", null, h("span", null, "Cost"), h("b", null, costText(sk))),
                     sk.cooldown ? h("div.dn-stat", null, h("span", null, "Cooldown"), h("b", null, `${sk.cooldown} s`)) : null,
@@ -554,7 +595,7 @@ export default {
                 clear(best).append(h("h3", null, icon("star"), `Best skills for ${label.toLowerCase()}`),
                     h("p.dn-where-note", null, "Picked from what each skill does, by the wiki's descriptions and effects; the first ones do the most for it."),
                     list.length ? h("div.dn-skgrid", null, ...list.map((sk, i) => h("article.dn-skcard", null,
-                        h("div.dn-skhead", null, h("span.dn-pos", null, `#${i + 1}`), h("div", null, h("b", { translate: "no" }, sk.name), h("small", { translate: "no" }, `${sk.archetype} · ${sk.tree}`)), typeTag(sk.type)),
+                        h("div.dn-skhead", null, h("span.dn-pos", null, `#${i + 1}`), h("div", null, h("b", { translate: "no" }, nm(sk)), h("small", { translate: "no" }, `${sk.archetype} · ${sk.tree}`)), typeTag(sk.type)),
                         h("p", { translate: "no" }, sk.desc),
                         sk.notes ? h("p.dn-skfx", { translate: "no" }, sk.notes) : null,
                         h("p.dn-skcost", null, costText(sk), sk.cooldown ? ` · ${sk.cooldown} s cooldown` : "")))) : h("p.muted", null, "No skill matches this yet."));
@@ -572,13 +613,13 @@ export default {
                 clear(trees).append(h("h3", null, icon("list"), "Every skill tree"),
                     h("div.dn-filters", null, ...arch.map((x) => h("button.chip", { type: "button", "aria-pressed": String(x.name === a.name), onclick: () => { who = x.name; journal.setPref("dune:arch", who); drawTrees(); } }, x.name))),
                     h("div.dn-archhead", null, a.image ? h("img.dn-archimg", { src: coverSrc(a.image), alt: "", loading: "lazy", onerror: (e) => e.target.remove() }) : null,
-                        h("div", null, h("h4", { translate: "no" }, a.name), a.focus ? h("p", null, a.focus) : null,
+                        h("div", null, h("h4", { translate: "no" }, nm(a)), a.focus ? h("p", null, a.focus) : null,
                             h("p.dn-where-note", null, `${a.points} skill points to learn it all.`),
                             a.basic ? h("p.dn-where-note", { translate: "no" }, `Basic trainer: ${a.basic.name}${a.basic.where ? `, ${a.basic.where}` : ""}`) : null,
                             a.advanced ? h("p.dn-where-note", { translate: "no" }, `Advanced trainer: ${a.advanced.name}${a.advanced.where ? `, ${a.advanced.where}` : ""}`) : null,
                             h("button.linkish", { type: "button", onclick: () => openExternal(a.url) }, icon("external"), "On the wiki"))),
-                    h("div.dn-treecols", null, ...a.trees.map((t) => h("div.dn-tree", null, h("h4", { translate: "no" }, t.name), t.desc ? h("p.dn-where-note", null, t.desc) : null,
-                        ...t.skills.map((sk) => hover(h("div.dn-skrow", { tabindex: "0" }, typeTag(sk.type), h("span", { translate: "no" }, sk.name), h("small", null, sk.points ? `${sk.points} pt` : "")), () => skillTip(sk, a, t)))))));
+                    h("div.dn-treecols", null, ...a.trees.map((t) => h("div.dn-tree", null, h("h4", { translate: "no" }, nm(t)), t.desc ? h("p.dn-where-note", null, t.desc) : null,
+                        ...t.skills.map((sk) => hover(h("div.dn-skrow", { tabindex: "0" }, typeTag(sk.type), h("span", { translate: "no" }, nm(sk)), h("small", null, sk.points ? `${sk.points} pt` : "")), () => skillTip(sk, a, t)))))));
             };
             drawGoal(); drawTrees();
             body.append(goalBar, h("div.dn-skwrap", null, best, spec), trees,
@@ -605,8 +646,8 @@ export default {
                     h("div.dn-dbody", null,
                         h("section", null, h("h3", null, "What to bring"),
                             dg.hazardInfo ? h("p.muted", null, dg.hazardInfo.tip) : null,
-                            h("div.dn-bring", null, ...gearRec.pieces.map((g) => h("div.dn-pick", null, tile(g), h("small", { translate: "no" }, g.name))), gearRec.suit ? h("div.dn-pick", null, tile(gearRec.suit), h("small", { translate: "no" }, gearRec.suit.name)) : null),
-                            h("div.dn-bring", null, ...wpn.map((p) => h("div.dn-pick", null, tile(p.w), h("small", { translate: "no" }, p.w.name), h("span.dn-pickstat", null, p.why)))),
+                            h("div.dn-bring", null, ...gearRec.pieces.map((g) => h("div.dn-pick", null, tile(g), h("small", { translate: "no" }, nm(g)))), gearRec.suit ? h("div.dn-pick", null, tile(gearRec.suit), h("small", { translate: "no" }, nm(gearRec.suit))) : null),
+                            h("div.dn-bring", null, ...wpn.map((p) => h("div.dn-pick", null, tile(p.w), h("small", { translate: "no" }, nm(p.w)), h("span.dn-pickstat", null, p.why)))),
                             h("button.btn.sm", { type: "button", onclick: () => {
                                 const slots = {};
                                 gearRec.pieces.forEach((g) => { slots[g.slot] = g.id; });
@@ -615,9 +656,9 @@ export default {
                                 const nb = { id: `b${Date.now().toString(36)}`, name: dg.title.slice(0, 40), slots };
                                 saveBuilds([...builds(), nb]); journal.setPref("dune:build", nb.id); tab = "loadout"; journal.setPref("dune:tab", tab); paint();
                             } }, icon("plus"), "Make it a build")),
-                        dg.boss ? h("section", null, h("h3", null, "Boss: ", h("span", { translate: "no" }, dg.boss.name || "unknown")), dg.boss.image ? h("img.dn-portrait", { src: coverSrc(dg.boss.image), alt: dg.boss.name || "", loading: "lazy", onerror: (e) => e.target.remove() }) : null, video, strat) : null,
+                        dg.boss ? h("section", null, h("h3", null, "Boss: ", h("span", { translate: "no" }, nm(dg.boss) || "unknown")), dg.boss.image ? h("img.dn-portrait", { src: coverSrc(dg.boss.image), alt: dg.boss.name || "", loading: "lazy", onerror: (e) => e.target.remove() }) : null, video, strat) : null,
                         drops.length ? h("section", null, h("h3", null, "Unique schematics that drop here"),
-                            h("div.dn-bring", null, ...drops.map((x) => { const pl = SRC.where[x.name].places.find((p) => p.name === dg.title); return h("div.dn-pick", null, tile(x), h("small", { translate: "no" }, x.name), pl && pl.chance != null ? h("span.dn-pickstat", null, `${fmt(pl.chance, 1)}% chance`) : null); }))) : null,
+                            h("div.dn-bring", null, ...drops.map((x) => { const pl = SRC.where[x.name].places.find((p) => p.name === dg.title); return h("div.dn-pick", null, tile(x), h("small", { translate: "no" }, nm(x)), pl && pl.chance != null ? h("span.dn-pickstat", null, `${fmt(pl.chance, 1)}% chance`) : null); }))) : null,
                         dg.rewards.length ? h("section", null, h("h3", null, "Rewards"), h("p", { translate: "no" }, dg.rewards.join(" · "))) : null,
                         h("button.linkish", { type: "button", onclick: () => openExternal(dg.url) }, icon("external"), "Everything about it on the wiki")));
                 body.appendChild(card);
@@ -662,6 +703,8 @@ export default {
         }
 
         paint();
-        return () => { window.removeEventListener("scroll", stopTip, true); closeTip(); closeItem(); SRC.equip = null; SRC.goDungeon = null; };
+        undo = () => { window.removeEventListener("scroll", stopTip, true); closeTip(); closeItem(); stopLang(); SRC.equip = null; SRC.goDungeon = null; };
+        return () => { if (undo) undo(); undo = null; };
     }
 };
+export default view;

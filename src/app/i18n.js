@@ -37,9 +37,8 @@ export function resolve(choice) {
 
 const clean = (s) => s.replace(/\s+/g, " ").trim();
 
-function load(table) {
-    words = new Map();
-    patterns = [];
+function compile(table) {
+    const words = new Map(), patterns = [];
     for (const [en, to] of Object.entries(table)) {
         if (!to || to === en) continue;
         if (/\{\d\}/.test(en)) {
@@ -61,25 +60,28 @@ function load(table) {
     }
     // the longest patterns first: "{0} new entries in your Journal." before "{0} new entries"
     patterns.sort((a, b) => b.anchor.length - a.anchor.length);
+    return { words, patterns };
 }
+function load(table) { ({ words, patterns } = compile(table)); }
 
 // use a language table directly (tests, tools)
 export function use(table, id = "xx") { load(table); active = id; }
 
-// one sentence, or null when there's nothing for it
-export function translate(text, deep = true) {
-    if (!words) return null;
+// one sentence, or null when there's nothing for it (T: another language's table, for localize)
+export function translate(text, deep = true, T = null) {
+    const { words: W, patterns: P } = T || { words, patterns };
+    if (!W) return null;
     const key = clean(text);
     if (!key || key.length > 600) return null;
-    const hit = words.get(key);
+    const hit = W.get(key);
     if (hit) return hit;
-    for (const p of patterns) {
+    for (const p of P) {
         if (p.anchor && !key.includes(p.anchor)) continue;
         const m = p.re.exec(key);
         if (!m || (p.numeric && !/^[\d.,\s%+−-]{1,12}$/.test(m[1]))) continue;
         const vals = {};
         // what's filled in may be a sentence of its own ("Move Popular on Netflix")
-        p.order.forEach((n, i) => { const v = m[i + 1]; vals[n] = words.get(v) || (deep && translate(v, false)) || v; });
+        p.order.forEach((n, i) => { const v = m[i + 1]; vals[n] = W.get(v) || (deep && translate(v, false, T)) || v; });
         return p.to.replace(/\{(\d)\}/g, (_, n) => vals[n] ?? "");
     }
     return null;
@@ -89,38 +91,66 @@ export const t = (text) => translate(text) || text;
 
 const kept = (el) => el && el.closest && el.closest("[translate='no'], .notranslate");
 
-function textNode(n) {
+function textNode(n, T) {
     const v = n.data;
     if (!v || !/[A-Za-z]/.test(v)) return;
     const p = n.parentNode;
     if (!p || SKIP.has(p.nodeName)) return;
-    const to = translate(v);
+    const to = translate(v, true, T);
     if (!to || to === clean(v) || kept(p)) return;
     const lead = /^\s*/.exec(v)[0], tail = /\s*$/.exec(v)[0];
     n.data = lead + to + tail;
 }
-function attrs(el) {
+function attrs(el, T) {
     for (const a of ATTRS) {
         const v = el.getAttribute(a);
         if (!v || !/[A-Za-z]/.test(v)) continue;
-        const to = translate(v);
+        const to = translate(v, true, T);
         if (to && to !== v && !kept(el)) el.setAttribute(a, to);
     }
 }
-function tree(root) {
-    if (root.nodeType === 3) return textNode(root);
+function tree(root, T) {
+    if (root.nodeType === 3) return textNode(root, T);
     if (root.nodeType !== 1 || root.getAttribute("translate") === "no") return;
-    attrs(root);
+    attrs(root, T);
     if (SKIP.has(root.nodeName)) return;
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode: (n) => {
             if (n.nodeType !== 1) return NodeFilter.FILTER_ACCEPT;
             if (n.getAttribute("translate") === "no") return NodeFilter.FILTER_REJECT;
-            if (SKIP.has(n.nodeName)) { attrs(n); return NodeFilter.FILTER_REJECT; } // a field's placeholder, not what's typed in it
+            if (SKIP.has(n.nodeName)) { attrs(n, T); return NodeFilter.FILTER_REJECT; } // a field's placeholder, not what's typed in it
             return NodeFilter.FILTER_ACCEPT;
         }
     });
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) { if (n.nodeType === 3) textNode(n); else attrs(n); }
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) { if (n.nodeType === 3) textNode(n, T); else attrs(n, T); }
+}
+function watch(root, T) {
+    const mo = new MutationObserver((list) => {
+        for (const m of list) {
+            if (m.type === "childList") m.addedNodes.forEach((n) => tree(n, T));
+            else if (m.type === "characterData") textNode(m.target, T);
+            else if (m.type === "attributes") { const v = m.target.getAttribute(m.attributeName); const to = v && translate(v, true, T); if (to && to !== v && !kept(m.target)) m.target.setAttribute(m.attributeName, to); }
+        }
+    });
+    mo.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+    return mo;
+}
+
+// One part of the window in a language of its own (the Dune: Awakening companion has its own choice):
+// in the window's language it's left to the rest; in English inside a translated window it's kept as
+// it is; in another language it's translated with that language's file, and kept translated as it
+// changes. Returns a function that stops it.
+const others = {};
+export async function localize(el, id) {
+    if (!el) return () => {};
+    const done = () => { if (el.dataset.localized === "en") el.removeAttribute("translate"); delete el.dataset.localized; };
+    if (id === active) { done(); return () => {}; }
+    if (id === "en" || !FILES[id]) { el.setAttribute("translate", "no"); el.dataset.localized = "en"; return done; }
+    const T = others[id] || (others[id] = compile((await FILES[id]()).default));
+    el.dataset.localized = id;
+    tree(el, T);
+    const mo = watch(el, T);
+    return () => { mo.disconnect(); done(); };
 }
 
 // Starts translating (before the first section is drawn). Resolves to the
@@ -133,12 +163,6 @@ export async function start() {
     active = id;
     document.documentElement.lang = id;
     tree(document.body);
-    new MutationObserver((list) => {
-        for (const m of list) {
-            if (m.type === "childList") m.addedNodes.forEach(tree);
-            else if (m.type === "characterData") textNode(m.target);
-            else if (m.type === "attributes") { const v = m.target.getAttribute(m.attributeName); const to = v && translate(v); if (to && to !== v && !kept(m.target)) m.target.setAttribute(m.attributeName, to); }
-        }
-    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+    watch(document.body);
     return active;
 }

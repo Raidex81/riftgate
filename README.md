@@ -219,8 +219,9 @@ for its creator. Made one yourself? Put it forward from inside the app.
   with its hazard, the gear for it, its boss's strategy and a guide to the
   fight on video (never a stream or a walkthrough). Skills: the best ones for
   fighting, farming, exploring or crafting, the Landsraad specialization for
-  it, and every archetype's skill tree with its trainers. All from the Dune:
-  Awakening Community Wiki, kept up to date with it.
+  it, and every archetype's skill tree with its trainers. In English or
+  Portuguese, with item names as the game shows them, never translated. All
+  from the Dune: Awakening Community Wiki, kept up to date with it.
 - **Buy now or wait?** A game's details show its best price across stores,
   the lowest it has ever been and a plain verdict, and say when PC Game
   Pass already includes it.

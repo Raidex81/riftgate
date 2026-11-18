@@ -14,6 +14,7 @@ Downloads for every version are on the [releases page](https://github.com/Raidex
 - Weapons ranked best to weakest and armour by protection, with a search that jumps to an item. Click one for every stat at every Mk level side by side, its recipe and the augments it takes, with their icons and grades and the best one suggested.
 - Every dungeon with its hazard, the gear that suits it, its boss's strategy and a guide to the fight on video (never a stream or a walkthrough), and the Unique schematics that drop there.
 - Skills. The best skills for fighting, farming, exploring or crafting, the Landsraad specialization for it, and every archetype's skill tree with where its trainers are.
+- The companion speaks English or Portuguese, whatever language the rest of Riftgate is in (the globe at the top). Names are never translated: an item shows the name the game gives it in Portuguese once you set it (open the item), and the wiki's English name until then.
 - Guides & mods for every game in your Library. A Guides button in its details, and a compass on its cover, open the best site for it (a game database or its own wiki), and the arrow lists the rest: wikis and databases, its mods on Nexus Mods, Steam Workshop, mod.io or Thunderstore, and Steam's community guides.
 - Hover an achievement to see how it's earned. For one you have: how you got it, when, and how rare it is. Secrets you haven't revealed stay secret.
 

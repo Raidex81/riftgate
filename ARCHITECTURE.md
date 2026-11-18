@@ -504,7 +504,11 @@ armour most), the five archetype pages (`{{SkillTable}}`/`{{SkillRow}}`) and
 the Specializations page (both of its table layouts), and picks the best
 skills for a goal from what each one says it does. Boss videos are scored by
 their titles: guides and strategies up, streams, blind first tries and
-walkthroughs of the whole dungeon out. Builds are
+walkthroughs of the whole dungeon out. The companion has its own language (English
+or Portuguese, `dune:lang`), applied with `i18n.localize()` to its page and
+to the panels it opens outside it; names are never translated: in Portuguese
+an item shows the game's own Portuguese name from `lang/dune-names-pt.js` or
+the one the player set (`dune:names-pt`), else the wiki's English name. Builds are
 kept in the Journal's settings (`dune:builds`). Boss videos come from the
 YouTube search Riftgate already uses, one per boss, with "Not this fight" to
 pick another. Riftgate can't see a player's real inventory or progress: the
