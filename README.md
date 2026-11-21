@@ -206,6 +206,10 @@ for its creator. Made one yourself? Put it forward from inside the app.
   database for Dune: Awakening or the game's own wiki, with a list of all the
   others: wikis and databases, its mods on Nexus Mods, Steam Workshop, mod.io
   or Thunderstore, and Steam's community guides.
+- **Watch**: the most watched videos of the week, two weeks or month from
+  game, free-to-play, film, TV and book channels on YouTube, a row for each,
+  played on a big screen inside Riftgate; videos about your own games and shows
+  come first. Read from the channels' public feeds: free, with no quota.
 - **Dune: Awakening companion**: with Dune: Awakening in your Library, a page
   of its own. Build loadouts on an equipment screen like the game's (the
   eight-slot wheel, your gear on the character, worn on the avatar) and save

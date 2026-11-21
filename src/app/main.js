@@ -38,6 +38,7 @@ import apps from "../views/apps.js";
 import journalView from "../views/journal.js";
 import themesView from "../views/themes.js";
 import duneView from "../views/dune.js";
+import watchView from "../views/watch.js";
 import * as D from "./data.js";
 import suggestionsView from "../views/suggestions.js";
 import { bellButton, openWhatsNew, checkForUpdates } from "../components/whatsnew.js";
@@ -60,6 +61,7 @@ setDetailOpener(openDetail);
 // Sections, in rail order. `roll` returns the list Surprise Me picks from.
 const VIEWS = [
     { id: "nexus", label: "Nexus", icon: "nexus", view: nexus, group: "Discover" },
+    { id: "watch", label: "Watch", icon: "play", view: watchView, group: "Discover" },
     { id: "free", interests: ["free"], label: "Free games", icon: "gift", view: free, group: "Discover" },
     { id: "deals", interests: ["deals"], label: "Deals", icon: "tag", view: deals, group: "Discover" },
     { id: "theatre", interests: ["screen", "anime"], label: "Theatre", icon: "film", view: theatre, group: "Discover" },

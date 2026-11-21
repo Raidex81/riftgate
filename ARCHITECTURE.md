@@ -483,6 +483,32 @@ game has with one Wikidata query by its Steam id (wiki ids, PCGamingWiki,
 mod.io, Thunderstore), Nexus Mods' public list of games (kept a week) and
 Steam's Workshop flag, all free and keyless, kept 30 days per game.
 
+## Watch
+
+`views/watch.js` shows the most watched recent videos of hand-picked YouTube
+channels per section (games, free to play, movies, series, books; the list is
+in `services/videos.js`, each id checked against its channel's feed).
+`engine/videos.js` reads every channel's public feed
+(`youtube.com/feeds/videos.xml?channel_id=…`: free, no key, and it carries
+each video's view count), at most six at a time, keeps them two hours and
+serves the saved ones if YouTube can't be reached. `services/videos.js` drops
+Shorts, keeps the last 7, 14 or 31 days (a month when two weeks give too few),
+sorts by views with no channel filling more than a third of a row, and finds
+videos whose titles name a game in your Library or a show you follow (whole
+words). The page never touches the YouTube Data API, so it costs none of the
+quota trailers and boss videos share. Videos play in the page's own YouTube
+embed (the CSP's `frame-src` already allows youtube.com).
+
+## Checks before a release
+
+Build Check runs every test, and a `pages` job opens the interface in a
+headless Chromium with a stand-in for the engine and visits every page of the
+rail and Settings (`scripts/smoke.js`): a JavaScript error, or a page showing
+"This section couldn't open", fails it. The release workflows refuse to upload
+to a version that's already out (anyone who installed it would never be
+offered the new build); raise the version, or tick "replace" for a build
+nobody can have installed yet.
+
 ## The Dune: Awakening companion
 
 `views/dune.js` appears in the rail when Dune: Awakening is in the Library.

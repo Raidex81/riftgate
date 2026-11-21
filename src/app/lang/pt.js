@@ -2123,5 +2123,26 @@ export default {
     "Names and descriptions come from the wiki, in English, until you set the game's Portuguese name of an item (open it).": "Os nomes e as descrições vêm da wiki, em inglês, até definires o nome em português que o jogo dá a um item (abre-o).",
     "Guns": "Armas de fogo",
     "Melee": "Armas brancas",
-    "See its Portuguese name on dune.gaming.tools": "Ver o nome em português no dune.gaming.tools"
+    "See its Portuguese name on dune.gaming.tools": "Ver o nome em português no dune.gaming.tools",
+    // the Watch page
+    "The most watched videos from game, film, TV and book channels on YouTube. Pick one and it plays here.": "Os vídeos mais vistos dos canais de jogos, cinema, televisão e livros no YouTube. Escolhe um e ele toca aqui.",
+    "This week": "Esta semana",
+    "Two weeks": "Duas semanas",
+    "This month": "Este mês",
+    "Published": "Publicado",
+    "Now playing": "A tocar",
+    "Play {0}": "Ver {0}",
+    "views": "visualizações",
+    "More": "Mais",
+    "About your games and shows": "Sobre os teus jogos e séries",
+    "Videos naming something in your Library or the shows you follow.": "Vídeos que falam de algo da tua Biblioteca ou das séries que segues.",
+    "From {0}.": "De {0}.",
+    "From {0} and more.": "De {0} e mais.",
+    "Movies": "Filmes",
+    "YouTube didn't answer": "O YouTube não respondeu",
+    "No videos in this time. Try a longer one.": "Nenhum vídeo neste período. Experimenta um mais longo.",
+    "Videos from YouTube, read from each channel's public feed. Updated {0}.": "Vídeos do YouTube, lidos do feed público de cada canal. Atualizado {0}.",
+    "YouTube channels": "Canais do YouTube",
+    "the Watch page": "a página Ver",
+    "Play video": "Ver vídeo"
 };

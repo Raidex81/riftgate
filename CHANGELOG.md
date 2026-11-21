@@ -4,6 +4,17 @@ Every Riftgate version, newest first. This file is made from the same notes as *
 
 Downloads for every version are on the [releases page](https://github.com/Raidex81/riftgate/releases).
 
+## 2.0.7
+
+**New**
+
+- Watch. A page of the most watched videos of the week, two weeks or month from game, free-to-play, film, TV and book channels on YouTube, a row for each, with a big screen at the top: pick a video and it plays right here, with Next to go on. Videos about the games in your Library and the shows you follow get a row of their own, first. It reads each channel's public feed, so it costs nothing and never runs out.
+
+**Changed**
+
+- Over a picture theme, every page's tabs, buttons, fields and notes sit on dark glass, so a bright picture never makes them hard to read.
+- The Dune: Awakening companion has the game's Portuguese names of its weapons, armour, utility gear and materials (with the companion in Português), and a link to look any other one up.
+
 ## 2.0.6
 
 **New**

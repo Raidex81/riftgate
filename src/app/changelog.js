@@ -3,6 +3,11 @@
 import { HISTORY } from "./changelog-history.js";
 
 export const CURRENT_NOTES = {
+    "2.0.7": [
+        "New: Watch. A page of the most watched videos of the week, two weeks or month from game, free-to-play, film, TV and book channels on YouTube, a row for each, with a big screen at the top: pick a video and it plays right here, with Next to go on. Videos about the games in your Library and the shows you follow get a row of their own, first. It reads each channel's public feed, so it costs nothing and never runs out",
+        "Changed: over a picture theme, every page's tabs, buttons, fields and notes sit on dark glass, so a bright picture never makes them hard to read",
+        "Changed: the Dune: Awakening companion has the game's Portuguese names of its weapons, armour, utility gear and materials (with the companion in Português), and a link to look any other one up"
+    ],
     "2.0.6": [
         "New: a Dune: Awakening companion. With Dune: Awakening in your Library it gets a page of its own, made from the Dune: Awakening Community Wiki and kept up to date with it",
         "New: build loadouts on an equipment screen like the game's: the eight-slot wheel, your gear in two columns and on the character. Save as many builds as you like. Hover a piece for its stats and its hammer for what it takes to craft",
