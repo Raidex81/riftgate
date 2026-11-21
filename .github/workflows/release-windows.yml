@@ -6,6 +6,11 @@ name: Publish Windows Release
 
 on:
   workflow_dispatch:
+    inputs:
+      replace:
+        description: "Replace the installers of a version that's already out (only when nobody can have installed it yet). Otherwise raise the version first."
+        type: boolean
+        default: false
 
 jobs:
   release-windows:
@@ -25,6 +30,20 @@ jobs:
       # The release page has to exist before electron-builder uploads: it
       # uploads several files at once, and each would try to create it,
       # so all but one failed. Create it here (notes come at the end).
+      # A version that's out stays as it is: anyone who installed it would never be offered the
+      # new build, because Riftgate only offers a higher version. Raise "version" in package.json
+      # (and add its What's new) to release again; "replace" is only for a build nobody has yet.
+      - name: A new version for every release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPLACE: ${{ inputs.replace }}
+        run: |
+          V="v$(node -p "require('./package.json').version")"
+          if [ "$REPLACE" != "true" ] && gh release view "$V" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -qE '\.exe$'; then
+            echo "::error::Riftgate ${V#v} is already out with its Windows installer. Raise the version in package.json and add its What's new, then run this again (or tick 'replace' if nobody can have installed it yet)."
+            exit 1
+          fi
       - name: Make sure the release page exists
         shell: bash
         env:

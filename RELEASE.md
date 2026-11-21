@@ -80,6 +80,11 @@ Before publishing:
 
 - Set the new version number in `package.json` (`"version"`) and add an
   entry for it at the top of `CURRENT_NOTES` in `src/app/changelog.js`.
+  Every release gets a new number, even a one-line fix: Riftgate only offers
+  a higher version, so anyone who installed a build would never get a second
+  one with the same number. The Publish workflows refuse to upload to a
+  version that's already out unless you tick "replace" (only for a build
+  nobody can have installed yet).
   That's what What's new (the bell) shows. Push that commit.
 - Make sure the Supabase side for this version is live. For 2.0 that's
   database migrations up to `20261011001000` (the anonymous weekly count)

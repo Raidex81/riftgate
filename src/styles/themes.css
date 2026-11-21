@@ -211,6 +211,20 @@
     text-shadow: 0 1px 3px color-mix(in srgb, var(--void) 80%, transparent), 0 0 12px color-mix(in srgb, var(--void) 60%, transparent);
 }
 
+/* Over a picture, every page's controls sit on dark glass, so a bright picture never washes out
+   a tab, a button, a field or a note (the Dune: Awakening page's tabs were unreadable over a
+   starfield); the page's introduction and empty states get a glass panel of their own */
+:root[data-wallpaper] .view :is(.chip, .btn:not(.primary), .input, select, .icon-btn, .view-state) {
+    background-color: color-mix(in srgb, var(--void) 66%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+:root[data-wallpaper] .view :is(.chip[aria-pressed="true"], .chip[aria-selected="true"]) { background-color: color-mix(in srgb, var(--amethyst) 42%, color-mix(in srgb, var(--void) 70%, transparent)); }
+:root[data-wallpaper] .view :is(.empty, .row-note) {
+    background: color-mix(in srgb, var(--void) 62%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+:root[data-wallpaper] .view .empty { padding: var(--s6, 24px); }
+:root[data-wallpaper] .view .view-head p { color: var(--starlight); }
+
 /* ---- Ambient background ------------------------------------------------------------------- */
 .app > .ambient { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 900ms var(--ease); overflow: hidden; }
 .app > .ambient.on { opacity: 1; }

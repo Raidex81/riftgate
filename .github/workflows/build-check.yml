@@ -59,6 +59,8 @@ jobs:
         run: node tests/game-guides.test.js
       - name: "The Dune: Awakening companion (rankings, recipes, where things drop)"
         run: node tests/dune.test.js
+      - name: The Watch page's videos (channel feeds, the most watched, about yours)
+        run: node tests/videos.test.js
       - name: The Christmas Rift (dates, themes that carry a season, Ask the Rift, pictures)
         run: node --no-warnings tests/christmas.test.js
       - name: Engine loads and every handler is callable
@@ -74,3 +76,23 @@ jobs:
           # from stalling on a signing prompt that can never be answered
           # in a headless runner.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Every page opens: the interface in a headless Chromium with a stand-in for
+  # the engine, visiting each page of the rail and Settings (scripts/smoke.js).
+  # A JavaScript error, or a page showing "This section couldn't open", fails it.
+  pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # (in a folder of its own, so Riftgate's own dependencies, Electron included, aren't downloaded)
+      - name: Playwright and its Chromium
+        run: |
+          npm i --prefix "$RUNNER_TEMP/pw" --no-audit --no-fund playwright@1.49.1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Every page opens without an error
+        run: node scripts/smoke.js
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
