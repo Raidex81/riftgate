@@ -14,6 +14,7 @@ import { row } from "../components/row.js";
 import { shelf } from "../components/shelf.js";
 import { todayBand, scaryPicks, christmasPicks } from "../components/today.js";
 import { adventBand } from "../components/advent.js";
+import { watchStrip } from "../components/videos.js";
 import * as season from "../app/season.js";
 import { openRewind, rewindSeason, rewindYear } from "../components/rewind.js";
 import * as interests from "../app/interests.js";
@@ -162,6 +163,8 @@ export default {
         root.append(hr, pulse(), todayBand(), body);
         importNotice(body);
         askToCount(body);
+        // the most watched videos now (the Watch page)
+        if (interests.level("games", "free", "screen", "books") > 0) body.append(watchStrip());
         // Rift Rewind's season (1 December to 15 January): the year, ready to look back on
         if (rewindSeason() && !journal.pref(`rewind:seen:${rewindYear()}`, false)) {
             const n = h("div.notice.rw-notice", null, icon("rift"),

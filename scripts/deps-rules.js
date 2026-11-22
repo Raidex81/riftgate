@@ -60,6 +60,7 @@ module.exports = {
     // Storage keys used by more than one file
     sharedStorageKeys: {
         "r2-intro": "intro.js and Settings: the opening already played this session",
+        "watch:open": "Nexus's strip (components/videos.js) → Watch: the video to play when the page opens",
     },
     // IPC channels handled by the engine that the 2.x interface doesn't call
     // (kept from 1.x; preload.js still allows most of them). Listed so a new

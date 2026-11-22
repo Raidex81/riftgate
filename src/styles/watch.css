@@ -68,3 +68,39 @@
 :root[data-wallpaper] .wt-info, :root[data-wallpaper] .wt-rowhead { padding: var(--s3) var(--s4); border-radius: calc(var(--radius) + 8px);
     background: color-mix(in srgb, var(--void) 62%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 @media (prefers-reduced-motion: reduce) { .wt-thumb, .wt-poster img, .wt-play { transition: none; } .wt-screen-wait { animation: none; } }
+
+/* wide screen: the video across the page, its details below */
+.wt-stage.wide { grid-template-columns: 1fr; }
+.wt-stage.wide .wt-info { grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); column-gap: var(--s6); }
+.wt-stage.wide .wt-info > :not(.wt-next):not(.wt-switches) { grid-column: 1; }
+.wt-stage.wide .wt-next, .wt-stage.wide .wt-switches { grid-column: 2; }
+.wt-stage.wide .wt-next { grid-row: 1 / span 4; }
+@media (max-width: 1100px) { .wt-stage.wide .wt-info { grid-template-columns: 1fr; } .wt-stage.wide .wt-next, .wt-stage.wide .wt-switches { grid-column: 1; grid-row: auto; } }
+
+/* up next, and the two switches */
+.wt-next { display: grid; gap: 6px; margin-top: var(--s2); }
+.wt-next > small { text-transform: uppercase; letter-spacing: .08em; font-size: var(--t-xs); color: var(--dust); font-weight: 700; }
+.wt-nextcard { display: grid; grid-template-columns: 120px 1fr; gap: var(--s3); align-items: center; padding: 6px; border: 1px solid var(--line); border-radius: calc(var(--radius) + 6px);
+    background: color-mix(in srgb, var(--nebula-2) 80%, transparent); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
+.wt-nextcard:hover, .wt-nextcard:focus-visible { border-color: var(--amethyst); background: var(--nebula-3); }
+.wt-nextcard img { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: calc(var(--radius) + 3px); display: block; }
+.wt-nextcard b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--t-sm); color: var(--starlight); }
+.wt-nextcard small { display: block; font-size: var(--t-xs); color: var(--dust); margin-top: 2px; }
+.wt-switches { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s2); }
+.wt-switch { display: inline-flex; gap: 8px; align-items: center; font-size: var(--t-sm); color: var(--starlight-2); cursor: pointer; }
+.wt-switch input { accent-color: var(--amethyst); width: 16px; height: 16px; }
+.wt-btns .btn.on { border-color: var(--st-progress); color: var(--st-progress); }
+
+/* seen */
+.wt-seen { position: absolute; left: 8px; bottom: 8px; display: inline-flex; gap: 4px; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: var(--t-xs); font-weight: 700;
+    background: color-mix(in srgb, var(--st-progress) 85%, #000); color: #04140a; }
+.wt-seen svg { width: 12px; height: 12px; }
+.wt-card.seen .wt-thumb img { filter: saturate(.55) brightness(.8); }
+.wt-card.seen .wt-title { color: var(--starlight-2); }
+
+/* Nexus: the most watched now */
+.nx-watch { margin: var(--s8) 0 var(--s4); }
+.nx-watch .wt-track { grid-auto-columns: clamp(200px, 17vw, 260px); }
+.nx-watch .wt-rowhead h2 { display: flex; gap: 8px; align-items: center; }
+.nx-watch .wt-rowhead h2 svg { width: 20px; height: 20px; color: var(--rift-pink); }
+.nx-watch .wt-rowhead .actions { display: flex; gap: var(--s2); align-items: center; }

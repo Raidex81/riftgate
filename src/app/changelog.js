@@ -5,6 +5,8 @@ import { HISTORY } from "./changelog-history.js";
 export const CURRENT_NOTES = {
     "2.0.7": [
         "New: Watch. A page of the most watched videos of the week, two weeks or month from game, free-to-play, film, TV and book channels on YouTube, a row for each, with a big screen at the top: pick a video and it plays right here, with Next to go on. Videos about the games in your Library and the shows you follow get a row of their own, first. It reads each channel's public feed, so it costs nothing and never runs out",
+        "New: in Watch, the next video starts by itself when one ends (you can turn it off), a video YouTube only plays on YouTube is skipped, N jumps to the next one, Wide screen puts the video across the page, videos you've seen get a tick, and Watch later keeps the ones you save in a row of your own",
+        "New: Nexus shows the most watched videos right now; click one and it plays in Watch",
         "Changed: over a picture theme, every page's tabs, buttons, fields and notes sit on dark glass, so a bright picture never makes them hard to read",
         "Changed: the Dune: Awakening companion has the game's Portuguese names of its weapons, armour, utility gear and materials (with the companion in Português), and a link to look any other one up"
     ],

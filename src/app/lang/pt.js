@@ -2144,5 +2144,18 @@ export default {
     "Videos from YouTube, read from each channel's public feed. Updated {0}.": "Vídeos do YouTube, lidos do feed público de cada canal. Atualizado {0}.",
     "YouTube channels": "Canais do YouTube",
     "the Watch page": "a página Ver",
-    "Play video": "Ver vídeo"
+    "Play video": "Ver vídeo",
+    "Seen": "Visto",
+    "Up next": "A seguir",
+    "Wide screen": "Ecrã largo",
+    "Play the next one by itself": "Passar sozinho para o seguinte",
+    "Watch later": "Ver mais tarde",
+    "In Watch later": "Em Ver mais tarde",
+    "Saved to Watch later": "Guardado em Ver mais tarde",
+    "Taken off Watch later": "Tirado de Ver mais tarde",
+    "The videos you saved, to watch when you have time.": "Os vídeos que guardaste, para veres quando tiveres tempo.",
+    "YouTube only plays that one on YouTube": "Esse vídeo só dá para ver no YouTube",
+    "Most watched now": "Os mais vistos agora",
+    "The videos everyone is watching from game, film, TV and book channels.": "Os vídeos que todos estão a ver, de canais de jogos, cinema, TV e livros.",
+    "Open Watch": "Abrir Ver"
 };
